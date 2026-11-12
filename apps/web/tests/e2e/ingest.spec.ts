@@ -526,8 +526,12 @@ test.describe("imports portal", () => {
     // The rest of the sheet is a table of its own now, and goes through the header step like any other.
     const step = headerStep(page);
     await expect(step.getByRole("heading", { name: "Which row has the column names?" })).toBeVisible({ timeout: 60_000 });
+    // The old import is about to be replaced: none of its buttons is on the page, so the question holds the one main button.
+    await expect(page.getByTestId("decision-bar")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Map columns myself" })).toHaveCount(0);
     await step.getByRole("button", { name: /^Use row \d+$/ }).click();
     await expect(page.getByText(/^Done\. The tables of this file were read again\./)).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByTestId("decision-bar")).toHaveCount(0);
   });
 
   /**

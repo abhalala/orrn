@@ -51,6 +51,15 @@ function matching(guess: readonly ReadBlock[], stored: readonly StoredBlock[], s
  * header (so a person's earlier pick is not lost), then the action's hint. `null` when the action cannot be planned (the file
  * reads differently from the one stored).
  */
+/**
+ * Whether the new-table area is the whole page: while the file is read again and the header question is asked, and when it is
+ * done. The old import is about to be replaced, so none of its buttons stays (design re-check N1). Asking for the file again
+ * is a question the person may cancel back to the old page, so that phase keeps it.
+ */
+export function reputTakesOver(state: { phase: string }): boolean {
+  return state.phase === "running" || state.phase === "asking" || state.phase === "done";
+}
+
 export function planReput(guess: readonly ReadBlock[], stored: readonly StoredBlock[], action: ReputAction): ReputPlan | null {
   const target = stored.find((s) => s.ordinal === action.ordinal);
   const here = target && matching(guess, stored, target);

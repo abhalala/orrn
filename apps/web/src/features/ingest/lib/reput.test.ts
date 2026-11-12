@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { IngestApi } from "./api";
-import { planReput, type StoredBlock } from "./reput";
+import { planReput, reputTakesOver, type StoredBlock } from "./reput";
 import type { ReadBlock, SheetHints } from "./reader-protocol";
 import { readFacts } from "./review-model";
 import { refusalLine, refusalText } from "./refusals";
@@ -250,5 +250,12 @@ describe("the file's one fill answer (server round 10)", () => {
     expect(fillAnswerWords({ fillAbove: { answer: false } })!.varKeys).toEqual({ answer: "common.no" });
     expect(fillAnswerWords({ fillAbove: null })).toBeNull();
     expect(fillAnswerWords({})).toBeNull();
+  });
+});
+
+describe("the new-table area takes the page over (design re-check N1)", () => {
+  test("while the header question is asked and when done, not while idle or asking for the file", () => {
+    for (const phase of ["running", "asking", "done"]) expect(reputTakesOver({ phase })).toBe(true);
+    for (const phase of ["idle", "needFile", "failed"]) expect(reputTakesOver({ phase })).toBe(false);
   });
 });

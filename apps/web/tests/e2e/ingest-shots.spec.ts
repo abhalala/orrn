@@ -210,9 +210,14 @@ test("shots", async ({ page, request }) => {
       await readDone(page, name);
       await page.locator("li[data-step]", { hasText: name }).getByRole("link", { name: /^(Review|देखें)/ }).click();
       await page.getByTestId("read-facts").getByRole("button", { name: /^(Start a new table here|यहां से नई टेबल शुरू करें)/ }).click();
-      // The rest of the sheet is a clean table, so there is no question: the screen says the tables were read again.
-      await page.getByTestId("reput-area").waitFor({ timeout: 60_000 });
-      await page.waitForTimeout(2500);
+      // The rest of the sheet is one row, so the header question comes back. Only the new-table area is on the page then.
+      await step(page).getByRole("heading").first().waitFor({ timeout: 60_000 });
+      await expect(bar(page)).toHaveCount(0);
+      await snap(page, "start-a-new-table-here-asking", m);
+      // Do not import this table: the real done state, with its one button to Imports.
+      await step(page).getByRole("button", { name: /^(Do not import this table|यह टेबल इम्पोर्ट न करें)$/ }).click();
+      await page.getByTestId("reput-area").getByRole("link").waitFor({ timeout: 90_000 });
+      await expect(bar(page)).toHaveCount(0);
       await snap(page, "start-a-new-table-here-done", m);
     }
   });

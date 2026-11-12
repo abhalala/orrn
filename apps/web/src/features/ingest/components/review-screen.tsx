@@ -15,6 +15,7 @@ import {
   progressStep,
   questionList,
   readPanel,
+  reputTakesOver,
   reviewDocTitle,
   reviewHeader,
   useAnnouncer,
@@ -253,7 +254,7 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
 
   // The table was put again: this import is replaced. Nothing of it stays to press, so no Approve, no question and no row is
   // offered; the one thing left is the way back to the list (design fix M2).
-  if (reput.state.phase === "done") {
+  if (reputTakesOver(reput.state)) {
     return <ReputArea state={reput.state} fileName={candidate.fileName} onFile={reput.chooseFile} onReply={reput.reply} onDismiss={reput.dismiss} />;
   }
 
