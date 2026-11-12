@@ -70,6 +70,8 @@ function ShellFrame({ variant, children }: AppShellProps) {
         saved: me?.company?.navOrder,
       });
   const tabPrimary = godseye ? primary : visibleItems(TENANT_PRIMARY, me);
+  const tabKeys = new Set(tabPrimary.map((item) => item.key));
+  const phoneMore = godseye ? more : [...primary, ...more].filter((item) => !tabKeys.has(item.key));
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const scanOn = !godseye && scan.available && (modules.length === 0 || modules.includes("bundles"));
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;
@@ -189,7 +191,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
         onOpenChange={setMoreOpen}
         variant={variant}
         // The phone sheet carries the office pages; on the rail they're already listed.
-        items={tablet ? [] : more}
+        items={tablet ? [] : phoneMore}
         onArrange={tablet ? undefined : openArrange}
       />
 

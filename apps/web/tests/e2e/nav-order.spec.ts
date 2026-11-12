@@ -71,3 +71,27 @@ test("a member saves their own menu order and resets it", async ({ page }) => {
   await expectShell(page);
   await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Today");
 });
+
+test("phone More keeps items moved above the divider", async ({ page }) => {
+  const plant = await freshPlant("NavPhone");
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+
+  await mainNav(page).getByRole("button", { name: "More", exact: true }).click();
+  let moreSheet = page.getByRole("dialog", { name: "More" });
+  await moreSheet.getByRole("button", { name: "Arrange menu" }).click();
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+  const handle = dialog.getByRole("button", { name: "Drag to move Reports" });
+  await handle.focus();
+  await handle.press("Space");
+  for (let move = 0; move < 5; move += 1) await handle.press("ArrowUp");
+  await handle.press("Space");
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByText("Menu order saved", { exact: true })).toBeVisible();
+
+  await mainNav(page).getByRole("button", { name: "More", exact: true }).click();
+  moreSheet = page.getByRole("dialog", { name: "More" });
+  await expect(moreSheet.getByRole("link", { name: "Reports" })).toBeVisible();
+  await expect(moreSheet.getByRole("link").first()).toHaveAccessibleName("Reports");
+});
