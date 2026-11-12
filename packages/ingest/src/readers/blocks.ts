@@ -363,13 +363,20 @@ const isBlankValue = (c: string) => c.trim() === "" || NULL_WORD.test(c.trim());
 /** The text of a row's filled cells, joined by one space. */
 const rowText = (r: readonly string[]) => r.filter((c) => c.trim() !== "").map((c) => c.trim()).join(" ");
 
+/** The kind of a value cell: "number" or "date"; null for text and blanks. */
+const valueKind = (c: string): "number" | "date" | null => {
+  const k = cellKind(c);
+  return k === "int" || k === "decimal" ? "number" : k === "date" ? "date" : null;
+};
+
 /**
- * Rule 8.1: the kind of each column from the data rows read so far. "value" when every value is a number or a date,
- * "text" when any value is text (a code is text), undefined when the column has no value yet. A units row under the
- * header ("kg | pcs") is not data and is not counted.
+ * Rule 8.1 and section 9: the kind of each column from the data rows read so far. "number" when every value is a
+ * number, "date" when every value is a date, "mixed" when it holds both, "text" when any value is text (a code is
+ * text), undefined when the column has no value yet. A units row under the header ("kg | pcs") is not data and is not
+ * counted.
  */
 export class ColumnKinds {
-  private kinds: ("value" | "text" | undefined)[] = [];
+  private kinds: ("number" | "date" | "mixed" | "text" | undefined)[] = [];
   width: number;
   rows = 0;
   constructor(headerWidth: number) {
@@ -380,17 +387,23 @@ export class ColumnKinds {
     if (isUnitsRow(row)) return;
     row.forEach((c, i) => {
       if (isBlankValue(c)) return;
-      this.kinds[i] = this.kinds[i] === "text" || !isValueCell(c) ? "text" : "value";
+      const k = valueKind(c);
+      const was = this.kinds[i];
+      this.kinds[i] = was === "text" || k === null ? "text" : was === undefined || was === k ? k : "mixed";
     });
     this.rows++;
   }
   /** At least one column holds numbers or dates only. */
   hasValueColumn(): boolean {
-    return this.kinds.some((k) => k === "value");
+    return this.kinds.some((k) => k !== undefined && k !== "text");
+  }
+  /** The kind of column `i`, from the data rows read so far. */
+  kindOf(i: number): "number" | "date" | "mixed" | "text" | undefined {
+    return this.kinds[i];
   }
   /**
-   * Data that fits: every filled cell inside the width, and a number or a date (or no value) in every number or date
-   * column. A table with no number or date column takes no row this way. With no data row yet (a blank spacer right
+   * Data that fits: every filled cell inside the width, and in every number column a number (or no value), in every
+   * date column a date (or no value), in a column of both a number or a date (section 9, strict kinds). A table with no number or date column takes no row this way. With no data row yet (a blank spacer right
    * under the header), a row inside the width with a number or a date in it is the first data row.
    */
   fits(row: readonly string[]): boolean {
@@ -402,7 +415,11 @@ export class ColumnKinds {
     // beyond the letter of rule 8.1: it keeps a different table from being swallowed.
     const cells = row.filter((c) => c.trim() !== "");
     if (cells.length >= 2 && cells.every((c) => isWord(c.trim()))) return false;
-    return row.every((c, i) => isBlankValue(c) || this.kinds[i] !== "value" || isValueCell(c));
+    return row.every((c, i) => {
+      const k = this.kinds[i];
+      if (isBlankValue(c) || k === undefined || k === "text") return true;
+      return k === "mixed" ? isValueCell(c) : valueKind(c) === k;
+    });
   }
 }
 
