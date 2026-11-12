@@ -16,8 +16,8 @@ export type StatusBlockProps = {
   meta?: string;
   value: number | string;
   unit?: string;
-  /** 0..1, drawn as a bar under the number. */
-  progress?: number;
+  /** 0..1, drawn as a bar under the number. `"indeterminate"` is a moving bar for work whose size is not known yet. */
+  progress?: number | "indeterminate";
   href?: string;
   onClick?(): void;
   /** Count a numeric value up from 0 on first render. Default true; off under reduced motion. */
@@ -53,7 +53,8 @@ export function StatusBlock({
   style,
 }: StatusBlockProps) {
   const interactive = Boolean(href || onClick);
-  const pct = progress === undefined ? undefined : Math.round(Math.min(1, Math.max(0, progress)) * 100);
+  const moving = progress === "indeterminate";
+  const pct = progress === undefined || moving ? undefined : Math.round(Math.min(1, Math.max(0, progress)) * 100);
 
   const body: ReactNode = (
     <>
@@ -85,7 +86,7 @@ export function StatusBlock({
         )}
         {unit ? <span className="min-w-0 text-[13px] font-semibold tabular-nums break-words">{unit}</span> : null}
       </span>
-      {pct !== undefined ? (
+      {pct !== undefined || moving ? (
         <span
           role="progressbar"
           aria-label={title}
@@ -94,9 +95,13 @@ export function StatusBlock({
           aria-valuenow={pct}
           className="relative mt-3 block h-1.5 overflow-hidden rounded-full bg-current/25"
         >
+          {/* Moving: a third of the track pulses. Under reduced motion only the track shows; the meta line says what is going on. */}
           <span
-            className="block h-full origin-left rounded-full bg-current"
-            style={{ transform: `scaleX(${pct / 100})` }}
+            className={cn(
+              "block h-full origin-left rounded-full bg-current",
+              moving && "w-1/3 animate-pulse motion-reduce:hidden",
+            )}
+            style={pct === undefined ? undefined : { transform: `scaleX(${pct / 100})` }}
           />
         </span>
       ) : null}

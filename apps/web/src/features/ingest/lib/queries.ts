@@ -6,6 +6,7 @@ import { candidatePollMs, isRunningCandidate, POLL_MS, runPollMs } from "./model
 import { ingestApi } from "./trpc-api";
 import type {
   ArtifactDetail,
+  ArtifactSummary,
   CandidateDetail,
   CandidateState,
   CandidateSummary,
@@ -15,13 +16,14 @@ import type {
   StagedRowView,
 } from "./types";
 import { ROWS_PER_PAGE } from "./limits";
+import { ROWS_UI_PAGE, serverStatesFor, type RowFilter } from "./rows-model";
 
 export const ingestKeys = {
   all: ["ingest"] as const,
   status: () => ["ingest", "status"] as const,
   candidates: (state?: CandidateState) => ["ingest", "candidates", state ?? "all"] as const,
   candidate: (id: string) => ["ingest", "candidate", id] as const,
-  rows: (id: string, state: RowState | "all", page: number) => ["ingest", "rows", id, state, page] as const,
+  rows: (id: string, state: RowState | "all", page: number, size: number = ROWS_PER_PAGE) => ["ingest", "rows", id, state, page, size] as const,
   rowsOf: (id: string) => ["ingest", "rows", id] as const,
   artifacts: () => ["ingest", "artifacts"] as const,
   artifact: (id: string) => ["ingest", "artifact", id] as const,
@@ -80,38 +82,107 @@ export function useCandidate(candidateId: string | undefined): Q<CandidateDetail
 
 /** The cursor that opens each page, learned as pages load: `rows.list` pages by cursor, the screen by number. */
 const pageCursors = new Map<string, string | undefined>();
-const pageKey = (id: string, state: RowState | undefined, page: number) => `${id}|${state ?? "all"}|${page}`;
+const pageKey = (id: string, state: RowState | undefined, page: number, size: number) => `${id}|${state ?? "all"}|${size}|${page}`;
+
+/** Forget the learned cursors of a candidate. A decision moves rows out of a filter, so the old page edges are wrong. */
+export function forgetPageCursors(candidateId: string): void {
+  for (const key of [...pageCursors.keys()]) if (key.startsWith(`${candidateId}|`)) pageCursors.delete(key);
+}
 
 /** Cursor for `page`, walking forward from the nearest page whose cursor is known. */
-async function cursorForPage(id: string, state: RowState | undefined, page: number): Promise<string | undefined> {
+async function cursorForPage(id: string, state: RowState | undefined, page: number, size: number): Promise<string | undefined> {
   if (page === 0) return undefined;
-  if (pageCursors.has(pageKey(id, state, page))) return pageCursors.get(pageKey(id, state, page));
+  if (pageCursors.has(pageKey(id, state, page, size))) return pageCursors.get(pageKey(id, state, page, size));
   let known = page - 1;
-  while (known > 0 && !pageCursors.has(pageKey(id, state, known))) known -= 1;
-  let cursor = pageCursors.get(pageKey(id, state, known));
+  while (known > 0 && !pageCursors.has(pageKey(id, state, known, size))) known -= 1;
+  let cursor = pageCursors.get(pageKey(id, state, known, size));
   for (let p = known; p < page; p += 1) {
-    const walked = await ingestApi().rowsList({ candidateId: id, state, cursor, limit: ROWS_PER_PAGE });
+    const walked = await ingestApi().rowsList({ candidateId: id, state, cursor, limit: size });
     cursor = walked.nextCursor ?? undefined;
-    pageCursors.set(pageKey(id, state, p + 1), cursor);
+    pageCursors.set(pageKey(id, state, p + 1, size), cursor);
     if (cursor === undefined) break;
   }
   return cursor;
 }
 
-/** `rows.list`, 100 per page, `page` is 0-based. Rates arrive masked when the person lacks `order.price`. */
+/** `rows.list`, 100 per page unless `size` says less, `page` is 0-based. Rates arrive masked when the person lacks `order.price`. */
 export function useRows(
   candidateId: string | undefined,
-  opts: { state?: RowState; page: number },
+  opts: { state?: RowState; page: number; size?: number; enabled?: boolean },
 ): Q<{ items: StagedRowView[]; hasNext: boolean }> {
+  const size = opts.size ?? ROWS_PER_PAGE;
   return useQuery({
-    queryKey: ingestKeys.rows(candidateId ?? "", opts.state ?? "all", opts.page),
+    queryKey: ingestKeys.rows(candidateId ?? "", opts.state ?? "all", opts.page, size),
     queryFn: async () => {
-      const cursor = await cursorForPage(candidateId!, opts.state, opts.page);
-      const result = await ingestApi().rowsList({ candidateId: candidateId!, state: opts.state, cursor, limit: ROWS_PER_PAGE });
-      pageCursors.set(pageKey(candidateId!, opts.state, opts.page + 1), result.nextCursor ?? undefined);
+      const cursor = await cursorForPage(candidateId!, opts.state, opts.page, size);
+      const result = await ingestApi().rowsList({ candidateId: candidateId!, state: opts.state, cursor, limit: size });
+      pageCursors.set(pageKey(candidateId!, opts.state, opts.page + 1, size), result.nextCursor ?? undefined);
       return { items: result.items, hasNext: result.nextCursor !== null };
     },
-    enabled: Boolean(candidateId),
+    enabled: Boolean(candidateId) && (opts.enabled ?? true),
+    meta: INLINE_ERROR_META,
+  });
+}
+
+/** The most rows "Needs a decision" reads from each of the two server states. Past this, decide some, and more load. */
+export const NEEDS_DECISION_WINDOW = ROWS_PER_PAGE;
+
+/**
+ * The rows of one view of the rows panel: a filter and a 0-based page of `ROWS_UI_PAGE` (15) rows. `needsDecision`
+ * has no server filter of its own: it reads the first page of ambiguous rows and of conflict rows, keeps those with no
+ * decision, and joins them in file order. A plant with more than 100 undecided rows of one kind sees the first 100
+ * of each; as they are decided, the next ones come.
+ */
+export function useRowsPage(
+  candidateId: string | undefined,
+  filter: RowFilter,
+  page: number,
+): { items: StagedRowView[]; hasNext: boolean; isLoading: boolean; isError: boolean; error: unknown; refetch: () => void; data: unknown } {
+  const [first, second] = serverStatesFor(filter);
+  const union = filter === "needsDecision";
+  const a = useRows(candidateId, { state: first, page: union ? 0 : page, size: union ? NEEDS_DECISION_WINDOW : ROWS_UI_PAGE });
+  const b = useRows(candidateId, { state: second, page: 0, size: NEEDS_DECISION_WINDOW, enabled: union });
+  if (!union) {
+    return { items: a.data?.items ?? [], hasNext: a.data?.hasNext ?? false, isLoading: a.isLoading, isError: a.isError, error: a.error, refetch: () => void a.refetch(), data: a.data };
+  }
+  const joined = [...(a.data?.items ?? []), ...(b.data?.items ?? [])]
+    .filter((r) => r.decision === null && r.mergeState === "open")
+    .sort((x, y) => x.rowIndex - y.rowIndex);
+  const from = page * ROWS_UI_PAGE;
+  return {
+    items: joined.slice(from, from + ROWS_UI_PAGE),
+    hasNext: joined.length > from + ROWS_UI_PAGE,
+    isLoading: a.isLoading || b.isLoading,
+    isError: a.isError || b.isError,
+    error: a.error ?? b.error,
+    refetch: () => {
+      void a.refetch();
+      void b.refetch();
+    },
+    data: a.data && b.data ? true : undefined,
+  };
+}
+
+/** Every file the plant has added, newest first, up to `MAX_LISTED_ARTIFACTS`. The list screen reads each file's date and kind from it. */
+export const MAX_LISTED_ARTIFACTS = 500;
+
+export async function listAllArtifacts(): Promise<ArtifactSummary[]> {
+  const out: ArtifactSummary[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await ingestApi().artifactList({ cursor, limit: 50 });
+    out.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor && out.length < MAX_LISTED_ARTIFACTS);
+  return out;
+}
+
+/** Files of the plant (`artifact.list`). Polls while any file is still being read. */
+export function useArtifacts(): Q<ArtifactSummary[]> {
+  return useQuery({
+    queryKey: ingestKeys.artifacts(),
+    queryFn: listAllArtifacts,
+    refetchInterval: (query) => ((query.state.data ?? []).some((a) => a.readState === "reading") ? POLL_MS : false),
     meta: INLINE_ERROR_META,
   });
 }

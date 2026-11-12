@@ -4,7 +4,7 @@ import {
   allowedActions, approvedSummary, candidatePollMs, candidateTone, canMergeAll, classifiedRows, decisionOptions,
   diffEntries, dryRunProgress, fitDiffView, fitKeyOf, groupCandidates, groupOf, helperOffer, isRunningCandidate, isRunningRun,
   POLL_MS, questionList, questionView, rateCell, reasonLine, rowNeedsDecision, rowStateCounts, rowStateKey, rowTone,
-  runPollMs, writableRows,
+  runPollMs, writableRows, rowWaitsOn,
 } from "./model";
 import {
   CANDIDATE_STATES, ROW_STATES, type CandidateCounts, type CandidateState, type CandidateSummary, type IngestQuestion,
@@ -32,36 +32,41 @@ describe("candidate states", () => {
   test("every state has a tone and a group", () => {
     for (const state of CANDIDATE_STATES) {
       expect(candidateTone(state)).toBeTruthy();
-      expect(groupOf(state)).toBeTruthy();
+      expect(groupOf({ state, openQuestions: 0 })).toBeTruthy();
     }
   });
-  test("groups follow the B10 headings", () => {
-    expect(groupOf("needs_shape")).toBe("needsYou");
-    expect(groupOf("needs_confirm")).toBe("needsYou");
-    expect(groupOf("failed")).toBe("needsYou");
-    expect(groupOf("ready")).toBe("ready");
-    expect(groupOf("processing")).toBe("ready");
-    expect(groupOf("approved")).toBe("approved");
-    expect(groupOf("merging")).toBe("approved");
-    expect(groupOf("held")).toBe("held");
-    expect(groupOf("merged")).toBe("merged");
-    expect(groupOf("discarded")).toBe("other");
+  test("held is blue, not amber (DESIGN.md rule 1)", () => {
+    expect(candidateTone("held")).toBe("info");
   });
-  test("groupCandidates keeps screen order and drops empty groups and discarded ones", () => {
-    const list = (["merged", "ready", "held", "discarded", "needs_shape", "ready"] as CandidateState[]).map((state, i) => ({ id: String(i), state }));
+  // Work order M2, M3, M4: the group reads the candidate, not only the state.
+  test("groups: held and open questions need you, checking rows is in none", () => {
+    const g = (state: CandidateState, openQuestions = 0) => groupOf({ state, openQuestions });
+    expect(g("needs_shape")).toBe("needsYou");
+    expect(g("needs_confirm")).toBe("needsYou");
+    expect(g("failed")).toBe("needsYou");
+    expect(g("held")).toBe("needsYou");
+    expect(g("ready")).toBe("ready");
+    expect(g("ready", 1)).toBe("needsYou");
+    expect(g("processing")).toBe("other");
+    expect(g("approved")).toBe("approved");
+    expect(g("merging")).toBe("approved");
+    expect(g("merged")).toBe("merged");
+    expect(g("discarded")).toBe("other");
+  });
+  test("groupCandidates keeps screen order and drops empty groups, checking rows and discarded ones", () => {
+    const list = (["merged", "ready", "held", "discarded", "needs_shape", "ready", "processing"] as CandidateState[]).map((state, i) => ({ id: String(i), state, openQuestions: 0 }));
     const groups = groupCandidates(list);
-    expect(groups.map((g) => g.group)).toEqual(["needsYou", "ready", "held", "merged"]);
-    expect(groups.map((g) => g.key)).toEqual([
-      "ingest.group.needsYou", "ingest.group.ready", "ingest.group.held", "ingest.group.merged",
-    ]);
+    expect(groups.map((g) => g.group)).toEqual(["needsYou", "ready", "merged"]);
+    expect(groups.map((g) => g.key)).toEqual(["ingest.group.needsYou", "ingest.group.ready", "ingest.group.merged"]);
+    expect(groups[0]!.items.map((c) => c.state)).toEqual(["held", "needs_shape"]);
     expect(groups[1]!.items).toHaveLength(2);
   });
-  test("fit chips: manual and bot read as a new layout", () => {
+  test("fit words: orrn-made and person-made layouts have their own", () => {
     expect(fitKeyOf("exact")).toBe("ingest.fit.exact");
     expect(fitKeyOf("near")).toBe("ingest.fit.near");
     expect(fitKeyOf("none")).toBe("ingest.fit.none");
-    expect(fitKeyOf("manual")).toBe("ingest.fit.none");
-    expect(fitKeyOf("bot")).toBe("ingest.fit.none");
+    expect(fitKeyOf("manual")).toBe("ingest.fit.manual");
+    expect(fitKeyOf("bot")).toBe("ingest.fit.bot");
   });
 });
 
@@ -131,6 +136,17 @@ describe("decision menu", () => {
     expect(decisionOptions({ ...base, state: "unchanged" })).toEqual([]);
     expect(decisionOptions({ ...base, state: "ready_update" }).map((o) => o.decision)).toEqual(["skip"]);
   });
+  test("a row that waits on a question can only be skipped; the question answers the rest", () => {
+    const reasons = ["q:magnitude_check:weightG"];
+    expect(decisionOptions({ ...base, state: "ambiguous", reasons }).map((o) => o.decision)).toEqual(["skip"]);
+    expect(rowWaitsOn(reasons)).toEqual({ code: "magnitude_check", subject: "weightG" });
+    expect(rowWaitsOn(["q:customer_new"])).toEqual({ code: "new_customers", subject: "" });
+    expect(rowWaitsOn(["q:section_unknown:RCQCZZ"])).toEqual({ code: "create_legacy_die", subject: "RCQCZZ" });
+    expect(rowWaitsOn(["ambiguous:customer"])).toBeNull();
+  });
+  test("a line that is not on the live order can only keep the orrn order or be skipped", () => {
+    expect(decisionOptions({ ...base, state: "conflict", reasons: ["order_line_new"] }).map((o) => o.decision)).toEqual(["keep_live", "skip"]);
+  });
   test("diff entries show both sides as text", () => {
     expect(diffEntries({ phone: { live: "98250", file: "98251" }, city: { live: null, file: "Rajkot" } })).toEqual([
       { field: "phone", live: "98250", file: "98251" },
@@ -149,14 +165,19 @@ describe("questions", () => {
   test("each code maps to its B10 key and variables", () => {
     const view = questionView(question({ code: "unit_unknown", subject: "rate", params: { field: "Rate", kind: "price_per_mass", rows: 40 } }));
     expect(view.key).toBe("ingest.q.unit_unknown");
-    expect(view.vars).toEqual({ field: "Rate" });
-    expect(view.control).toEqual({ kind: "unit", field: "Rate", unitKind: "price_per_mass" });
+    expect(view.vars).toEqual({ field: "" });
+    expect(view.control).toMatchObject({ kind: "unit", field: "Rate", unitKind: "price_per_mass" });
+    // The field in the sentence is a label key, never the code the server sent (work order S16).
+    expect(view.varKeys).toEqual({ field: "ingest.field.Rate" });
     expect(view.answered).toBe(false);
     expect(view.rows).toBe(40);
 
     expect(questionView(question({ code: "date_format_ambiguous", subject: "orderDate", params: { sample: "03/04/2025" } })).vars)
       .toEqual({ sample: "03/04/2025" });
-    expect(questionView(question({ code: "create_legacy_die", subject: "R 2105", params: { code: "R 2105" } })).control).toEqual({ kind: "yesNo" });
+    const legacy = questionView(question({ code: "create_legacy_die", subject: "R 2105", params: { code: "R 2105" } }));
+    expect(legacy.control).toEqual({ kind: "yesNo" });
+    // Lead answer 3: the answers are "Add it" and "Skip these rows".
+    expect(legacy.answers.map((a) => a.words.key)).toEqual(["ingest.q.addIt", "ingest.q.skipRows"]);
     expect(questionView(question({ code: "new_customers", params: { count: 12 } })).vars).toEqual({ count: 12 });
     expect(questionView(question({ code: "period_needed" })).control).toEqual({ kind: "period" });
     expect(questionView(question({ code: "column_meaning_unclear", subject: "X", params: { name: "Misc" } })).control).toEqual({ kind: "column" });
@@ -177,10 +198,25 @@ describe("questions", () => {
 describe("fit diff", () => {
   test("reads a stored diff and survives a bad one", () => {
     expect(fitDiffView({ name: "Dies sheet", renamed: [{ old: "Wt", new: "Weight" }], extra: ["Notes 2"], missing: [] })).toEqual({
-      name: "Dies sheet", renamed: [{ old: "Wt", new: "Weight" }], extra: ["Notes 2"], missing: [],
+      name: "Dies sheet", renamed: [{ old: "Wt", new: "Weight", col: null }], extra: [{ header: "Notes 2", col: null }], missing: [],
     });
     expect(fitDiffView(null)).toEqual({ name: null, renamed: [], extra: [], missing: [] });
-    expect(fitDiffView({ renamed: [{ nope: 1 }], extra: [1, "A"] })).toEqual({ name: null, renamed: [], extra: ["A"], missing: [] });
+    expect(fitDiffView({ renamed: [{ nope: 1 }], extra: [1, "A"] })).toEqual({ name: null, renamed: [], extra: [{ header: "A", col: null }], missing: [] });
+  });
+  test("reads the engine's own shape: columns of this file and the optional fields it lacks", () => {
+    const stored = {
+      renamed: [{ col: 3, from: "Wt", to: "Weight (kg)" }],
+      extra: [{ col: 5, header: "Remarks" }],
+      missing: [{ field: "note", header: "Notes" }],
+      kindMismatch: [],
+      unitless: [],
+    };
+    expect(fitDiffView(stored)).toEqual({
+      name: null,
+      renamed: [{ old: "Wt", new: "Weight (kg)", col: 3 }],
+      extra: [{ header: "Remarks", col: 5 }],
+      missing: [{ header: "Notes", field: "note" }],
+    });
   });
 });
 
@@ -204,13 +240,22 @@ describe("actions and merge button", () => {
     expect(allowedActions(candidate({ state: "approved" }), can).hold).toBe(true);
     expect(allowedActions(candidate({ state: "held" }), can).hold).toBe(false);
   });
+  test("a held import can be checked again, and approved as it is only with nothing open", () => {
+    const can = { merge: true, upload: true };
+    expect(allowedActions(candidate({ state: "held" }), can).release).toBe(true);
+    expect(allowedActions(candidate({ state: "ready" }), can).release).toBe(false);
+    expect(allowedActions(candidate({ state: "held" }), can).approve).toBe(true);
+    expect(allowedActions(candidate({ state: "held", openQuestions: 1 }), can).approve).toBe(false);
+    expect(allowedActions(candidate({ state: "held" }), { merge: false, upload: true }).approve).toBe(false);
+    expect(allowedActions(candidate({ state: "held" }), { merge: false, upload: true }).release).toBe(true);
+  });
   test("approved summary and the merge button", () => {
     const list = [
       candidate({ id: "1", state: "approved", counts: { create: 10, update: 2 } }),
       candidate({ id: "2", state: "approved", counts: { create: 5 } }),
       candidate({ id: "3", state: "ready", counts: { create: 99 } }),
     ];
-    expect(approvedSummary(list)).toEqual({ count: 2, rows: 17 });
+    expect(approvedSummary(list)).toEqual({ count: 2, rows: 17, create: 15, update: 2 });
     expect(canMergeAll(2, null, true)).toBe(true);
     expect(canMergeAll(0, null, true)).toBe(false);
     expect(canMergeAll(2, "run1", true)).toBe(false);

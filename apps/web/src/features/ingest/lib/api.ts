@@ -25,6 +25,7 @@ export type IngestApi = {
   candidateConfirmNear: (input: In["candidate"]["confirmNear"]) => Promise<Out["candidate"]["confirmNear"]>;
   candidateApprove: (input: In["candidate"]["approve"]) => Promise<Out["candidate"]["approve"]>;
   candidateHold: (input: In["candidate"]["hold"]) => Promise<Out["candidate"]["hold"]>;
+  candidateRelease: (input: In["candidate"]["release"]) => Promise<Out["candidate"]["release"]>;
   candidateDiscard: (input: In["candidate"]["discard"]) => Promise<Out["candidate"]["discard"]>;
   shapeMake: (input: In["shape"]["make"]) => Promise<Out["shape"]["make"]>;
   shapeSave: (input: In["shape"]["save"]) => Promise<Out["shape"]["save"]>;

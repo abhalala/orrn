@@ -1,229 +1,228 @@
 import { useT } from "@orrn/i18n";
-import { Button, IconButton } from "@orrn/ui/components/button";
+import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { UiLink } from "@orrn/ui/components/link";
-import { UploadCloud, X } from "lucide-react";
-import { useMemo, useRef, useState, type DragEvent } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useMediaQuery } from "@orrn/ui/hooks/use-media-query";
+import { UploadCloud } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
 
-import { Can } from "@/shared/components/can";
-import { useMe } from "@/shared/lib/me";
-import { instantDateText } from "@/features/purchase/format";
+import { can, useMe } from "@/shared/lib/me";
 
 import {
   ACCEPT_FILES,
-  approvedSummary,
-  canMergeAll,
-  groupCandidates,
+  DEFAULT_LIMITS,
+  foundSummary,
+  progressStep,
+  takeFiles,
+  uploadLayout,
+  uploadStrip,
+  useAnnouncer,
+  useArtifacts,
   useCandidates,
   useDryRunQueue,
+  useFocusReturn,
   useIngestStatus,
   useIngestUpload,
-  useStartMerge,
-  type UploadItem,
 } from "../lib";
-import { CandidateCard } from "./candidate-card";
-import { ActionError, InlineNotice, ProgressBar, QueryPanel, translateKey } from "./shared";
+import { CandidateBoard } from "./candidate-board";
+import { StatusRegion, useDocTitle, useSay } from "./list-kit";
+import { QueryPanel } from "./shared";
+import { StagedFiles, UploadStrip } from "./upload-strip";
 
+/**
+ * `/ingest` (work order 3.1 and 3.2): the header with "Add files", the files being added, and the list of imports.
+ * With nothing imported yet the page is one big drop zone. Once anything exists the zone goes and the header button
+ * does the job; a file dropped anywhere on the page is still taken. Chosen files wait in a short list with the note
+ * field, because the note is sent when the file starts (`artifact.begin`), so it has to be typed before.
+ */
 export function IngestUploadScreen() {
-  const { t, locale } = useT();
-  const navigate = useNavigate();
+  const { t } = useT();
   const { data: me } = useMe();
+  const { say, words, fmt } = useSay();
   const status = useIngestStatus();
   const candidates = useCandidates();
+  const artifacts = useArtifacts();
   const upload = useIngestUpload();
-  const merge = useStartMerge();
-  const [note, setNote] = useState("");
-  const [dragging, setDragging] = useState(false);
-  const [left, setLeft] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const announcer = useAnnouncer();
+  const { announce } = announcer;
+  const focus = useFocusReturn();
+  const coarse = useMediaQuery("(pointer: coarse)");
+  useDocTitle(t("ingest.docTitle.list"));
+
+  const canUpload = can(me, "ingest.upload");
+  const canMerge = can(me, "ingest.merge");
   const list = useMemo(() => candidates.data ?? [], [candidates.data]);
-  const groups = useMemo(() => groupCandidates(list), [list]);
-  const approved = approvedSummary(list);
   const processingIds = useMemo(() => list.filter((c) => c.state === "processing").map((c) => c.id), [list]);
   useDryRunQueue(processingIds);
   const activeRunId = status.data?.activeRunId ?? null;
-  const timeZone = typeof me?.company?.settings?.timezone === "string" ? me.company.settings.timezone : undefined;
+  const limit = status.data?.limits.filesPerUpload ?? DEFAULT_LIMITS.filesPerUpload;
 
-  const add = (files: readonly File[]) => {
-    const result = upload.add(files, note || undefined);
-    setLeft(result.left);
-    if (result.left === 0) setNote("");
+  const [staged, setStaged] = useState<File[]>([]);
+  const [note, setNote] = useState("");
+  const [left, setLeft] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const hintId = useId();
+  const stripId = useId();
+
+  const strip = useMemo(() => uploadStrip(upload.items, list, fmt), [upload.items, list, fmt]);
+  // While the candidates load, treat the page as having some: the big zone must not flash and then collapse.
+  const hasCandidates = candidates.isLoading || candidates.isError || list.length > 0;
+  const layout = uploadLayout(hasCandidates, staged.length > 0 || strip.length > 0);
+
+  const pick = (files: readonly File[]) => {
+    if (files.length === 0 || !canUpload) return;
+    const { taken, left: over } = takeFiles([...staged, ...files], limit);
+    setStaged(taken);
+    setLeft(over.length);
+    if (over.length > 0) announce(say("ingest.drop.left", { count: over.length }));
   };
-  const drop = (event: DragEvent<HTMLDivElement>) => {
+  const start = () => {
+    if (staged.length === 0) return;
+    upload.add(staged, note.trim() || undefined);
+    setStaged([]);
+    setNote("");
+    focus.request(["strip-heading"]);
+  };
+  const cancel = () => {
+    setStaged([]);
+    setNote("");
+    setLeft(0);
+    focus.request(["add-files", "choose-files"]);
+  };
+
+  const drop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setDragging(false);
-    add(Array.from(event.dataTransfer.files));
-  };
-  const startMerge = async () => {
-    try {
-      const result = await merge.start();
-      await navigate({ to: "/ingest/merge/$runId", params: { runId: result.runId } });
-    } catch {
-      // The hook keeps the error state. The screen shows one existing refusal key.
-    }
+    pick(Array.from(event.dataTransfer.files));
   };
 
+  // Say once when a file is read, refused or failed, and at 0, 25, 50, 75 and 100 percent of a long read.
+  const told = useRef(new Set<string>());
+  const lastShare = useRef(new Map<string, number | null>());
+  useEffect(() => {
+    for (const entry of strip) {
+      if (entry.kind !== "upload") continue;
+      if (entry.step === "reading" && typeof entry.progress === "number" && entry.words) {
+        const step = progressStep(lastShare.current.get(entry.id) ?? null, entry.progress);
+        lastShare.current.set(entry.id, entry.progress);
+        if (step !== null) announce(`${entry.name}. ${words(entry.words)}`);
+        continue;
+      }
+      const key = entry.found && entry.found.count > 0 ? `${entry.id}:found` : entry.step === "failed" || entry.step === "refused" || entry.step === "seenBefore" ? `${entry.id}:${entry.step}` : null;
+      if (!key || told.current.has(key)) continue;
+      told.current.add(key);
+      if (entry.found && entry.found.count > 0) announce(`${entry.name}. ${foundSummary(say, entry.found)}`);
+      else if (entry.words) announce(`${entry.name}. ${words(entry.words)}`);
+    }
+  }, [strip, announce, say, words]);
+
+  const chooser = (
+    <input
+      ref={inputRef}
+      type="file"
+      multiple
+      accept={ACCEPT_FILES}
+      tabIndex={-1}
+      aria-hidden="true"
+      className="hidden"
+      onChange={(event) => {
+        pick(Array.from(event.currentTarget.files ?? []));
+        event.currentTarget.value = "";
+      }}
+    />
+  );
+  const choose = () => inputRef.current?.click();
+  const showStrip = staged.length > 0 || strip.length > 0;
+
   return (
-    <>
+    <div
+      className="contents"
+      onDragEnter={(event) => {
+        if (!canUpload) return;
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragOver={(event) => {
+        if (canUpload) event.preventDefault();
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(event) => {
+        if (canUpload) drop(event);
+      }}
+    >
       <PageHeader
         title={t("ingest.title")}
         subtitle={t("ingest.lead")}
         actions={
-          <>
-            {activeRunId ? (
-              <Button asChild variant="secondary">
-                <UiLink to={`/ingest/merge/${activeRunId}`}>{t("ingest.state.merging")}</UiLink>
-              </Button>
-            ) : null}
-            <Can do="ingest.merge">
-              <Button
-                loading={merge.pending}
-                disabled={!canMergeAll(approved.count, activeRunId, true)}
-                onClick={() => void startMerge()}
-              >
-                {t("ingest.action.mergeAll", { count: approved.count })}
-              </Button>
-            </Can>
-          </>
+          layout.headerAdd && canUpload ? (
+            <Button ref={focus.ref("add-files")} variant="secondary" className="w-full md:w-auto" onClick={choose}>
+              {t("ingest.drop.add")}
+            </Button>
+          ) : null
         }
       />
+      {canUpload ? chooser : null}
+      <StatusRegion message={announcer.message} />
 
-      {status.data?.vaultReady === false ? <InlineNotice>{t("ingest.vault.off")}</InlineNotice> : null}
-      {status.data?.botReady === false ? <InlineNotice>{t("ingest.helper.off")}</InlineNotice> : null}
-      <ActionError error={merge.rawError} />
+      {status.data?.vaultReady === false ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.vault.off")}</p> : null}
+      {status.data?.botReady === false ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.helper.off")}</p> : null}
 
-      <Can do="ingest.upload">
-        <section aria-label={t("ingest.drop.title")} className="flex flex-col gap-4 rounded-card border border-border bg-card p-4 sm:p-5">
-          <div
-            data-dragging={dragging || undefined}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setDragging(true);
-            }}
-            onDragOver={(event) => event.preventDefault()}
-            onDragLeave={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-            }}
-            onDrop={drop}
-            className="flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-control/60 bg-surface-sunken/60 px-4 py-7 text-center data-dragging:border-foreground data-dragging:bg-surface-sunken"
-          >
-            <UploadCloud aria-hidden="true" className="size-7" />
-            <h2 className="m-0 font-display text-[20px] font-bold leading-tight">{t("ingest.drop.title")}</h2>
-            <p className="m-0 max-w-[440px] text-[14px] leading-6 text-muted-foreground">{t("ingest.drop.hint")}</p>
-            <Button variant="secondary" onClick={() => inputRef.current?.click()} disabled={upload.busy}>
-              {t("ingest.drop.choose")}
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept={ACCEPT_FILES}
-              tabIndex={-1}
-              aria-hidden="true"
-              className="hidden"
-              onChange={(event) => {
-                add(Array.from(event.currentTarget.files ?? []));
-                event.currentTarget.value = "";
-              }}
+      {canUpload && (layout.dropZone || (dragging && !showStrip)) ? (
+        <div
+          data-dragging={dragging || undefined}
+          className="flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-control/60 bg-surface-sunken/60 px-4 py-9 text-center data-dragging:border-foreground data-dragging:bg-surface-sunken"
+        >
+          <UploadCloud aria-hidden="true" className="size-7" />
+          <h2 className="m-0 font-display text-[20px] font-bold leading-tight">{coarse ? t("ingest.drop.add") : t("ingest.drop.title")}</h2>
+          <p id={hintId} className="m-0 max-w-[440px] text-[14px] leading-6 text-muted-foreground">
+            {t("ingest.drop.hint")}
+          </p>
+          <Button ref={focus.ref("choose-files")} variant="secondary" aria-describedby={hintId} onClick={choose}>
+            {t("ingest.drop.choose")}
+          </Button>
+        </div>
+      ) : null}
+
+      {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
+
+      {showStrip ? (
+        <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
+          <h2 id={stripId} ref={focus.ref("strip-heading")} tabIndex={-1} className="m-0 text-[14px] font-semibold outline-none">
+            {t("ingest.drop.listLabel")}
+          </h2>
+          {staged.length > 0 ? (
+            <StagedFiles
+              files={staged}
+              note={note}
+              onNote={setNote}
+              onRemove={(index) => setStaged((all) => all.filter((_, i) => i !== index))}
+              onStart={start}
+              onCancel={cancel}
             />
-          </div>
-          <Field label={`${t("common.note")} (${t("common.optional")})`}>
-            <TextInput value={note} maxLength={500} onChange={(event) => setNote(event.currentTarget.value)} />
-          </Field>
-          {left > 0 ? <p role="status" className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
+          ) : null}
+          <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} storageNoticeShown={status.data?.vaultReady === false} />
         </section>
-      </Can>
-
-      {upload.items.length > 0 ? (
-        <ul aria-label={t("ingest.title")} className="m-0 flex list-none flex-col gap-3 p-0">
-          {upload.items.map((item) => (
-            <UploadRow key={item.id} item={item} locale={locale} timeZone={timeZone} onRetry={() => upload.retry(item.id)} onRemove={() => upload.remove(item.id)} />
-          ))}
-        </ul>
       ) : null}
 
       <QueryPanel query={candidates}>
-        {groups.length === 0 && upload.items.length === 0 ? (
+        {list.length > 0 ? (
+          <CandidateBoard
+            candidates={list}
+            artifacts={artifacts.data ?? []}
+            activeRunId={activeRunId}
+            canMerge={canMerge}
+            canUpload={canUpload}
+            announce={announce}
+          />
+        ) : !canUpload && !showStrip ? (
           <div className="rounded-card border border-border bg-card">
             <EmptyState title={t("ingest.empty.title")} body={t("ingest.empty.body")} />
           </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {groups.map((group) => (
-              <section key={group.group} aria-labelledby={`ingest-group-${group.group}`} className="flex flex-col gap-3">
-                <h2 id={`ingest-group-${group.group}`} className="m-0 font-display text-[21px] font-bold tracking-[-0.02em]">
-                  {translateKey(t, group.key)}
-                </h2>
-                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 xl:grid-cols-2">
-                  {group.items.map((candidate) => (
-                    <CandidateCard key={candidate.id} candidate={candidate} onDone={() => void candidates.refetch()} />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
-      </QueryPanel>
-    </>
-  );
-}
-
-function UploadRow({
-  item,
-  locale,
-  timeZone,
-  onRetry,
-  onRemove,
-}: {
-  item: UploadItem;
-  locale: "en" | "hi" | "gu";
-  timeZone?: string;
-  onRetry(): void;
-  onRemove(): void;
-}) {
-  const { t } = useT();
-  const reading = item.step === "reading";
-  const sending = item.step === "sending";
-  const progress = reading && item.progress?.rowsTotal
-    ? item.progress.rowsRead / item.progress.rowsTotal
-    : sending && item.sent?.total
-      ? item.sent.rows / item.sent.total
-      : null;
-  const label = reading
-    ? t("ingest.read.reading", { sheet: item.progress?.sheet ?? item.name, rows: item.progress?.rowsRead ?? 0 })
-    : item.step === "saving"
-      ? t("ingest.read.uploading")
-      : sending
-        ? t("ingest.read.sending", { done: item.sent?.rows ?? 0, total: item.sent?.total ?? 0 })
-        : item.step === "done"
-          ? t("common.done")
-          : item.step === "seenBefore"
-            ? t("ingest.drop.seenBefore", { date: instantDateText(item.seenOn ?? 0, locale, timeZone) })
-            : item.problem
-              ? translateKey(t, item.problem.key, item.problem.vars)
-              : t("common.loading");
-  return (
-    <li data-step={item.step} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="m-0 text-[15px] font-semibold break-words">{item.name}</p>
-          {["reading", "sending"].includes(item.step) ? null : <p className="m-0 text-[14px] leading-6 break-words text-muted-foreground">{label}</p>}
-        </div>
-        <IconButton label={`${t("common.remove")}: ${item.name}`} icon={<X aria-hidden="true" />} onClick={onRemove} />
-      </div>
-      {["queued", "hashing", "reading", "saving", "sending"].includes(item.step) ? <ProgressBar value={progress} label={label} /> : null}
-      <div className="flex flex-wrap items-center gap-2">
-        {item.artifactId && (item.step === "done" || item.step === "seenBefore") ? (
-          <Button asChild size="sm" variant="secondary">
-            <UiLink to={`/ingest/files/${item.artifactId}`}>{t("common.details")}</UiLink>
-          </Button>
         ) : null}
-        {item.step === "failed" ? <Button size="sm" onClick={onRetry}>{t("common.retry")}</Button> : null}
-        {item.canonicalMissing ? <span className="text-[13px] text-muted-foreground">{t("ingest.read.canonicalMissing")}</span> : null}
-      </div>
-    </li>
+      </QueryPanel>
+    </div>
   );
 }

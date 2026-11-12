@@ -4,13 +4,14 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { UiLink } from "@orrn/ui/components/link";
+import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
-import { useId, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { Can } from "@/shared/components/can";
 import { showsQueryError } from "@/shared/lib/query-errors";
 
-import { ingestErrorWords, reasonLine, type Tone } from "../lib";
+import { ingestErrorWords, reasonPieces, type Tone } from "../lib";
 
 export const ingestKey = (key: string) => key as MessageKey;
 export const translateKey = (t: Translate, key: string, vars?: Record<string, string | number>) =>
@@ -67,7 +68,8 @@ export function QueryPanel({ query, children }: { query: { isLoading: boolean; i
   const { t } = useT();
   if (query.isLoading) {
     return (
-      <div aria-busy="true" aria-label={t("common.loading")} className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
+      <div role="status" aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
+        <span className="sr-only">{t("common.loading")}</span>
         <Skeleton className="h-5 w-2/5" />
         <Skeleton className="h-4 w-4/5" />
         <Skeleton className="h-28 w-full" />
@@ -91,7 +93,13 @@ export function QueryPanel({ query, children }: { query: { isLoading: boolean; i
   return <>{children}</>;
 }
 
-export function ProgressBar({ value, label, announce = true }: { value: number | null; label: string; announce?: boolean }) {
+/**
+ * A bar with a visible label. It keeps `role="progressbar"` and `aria-valuenow` and says nothing aloud by itself: the
+ * screen's one status region announces a long read at 0, 25, 50, 75 and 100 percent (`progressStep`, `useAnnouncer`).
+ * Without a value it is moving; under reduced motion it shows the word "Working" instead of a fill.
+ */
+export function ProgressBar({ value, label }: { value: number | null; label: string }) {
+  const { t } = useT();
   const percent = value === null ? null : Math.max(0, Math.min(100, Math.round(value * 100)));
   return (
     <div className="flex flex-col gap-2">
@@ -103,18 +111,14 @@ export function ProgressBar({ value, label, announce = true }: { value: number |
         aria-valuemax={100}
         aria-valuenow={percent ?? undefined}
         aria-valuetext={percent === null ? label : undefined}
-        className="h-2 overflow-hidden rounded-full bg-surface-sunken"
+        className="h-1.5 overflow-hidden rounded-full bg-control/40"
       >
         <div
-          className={cn("h-full origin-left rounded-full bg-primary", percent === null && "w-1/3 animate-pulse motion-reduce:animate-none")}
+          className={cn("h-full origin-left rounded-full bg-primary", percent === null && "w-1/3 animate-pulse motion-reduce:hidden")}
           style={percent === null ? undefined : { transform: `scaleX(${percent / 100})` }}
         />
       </div>
-      {announce ? (
-        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-          {label}
-        </p>
-      ) : null}
+      {percent === null ? <span className="hidden text-[13px] text-muted-foreground motion-reduce:inline">{t("ingest.read.working")}</span> : null}
     </div>
   );
 }
@@ -133,11 +137,16 @@ export function InlineNotice({ children, tone = "neutral" }: { children: ReactNo
   );
 }
 
+/** A held or failed reason in amber ink. The server's own English detail sits in a `lang="en"` span (work order M17). */
 export function ReasonText({ code, detail }: { code: string | null; detail: string | null }) {
   const { t } = useT();
-  const reason = reasonLine(code, detail);
-  if (!reason) return null;
-  return <p className="m-0 text-[14px] leading-6 break-words text-tone-amber-ink">{reason.key ? translateKey(t, reason.key, reason.vars) : detail}</p>;
+  const pieces = reasonPieces((key, vars) => translateKey(t, key, vars), code, detail);
+  if (pieces.length === 0) return null;
+  return (
+    <p className="m-0 text-[14px] leading-6 break-words text-tone-amber-ink">
+      {pieces.map((piece, index) => (piece.lang ? <span key={index} lang={piece.lang}>{piece.text}</span> : <span key={index}>{piece.text}</span>))}
+    </p>
+  );
 }
 
 export function CandidateLink({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
@@ -157,4 +166,66 @@ export function ActionError({ error, kind = "action" }: { error: unknown; kind?:
       {translateKey(t, ingestErrorWords(error, kind).key)}
     </p>
   );
+}
+
+/**
+ * A number in mono with its unit after it in muted sans ("58.4 kg"). Never wraps between the two. An empty unit
+ * (feet and inches, where the text carries it) shows the number alone.
+ */
+export function Measure({ value, unit, className }: { value: string; unit: string; className?: string }) {
+  return (
+    <span data-no-truncate="" className={cn("whitespace-nowrap", className)}>
+      <span className="font-mono tabular-nums">{value}</span>
+      {unit ? <span className="ml-1 text-[0.85em] text-muted-foreground">{unit}</span> : null}
+    </span>
+  );
+}
+
+/**
+ * The sticky action bar of the list and the review page (work order 3.2 and S9): above the phone tab bar, pinned to
+ * the bottom while the page scrolls, a summary on the left and the buttons on the right. It is the same bar as the
+ * pack flow's `PackBar`, copied here so no feature imports another. While it is mounted, the page keeps a focused
+ * control above it (`scroll-padding-bottom`), and a toast rises above it.
+ */
+export function IngestBar({ summary, notice, children, className }: { summary?: ReactNode; notice?: ReactNode; children?: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useFocusClearance(ref);
+  useToastLift(ref);
+  return (
+    <div
+      ref={ref}
+      data-slot="ingest-bar"
+      className={cn(
+        "sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 mt-2 flex items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card/95 p-2 pl-4 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
+        summary && !notice ? "flex-wrap sm:flex-nowrap" : "flex-wrap",
+        className,
+      )}
+    >
+      {notice ? <div className="-ml-2 w-full min-w-0">{notice}</div> : null}
+      {summary ? <div className="min-w-0 flex-1 max-sm:basis-full">{summary}</div> : <div className="flex-1 max-sm:hidden" />}
+      <div className={cn("flex min-w-0 flex-wrap justify-end gap-2", summary ? "max-sm:w-full max-sm:[&>*:last-child]:flex-1 sm:shrink-0" : "max-sm:w-full max-sm:[&>*:last-child]:flex-1")}>{children}</div>
+    </div>
+  );
+}
+
+function useFocusClearance(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const apply = () => {
+      const height = el.offsetHeight;
+      const bottom = Number.parseFloat(getComputedStyle(el).bottom) || 0;
+      root.style.scrollPaddingBottom = height > 0 ? `${Math.ceil(height + bottom + 8)}px` : "";
+    };
+    apply();
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    resize?.observe(el);
+    window.addEventListener("resize", apply);
+    return () => {
+      resize?.disconnect();
+      window.removeEventListener("resize", apply);
+      root.style.scrollPaddingBottom = "";
+    };
+  }, [ref]);
 }

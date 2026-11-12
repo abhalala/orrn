@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7717 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7939 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,42 +6855,55 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (201)
+### ingest (420)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Imports | इम्पोर्ट |
-| `lead` | Bring in old sheets, exports and packing lists. Nothing is saved until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक कुछ भी सेव नहीं होता। |
+| `lead` | Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक orrn में कुछ नहीं बदलता। |
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
 | `drop.hint` | Excel, CSV, database export or PDF. Up to 20 files. | Excel, CSV, डेटाबेस एक्सपोर्ट या PDF। एक बार में 20 फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
 | `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
 | `drop.tooManyRows` | {name} has more than 200,000 rows. Split it and try again. | {name} में 2,00,000 से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
 | `drop.openLimit` | More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में 3,00,000 से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
-| `drop.seenBefore` | You uploaded this file on {date}. Opening it. | यह फ़ाइल आप {date} को डाल चुके हैं। वही खोल रहे हैं। |
+| `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
 | `drop.wrongType` | {name} is not Excel, CSV, a database export or PDF. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट या PDF नहीं है। इनमें से कोई फ़ाइल चुनें। |
 | `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
+| `drop.add` | Add files | फ़ाइलें जोड़ें |
+| `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
+| `drop.openIt` | Open it | इसे खोलें |
+| `drop.listLabel` | Files being added | जुड़ रही फ़ाइलें |
+| `drop.done` | Read. {count} {count:table\|tables}: {summary}. | पढ़ ली। {count} टेबल: {summary}। |
+| `drop.noTables` | No table found in this file. Check that it has column names and rows, then add it again. | इस फ़ाइल में कोई टेबल नहीं मिली। देखें कि उसमें कॉलम के नाम और लाइनें हैं, फिर इसे दोबारा डालें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेजी गईं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
-| `vault.off` | File storage is not set up for this plant yet. Rows can still be imported, but the original file is not kept. | इस प्लांट के लिए फ़ाइल स्टोरेज अभी चालू नहीं है। लाइनें इम्पोर्ट हो सकती हैं, पर असली फ़ाइल सेव नहीं रहेगी। |
+| `read.progress` | Reading {done} of {total} rows | {total} में से {done} लाइनें पढ़ीं |
+| `read.working` | Working | काम चल रहा है |
+| `read.title` | How orrn read this file | orrn ने यह फ़ाइल कैसे पढ़ी |
+| `read.summary` | {used} columns used, {unused} not used. | {used} कॉलम लिए, {unused} नहीं लिए। |
+| `read.change` | Change mapping | कॉलम मिलान बदलें |
+| `read.show` | Show | दिखाएं |
+| `read.hide` | Hide | छिपाएं |
+| `vault.off` | File storage is not set up for this plant, so the original file is not kept. Ask orrn support to turn it on. | इस प्लांट के लिए फ़ाइल स्टोरेज चालू नहीं है, इसलिए असली फ़ाइल सेव नहीं रहेगी। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `vault.notStored` | Original file not kept | असली फ़ाइल सेव नहीं है |
 | `vault.stored` | Original file kept | असली फ़ाइल सेव है |
 | `vault.pending` | Saving the original file | असली फ़ाइल सेव हो रही है |
-| `helper.off` | The column helper is not set up. Map the columns yourself. | कॉलम हेल्पर चालू नहीं है। कॉलम खुद मिलाएं। |
+| `helper.off` | orrn cannot suggest a layout for this plant yet. Map the columns yourself. | इस प्लांट के लिए orrn अभी लेआउट नहीं सुझा सकता। कॉलम खुद मिलाएं। |
 | `empty.title` | No imports yet | अभी कोई इम्पोर्ट नहीं |
 | `empty.body` | Drop a file to see what orrn can read from it. | फ़ाइल डालें, orrn बताएगा कि उसमें क्या पढ़ा जा सकता है। |
 | `group.needsYou` | Needs you | आपको देखना है |
-| `group.ready` | Ready to approve | मंज़ूरी के लिए तैयार |
+| `group.ready` | Ready | तैयार |
 | `group.approved` | Approved | मंज़ूर |
 | `group.held` | Held | होल्ड |
 | `group.merged` | Merged | मर्ज हो गए |
 | `state.processing` | Checking rows | लाइनें जांच रहे हैं |
-| `state.needs_shape` | Columns not known | कॉलम पहचाने नहीं गए |
-| `state.needs_confirm` | Looks familiar | पहले जैसा लग रहा है |
+| `state.needs_shape` | Needs a layout | लेआउट चाहिए |
+| `state.needs_confirm` | Check the layout | लेआउट जांचें |
 | `state.ready` | Ready | तैयार |
 | `state.held` | Held | होल्ड |
 | `state.approved` | Approved | मंज़ूर |
@@ -6898,41 +6911,101 @@ Please check, Lalubhai:
 | `state.merged` | Merged | मर्ज हो गया |
 | `state.failed` | Could not read | पढ़ा नहीं गया |
 | `state.discarded` | Discarded | हटाया गया |
+| `state.questions` | {count} {count:question\|questions} | {count} सवाल |
 | `target.customers` | Customers | ग्राहक |
 | `target.customer_aliases` | Other names for customers | ग्राहकों के दूसरे नाम |
 | `target.vendors` | Vendors | पार्टियां |
 | `target.vendor_aliases` | Other names for vendors | पार्टियों के दूसरे नाम |
-| `target.dies` | Sections | सेक्शन |
+| `target.dies` | Dies | Die |
 | `target.die_copies` | Die copies | Die कॉपी |
 | `target.bundles` | Bundles in stock | स्टॉक के bundle |
 | `target.orders` | Open orders | खुले ऑर्डर |
 | `fit.exact` | Known layout | जाना-पहचाना लेआउट |
 | `fit.near` | Close to a saved layout | सेव किए लेआउट से मिलता-जुलता |
 | `fit.none` | New layout | नया लेआउट |
-| `near.title` | This looks like {name}, with some columns changed | यह {name} जैसा है, बस कुछ कॉलम बदले हैं |
-| `near.renamed` | {old} is now {new} | {old} अब {new} है |
-| `near.extra` | New column: {name} | नया कॉलम: {name} |
-| `near.missing` | Missing column: {name} | कॉलम नहीं मिला: {name} |
+| `fit.nearNamed` | Close to {name} | {name} से मिलता-जुलता |
+| `fit.bot` | Layout made by orrn | orrn ने लेआउट बनाया |
+| `fit.manual` | Layout you made | आपका बनाया लेआउट |
+| `near.title` | This looks like your layout {name}. {count} {count:column\|columns} changed. | यह आपके लेआउट {name} जैसा है। {count} कॉलम बदले हैं। |
 | `near.use` | Use this layout | यही लेआउट लें |
-| `near.reject` | Not this one | यह नहीं |
-| `shape.auto` | Map columns for me | हेल्पर से कॉलम मिलवाएं |
+| `near.reject` | No, map the columns | नहीं, कॉलम मिलाएं |
+| `near.changedTitle` | What changed | क्या बदला |
+| `near.saved` | Saved column | सेव किया कॉलम |
+| `near.now` | Column in this file | इस फ़ाइल का कॉलम |
+| `near.kindRenamed` | Renamed | नाम बदला |
+| `near.kindNew` | New | नया |
+| `near.kindMissing` | Missing | नहीं मिला |
+| `near.notInFile` | Not in this file | इस फ़ाइल में नहीं है |
+| `shape.auto` | Map columns for me | orrn से कॉलम मिलवाएं |
 | `shape.manual` | Map columns myself | कॉलम खुद मिलाएं |
-| `shape.ignore` | Ignore this sheet | इस शीट को छोड़ दें |
+| `shape.ignore` | Not data, skip this sheet | यह डेटा नहीं है, शीट छोड़ें |
 | `shape.working` | Reading the columns (try {n} of 4) | कॉलम पढ़ रहे हैं (कोशिश {n}/4) |
-| `shape.gaveUp` | The helper could not map this sheet. Map the columns yourself. | हेल्पर इस शीट के कॉलम नहीं मिला सका। कॉलम खुद मिलाएं। |
-| `shape.capped` | The helper limit for today is used up. Map the columns yourself. | आज की हेल्पर सीमा पूरी हो गई। कॉलम खुद मिलाएं। |
-| `shape.saveAs` | Save this layout as | इस लेआउट को इस नाम से सेव करें |
-| `shape.field` | orrn field | orrn का फ़ील्ड |
+| `shape.gaveUp` | orrn could not map this sheet. Map the columns yourself. | orrn इस शीट के कॉलम नहीं मिला सका। कॉलम खुद मिलाएं। |
+| `shape.capped` | orrn has used today's limit for suggesting layouts. Map the columns yourself. | लेआउट सुझाने की आज की सीमा पूरी हो गई। कॉलम खुद मिलाएं। |
+| `shape.saveAs` | Layout name | लेआउट का नाम |
+| `shape.field` | Goes into | orrn में कहां जाए |
 | `shape.column` | Column in your file | आपकी फ़ाइल का कॉलम |
 | `shape.unit` | Unit | यूनिट |
 | `shape.notUsed` | Not used | इस्तेमाल नहीं |
-| `shape.target` | Put this into | इसे यहां डालें |
+| `shape.target` | What is this table? | यह टेबल किस चीज़ की है? |
 | `shape.unitAsk` | Ask me which unit | मुझसे यूनिट पूछें |
 | `shape.dateOrder` | Date order | तारीख का क्रम |
 | `shape.nameRequired` | Give this layout a name. | इस लेआउट को एक नाम दें। |
-| `shape.missingRequired` | Map these fields before you save: {fields}. | सेव करने से पहले ये फ़ील्ड मिलाएं: {fields}। |
+| `shape.missingRequired` | Still needed: {fields}. | अभी बाकी: {fields}। |
+| `shape.title` | Map columns | कॉलम मिलाएं |
+| `shape.choose` | Choose | चुनें |
+| `shape.suggested` | Suggested by orrn | orrn का सुझाव |
+| `shape.samples` | Sample values | फ़ाइल के नमूने |
+| `shape.preview` | In orrn | orrn में |
+| `shape.willNotImport` | Will not import | इम्पोर्ट नहीं होगा |
+| `shape.required` | {label} (required) | {label} (ज़रूरी) |
+| `shape.usedBy` | {label} (used by column {column}) | {label} (कॉलम {column} में लिया गया) |
+| `shape.namePlaceholder` | For example: Die list from the old system | जैसे: पुराने सिस्टम की Die लिस्ट |
+| `shape.allMapped` | All required fields are mapped. | सभी ज़रूरी फ़ील्ड मिल गए। |
+| `shape.duplicate` | {field} is picked for two columns. Keep one. | {field} दो कॉलम के लिए चुना गया है। एक ही रखें। |
+| `shape.recipeInvalid` | This layout does not fit the columns in the file. Check each column and unit. | यह लेआउट फ़ाइल के कॉलम से मेल नहीं खाता। हर कॉलम और यूनिट देखें। |
+| `shape.fixCount` | Fix {count} {count:thing\|things} before you save | सेव करने से पहले {count} चीज़ें ठीक करें |
+| `shape.save` | Save layout | लेआउट सेव करें |
+| `shape.explain` | orrn reads the column names and first rows and suggests a layout. You check it before anything is saved. | orrn कॉलम के नाम और पहली लाइनें पढ़कर लेआउट सुझाता है। कुछ भी सेव होने से पहले आप उसे देखते हैं। |
+| `shape.targetRequired` | Choose what this table is. | चुनें कि यह टेबल किस चीज़ की है। |
+| `shape.unitRequired` | Choose the unit of {field}. | {field} की यूनिट चुनें। |
+| `kind.number` | Number | संख्या |
+| `kind.text` | Text | टेक्स्ट |
+| `kind.date` | Date | तारीख |
+| `kind.empty` | Empty | खाली |
+| `unit.kg` | kg | kg |
+| `unit.g` | g | ग्राम |
+| `unit.t` | tonne | टन |
+| `unit.qtl` | quintal | क्विंटल |
+| `unit.lb` | lb | lb |
+| `unit.ft_in` | ft and in | फ़ुट और इंच |
+| `unit.mm` | mm | mm |
+| `unit.cm` | cm | cm |
+| `unit.m` | m | मीटर |
+| `unit.in` | in | इंच |
+| `unit.ft` | ft | फ़ुट |
+| `unit.kg_12ft` | kg per 12 ft | 12 ft का kg |
+| `unit.g_12ft` | g per 12 ft | 12 ft का ग्राम |
+| `unit.kg_ft` | kg per ft | प्रति फ़ुट kg |
+| `unit.lb_ft` | lb per ft | प्रति फ़ुट lb |
+| `unit.kg_m` | kg per m | प्रति मीटर kg |
+| `unit.g_m` | g per m | प्रति मीटर ग्राम |
+| `unit.inr_kg` | Rs per kg | रुपये प्रति kg |
+| `unit.paise_kg` | paise per kg | पैसे प्रति kg |
+| `unit.inr_t` | Rs per tonne | रुपये प्रति टन |
+| `unit.inr_qtl` | Rs per quintal | रुपये प्रति क्विंटल |
+| `unit.pcs` | pieces | पीस |
+| `unit.nos` | pieces | पीस |
+| `enumValue.active` | Active | चालू |
+| `enumValue.archived` | Archived | पुराना |
+| `enumValue.available` | Available | उपलब्ध |
+| `enumValue.at_nitriding` | At nitriding | नाइट्राइडिंग में |
+| `enumValue.retired` | Retired | रिटायर |
+| `enumValue.in_use` | In use | इस्तेमाल में |
+| `enumValue.at_maker` | At the maker | मेकर के पास |
+| `enumValue.on_trial` | On trial | ट्रायल पर |
 | `row.state` | Status | स्थिति |
-| `row.entered` | In the file | फ़ाइल में |
+| `row.entered` | File said | फ़ाइल में लिखा था |
 | `row.ready_create` | New | नया |
 | `row.ready_update` | Updates orrn | orrn में अपडेट होगा |
 | `row.unchanged` | Already in orrn | orrn में पहले से है |
@@ -6940,44 +7013,167 @@ Please check, Lalubhai:
 | `row.conflict` | Differs from orrn | orrn से अलग है |
 | `row.refused` | Cannot import | इम्पोर्ट नहीं हो सकता |
 | `row.skipped` | Skipped | छोड़ा गया |
+| `row.waiting` | Waits on a question | सवाल का इंतज़ार |
 | `decide.useMatch` | Use {name} | {name} लें |
 | `decide.keepFile` | Use the file value | फ़ाइल की वैल्यू लें |
 | `decide.keepLive` | Keep the orrn value | orrn की वैल्यू रखें |
 | `decide.createNew` | Add as new | नया जोड़ें |
 | `decide.skip` | Skip this row | यह लाइन छोड़ें |
+| `decide.named` | {label}, row {n} | {label}, लाइन {n} |
+| `decide.group` | Decide: row {n} | फ़ैसला: लाइन {n} |
 | `q.unit_unknown` | {field} has no unit. Which unit is it? | {field} में यूनिट नहीं लिखी है। कौन सी यूनिट है? |
 | `q.date_format_ambiguous` | Dates like {sample} could be day first or month first. Which is it? | {sample} जैसी तारीखों में शुरू में दिन है या महीना? |
 | `q.period_needed` | Which financial year is this file from, and on what date? | यह फ़ाइल किस वित्त वर्ष की है, और किस तारीख तक की? |
 | `q.rates_hidden` | This file has rates you cannot see. Leave rates out, or ask the owner to merge it. | इस फ़ाइल में रेट हैं जो आप नहीं देख सकते। रेट छोड़ दें, या मालिक से मर्ज करवाएं। |
 | `q.column_meaning_unclear` | What does the column {name} hold? | कॉलम {name} में क्या लिखा है? |
-| `q.create_legacy_die` | {code} is not in your sections. Add it, marked legacy? | {code} आपकी सेक्शन लिस्ट में नहीं है। इसे legacy निशान के साथ जोड़ें? |
-| `q.new_customers` | {count} {count:party name is\|party names are} new. Add {count:it\|them} as {count:a customer\|customers}? | {count} {count:पार्टी का नाम नया है\|पार्टियों के नाम नए हैं}। {count:इसे\|इन्हें} ग्राहक बनाकर जोड़ें? |
+| `q.create_legacy_die` | {code} is not in your sections. Add it as an old section? | {code} आपकी सेक्शन लिस्ट में नहीं है। इसे पुराने सेक्शन के रूप में जोड़ें? |
+| `q.new_customers` | {count} {count:name is\|names are} not in your customers. Add {count:it\|them} as new {count:customer\|customers}? | {count} {count:नाम\|नाम} आपके ग्राहकों में नहीं {count:है\|हैं}। {count:इसे\|इन्हें} नए ग्राहक बनाकर जोड़ें? |
+| `q.magnitude_check` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} लाइनें सामान्य से बहुत {side} हैं। क्या वे सही हैं? |
+| `q.magnitude_checkHint` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. They may be in {likelyUnit}. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} लाइनें सामान्य से बहुत {side} हैं। वे {likelyUnit} में हो सकती हैं। क्या वे सही हैं? |
+| `q.magnitudeAsIs` | The values are right | वैल्यू सही हैं |
+| `q.magnitudeUnit` | They are in {unit} | ये {unit} में हैं |
+| `q.magnitudeUnitPick` | They are in another unit | ये किसी और यूनिट में हैं |
+| `q.magnitudeSkip` | Skip the rows | ये लाइनें छोड़ें |
+| `q.sideAbove` | larger than | बड़ी |
+| `q.sideBelow` | smaller than | छोटी |
+| `q.sideEither` | different from | अलग |
 | `q.leaveRatesOut` | Leave rates out | रेट छोड़ दें |
 | `q.ownerMerges` | Hold for the owner | मालिक के लिए रोकें |
-| `period.chip` | Financial year {fy} | वित्त वर्ष {fy} |
-| `period.unsure` | Year not clear | वर्ष साफ़ नहीं है |
-| `period.confirm` | Confirm year | वर्ष पक्का करें |
+| `q.addIt` | Add it | इसे जोड़ें |
+| `q.skipRows` | Skip these rows | ये लाइनें छोड़ें |
+| `q.answered` | Answered: {answer} | जवाब: {answer} |
+| `q.change` | Change | बदलें |
+| `q.aboutRow` | Row {n} | लाइन {n} |
+| `q.save` | Save answer | जवाब सेव करें |
+| `q.goToYear` | Choose the year | वर्ष चुनें |
+| `questions.title` | {count} {count:question\|questions} before you approve | मंज़ूर करने से पहले {count} सवाल |
+| `questions.doneTitle` | {count} {count:question\|questions} answered | {count} {count:सवाल का जवाब दिया\|सवालों के जवाब दिए} |
 | `period.fy` | Financial year | वित्त वर्ष |
 | `period.asOf` | As on date | किस तारीख तक |
+| `period.ask` | Which financial year is this file from? | यह फ़ाइल किस वित्त वर्ष की है? |
+| `period.guess` | orrn guessed {fy} from {source}. | orrn ने {source} से {fy} का अंदाज़ा लगाया। |
+| `period.noGuess` | orrn found nothing in the file to tell the year. | फ़ाइल में वर्ष बताने वाला कुछ नहीं मिला। |
+| `period.whyOrders` | Old order numbers start again each financial year, so orrn needs the year to match orders. | पुराने ऑर्डर नंबर हर वित्त वर्ष में फिर 1 से शुरू होते हैं, इसलिए ऑर्डर मिलाने के लिए वर्ष चाहिए। |
+| `period.whyBundles` | orrn needs the as-on date to place opening stock. | शुरुआती स्टॉक सही जगह रखने के लिए orrn को तारीख चाहिए। |
+| `period.save` | Save year | वर्ष सेव करें |
+| `period.done` | Financial year {fy}, as on {date} | वित्त वर्ष {fy}, {date} तक |
+| `period.doneNoYear` | As on {date} | {date} तक |
+| `period.change` | Change | बदलें |
+| `period.mismatch` | The date is not inside {fy}. Pick a date in that year. | यह तारीख {fy} में नहीं है। उसी वर्ष की तारीख चुनें। |
+| `period.badDate` | Write the date as day, month, year, for example 31/03/2026. | तारीख दिन, महीना, साल के क्रम में लिखें, जैसे 31/03/2026। |
+| `period.source.title` | the title of the sheet | शीट के शीर्षक |
+| `period.source.file_name` | the file name | फ़ाइल के नाम |
+| `period.source.sheet_name` | the sheet name | शीट के नाम |
+| `period.source.date_column` | the order dates in the file | फ़ाइल की ऑर्डर तारीखों |
+| `period.source.bundle_no` | the bundle numbers | bundle नंबरों |
+| `period.source.legacy_code` | the old bundle codes | पुराने bundle कोड |
 | `action.approve` | Approve | मंज़ूर करें |
 | `action.hold` | Hold | होल्ड करें |
 | `action.discard` | Discard | हटाएं |
-| `action.mergeAll` | Merge {count} approved | {count} मंज़ूर इम्पोर्ट मर्ज करें |
-| `merge.running` | Merging. Part {n} of {total}. | मर्ज हो रहा है। हिस्सा {n}/{total}। |
-| `merge.otherTab` | Running in another tab | दूसरे टैब में चल रहा है |
-| `merge.done` | Merged. {created} added, {updated} updated. | मर्ज हो गया। {created} नए जुड़े, {updated} अपडेट हुए। |
-| `merge.holds` | {count} held. Open each one to see why. | {count} होल्ड पर हैं। वजह देखने के लिए हर एक खोलें। |
+| `action.mergeAll` | Merge {count} approved {count:import\|imports} | {count} मंज़ूर इम्पोर्ट मर्ज करें |
+| `action.mergeNone` | Approve imports, then merge them together. | इम्पोर्ट मंज़ूर करें, फिर सबको एक साथ मर्ज करें। |
+| `action.review` | Review | देखें |
+| `action.mapColumns` | Map columns | कॉलम मिलाएं |
+| `action.checkLayout` | Check layout | लेआउट जांचें |
+| `action.approveAll` | Approve all {count} | सभी {count} मंज़ूर करें |
+| `action.approveBlocked` | Answer {count} {count:question\|questions} to approve. | मंज़ूर करने से पहले {count} सवाल का जवाब दें। |
+| `action.release` | Check again | फिर से जांचें |
+| `action.approveAsIs` | Approve as it is | जैसा है वैसा मंज़ूर करें |
+| `action.goMerge` | Go to merge | मर्ज पर जाएं |
+| `action.nextNeedsYou` | Next that needs you | अगला जो आपको देखना है |
+| `action.approvedSoFar` | Approved. {count} {count:import\|imports} approved so far. | मंज़ूर। अब तक {count} इम्पोर्ट मंज़ूर। |
+| `action.heldDone` | Held. It stays out of the merge until you check it again. | होल्ड किया। फिर से जांचने तक यह मर्ज में नहीं जाएगा। |
+| `action.more` | More for {name} | {name} के लिए और |
+| `action.seeFile` | See the file | फ़ाइल देखें |
+| `action.merging` | Merging | मर्ज हो रहा है |
+| `list.newTable` | New table | नई टेबल |
+| `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
+| `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |
+| `list.ready` | Ready to merge | मर्ज के लिए तैयार |
+| `list.importsUnit` | {count:import\|imports} | {count:इम्पोर्ट\|इम्पोर्ट} |
+| `list.mergeMeta` | {created} rows will be added, {updated} updated | {created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी |
+| `list.bar` | {count} {count:import\|imports} approved, {rows} rows | {count} इम्पोर्ट मंज़ूर, {rows} लाइनें |
+| `list.segments` | Show | दिखाएं |
+| `list.showing` | Showing {name}, {count} {count:import\|imports}. | {name} दिखा रहे हैं, {count} इम्पोर्ट। |
+| `list.colNew` | New | नया |
+| `list.colUpdates` | Updates | अपडेट |
+| `list.colQuestions` | Questions | सवाल |
+| `list.colCannot` | Cannot import | इम्पोर्ट नहीं हो सकता |
+| `bulk.title` | Approve {count} imports? | {count} इम्पोर्ट मंज़ूर करें? |
+| `bulk.body` | Each one is a known layout read by orrn with nothing left to answer. You can still hold any of them before you merge. | हर एक जाना-पहचाना लेआउट है, orrn ने पढ़ा है और कोई जवाब बाकी नहीं है। मर्ज से पहले किसी को भी होल्ड कर सकते हैं। |
+| `bulk.confirm` | Approve {count} | {count} मंज़ूर करें |
+| `imports.emptySegment` | Nothing under {name} right now. | {name} में अभी कुछ नहीं है। |
+| `imports.startFiles` | Add {count} {count:file\|files} | {count} फ़ाइलें जोड़ें |
+| `imports.bulkPartial` | {count} approved. {failed} could not be approved. Open them to see why. | {count} मंज़ूर हुए। {failed} मंज़ूर नहीं हो सके। वजह जानने के लिए उन्हें खोलें। |
+| `imports.colWhat` | Import | इम्पोर्ट |
+| `imports.colFit` | Layout | लेआउट |
+| `imports.colStatus` | Status | स्थिति |
+| `imports.colAction` | Action | कार्रवाई |
+| `discard.title` | Discard {name}? | {name} हटाएं? |
+| `discard.body` | Its {count} rows will not be imported. You can add the file again later. | इसकी {count} लाइनें इम्पोर्ट नहीं होंगी। फ़ाइल बाद में फिर डाल सकते हैं। |
+| `discard.keep` | Keep it | रहने दें |
+| `hold.title` | Why are you holding this? (optional) | इसे होल्ड क्यों कर रहे हैं? (ज़रूरी नहीं) |
+| `hold.owner` | Wait for the owner | मालिक का इंतज़ार |
+| `hold.wrongFile` | Wrong file | गलत फ़ाइल |
+| `hold.fixFirst` | Fix in orrn first | पहले orrn में सुधारें |
+| `effect.line` | Adds {create} new and updates {update} in orrn. | orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे। |
+| `effect.refused` | {count} {count:row\|rows} cannot be imported. | {count} लाइनें इम्पोर्ट नहीं हो सकतीं। |
+| `effect.nothing` | Nothing to add or update. | जोड़ने या अपडेट करने को कुछ नहीं है। |
+| `effect.waiting` | {count} {count:row waits\|rows wait} on your answers. | {count} {count:लाइन आपके जवाब का इंतज़ार कर रही है\|लाइनें आपके जवाब का इंतज़ार कर रही हैं}। |
+| `effect.processing` | orrn is checking the rows. | orrn लाइनें जांच रहा है। |
+| `effect.needsShape` | orrn does not know this table yet. Say what it is and map its columns. | orrn अभी इस टेबल को नहीं जानता। बताएं कि यह क्या है और कॉलम मिलाएं। |
+| `effect.failed` | orrn could not read this table. | orrn यह टेबल नहीं पढ़ पाया। |
+| `effect.approved` | Approved. It is added when you merge. | मंज़ूर। मर्ज करने पर यह जुड़ेगा। |
+| `effect.merged` | Merged. {created} added, {updated} updated. | मर्ज हो गया। {created} जुड़े, {updated} अपडेट हुए। |
+| `effect.discarded` | Discarded. Nothing from it will be imported. | हटाया गया। इसमें से कुछ इम्पोर्ट नहीं होगा। |
+| `rows.title` | Rows as they will appear in orrn | orrn में ये लाइनें ऐसे दिखेंगी |
+| `rows.needsDecision` | Needs a decision {count} | फ़ैसला चाहिए {count} |
+| `rows.needsDecisionName` | Needs a decision | फ़ैसला चाहिए |
+| `rows.choice` | Your choice | आपका फ़ैसला |
+| `rows.page` | Page {n} | पेज {n} |
+| `rows.showAll` | Show all fields | सभी फ़ील्ड दिखाएं |
+| `rows.showing` | Showing {filter}, {count} rows, page {n}. | {filter} दिखा रहे हैं, {count} लाइनें, पेज {n}। |
+| `rows.column` | Column {n} | कॉलम {n} |
+| `rows.decided` | Row {n} decided. | लाइन {n} पर फ़ैसला हो गया। |
+| `rows.none` | No rows in this view. | इस दृश्य में कोई लाइन नहीं। |
+| `rows.waitsOnQuestion` | Answer the question above, or skip the row. | ऊपर के सवाल का जवाब दें, या लाइन छोड़ दें। |
+| `merge.running` | Part {n} of {total} | हिस्सा {n}/{total} |
+| `merge.otherTab` | This merge is running in another tab. | यह मर्ज दूसरे टैब में चल रहा है। |
+| `merge.done` | {created} added and {updated} updated in orrn. | orrn में {created} जुड़े, {updated} अपडेट हुए। |
+| `merge.holds` | {count} {count:import was\|imports were} not merged. The reason is under each one. | {count} इम्पोर्ट मर्ज नहीं हुए। हर एक के नीचे वजह लिखी है। |
 | `merge.stop` | Stop after this part | इस हिस्से के बाद रोकें |
 | `merge.planning` | Planning the merge | मर्ज की तैयारी हो रही है |
 | `merge.stopped` | Stopped. {done} of {total} parts written. Merge again to finish. | रुक गया। {total} में से {done} हिस्से लिखे गए। पूरा करने के लिए फिर मर्ज करें। |
 | `merge.open` | Open | खोलें |
-| `reason.merge_failed` | Merge stopped here: {detail} | मर्ज यहां रुक गया: {detail} |
+| `merge.titleRunning` | Merging {count} {count:import\|imports} | {count} इम्पोर्ट मर्ज हो रहे हैं |
+| `merge.titleDone` | Merge finished | मर्ज पूरा हुआ |
+| `merge.titleStopped` | Merge stopped | मर्ज रुका |
+| `merge.rowsUnit` | of {total} rows | {total} लाइनों में से |
+| `merge.rowsAdded` | {count:row\|rows} added | {count:लाइन जुड़ी\|लाइनें जुड़ीं} |
+| `merge.titleHolds` | Merged with holds | होल्ड के साथ मर्ज हुआ |
+| `merge.updatedMeta` | {count} updated | {count} अपडेट हुईं |
+| `merge.notMergedMeta` | {count} {count:import\|imports} not merged | {count} इम्पोर्ट मर्ज नहीं हुए |
+| `merge.partsWritten` | {done} of {total} parts written | {total} में से {done} हिस्से लिखे गए |
+| `merge.listTitle` | Imports in this merge | इस मर्ज के इम्पोर्ट |
+| `merge.added` | Added {n} | जुड़े {n} |
+| `merge.addedOf` | Added {n} of {total} | {total} में से {n} जुड़े |
+| `merge.updated` | Updated {n} | अपडेट हुए {n} |
+| `merge.back` | Back to imports | इम्पोर्ट पर वापस |
+| `merge.see` | See {target} | {target} देखें |
+| `merge.rest` | Merge the rest | बाकी मर्ज करें |
+| `merge.started` | Merge started. | मर्ज शुरू हुआ। |
+| `merge.confirmTitle` | Merge {count} {count:import\|imports} into orrn? | {count} इम्पोर्ट orrn में मर्ज करें? |
+| `merge.confirmNote` | Held imports and imports with open questions are not included. | होल्ड और बिना जवाब वाले इम्पोर्ट इसमें शामिल नहीं हैं। |
+| `merge.notYet` | Not yet | अभी नहीं |
+| `merge.announceDone` | Merge finished. {created} added, {updated} updated, {held} not merged. | मर्ज पूरा हुआ। {created} जुड़े, {updated} अपडेट हुए, {held} मर्ज नहीं हुए। |
+| `reason.merge_failed` | Not merged. {detail} | मर्ज नहीं हुआ। {detail} |
 | `reason.dependency_held` | Waits for {name}, which is held | {name} का इंतज़ार है, जो होल्ड पर है |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
-| `vision.check` | I checked these rows against the page | मैंने ये लाइनें पन्ने से मिलाकर देख ली हैं |
+| `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
 | `rate.hidden` | Hidden | छिपा है |
-| `rate.unit` | Rs per kg | रुपये प्रति kg |
+| `fieldHeader.weightMinG` | Min weight | न्यूनतम वज़न |
+| `fieldHeader.weightMaxG` | Max weight | अधिकतम वज़न |
 | `field.name` | Name | नाम |
 | `field.taxId` | GSTIN | GSTIN |
 | `field.phone` | Phone | फ़ोन |
@@ -7004,7 +7200,7 @@ Please check, Lalubhai:
 | `field.trialKgPer12ft` | Trial weight per 12 ft | 12 ft का ट्रायल वज़न |
 | `field.hardness` | Hardness | हार्डनेस |
 | `field.lifeKg` | Life in kg | आयु (kg) |
-| `field.legacyId` | Old bundle id | पुराना bundle आईडी |
+| `field.legacyId` | Old bundle number | पुराना bundle नंबर |
 | `field.quantity` | Pieces | पीस |
 | `field.weightG` | Weight | वज़न |
 | `field.lengthMm` | Length | लंबाई |
@@ -7016,7 +7212,7 @@ Please check, Lalubhai:
 | `field.pcs` | Pieces | पीस |
 | `field.orderedKg` | Ordered | ऑर्डर की मात्रा |
 | `field.dispatchedKg` | Dispatched | भेजा गया |
-| `field.bakiKg` | Baki (balance) | बाकी |
+| `field.bakiKg` | Balance | बाकी |
 | `field.rate` | Rate | रेट |
 | `field.finish` | Finish | फिनिश |
 | `field.alloy` | Alloy | अलॉय |
@@ -7043,13 +7239,30 @@ Please check, Lalubhai:
 | `refuse.module_off` | This part of orrn is turned off for this plant. | इस प्लांट में orrn का यह हिस्सा बंद है। |
 | `refuse.baki_mismatch` | Ordered minus dispatched does not match the balance. Pick which one is right. | ऑर्डर में से भेजा घटाने पर बाकी नहीं मिलता। बताएं कौन सा सही है। |
 | `refuse.in_file_duplicate` | This row is in the file twice, with different values. | यह लाइन फ़ाइल में दो बार है, अलग वैल्यू के साथ। |
-| `refuse.section_unknown` | {field} is not a section in orrn. | {field} orrn में सेक्शन के रूप में नहीं है। |
+| `refuse.section_unknown` | This section is not in orrn. Add it with a die sheet or on the dies screen, then check this sheet again. | यह सेक्शन orrn में नहीं है। इसे Die शीट से या Dies स्क्रीन पर जोड़ें, फिर यह शीट दोबारा जांचें। |
 | `refuse.not_found` | {field} is not in orrn. | {field} orrn में नहीं है। |
 | `refuse.alias_taken` | This other name already belongs to another record. | यह दूसरा नाम पहले से किसी और रिकॉर्ड का है। |
 | `refuse.ambiguous` | {field} matches more than one record. Pick one. | {field} एक से ज़्यादा रिकॉर्ड से मिलता है। एक चुनें। |
 | `refuse.legacy_mapped` | This bundle is already in orrn. | यह bundle orrn में पहले से है। |
 | `refuse.blank_row` | Blank row. | खाली लाइन। |
 | `refuse.filtered` | Left out by this layout. | इस लेआउट ने छोड़ दी। |
+| `refuse.over_dispatched` | More was dispatched than was ordered. | ऑर्डर से ज़्यादा भेजा जा चुका है। |
+| `refuse.no_quantity` | This line has no weight and no pieces. | इस लाइन में न वज़न है, न पीस। |
+| `refuse.magnitude` | This number looks too large or too small for its unit. | यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है। |
+| `refuse.magnitude_unit` | Read again in the unit you gave. | आपकी बताई यूनिट में फिर से पढ़ा गया। |
+| `refuse.magnitude_confirmed` | You said this number is right. | आपने कहा कि यह संख्या सही है। |
+| `refuse.no_weight` | No weight on this line. Give the ordered or balance kg, or skip the row. | इस लाइन में वज़न नहीं है। ऑर्डर या बाकी kg दें, या लाइन छोड़ दें। |
+| `refuse.nothing_left` | Nothing is left to dispatch on this line. | इस लाइन में भेजने को कुछ बाकी नहीं है। |
+| `refuse.no_cut_length` | No cut length. Give the cut length, or skip the row. | कट लंबाई नहीं है। कट लंबाई दें, या लाइन छोड़ दें। |
+| `refuse.line_invalid` | The order screen would refuse this line. | ऑर्डर स्क्रीन इस लाइन को मना कर देगी। |
+| `refuse.line_invalidField` | The order screen would refuse this line. Check {field}. | ऑर्डर स्क्रीन इस लाइन को मना कर देगी। {field} देखें। |
+| `refuse.status_not_allowed` | This status cannot come from a file. Use available, at nitriding or retired, or skip the row. | यह स्थिति फ़ाइल से नहीं आ सकती। उपलब्ध, नाइट्राइडिंग में या रिटायर लें, या लाइन छोड़ दें। |
+| `refuse.alias_is_name` | This name already belongs to another customer or vendor. Skip the row. | यह नाम पहले से किसी और ग्राहक या पार्टी का है। लाइन छोड़ दें। |
+| `refuse.order_exists` | This line is already on an order in orrn. | यह लाइन orrn के एक ऑर्डर में पहले से है। |
+| `refuse.order_line_new` | This line is not on the order in orrn. Add it to that order there, or keep the orrn order as it is. | यह लाइन orrn के ऑर्डर में नहीं है। उसे वहीं उस ऑर्डर में जोड़ें, या orrn का ऑर्डर जैसा है वैसा रहने दें। |
+| `refuse.in_file_duplicate_same` | This row is in the file twice. The second copy is skipped. | यह लाइन फ़ाइल में दो बार है। दूसरी कॉपी छोड़ दी गई। |
+| `refuse.cell_cut` | A cell in this row was very long and was cut. | इस लाइन का एक सेल बहुत लंबा था, इसलिए काट दिया गया। |
+| `refuse.row_cut` | This row was very long and the end of it was cut. | यह लाइन बहुत लंबी थी, इसलिए इसका आखिरी हिस्सा काट दिया गया। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |
@@ -7059,7 +7272,13 @@ Please check, Lalubhai:
 | `error.action` | Could not save that. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
-| `file.table` | Table {n} | तालिका {n} |
+| `file.table` | Table {n} | टेबल {n} |
+| `file.columnsIn` | Columns in the file: {names} | फ़ाइल के कॉलम: {names} |
+| `file.subtitle` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added by {name} on {date} | {rows} लाइनें, {tables} टेबल, {name} ने {date} को जोड़ी |
+| `file.subtitleNoName` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added on {date} | {rows} लाइनें, {tables} टेबल, {date} को जोड़ी |
+| `docTitle.list` | Imports \| orrn | इम्पोर्ट \| orrn |
+| `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
+| `docTitle.review` | {target}, {file} \| Imports \| orrn | {target}, {file} \| इम्पोर्ट \| orrn |
 
 ### reasons (79)
 
@@ -7324,7 +7543,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (304)
+### audit (307)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7521,10 +7740,13 @@ Please check, Lalubhai:
 | `actions.foundry__reading__add` | Furnace temperature added | फर्नेस का तापमान जोड़ा |
 | `actions.foundry__reading__simulate` | Furnace curve simulated (demo) | फर्नेस का सिमुलेटेड कर्व चलाया (डेमो) |
 | `actions.foundry__spectro__void` | Spectro result voided | स्पेक्ट्रो नतीजा रद्द किया |
+| `actions.ingest__artifact__reread` | File read again for import | इम्पोर्ट की फ़ाइल दोबारा पढ़ी |
 | `actions.ingest__artifact__upload` | File uploaded for import | इम्पोर्ट के लिए फ़ाइल डाली |
 | `actions.ingest__candidate__approve` | Import approved | इम्पोर्ट मंज़ूर किया |
 | `actions.ingest__candidate__discard` | Import discarded | इम्पोर्ट हटाया |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
+| `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
+| `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |
 | `actions.ingest__hole__save` | Import layout saved | इम्पोर्ट का लेआउट सेव किया |
 | `actions.ingest__merge__finish` | Import merge finished | इम्पोर्ट मर्ज पूरा हुआ |
 | `actions.ingest__merge__start` | Import merge started | इम्पोर्ट मर्ज शुरू हुआ |

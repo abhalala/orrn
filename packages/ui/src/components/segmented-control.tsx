@@ -17,6 +17,7 @@ export type SegmentedControlProps<T extends string> = {
  * iOS-style segmented control for filters and modes (2-4 options). Segments
  * share the sunken pill track (longer labels get more room, nothing is cut
  * off at 375px); the selected segment is a raised thumb that slides to it.
+ * A label may hold a line break ("Needs you\n7"): on a phone it stacks, from `sm` up it stays on one line.
  * A radio group: Tab lands on the selected segment, arrow keys move and
  * select, Home/End jump.
  */
@@ -107,7 +108,8 @@ export function SegmentedControl<T extends string>({
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute top-1 bottom-1 left-0 rounded-full bg-card shadow-sm dark:bg-surface-sunken dark:ring-1 dark:ring-control/40",
+          // The ring is the second cue for the selected segment: the fill alone is 1.2:1 against the track (WCAG 1.4.11), the ring is above 3:1 in both themes.
+          "pointer-events-none absolute top-1 bottom-1 left-0 rounded-full bg-card shadow-sm ring-1 ring-foreground/50 dark:bg-surface-sunken",
           settled && "transition-[transform,width] duration-[var(--dur-base)] ease-[var(--ease-spring)]",
           !thumb && "opacity-0",
         )}
@@ -129,11 +131,11 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "relative z-[1] inline-flex h-9 min-w-0 flex-auto items-center justify-center rounded-full px-3 text-[14px] sm:px-4 font-semibold whitespace-nowrap transition-colors duration-[var(--dur-fast)] pointer-coarse:h-11",
+              "relative z-[1] inline-flex min-h-9 min-w-0 flex-auto items-center justify-center rounded-full px-2 py-1 text-center text-[14px] leading-tight sm:px-4 font-semibold max-sm:whitespace-pre-line sm:whitespace-nowrap transition-colors duration-[var(--dur-fast)] pointer-coarse:min-h-11",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <span className="truncate" title={opt.label}>
+            <span className="max-sm:break-words sm:truncate" title={opt.label}>
               {opt.label}
             </span>
           </button>
