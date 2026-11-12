@@ -271,6 +271,17 @@ export const hi = {
     adminSupport: "सपोर्ट",
     press: "प्रेस",
     reports: "रिपोर्ट",
+    arrange: "मेन्यू का क्रम बदलें",
+    done: "हो गया",
+    cancel: "रहने दें",
+    resetDefault: "डिफ़ॉल्ट क्रम पर लौटें",
+    resetConfirm: "मेन्यू को डिफ़ॉल्ट क्रम में वापस लाएं?",
+    moveUp: "ऊपर ले जाएं",
+    moveDown: "नीचे ले जाएं",
+    dragToMove: "{name} को खींचकर क्रम बदलें",
+    moved: "{name} को कुल {total} में से {position}वें स्थान पर ले जाया गया",
+    orderSaved: "मेन्यू का क्रम सेव हो गया",
+    orderSaveFailed: "मेन्यू का क्रम सेव नहीं हो सका। फिर से कोशिश करें।",
   },
 
   auth: {

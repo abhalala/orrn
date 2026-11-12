@@ -279,6 +279,17 @@ export const en = {
     adminSupport: "Support",
     press: "Press",
     reports: "Reports",
+    arrange: "Arrange menu",
+    done: "Done",
+    cancel: "Cancel",
+    resetDefault: "Reset to default",
+    resetConfirm: "Put the menu back in the default order?",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    dragToMove: "Drag to move {name}",
+    moved: "{name} moved to position {position} of {total}",
+    orderSaved: "Menu order saved",
+    orderSaveFailed: "The menu order could not be saved. Try again.",
   },
 
   auth: {

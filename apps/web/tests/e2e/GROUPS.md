@@ -1,6 +1,6 @@
 # e2e groups A / B / C
 
-The 48 spec files run in three groups, one after another on one port pair, never together. Each group starts or
+The 49 spec files run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
@@ -9,7 +9,7 @@ and ui-kit moved from C to A. Keep the long store, platform, press and chain flo
 |---|---|---|
 | A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 276 s (failed) / 272 s |
-| C | ageing-masters, ageing, chain, collectors, next-rows, orders-plan-purpose, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s |
+| C | ageing-masters, ageing, chain, collectors, nav-order, next-rows, orders-plan-purpose, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s |
 
 These are **historical measurements, not verification of the current revision**. The interrupted W4-TESTSWEEP-2 run
 saved them in `/tmp/W4-TESTSWEEP-2/final-summary.txt` and `final-{1,2}-{A,B,C}.json`. The previous distribution's
