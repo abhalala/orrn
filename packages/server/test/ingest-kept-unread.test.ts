@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
-import { plant, pump, upload, type Caller } from "./ingest-portal-helpers";
+import { plant, pump, upload, type Caller, putBlocksPicked } from "./ingest-portal-helpers";
 import { runVisionAttempt } from "../src/lib/ingest/bot";
 
 let env: TestEnv;
@@ -105,7 +105,7 @@ describe("PDFs and photos are kept, not read, in this release", () => {
     const p = await plant(env);
     const out = await keep(p.owner, FILES[0]!);
     await expect(
-      p.owner.ingest.artifact.putBlocks({
+      putBlocksPicked(p.owner, {
         artifactId: out.artifactId,
         blocks: [{ ordinal: 0, sheetName: null, title: null, headerRow: 0, headerRows: 1, headers: ["Name", "City"], rowCount: 1, sample: [["Acme", "Surat"]] }],
       }),

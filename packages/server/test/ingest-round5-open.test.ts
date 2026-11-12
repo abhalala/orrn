@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { createHash, randomUUID } from "node:crypto";
-import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller, putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { comesBefore, orderGroupCheck } from "../src/lib/ingest/orderid";
 
 let env: TestEnv;
@@ -380,11 +380,11 @@ describe("lead answer (b): a merged order-number cell gives its number only when
   /** An upload with the reader's merged ranges for the block (block row indexes, one column). */
   async function sendMerged(as: Caller, rows: string[][], merged?: { col: number; firstRow: number; lastRow: number }[]) {
     const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "book.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
-    const put = await as.ingest.artifact.putBlocks({
+    const put = await putBlocksPicked(as, {
       artifactId: begin.artifactId,
       blocks: [{ ordinal: 0, sheetName: "A", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows, ...(merged ? { merged } : {}) }],
     });
-    await as.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
+    await putRowsAs(as, { blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
     await as.ingest.artifact.complete({ artifactId: begin.artifactId });
     const id = put.candidates[0]!.id;
     await pump(as, id);

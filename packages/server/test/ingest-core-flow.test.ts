@@ -9,6 +9,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
 import { workersEnv } from "./env-mock";
+import { putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 import { BAKI_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, fingerprint, type Recipe } from "@orrn/ingest";
@@ -75,10 +76,10 @@ const blockOf = (s: Sheet, ordinal: number) => ({
 /** begin, putBlocks, putRows and complete, as the browser does it. */
 async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx") {
   const begin = await as.ingest.artifact.begin({ sha256: sha(), fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
-  const put = await as.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: sheets.map(blockOf) });
+  const put = await putBlocksPicked(as, { artifactId: begin.artifactId, blocks: sheets.map(blockOf) });
   for (const [i, s] of sheets.entries()) {
     const block = put.blocks.find((b) => b.ordinal === i)!;
-    if (s.rows.length > 0) await as.ingest.artifact.putRows({ blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
+    if (s.rows.length > 0) await putRowsAs(as, { blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
   }
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   const candidates = put.candidates.sort((a, b) => a.blockOrdinal - b.blockOrdinal);
@@ -198,19 +199,19 @@ describe("artifact.putRows", () => {
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "c.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
     const sheet: Sheet = { headers: CUSTOMERS.headers, rows: [["A", "", "X"], ["B", "", "Y"], ["C", "", "Z"]] };
-    const { blocks } = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(sheet, 0)] });
+    const { blocks } = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(sheet, 0)] });
     const blockId = blocks[0]!.blockId;
-    expect((await p.admin.ingest.artifact.putRows({ blockId, fromIndex: 0, expectRowsPut: 0, rows: sheet.rows.slice(0, 2) })).rowsPut).toBe(2);
-    await expect(p.admin.ingest.artifact.putRows({ blockId, fromIndex: 0, expectRowsPut: 0, rows: sheet.rows.slice(0, 2) })).rejects.toThrow(/another tab/);
-    await expect(p.admin.ingest.artifact.putRows({ blockId, fromIndex: 3, expectRowsPut: 3, rows: [["D", "", "W"]] })).rejects.toThrow(/another tab/);
+    expect((await putRowsAs(p.admin, { blockId, fromIndex: 0, expectRowsPut: 0, rows: sheet.rows.slice(0, 2) })).rowsPut).toBe(2);
+    await expect(putRowsAs(p.admin, { blockId, fromIndex: 0, expectRowsPut: 0, rows: sheet.rows.slice(0, 2) })).rejects.toThrow(/another tab/);
+    await expect(putRowsAs(p.admin, { blockId, fromIndex: 3, expectRowsPut: 3, rows: [["D", "", "W"]] })).rejects.toThrow(/another tab/);
     // More rows than the sheet declared.
-    await expect(p.admin.ingest.artifact.putRows({ blockId, fromIndex: 2, expectRowsPut: 2, rows: [["C", "", "Z"], ["D", "", "W"]] })).rejects.toThrow(
+    await expect(putRowsAs(p.admin, { blockId, fromIndex: 2, expectRowsPut: 2, rows: [["C", "", "Z"], ["D", "", "W"]] })).rejects.toThrow(
       /More rows/,
     );
-    expect((await p.admin.ingest.artifact.putRows({ blockId, fromIndex: 2, expectRowsPut: 2, rows: [sheet.rows[2]!] })).rowsPut).toBe(3);
+    expect((await putRowsAs(p.admin, { blockId, fromIndex: 2, expectRowsPut: 2, rows: [sheet.rows[2]!] })).rowsPut).toBe(3);
     // complete waits for every row and then closes the file to more rows.
     await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
-    await expect(p.admin.ingest.artifact.putRows({ blockId, fromIndex: 3, expectRowsPut: 3, rows: [["D", "", "W"]] })).rejects.toThrow(/already read/);
+    await expect(putRowsAs(p.admin, { blockId, fromIndex: 3, expectRowsPut: 3, rows: [["D", "", "W"]] })).rejects.toThrow(/already read/);
   });
 
   test("long cells are cut to 200 characters with a reason; the wire refuses past 2,000", async () => {
@@ -222,19 +223,19 @@ describe("artifact.putRows", () => {
     expect(rows.items[0]!.reasons).toContain("cell_cut");
 
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "d.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
-    const { blocks } = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf({ headers: ["Name"], rows: [["a"]] }, 0)] });
-    await expect(p.admin.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [["y".repeat(2001)]] })).rejects.toThrow(/Too big|too_big/i);
+    const { blocks } = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf({ headers: ["Name"], rows: [["a"]] }, 0)] });
+    await expect(putRowsAs(p.admin, { blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [["y".repeat(2001)]] })).rejects.toThrow(/Too big|too_big/i);
   });
 
   test("putBlocks twice with the same sheets replays; different sheets are a conflict", async () => {
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "e.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
-    const first = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
-    const again = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    const first = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    const again = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     expect(again.blocks).toEqual(first.blocks);
     expect(again.candidates.map((c) => c.id)).toEqual(first.candidates.map((c) => c.id));
     await expect(
-      p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(CUSTOMERS, 1)] }),
+      putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(CUSTOMERS, 1)] }),
     ).rejects.toThrow(/already saved/);
   });
 });
@@ -381,7 +382,7 @@ describe("plan B7 transitions", () => {
   test("a failed read marks the file and its sheets failed", async () => {
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "bad.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
-    await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId, readError: "The file is password protected" });
     const detail = await p.admin.ingest.artifact.get({ artifactId: begin.artifactId });
     expect(detail).toMatchObject({ readState: "failed", readError: "The file is password protected" });
@@ -564,7 +565,7 @@ describe("questions and row decisions", () => {
     expect(out.counts).toMatchObject({ conflict: 1, create: 1 });
     let c = await p.admin.ingest.candidate.get({ candidateId: id });
     expect(c.openQuestions).toBeGreaterThan(0);
-    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow("Choose for 1 row first");
     const conflict = (await p.admin.ingest.rows.list({ candidateId: id, state: "conflict" })).items[0]!;
     expect(conflict.diff).toMatchObject({ city: { live: "Ahmedabad", file: "Surat" } });
     await p.admin.ingest.rows.decide({ candidateId: id, rowIds: [conflict.id], decision: "keep_live", expectSeq: c.serverSeq });

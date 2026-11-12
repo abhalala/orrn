@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, plant, trim, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, plant, trim, type Caller, putRowsAs } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -53,7 +53,7 @@ async function begin(as: Caller) {
   return as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "book.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
 }
 
-const block = (over: Record<string, unknown>) => ({ ordinal: 0, sheetName: "Book", title: null, headers: BOOK, rowCount: DATA.length, sample: DATA, headerRow: 1, headerRows: 1, ...over });
+const block = (over: Record<string, unknown>) => ({ ordinal: 0, sheetName: "Book", title: null, headers: BOOK, rowCount: DATA.length, sample: DATA, headerRow: 1, headerRows: 1, preview: PREVIEW, ...over });
 
 async function headerByOf(blockId: string) {
   return (await env.d1.prepare("select header_by from ingest_block where id = ?").bind(blockId).first<{ header_by: string }>())?.header_by;
@@ -67,7 +67,7 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: PREVIEW })] });
     expect(put.header).toEqual([{ ordinal: 0, answer: "keep", by: "fit", blockId: put.blocks[0]!.blockId }]);
     expect(await headerByOf(put.blocks[0]!.blockId)).toBe("fit");
-    await p.owner.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: DATA });
+    await putRowsAs(p.owner, { blockId: put.blocks[0]!.blockId, headerRow: 1, headerRows: 1, fromIndex: 0, expectRowsPut: 0, rows: DATA });
     await p.owner.ingest.artifact.complete({ artifactId });
     expect(put.candidates[0]!.state).toBe("processing");
   });
@@ -154,12 +154,12 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, hint: { headerRow: 0, headerRows: 1 } }, { ...blk, ordinal: 1 }] })).rejects.toThrow(/already saved/);
   });
 
-  test("the old shape with no preview still works for one release, recorded as the reader's", async () => {
+  test("rule 7.2 (round 6): the old shape with no preview is refused; nothing is saved as the reader's", async () => {
     const p = await plant(env);
     const { artifactId } = await begin(p.owner);
-    const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({})] });
-    expect(put.header).toEqual([{ ordinal: 0, answer: "keep", by: "reader", blockId: put.blocks[0]!.blockId }]);
-    expect(await headerByOf(put.blocks[0]!.blockId)).toBe("reader");
+    const { preview: _, ...bare } = block({});
+    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [bare as never] })).rejects.toThrow();
+    expect((await p.owner.ingest.artifact.get({ artifactId })).blocks).toEqual([]);
   });
 
   test("rule 5.1: a near fit is never trusted; ask names the layout it resembles and puts that row first", async () => {
@@ -194,8 +194,8 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ headerRow: 4999, preview })] });
     // The window moved (a gap after row 2), so the true header may lie outside it: always ask (M6).
     expect(put.header[0]).toMatchObject({ ordinal: 0, answer: "ask", resembles: { name: "Book", fit: "exact", headerRow: 4999 } });
-    const { artifactId: second } = await begin(p.owner);
-    const picked = await p.owner.ingest.artifact.putBlocks({ artifactId: second, blocks: [block({ headerRow: 4999, preview, hint: { headerRow: 4999, headerRows: 1 } })] });
+    // Rule 7.2 (round 6): the pick is taken because the server asked about this table.
+    const picked = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ headerRow: 4999, preview, hint: { headerRow: 4999, headerRows: 1 } })] });
     expect(picked.header[0]).toMatchObject({ answer: "keep", by: "person" });
   });
 

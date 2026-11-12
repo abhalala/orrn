@@ -133,6 +133,11 @@ export const ingestArtifact = sqliteTable(
     vaultState: text("vault_state", { enum: VAULT_STATES }).notNull(),
     readState: text("read_state", { enum: READ_STATES }).notNull(),
     readError: text("read_error"),
+    /**
+     * Rule 7.2: the tables (by ordinal) the server asked about ("ask"), told to read again ("reread"),
+     * or reset for a person's pick ("pick"). A hint is taken only for a table named here.
+     */
+    headerAsked: text("header_asked", { mode: "json" }).$type<Record<string, { answer: "ask" | "reread" | "pick"; at: number }>>(),
     blockCount: count("block_count"),
     rowCount: count("row_count"),
     period: text("period", { mode: "json" }).$type<IngestPeriodGuess>(),
@@ -176,6 +181,8 @@ export const ingestBlock = sqliteTable(
      * and column. Only a merged order-number cell gives its number to the rows under it.
      */
     merged: text("merged", { mode: "json" }).$type<{ col: number; firstRow: number; lastRow: number }[]>(),
+    /** Rule 7.2: a person's pick of the header row, with who and when. Null when a fit settled it. */
+    headerPick: text("header_pick", { mode: "json" }).$type<{ by: string; at: number; headerRow: number; headerRows: 1 | 2; lastDataRow?: number | null; skipRows?: number[] }>(),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),

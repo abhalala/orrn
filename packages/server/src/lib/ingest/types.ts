@@ -88,23 +88,27 @@ export type BlockInput = {
   title: string | null;
   headerRow: number;
   headerRows: number;
-  headers: string[];
+  /** Rule 7.2: not trusted; the server takes the names from the preview row it settles. */
+  headers?: string[];
   rowCount: number;
   /** Up to 200 data rows (first 100 plus 100 spread), cells cut to 200 characters. */
   sample: string[][];
   /** Column indexes the reader saw as real date cells (an Excel date), when it knows. */
   dateColumns?: number[];
   /**
-   * Rule 4.1: the first raw rows of the region as read, before any header was applied (at most 12
-   * rows of at most 200 cells, each cut to 200 characters), with their raw row numbers. With it the
-   * server checks the header itself (`HeaderAnswer`). Without it (the old shape, for one release)
-   * the header is taken as the browser read it and recorded as `reader`.
+   * Rules 4.1 and 7.2: the raw rows of the region as read, before any header was applied (at most 15
+   * rows of at most 200 cells, each cut to 200 characters), with their raw row numbers, in order and
+   * each once. Required: the server checks the header on it and takes the names from it.
    */
-  preview?: { row: number; page?: number; cells: string[] }[];
+  preview: { row: number; page?: number; cells: string[] }[];
+  /** The region's width (`ReadBlock.width`). */
+  width?: number;
+  /** Rule 6.1: only blank rows lie between this table and table `ordinal` above it. */
+  follows?: { ordinal: number; gapRows: number } | null;
   /** Lead answer (b): vertical merged cell ranges, by block row index and column. */
   merged?: { col: number; firstRow: number; lastRow: number }[];
-  /** The header row a person picked on the preview. Trusted; `headerRow` and `headerRows` must be it. */
-  hint?: HeaderPickIn;
+  /** A person's pick of the header row, after the server asked. `headerRow` and `headerRows` must be it. */
+  hint?: HeaderPickIn & { lastDataRow?: number | null; skipRows?: number[] };
 };
 
 /** A header as hints take it: the raw row number and one or two header rows. */
@@ -123,7 +127,19 @@ export type HeaderBy = "reader" | "fit" | "person";
 export type HeaderAnswer =
   | { ordinal: number; answer: "keep"; by: HeaderBy; blockId: string }
   | { ordinal: number; answer: "reread"; headerRow: number; headerRows: 1 | 2 }
-  | { ordinal: number; answer: "ask"; guess: HeaderPickIn; candidates: HeaderPickIn[]; resembles: HeaderResemblesOut | null };
+  | {
+      ordinal: number;
+      answer: "ask";
+      guess: HeaderPickIn;
+      candidates: HeaderPickIn[];
+      resembles: HeaderResemblesOut | null;
+      /** Rule 6.1: the table this one follows, as sent, or null. */
+      follows: { ordinal: number; gapRows: number } | null;
+      /** Rule 6.1: offer "It continues the table above" first. */
+      continuesAbove: boolean;
+      /** Rule 6.1: offer "Same columns as the table above". */
+      sameColumnsAsAbove: boolean;
+    };
 
 /**
  * Rule 5.1: the row that looks like a known layout but is not trusted, and that layout, so the screen

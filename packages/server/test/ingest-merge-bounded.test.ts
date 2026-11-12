@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import type { IngestTarget } from "@orrn/db/schema/ingest";
 
+import { putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { createTestEnv, type TestEnv } from "./harness";
 import { apiFor, candidateRow, contextFor, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 import { ORDERS_TOO_BIG } from "../src/lib/ingest/merge/planner";
@@ -586,12 +587,12 @@ describe("bounded dry run steps (S3-2)", () => {
       rows.push(["Acme Traders", String(i + 1), "", "31/10/2025", "R", "5101", "3658", "100"]);
     }
     const begin = await owner.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "big.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
-    const put = await owner.ingest.artifact.putBlocks({
+    const put = await putBlocksPicked(owner, {
       artifactId: begin.artifactId,
       blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows.slice(0, 200) }],
     });
     const blockId = put.blocks[0]!.blockId;
-    for (let i = 0; i < rows.length; i += 500) await owner.ingest.artifact.putRows({ blockId, fromIndex: i, expectRowsPut: i, rows: rows.slice(i, i + 500) });
+    for (let i = 0; i < rows.length; i += 500) await putRowsAs(owner, { blockId, fromIndex: i, expectRowsPut: i, rows: rows.slice(i, i + 500) });
     await owner.ingest.artifact.complete({ artifactId: begin.artifactId });
     const id = put.candidates[0]!.id;
 
@@ -702,11 +703,11 @@ describe("order writes read old orders by key, not the customer's whole history 
     await learnLayout(env, companyId, users.owner.id, recipe, "Book");
     const rows = Array.from({ length: 10 }, (_, i) => ["Acme Traders", `N-${i}`, `NP-${i}`, "31/10/2025", "R", "5100", "3658", "100"]);
     const begin = await owner.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "ten.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
-    const put = await owner.ingest.artifact.putBlocks({
+    const put = await putBlocksPicked(owner, {
       artifactId: begin.artifactId,
       blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows }],
     });
-    await owner.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
+    await putRowsAs(owner, { blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
     await owner.ingest.artifact.complete({ artifactId: begin.artifactId });
     const id = put.candidates[0]!.id;
 
