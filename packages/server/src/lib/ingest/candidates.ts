@@ -790,7 +790,9 @@ export async function setTarget(
     }
   }
   // Rule 11.3: a change into or out of orders changes which sheets are order sheets.
-  const ordersMove = (c.target === "orders") !== (input.target === "orders") && c.state !== "discarded";
+  // A discarded sheet is not an order sheet, so bringing it back into orders is a move too (S9-2).
+  const wasOrders = c.target === "orders" && c.state !== "discarded";
+  const ordersMove = wasOrders !== (input.target === "orders");
   const moved = ordersMove ? await orderSheetsMove(ctx, c) : [];
   // Rule 11.3 (S9-1): a sheet leaving orders loses the skips the bulk action made under its No.
   const leaving = c.target === "orders" && input.target !== "orders" ? [clearBulkSkips(ctx, c.id)] : [];

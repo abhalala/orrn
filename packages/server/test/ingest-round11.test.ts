@@ -156,3 +156,25 @@ describe("S9-1: a bulk skip counts only while the file's answer is No", () => {
     expect(await marks(a)).toBe(2);
   });
 });
+
+const TABLES_LOCKED = "A sheet of this file is approved. Its tables cannot change now.";
+
+describe("S9-2: a discarded sheet brought back into orders meets the guard", () => {
+  test("Yes on A, B approved, A discarded: setting A to orders is refused", async () => {
+    const p = await setup();
+    const up = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: TWO("41", "PO-A", "PO-B") },
+      { name: "B", headers: BOOK, rows: TWO("43", "PO-D", "PO-E") },
+    ]);
+    const [a, b] = [up.candidates[0]!.id, up.candidates[1]!.id];
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    await fill(p.owner, a, true);
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    expect(await tryApprove(p.owner, b)).toBe("approved");
+    await p.owner.ingest.candidate.discard({ candidateId: a, expectSeq: await seqOf(p.owner, a) });
+    await expect(setTarget(p.owner, a, "orders")).rejects.toThrow(TABLES_LOCKED);
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("discarded");
+  });
+});
