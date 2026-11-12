@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8152 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8153 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6945,7 +6945,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (538)
+### ingest (539)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7294,6 +7294,7 @@ Please check, Lalubhai:
 | `effect.ownOrder` | {count} {count:row has\|rows have} no order number. Each becomes its own order. | {count} {count:लाइन में\|लाइनों में} ऑर्डर नंबर नहीं है। हर लाइन अपना अलग ऑर्डर बनेगी। |
 | `effect.filled` | {count} {count:row\|rows} took party, date or PO from the row above. | {count} {count:लाइन ने\|लाइनों ने} पार्टी, तारीख या PO ऊपर की लाइन से ली। |
 | `rows.title` | Rows as they will appear in orrn | orrn में ये लाइनें ऐसे दिखेंगी |
+| `rows.titleMerged` | Rows as they were added to orrn | orrn में ये लाइनें ऐसे जुड़ीं |
 | `rows.needsDecision` | Needs a decision {count} | फ़ैसला चाहिए {count} |
 | `rows.needsDecisionName` | Needs a decision | फ़ैसला चाहिए |
 | `rows.choice` | Your choice | आपका फ़ैसला |

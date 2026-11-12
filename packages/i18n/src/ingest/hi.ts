@@ -439,6 +439,7 @@ export const ingestHi = {
     filled: "{count} {count:लाइन ने|लाइनों ने} पार्टी, तारीख या PO ऊपर की लाइन से ली।",
   },
   rows: {
+    titleMerged: "orrn में ये लाइनें ऐसे जुड़ीं",
     title: "orrn में ये लाइनें ऐसे दिखेंगी",
     needsDecision: "फ़ैसला चाहिए {count}",
     needsDecisionName: "फ़ैसला चाहिए",

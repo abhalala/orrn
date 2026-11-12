@@ -441,6 +441,7 @@ export const ingestEn = {
   },
   rows: {
     title: "Rows as they will appear in orrn",
+    titleMerged: "Rows as they were added to orrn",
     needsDecision: "Needs a decision {count}",
     needsDecisionName: "Needs a decision",
     choice: "Your choice",

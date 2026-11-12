@@ -145,6 +145,9 @@ function chosenWords(row: Pick<StagedRowView, "decision" | "matchId" | "options"
   return picked ? { key, vars: { name: picked.label } } : null;
 }
 
+/** The heading of the rows panel: rows that are in orrn now are not "as they will appear". */
+export const rowsHeadingKey = (state: CandidateDetail["state"]) => (state === "merged" ? "ingest.rows.titleMerged" : "ingest.rows.title");
+
 /** A conflict that is a clash with another file: the order or PO it names is also in another file or sheet of the plant. */
 function clashesWithFile(row: Pick<StagedRowView, "reasons" | "values">): boolean {
   return row.reasons.some((r) => r.startsWith("po_on_two_orders:") || r.startsWith("order_in_other_file:")) && orderFacts(row.values).file !== null;

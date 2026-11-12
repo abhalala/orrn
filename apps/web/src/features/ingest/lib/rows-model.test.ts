@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { plantUnitsFor } from "./plant-units";
 import { groupRowNotes } from "./rows-model";
 import {
-  cardFields, decisionButtonName, decisionGroupName, defaultRowFilter, effectiveFilter, rowFilters, rowsShowingWords, rowsTable, rowView,
+  rowsHeadingKey, cardFields, decisionButtonName, decisionGroupName, defaultRowFilter, effectiveFilter, rowFilters, rowsShowingWords, rowsTable, rowView,
   serverStatesFor, visibleRowFilters, ROWS_UI_PAGE,
 } from "./rows-model";
 import { refusalTone } from "./refusals";
@@ -208,5 +208,12 @@ describe("what a group of waiting rows repeats is said once (server round 9)", (
   test("a refusal that is not about waiting stays on its row", () => {
     const refused = waiting(4, { reasons: [{ kind: "refusal", key: "ingest.refuse.order_no_date", fieldKey: null }] as never, waitsOn: null });
     expect(groupRowNotes([refused, waiting(5)]).views[0]!.reasons).toHaveLength(1);
+  });
+});
+
+describe("the rows heading (design re-check A3)", () => {
+  test("a merged import's rows were added, every other state's will appear", () => {
+    expect(rowsHeadingKey("merged")).toBe("ingest.rows.titleMerged");
+    for (const state of ["ready", "held", "approved", "needs_confirm", "merging"] as const) expect(rowsHeadingKey(state)).toBe("ingest.rows.title");
   });
 });

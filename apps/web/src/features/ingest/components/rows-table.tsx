@@ -18,6 +18,7 @@ import {
   ROWS_UI_PAGE,
   rowFocusKey,
   rowsTable,
+  rowsHeadingKey,
   rowView,
   visibleRowFilters,
   useRowsBrowser,
@@ -108,10 +109,12 @@ export function StagedRows({
   const decide = (row: RowView, option: DecisionOption) => void act.decide({ id: row.id, n: row.n }, option, ids);
   const showChoice = canDecide && (table.decisionColumn || views.some((v) => v.menu.length > 0));
   const asTable = wide;
+  // A merged import's rows are not "as they will appear": they are in orrn now (design re-check A3).
+  const heading = t(rowsHeadingKey(candidate.state));
   const filters = visibleRowFilters(browser.options);
 
   return (
-    <EvidencePanel title={t("ingest.rows.title")} headingRef={focusRef(FOCUS.rowsHeading)}>
+    <EvidencePanel title={heading} headingRef={focusRef(FOCUS.rowsHeading)}>
       {filters.length > 0 ? (
         <div role="group" aria-label={t("common.filter")} className="flex flex-wrap gap-2">
           {filters.map((option) => {
@@ -142,7 +145,7 @@ export function StagedRows({
             <EmptyState title={t("ingest.rows.none")} />
           </div>
         ) : asTable ? (
-          <ScrollCue><RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} /></ScrollCue>
+          <ScrollCue><RowsTable label={heading} views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} /></ScrollCue>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0 lg:grid lg:grid-cols-2">
             {views.map((row) => (
@@ -374,8 +377,9 @@ export function RowsTable({
   columns,
   showChoice,
   decisionColumn,
+  label,
   ...rest
-}: RowProps & { views: RowView[]; columns: RowColumn[]; showChoice: boolean; decisionColumn: boolean }) {
+}: RowProps & { views: RowView[]; columns: RowColumn[]; showChoice: boolean; decisionColumn: boolean; label?: string }) {
   const { t } = useSay();
   const rowColumn: ResponsiveListColumn<RowView> = {
     key: "row",
@@ -430,7 +434,7 @@ export function RowsTable({
   // Row, then what it is and what to do about it, then the values: a layout with many fields scrolls sideways under the
   // pinned Row column, and the buttons of a row that needs a decision never sit behind that scroll.
   const list: ResponsiveListColumn<RowView>[] = [rowColumn, statusColumn, ...(decisionColumn && showChoice ? [choiceColumn] : []), ...fieldColumns];
-  return <ResponsiveList label={t("ingest.rows.title")} rows={views} columns={list} rowKey={(v) => v.id} empty={null} />;
+  return <ResponsiveList label={label ?? t("ingest.rows.title")} rows={views} columns={list} rowKey={(v) => v.id} empty={null} />;
 }
 
 /** Phone and tablet: one card per row. At most five fields, the rest behind "Show all fields". */
