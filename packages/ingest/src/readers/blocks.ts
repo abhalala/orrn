@@ -7,7 +7,7 @@
  */
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
-import { DROPPED_FORMAT, usedWidth } from "../fingerprint";
+import { DROPPED_FORMAT, isUnitOnlyName, normalizeHeader, usedWidth } from "../fingerprint";
 import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
@@ -347,6 +347,25 @@ export type FindBlocksOptions = {
 };
 
 /** Two rows hold the same names, exactly: cells trimmed, trailing blank cells ignored. */
+/**
+ * Is `row` a data row under the header `head`? Either it does not look like a header, or it holds a number or a date
+ * in a column where `head` holds text (seed 3604: "Om Metals | Surat | 9842817775" under "Name | City | Phone").
+ */
+function isDataUnder(head: readonly string[], row: readonly string[]): boolean {
+  if (!isHeaderLike(row)) return true;
+  const isWord = (c: string) => {
+    const k = cellKind(c);
+    return k === "text" || k === "code";
+  };
+  return row.some((c, i) => c !== "" && !isWord(c) && (head[i] ?? "") !== "" && isWord(head[i]!));
+}
+
+/** A row whose filled cells are all unit words ("Rs | nos | kg"): the second line of a header, not data. */
+function isUnitsRow(row: readonly string[]): boolean {
+  const cells = row.filter((c) => c !== "");
+  return cells.length > 0 && cells.every((c) => isUnitOnlyName(normalizeHeader(c)));
+}
+
 export function sameNames(a: readonly string[], b: readonly string[]): boolean {
   const cut = (r: readonly string[]) => {
     const t = r.map((c) => c.trim());
@@ -676,7 +695,9 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
           const cand = rows[k]!;
           if (nonBlank(cand) <= 1) continue;
           // A new table needs a data row right under its header; a footer such as "Prepared by" has none (C33).
-          const below = k + 1 < n ? rows[k + 1] : undefined;
+          const next = k + 1 < n ? rows[k + 1] : undefined;
+          // A units row under the candidate is part of its header; the data row is the one under that (seed 411).
+          const below = next !== undefined && isUnitsRow(next) ? rows[k + 2] : next;
           // With no data row yet, the guessed header itself is the row to compare with (round 7): a lone row of numbers
           // guessed as a header, then a blank row and a real header, is two tables. A text header never splits here.
           // A row that repeats this block's header names exactly is a new block too (rule 6.1: a second month in the
@@ -685,7 +706,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
             below !== undefined &&
             nonBlank(below) > 0 &&
             (sameNames(cand, rows[h]!) ||
-              (!isHeaderLike(below) && startsNewBlock(cand, data.some((r) => nonBlank(r) > 0) ? data.slice(-200) : [headers], headers.length)));
+              (isDataUnder(cand, below) && startsNewBlock(cand, data.some((r) => nonBlank(r) > 0) ? data.slice(-200) : [headers], headers.length)));
           break;
         }
       }

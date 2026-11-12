@@ -166,4 +166,30 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     expect(r.blocks[0]!.warnings).toEqual([]);
     expect(placed(m, r)).toBe(filledRows(m));
   });
+
+  test("a block guessed below a hinted one stops at a table whose header has a units row (seed 411)", () => {
+    const T2 = [["Party", "Section", "Pcs", "Kg"], ["", "", "nos", "kg"], ["Om", "F3301", "787", "12.38"], ["Mehta", "R2105", "828", "6.28"], ["Om", "K1100", "448", "50.40"]];
+    const m = [["Name", "City", "Phone"], ["Zenith", "Morbi", "9862189229"], [], [], ["Zenith", "Rajkot", "9855442644"], ["Om", "Morbi", "9880727474"], [], [], ...T2];
+    for (const r of [readSheet(m, { hints: [{ headerRow: 0 }] }), readSheet(m)]) {
+      const b = r.blocks.find((x) => x.guess.headerRow === 8 || (x.guess.headerRow < 8 && 8 < x.guess.headerRow + x.headerRows));
+      expect(b, JSON.stringify(r.blocks.map((x) => x.guess))).toBeDefined();
+      expect(b!.follows).not.toBeNull();
+      expect(placed(m, r)).toBe(filledRows(m));
+    }
+  });
+
+  test("one data row left after a blank run, then a text table: the table is its own block (seed 3604)", () => {
+    const m = [["Name", "Phone", "City"], ["Om", "9874648251", "Morbi"], ["Mehta", "9876727950", "Surat"], [], [], ["Ram", "9867544420", "Rajkot"], [], [], ["नाम", "शहर", "फोन"], ["Om", "Surat", "9842817775"], ["Ram", "Morbi", "9822420530"], ["Kamal", "Rajkot", "9874624894"]];
+    const r = readSheet(m, { hints: [{ headerRow: 0 }] });
+    const b = r.blocks.find((x) => x.guess.headerRow === 8);
+    expect(b, JSON.stringify(r.blocks.map((x) => x.guess))).toBeDefined();
+    expect(b!.rows.length).toBe(3);
+    expect(b!.follows).not.toBeNull();
+    expect(placed(m, r)).toBe(filledRows(m));
+  });
+
+  test("a data row after a blank row in a name and phone table does not start a new table", () => {
+    const m = [["Name", "Phone", "City"], ["Om", "9874648251", "Morbi"], ["Mehta", "9876727950", "Surat"], [], ["Ram", "9867544420", "Rajkot"], ["Kamal", "9874624894", "Surat"]];
+    expect(readSheet(m).blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 5]]);
+  });
 });
