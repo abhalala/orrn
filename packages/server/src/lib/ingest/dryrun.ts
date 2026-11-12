@@ -1088,7 +1088,8 @@ export async function withFileFillAnswer(ctx: Pick<IngestCtx, "db" | "companyId"
       and(
         eq(ingestAnswer.companyId, ctx.companyId),
         eq(ingestAnswer.questionCode, "order_fill_above"),
-        sql`${ingestAnswer.candidateId} in (select k.id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId})`,
+        // Rule 11.1 (S7-3): only order sheets' answers count.
+        sql`${ingestAnswer.candidateId} in (select k.id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders')`,
       ),
     )
     .orderBy(desc(ingestAnswer.answeredAt))
@@ -1234,7 +1235,8 @@ export async function candidateQuestions(
   }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
   if (noOldId > 0 || byKey.has(answerKey("bundles_no_old_id", ""))) add("bundles_no_old_id", "", { count: noOldId });
-  if (fillAbove > 0 || byKey.has(answerKey("order_fill_above", ""))) {
+  // Rule 11.1 (S7-3): asked only on order sheets.
+  if (c.target === "orders" && (fillAbove > 0 || byKey.has(answerKey("order_fill_above", "")))) {
     add("order_fill_above", "", { count: fillAbove });
     out[out.length - 1]!.lines = fillLines;
   }

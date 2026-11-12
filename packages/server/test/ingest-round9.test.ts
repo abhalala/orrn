@@ -135,7 +135,8 @@ describe("rule 11.1 (S7-1): the fill answer belongs to the file", () => {
     expect(await stateOf(p.owner, b)).toBe("processing");
   });
 
-  test("way 4: No sent on a customers sheet of the file does not leave the order sheet on Yes", async () => {
+  // S7-3 (round 9 item 4): the question is asked only on order sheets, so way 4 is now refused.
+  test("way 4: No sent on a customers sheet of the file is refused; the order sheet keeps its answer", async () => {
     const p = await setup();
     const up = await upload(p.owner, [
       { name: "A", headers: BOOK, rows: TWO("41", "PO-A", "PO-B") },
@@ -146,9 +147,15 @@ describe("rule 11.1 (S7-1): the fill answer belongs to the file", () => {
     await fill(p.owner, a, true);
     await pump(p.owner, a);
     await pump(p.owner, c);
-    await fill(p.owner, c, false);
-    await pump(p.owner, a);
-    expect(await refusedNoDate(p.owner, a, "41")).toEqual(["refused", true, "refused", true]);
+    expect((await p.owner.ingest.candidate.get({ candidateId: c })).questions.some((q) => q.code === "order_fill_above")).toBe(false);
+    await expect(fill(p.owner, c, false)).rejects.toThrow("This import does not ask that");
+    expect(await stateOf(p.owner, a)).toBe("ready");
+    // An answer stored on a non-order sheet does not count for the file.
+    await env.d1
+      .prepare("insert into ingest_answer (id, company_id, candidate_id, question_code, subject, answer, answered_by, answered_at) values (?, ?, ?, 'order_fill_above', '', 'false', ?, ?)")
+      .bind(crypto.randomUUID(), p.companyId, c, p.users.owner.id, Date.now() + 60_000)
+      .run();
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).questions.find((q) => q.code === "order_fill_above")).toMatchObject({ answer: true });
   });
 });
 
