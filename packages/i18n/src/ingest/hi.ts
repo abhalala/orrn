@@ -48,6 +48,9 @@ export const ingestHi = {
     skipped_repeat_header: "लाइन {n} छोड़ी गई: उसमें कॉलम के नाम फिर से लिखे हैं।",
     skipped_title: "लाइन {n} छोड़ी गई: वह शीर्षक जैसी लगती है। उसमें लिखा है: {text}",
     after_last_row: "लाइन {n} टेबल के नीचे है और इम्पोर्ट नहीं होगी। उसमें लिखा है: {text}",
+    // round 9: sections
+    section: "यह टेबल \"{text}\" (लाइन {n}) के नीचे भी चलती है।",
+    sections: "इस टेबल के अंदर {count} शीर्षक",
   },
   kept: {
     title: "रखी हैं, अभी पढ़ी नहीं गईं",

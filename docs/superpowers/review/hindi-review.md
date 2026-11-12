@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8071 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8073 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (482)
+### ingest (484)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6963,6 +6963,8 @@ Please check, Lalubhai:
 | `read.skipped_repeat_header` | Row {n} is left out: it repeats the column names. | लाइन {n} छोड़ी गई: उसमें कॉलम के नाम फिर से लिखे हैं। |
 | `read.skipped_title` | Row {n} is left out: it looks like a title. It says: {text} | लाइन {n} छोड़ी गई: वह शीर्षक जैसी लगती है। उसमें लिखा है: {text} |
 | `read.after_last_row` | Row {n} is under the table and is not imported. It says: {text} | लाइन {n} टेबल के नीचे है और इम्पोर्ट नहीं होगी। उसमें लिखा है: {text} |
+| `read.section` | This table continues under "{text}" (row {n}). | यह टेबल "{text}" (लाइन {n}) के नीचे भी चलती है। |
+| `read.sections` | {count} titles inside this table | इस टेबल के अंदर {count} शीर्षक |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |

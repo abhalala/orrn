@@ -275,6 +275,7 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         lastDataRow: firstDataRow + from + slice.length - 1,
         titleRows,
         gaps: block.gaps ?? 0,
+        sections: block.sections ?? [],
         leftOut: (block.warnings ?? [])
           .filter((w) => w.code === "skipped_repeat_header" || w.code === "skipped_title" || w.code === "after_last_row")
           .map((w) => ({ code: w.code as "skipped_repeat_header", row: w.row, text: w.text ?? "" })),

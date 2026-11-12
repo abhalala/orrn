@@ -205,6 +205,9 @@ export function KeptFiles({ files }: { files: readonly KeptFile[] }) {
   );
 }
 
+/** Up to this many sections are listed open; more are summarised and open on request. */
+const SECTIONS_OPEN = 12;
+
 /**
  * What the reader left out of a table (rule 8.1): the blank rows it crossed, a repeated header, a title line, a note under
  * the table. Nothing skipped is hidden: each row is listed with its number and its text, folded when there are many.
@@ -213,9 +216,22 @@ export function LeftOutNotes({ notes }: { notes: readonly ReadNote[] }) {
   const { say } = useSay();
   const gaps = notes.reduce((n, note) => n + note.gaps, 0);
   const rows = notes.flatMap((note) => note.rows);
+  const sections = notes.flatMap((note) => note.sections);
   return (
     <div data-testid="left-out" className="flex min-w-0 flex-col gap-1 text-[13px] leading-5 text-muted-foreground">
       {gaps > 0 ? <p className="m-0">{say("ingest.read.gaps", { count: gaps })}</p> : null}
+      {sections.length > 0 ? (
+        <details open={sections.length <= SECTIONS_OPEN}>
+          <summary className="min-h-6 cursor-pointer">{say("ingest.read.sections", { count: sections.length })}</summary>
+          <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
+            {sections.map((section) => (
+              <li key={`${section.n}:${section.text}`} className="break-words">
+                {say("ingest.read.section", { text: section.text, n: section.n })}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {rows.length > 0 ? (
         <details open={rows.length <= 3}>
           <summary className="min-h-6 cursor-pointer">{say("ingest.read.leftOut", { count: rows.length })}</summary>

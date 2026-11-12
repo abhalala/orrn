@@ -26,7 +26,7 @@ function table(ordinal: number, o: { header?: number; rows?: number; sheet?: str
     rows: Array.from({ length: rows }, (_, i) => [`r${ordinal}-${i}`, String(i + 1)]),
     meta: {
       sheetName: o.sheet ?? "Sheet1", tableIndex: o.tableIndex ?? ordinal, part: 0, guess: { headerRow: header, headerRows: 1 }, hints: o.hints ?? null,
-      follows: o.follows ?? null, rowBase: 0, preview, firstDataRow: header + 1, lastDataRow: header + rows, titleRows: [], gaps: 0, leftOut: [],
+      follows: o.follows ?? null, rowBase: 0, preview, firstDataRow: header + 1, lastDataRow: header + rows, titleRows: [], gaps: 0, sections: [], leftOut: [],
     },
   };
 }
@@ -268,11 +268,12 @@ describe("what the reader left out is shown (rule 8.1)", () => {
   test("blank rows crossed and listed rows reach the notes with the sheet's own row numbers; a table with nothing to say has none", () => {
     const a = table(0);
     a.meta!.gaps = 2;
+    a.meta!.sections = [{ row: 5, text: "December" }];
     a.meta!.rowBase = 1;
     a.meta!.leftOut = [{ code: "skipped_title", row: 5, text: "December" }, { code: "skipped_repeat_header", row: 9, text: "Section | Kg" }];
     const b = table(1);
     expect(readNotes([a, b])).toEqual([
-      { sheetName: "Sheet1", gaps: 2, rows: [{ n: 7, code: "skipped_title", text: "December" }, { n: 11, code: "skipped_repeat_header", text: "Section | Kg" }] },
+      { sheetName: "Sheet1", gaps: 2, sections: [{ n: 7, text: "December" }], rows: [{ n: 7, code: "skipped_title", text: "December" }, { n: 11, code: "skipped_repeat_header", text: "Section | Kg" }] },
     ]);
   });
 

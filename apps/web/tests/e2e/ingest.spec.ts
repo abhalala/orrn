@@ -501,6 +501,8 @@ test.describe("imports portal", () => {
     const listed = entry.getByTestId("left-out");
     await expect(listed.getByText(/^1 blank row inside this table was skipped\.$/)).toBeVisible();
     await expect(listed.getByText(/Row 5 is left out: it looks like a title\. It says: December/)).toBeVisible();
+    // The table went on under that title (round 9): it is listed as a section, with its row.
+    await expect(listed.getByText(/This table continues under "December" \(row 5\)\./)).toBeVisible();
   });
 
   test("a value like 007 and a value like 18% arrive in the review rows as written", async ({ page }) => {

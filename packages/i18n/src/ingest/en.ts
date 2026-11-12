@@ -49,6 +49,9 @@ export const ingestEn = {
     skipped_repeat_header: "Row {n} is left out: it repeats the column names.",
     skipped_title: "Row {n} is left out: it looks like a title. It says: {text}",
     after_last_row: "Row {n} is under the table and is not imported. It says: {text}",
+    // round 9: sections
+    section: "This table continues under \"{text}\" (row {n}).",
+    sections: "{count} titles inside this table",
   },
   kept: {
     title: "Kept, not read yet",

@@ -15,6 +15,7 @@ const toBlock = (b: EngineRead): EngineBlock => {
     guess: b.guess as EngineHints, hints: b.hints as EngineHints | null, preview: b.preview, width: b.width,
     firstDataSheetRow: b.firstDataSheetRow, follows,
     gaps: (b as { gaps?: number }).gaps ?? 0,
+    sections: (b as { sections?: { row: number; text: string }[] }).sections ?? [],
     warnings: (b.warnings ?? []) as { code: string; row: number; text?: string }[],
   };
 };

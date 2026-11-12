@@ -46,16 +46,18 @@ export type UploadItem = {
 export type ReadNote = {
   sheetName: string | null;
   gaps: number;
+  /** Title lines the table continued under: the sheet's own row number and the text. */
+  sections: { n: number; text: string }[];
   rows: { n: number; code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; text: string }[];
 };
 
 /** The notes of the tables that were read, in file order. Tables with nothing to say are left out. */
-export function readNotes(blocks: readonly { input: { sheetName: string | null }; meta?: { gaps: number; rowBase: number; part: number; leftOut: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[] } }[]): ReadNote[] {
+export function readNotes(blocks: readonly { input: { sheetName: string | null }; meta?: { gaps: number; sections: { row: number; text: string }[]; rowBase: number; part: number; leftOut: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[] } }[]): ReadNote[] {
   const out: ReadNote[] = [];
   for (const b of blocks) {
     const m = b.meta;
-    if (!m || m.part !== 0 || (m.gaps === 0 && m.leftOut.length === 0)) continue;
-    out.push({ sheetName: b.input.sheetName, gaps: m.gaps, rows: m.leftOut.map((w) => ({ n: w.row + m.rowBase + 1, code: w.code, text: w.text })) });
+    if (!m || m.part !== 0 || (m.gaps === 0 && m.leftOut.length === 0 && m.sections.length === 0)) continue;
+    out.push({ sheetName: b.input.sheetName, gaps: m.gaps, sections: m.sections.map((x) => ({ n: x.row + m.rowBase + 1, text: x.text })), rows: m.leftOut.map((w) => ({ n: w.row + m.rowBase + 1, code: w.code, text: w.text })) });
   }
   return out;
 }

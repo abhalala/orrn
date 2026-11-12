@@ -41,6 +41,8 @@ export type BlockMeta = {
   lastDataRow: number;
   /** Blank rows crossed inside the table, and the rows the reader left out and listed (rule 8.1): shown to the person, never hidden. */
   gaps: number;
+  /** Title lines the table continued under (round 9). */
+  sections: { row: number; text: string }[];
   leftOut: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[];
   /** Raw rows above the header that hold text (a title, a month name): they are skipped when the table is joined to the one above. */
   titleRows: number[];

@@ -47,6 +47,8 @@ export type EngineBlock = {
   /** Blank rows crossed inside the table (rule 8.1). */
   gaps?: number;
   warnings?: EngineWarning[];
+  /** Title lines the table continued under (round 9): the person may start a new table at one. */
+  sections?: { row: number; text: string }[];
 };
 
 /** What a read of one sheet or CSV may be told: its name and the hints for its tables. */
