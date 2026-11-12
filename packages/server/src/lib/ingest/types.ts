@@ -284,6 +284,11 @@ export type CandidateDetail = CandidateSummary & {
    * screen says so in the summary ("N rows have no order number; each becomes its own order").
    */
   rowsOwnOrder: number;
+  /**
+   * Rule 11.2: open order lines refused with `order_no_date` and not yet skipped. The sheet offers
+   * one action for them: "Skip these {count} lines" (rows.skipNoDate).
+   */
+  noDateLines: number;
 };
 
 export type ArtifactSummary = {

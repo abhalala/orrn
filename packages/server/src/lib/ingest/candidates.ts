@@ -94,7 +94,8 @@ import {
   othersAgainAfter,
   openDoubts,
   openDoubtWhere,
-  Q_ORDER_FILL_ABOVE,
+  withFileFillAnswer,
+  ORDER_NO_DATE,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -196,6 +197,8 @@ export const HEADER_NOT_IN_PREVIEW = "The column names row is not in the preview
 export const REPICK_WRITTEN = "Rows of this sheet are already written. Its columns cannot change now.";
 /** Rule 10.2: re-put and repick refuse once a sheet of the file is approved or merging. */
 export const FILE_APPROVED = "A sheet of this file is approved. Its tables cannot change now.";
+/** Rule 11.1: the fill answer cannot change once a sheet of the file is approved, merging or merged. */
+export const FILL_ANSWER_LOCKED = "A sheet of this file is approved. Its answers cannot change now.";
 /** Inside a batch: no sheet of the file is approved, merging or merged (rule 10.2). */
 const noSheetApproved = (companyId: string, artifactId: string) =>
   sql`not exists (select 1 from ingest_candidate k where k.company_id = ${companyId} and k.artifact_id = ${artifactId} and k.state in ('approved', 'merging', 'merged'))`;
@@ -440,6 +443,9 @@ export async function putBlocks(
         ingestAbortUnlessChanged(ctx.db),
       );
     }
+    // Rule 11.1: a gone sheet held the file's fill answer; the other order sheets are checked again.
+    // Before othersAgainAfter, whose updates bump the same sheets' sequence.
+    if (await holdsFillAnswer(ctx, ids)) statements.push(...(await fillAboveRerun(ctx, artifact.id, ids)));
     for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
     const parts = chunk(ids, IN_LIST_CHUNK);
     for (const part of parts) {
@@ -657,7 +663,53 @@ export async function candidateDetail(ctx: IngestCtx, candidateId: string): Prom
     periodConfirmed: artifact.periodConfirmed ?? null,
     rowsMissing: Math.max(0, block.rowCount - block.rowsPut),
     rowsOwnOrder: c.target === "orders" ? await rowsOwnOrder(ctx, c.id) : 0,
+    noDateLines: c.target === "orders" ? (await noDateLines(ctx, c.id)).count : 0,
   };
+}
+
+/**
+ * Rule 11.2: the open lines of a sheet refused with `order_no_date` and not yet skipped. One
+ * condition on the candidate's rows, no id list: the count reads them, the skip writes them.
+ */
+const noDateWhere = (candidateId: string) =>
+  and(
+    eq(ingestStagedRow.candidateId, candidateId),
+    eq(ingestStagedRow.mergeState, "open"),
+    eq(ingestStagedRow.state, "refused"),
+    sql`(${ingestStagedRow.decision} is null or ${ingestStagedRow.decision} <> 'skip')`,
+    sql`${ingestStagedRow.reasons} like ${`%"${ORDER_NO_DATE}%`}`,
+  );
+
+async function noDateLines(ctx: IngestCtx, candidateId: string): Promise<{ count: number; from: number }> {
+  const [row] = await ctx.db
+    .select({ n: sql<number>`count(*)`, from: sql<number | null>`min(${ingestStagedRow.rowIndex})` })
+    .from(ingestStagedRow)
+    .where(noDateWhere(candidateId));
+  return { count: Number(row?.n ?? 0), from: Number(row?.from ?? 0) };
+}
+
+/** Rule 11.2: the words when a sheet has no line refused for a missing date. */
+export const NO_DATE_NONE = "No line on this sheet is missing a date";
+
+/**
+ * Rule 11.2, "Skip these {count} lines": every open line of the sheet refused with `order_no_date`
+ * is skipped in one statement, and the sheet checks again from the first of them. After it the
+ * dated orders of those numbers write whole (rule 7.1).
+ */
+export async function skipNoDateLines(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<{ skipped: number; counts: CandidateCounts }> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
+  assertState(c, ["ready", "held", "processing"], "Rows of this import can no longer change");
+  if (c.target !== "orders") throw new TRPCError({ code: "BAD_REQUEST", message: NO_DATE_NONE });
+  const { count, from } = await noDateLines(ctx, c.id);
+  if (count === 0) throw new TRPCError({ code: "BAD_REQUEST", message: NO_DATE_NONE });
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
+    ctx.db.update(ingestStagedRow).set({ decision: "skip", updatedAt: now() }).where(noDateWhere(c.id)),
+    recountStatement(ctx, c.id),
+    auditInsert(ctx, { action: "ingest.rows.skip_no_date", subjectType: "ingest_candidate", subjectId: c.id, meta: { count } }),
+  ]);
+  return { skipped: count, counts: candidateCounts(await loadCandidate(ctx, c.id)) };
 }
 
 /** Order rows of a candidate that are their own order: no old order number, no PO (rule 1). */
@@ -1372,7 +1424,28 @@ export async function setAnswer(
   // longer sees, so they go (X-new-1).
   if (input.questionCode === "unit_unknown") statements.push(clearMagnitudeAnswers(ctx, c.id, input.subject));
   // Rule 10.1: one question per file. The other sheets whose lines wait on it check again.
-  if (input.questionCode === "order_fill_above") statements.push(...(await fillAboveRerun(ctx, artifact.id, c.id)));
+  if (input.questionCode === "order_fill_above") {
+    // Rule 11.1: one answer for the file. A change is refused once a sheet of the file is approved,
+    // merging or merged, also inside the batch; every other order sheet is checked again.
+    const [held] = await withFileFillAnswer(ctx, artifact.id, []);
+    const change = !!held && held.answer !== answer;
+    if (change) {
+      const [approved] = await ctx.db
+        .select({ id: ingestCandidate.id })
+        .from(ingestCandidate)
+        .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifact.id), inArray(ingestCandidate.state, ["approved", "merging", "merged"])))
+        .limit(1);
+      if (approved) throw new TRPCError({ code: "BAD_REQUEST", message: FILL_ANSWER_LOCKED });
+      statements.push(
+        ctx.db
+          .update(ingestArtifact)
+          .set({ updatedAt: at })
+          .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), noSheetApproved(ctx.companyId, artifact.id))),
+        ingestAbortUnlessChanged(ctx.db),
+      );
+    }
+    if (!held || change) statements.push(...(await fillAboveRerun(ctx, artifact.id, [c.id])));
+  }
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
@@ -1388,8 +1461,11 @@ export async function setAnswer(
   return candidateDetail(ctx, c.id);
 }
 
-/** The other sheets of the file with a line waiting on `order_fill_above`: back to checking. */
-async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: string): Promise<SqliteBatchItem[]> {
+/**
+ * Rule 11.1: the fill answer belongs to the file. When it changes, or a re-put or a pick drops it,
+ * every other order sheet of the file that is processing, ready or held is checked again.
+ */
+async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: readonly string[]): Promise<SqliteBatchItem[]> {
   const others = await ctx.db
     .select({ id: ingestCandidate.id, serverSeq: ingestCandidate.serverSeq })
     .from(ingestCandidate)
@@ -1399,23 +1475,24 @@ async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: string
         eq(ingestCandidate.artifactId, artifactId),
         eq(ingestCandidate.target, "orders"),
         inArray(ingestCandidate.state, ["processing", "ready", "held"]),
-        ne(ingestCandidate.id, except),
       ),
     );
-  if (others.length === 0) return [];
-  const waiting = new Set(
-    (
-      await mapInChunks(
-        others.map((o) => o.id),
-        (part) =>
-          ctx.db
-            .selectDistinct({ id: ingestStagedRow.candidateId })
-            .from(ingestStagedRow)
-            .where(and(inArray(ingestStagedRow.candidateId, part), eq(ingestStagedRow.state, "ambiguous"), sql`${ingestStagedRow.reasons} like ${`%"${Q_ORDER_FILL_ABOVE}"%`}`)),
-      )
-    ).map((r) => r.id),
+  return others
+    .filter((o) => !except.includes(o.id))
+    .flatMap((o) => candidateChange(ctx, o.id, o.serverSeq, { state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null }));
+}
+
+/** Rule 11.1: whether any of these sheets holds an `order_fill_above` answer (a re-put or a pick drops it). */
+async function holdsFillAnswer(ctx: IngestCtx, ids: readonly string[]): Promise<boolean> {
+  if (ids.length === 0) return false;
+  const hits = await mapInChunks([...ids], (part) =>
+    ctx.db
+      .select({ id: ingestAnswer.id })
+      .from(ingestAnswer)
+      .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.questionCode, "order_fill_above"), inArray(ingestAnswer.candidateId, part)))
+      .limit(1),
   );
-  return others.filter((o) => waiting.has(o.id)).flatMap((o) => candidateChange(ctx, o.id, o.serverSeq, { state: "processing", dryCursor: 0 }));
+  return hits.length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -1744,6 +1821,9 @@ export async function repickHeader(ctx: IngestCtx, input: { candidateId: string;
   const ids = kin.map((k) => k.id);
   // Pending references other sheets hold to these rows are checked again, while the rows still exist.
   const again: SqliteBatchItem[] = [];
+  // Rule 11.1: the sheet held the file's fill answer; the other order sheets are checked again.
+  // Before othersAgainAfter, whose updates bump the same sheets' sequence.
+  if (await holdsFillAnswer(ctx, ids)) again.push(...(await fillAboveRerun(ctx, artifact.id, ids)));
   for (const k of kin) if (k.target) again.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
   const asked = { ...(artifact.headerAsked ?? {}), [String(block.ordinal)]: { answer: "pick" as const, at: at.getTime() } };
   await guardedBatch(ctx.db, [
