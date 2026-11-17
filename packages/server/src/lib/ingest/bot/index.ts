@@ -5,6 +5,11 @@
  * file and never lets a model number reach the database: the model's answer is a recipe, the
  * recipe is validated by lane C's `validateRecipe`, and it is applied to a sample by lane A's
  * dry run, both passed in as functions.
+ *
+ * Route and models: the helper may call Anthropic direct or, with `ANTHROPIC_BASE_URL`, the plant's
+ * CLIProxyAPI behind Cloudflare Access (`MODEL_ACCESS_CLIENT_ID` + `MODEL_ACCESS_CLIENT_SECRET` are sent as
+ * `CF-Access-Client-Id` and `CF-Access-Client-Secret`). See `client.ts`. Only `claude-haiku-5-5` and
+ * `claude-sonnet-5-5` are ever asked for, and an answer from any other model is an error that is never stored.
  */
 import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
 import { costOfResponse, estimateTokens, worstCaseCostMicro } from "./cost";
