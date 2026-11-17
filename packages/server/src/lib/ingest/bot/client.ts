@@ -227,7 +227,7 @@ export type ShapeEnv = {
   MODEL_ACCESS_CLIENT_SECRET?: string | undefined;
 };
 
-export type ShapeOffReason = "not_configured" | "incomplete_access" | "no_key_with_route";
+export type ShapeOffReason = "not_configured" | "incomplete_access" | "no_key_with_route" | "access_without_base_url";
 
 export type ShapeConfig =
   | {
@@ -245,7 +245,7 @@ const clean = (v: string | undefined): string => (typeof v === "string" ? v.trim
 
 /**
  * One place that reads the environment. Off means: nothing set, one Access value without the
- * other, or a base URL or Access pair with no key. Nothing here ever returns or logs a value
+ * other, a base URL or Access pair with no key, or an Access pair with no base URL. Nothing here ever returns or logs a value
  * in an error: `reportShapeConfig` names variables, never what they hold.
  */
 export function resolveShapeConfig(env: ShapeEnv): ShapeConfig {
@@ -257,6 +257,8 @@ export function resolveShapeConfig(env: ShapeEnv): ShapeConfig {
   if (apiKey === "") {
     return { ok: false, reason: baseURL !== "" || id !== "" ? "no_key_with_route" : "not_configured" };
   }
+  // The Access pair belongs to the proxy. Never send it to the default (Anthropic) host.
+  if (id !== "" && baseURL === "") return { ok: false, reason: "access_without_base_url" };
   return {
     ok: true,
     apiKey,
@@ -271,6 +273,8 @@ const OFF_LINES: Record<Exclude<ShapeOffReason, "not_configured">, string> = {
     "ingest model helper is off: set both MODEL_ACCESS_CLIENT_ID and MODEL_ACCESS_CLIENT_SECRET, or neither.",
   no_key_with_route:
     "ingest model helper is off: ANTHROPIC_BASE_URL or MODEL_ACCESS_CLIENT_ID is set but ANTHROPIC_API_KEY is not.",
+  access_without_base_url:
+    "ingest model helper is off: MODEL_ACCESS_CLIENT_ID and MODEL_ACCESS_CLIENT_SECRET are set but ANTHROPIC_BASE_URL is not.",
 };
 
 const logged = new Set<string>();

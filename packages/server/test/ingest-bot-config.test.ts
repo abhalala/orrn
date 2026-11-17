@@ -130,6 +130,19 @@ describe("resolveShapeConfig", () => {
     warn.mockRestore();
   });
 
+  test("an Access pair with no base URL: helper off, so Access values never go to the default host", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const env = { ANTHROPIC_API_KEY: KEY, MODEL_ACCESS_CLIENT_ID: ID, MODEL_ACCESS_CLIENT_SECRET: SECRET };
+    expect(resolveShapeConfig(env)).toEqual({ ok: false, reason: "access_without_base_url" });
+    expect(botReady(env)).toBe(false);
+    expect(getShapeClient(env)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = String(warn.mock.calls[0]![0]);
+    expect(line).toContain("ANTHROPIC_BASE_URL");
+    for (const v of [KEY, ID, SECRET]) expect(line).not.toContain(v);
+    warn.mockRestore();
+  });
+
   test("a test client still wins over a broken config", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     setShapeClientForTests({ call: async () => { throw new Error("unused"); } });
