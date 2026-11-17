@@ -3,6 +3,9 @@ name: CI
 # Pull-request checks for main and prod. No secrets: every job runs on the
 # local stack (wrangler + local D1) or plain bun, never against dev or prod.
 # The `ci` job at the bottom is the one stable name to require later.
+#
+# Runners are pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, where
+# Playwright 1.60 has no Chromium build.
 on:
   pull_request:
     branches:
@@ -27,7 +30,7 @@ env:
 jobs:
   typecheck:
     name: Type-check + route budget
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -39,8 +42,6 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
-      - name: Runner size
-        run: nproc && free -g
       - run: bun install --frozen-lockfile
       # Low concurrency: all packages at once is what exhausts RAM locally.
       - name: Check types (every package, two at a time)
@@ -55,9 +56,15 @@ jobs:
         run: bun scripts/check-route-budget.ts
 
   test-server:
-    name: Server tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    name: Server tests (${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1-4: the ordinary packages/server files, split round-robin by name.
+        # bounded: the 5,000-row ingest files (about 11 min each on an M-series Mac).
+        shard: ["1", "2", "3", "4", "bounded"]
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -70,25 +77,50 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: apps/server
+        if: matrix.shard == '1'
         run: bun run --cwd apps/server test
-      # One bun process per file: a single process cascades on Linux CI
-      # (packages/server/scripts/test-per-file.sh header).
+      # One bun process per file (packages/server/scripts/test-per-file.sh): a single
+      # process cascades on Linux CI. TIMEOUT_MS is the per-test timeout the repo uses
+      # for the full suite under load.
       - name: packages/server (process per file)
+        timeout-minutes: 40
+        working-directory: packages/server
         env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 4
           JOBS: 2
+          TIMEOUT_MS: 60000
           LOG_DIR: ${{ runner.temp }}/server-tests
-        run: bun run --cwd packages/server test:files
-      - name: Upload per-file logs
+        run: |
+          files=()
+          i=0
+          for f in test/*.test.ts; do
+            case "$f" in
+              *bounded*) [ "$SHARD" = bounded ] && files+=("$f") ;;
+              *) [ "$SHARD" != bounded ] && [ $((i % SHARDS + 1)) = "$SHARD" ] && files+=("$f"); i=$((i + 1)) ;;
+            esac
+          done
+          echo "shard $SHARD: ${#files[@]} files"
+          # Full paths as filters: each matches only its own file.
+          bash scripts/test-per-file.sh "${files[@]}"
+      - name: Failed file logs
         if: failure()
+        run: |
+          for log in $(grep -h '^FAIL\|^FLAKY' "${{ runner.temp }}/server-tests/results.txt" 2>/dev/null | sed -E 's/.*log=([^ ]+).*/\1/'); do
+            echo "::group::$log"; tail -80 "$log"; echo "::endgroup::"
+          done
+      - name: Upload per-file logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: server-test-logs
+          name: server-test-logs-${{ matrix.shard }}
           path: ${{ runner.temp }}/server-tests
           retention-days: 7
+          if-no-files-found: ignore
 
   test-web:
     name: Web + package unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -101,9 +133,31 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      - name: apps/web
-        run: bun run --cwd apps/web test
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      # packingListPrintLayout.test.ts measures the printed packing list in headless Chromium.
+      - name: Install Chromium
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+      # guards.test.ts replaces ../utils/trpc with a stub for the rest of the bun process, and on
+      # Linux it is loaded before screen tests that need the real trpc proxy. It gets its own process.
+      - name: apps/web (guards.test.ts on its own)
+        working-directory: apps/web
+        run: bun test ./src/shared/lib/guards.test.ts
+      # Every other test file, minus the Linux skip list (.github/ci/web-test-linux-skip.txt says why).
+      - name: apps/web (the rest)
+        working-directory: apps/web
+        run: |
+          skip=$(grep -v '^\s*#' ../../.github/ci/web-test-linux-skip.txt | grep -v '^\s*$' || true)
+          mapfile -t files < <(find src scripts -name '*.test.ts' -o -name '*.test.tsx' | sort \
+            | grep -vxF 'src/shared/lib/guards.test.ts' | grep -vxF -f <(printf '%s\n' $skip))
+          echo "running ${#files[@]} files; skipped on Linux:"; printf '  %s\n' $skip
+          bun test "${files[@]/#/./}"
       - name: packages (domain, documents, i18n, ingest, ui)
+        if: success() || failure()
         run: |
           set -e
           for p in domain documents i18n ingest ui; do
@@ -114,7 +168,7 @@ jobs:
 
   e2e-smoke:
     name: E2E smoke (local stack)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       CI: "true"
@@ -156,12 +210,13 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
+          if-no-files-found: ignore
 
   ci:
     name: ci
     if: always()
     needs: [typecheck, test-server, test-web, e2e-smoke]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Every job passed
