@@ -127,8 +127,14 @@ function mapError(err: unknown): ShapeClientError {
   if (err instanceof Anthropic.BadRequestError) return new ShapeClientError("bad_request", "The model refused the request shape.", err.status);
   if (err instanceof Anthropic.APIError) {
     const status = typeof err.status === "number" ? err.status : undefined;
+    // A redirect is how Cloudflare Access sends a caller without a valid service token to its login page.
+    if (status !== undefined && status >= 300 && status < 400) {
+      return new ShapeClientError("auth", "The model route sent a redirect: the access token was not accepted.", status);
+    }
     return new ShapeClientError(status !== undefined && status >= 500 ? "server" : "unknown", "The model call failed.", status);
   }
+  // The SDK's own error for a 200 that was not a model stream (an HTML page from a gateway or a login page).
+  if (err instanceof Anthropic.AnthropicError) return new ShapeClientError("server", "The model route did not return a model answer.");
   return new ShapeClientError("unknown", "The model call failed.");
 }
 
@@ -169,6 +175,8 @@ export class AnthropicShapeClient implements ShapeModelClient {
       maxRetries: MAX_RETRIES,
       ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
       ...(opts.headers ? { defaultHeaders: opts.headers } : {}),
+      // Never follow a redirect from a proxy: a login page is not an answer, and the 3xx maps to `auth`.
+      ...(opts.baseURL ? { fetchOptions: { redirect: "manual" as const } } : {}),
       ...(opts.fetch ? { fetch: opts.fetch } : {}),
     });
   }
