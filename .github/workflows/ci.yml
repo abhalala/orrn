@@ -1,0 +1,172 @@
+name: CI
+
+# Pull-request checks for main and prod. No secrets: every job runs on the
+# local stack (wrangler + local D1) or plain bun, never against dev or prod.
+# The `ci` job at the bottom is the one stable name to require later.
+on:
+  pull_request:
+    branches:
+      - main
+      - prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.3.13
+  # web's check-types runs `vite build`, which validates this URL (packages/env/src/web.ts).
+  # A dummy loopback value: nothing is called during the build.
+  VITE_SERVER_URL: http://127.0.0.1:3000
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  typecheck:
+    name: Type-check + route budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Runner size
+        run: nproc && free -g
+      - run: bun install --frozen-lockfile
+      # Low concurrency: all packages at once is what exhausts RAM locally.
+      - name: Check types (every package, two at a time)
+        run: bunx turbo check-types --concurrency=2
+      # web's check-types already ran `vite build`, so dist/ is here; these are the
+      # two guards `bun run build` runs after it.
+      - name: Modulepreload guard
+        working-directory: apps/web
+        run: bun scripts/check-modulepreload.ts
+      - name: Route budget guard
+        working-directory: apps/web
+        run: bun scripts/check-route-budget.ts
+
+  test-server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: apps/server
+        run: bun run --cwd apps/server test
+      # One bun process per file: a single process cascades on Linux CI
+      # (packages/server/scripts/test-per-file.sh header).
+      - name: packages/server (process per file)
+        env:
+          JOBS: 2
+          LOG_DIR: ${{ runner.temp }}/server-tests
+        run: bun run --cwd packages/server test:files
+      - name: Upload per-file logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-logs
+          path: ${{ runner.temp }}/server-tests
+          retention-days: 7
+
+  test-web:
+    name: Web + package unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: apps/web
+        run: bun run --cwd apps/web test
+      - name: packages (domain, documents, i18n, ingest, ui)
+        run: |
+          set -e
+          for p in domain documents i18n ingest ui; do
+            echo "::group::packages/$p"
+            bun run --cwd "packages/$p" test
+            echo "::endgroup::"
+          done
+
+  e2e-smoke:
+    name: E2E smoke (local stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - name: Install Chromium
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+      # The e2e project depends on e2e-setup (seeds via POST /dev/seed), and the config starts
+      # the wrangler API (local D1, migrations applied) and Vite itself. Calling playwright
+      # directly: `bun run test:e2e -- <spec>` can run the whole suite (scripts/e2e-group.sh).
+      - name: Smoke specs (session, front door, redirects)
+        working-directory: apps/web
+        run: >-
+          bunx playwright test --project=e2e
+          tests/e2e/session.spec.ts
+          tests/e2e/front-door.spec.ts
+          tests/e2e/redirects.spec.ts
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  ci:
+    name: ci
+    if: always()
+    needs: [typecheck, test-server, test-web, e2e-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done
