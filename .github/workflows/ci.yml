@@ -138,33 +138,30 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      # packingListPrintLayout.test.ts measures the printed packing list in headless Chromium.
-      - name: Install Chromium
-        working-directory: apps/web
-        run: bunx playwright install --with-deps chromium
-      # guards.test.ts replaces ../utils/trpc with a stub for the rest of the bun process, and on
-      # Linux it is loaded before screen tests that need the real trpc proxy. It gets its own process.
-      - name: apps/web (guards.test.ts on its own)
-        working-directory: apps/web
-        run: bun test ./src/shared/lib/guards.test.ts
-      # Every other test file, minus the Linux skip list (.github/ci/web-test-linux-skip.txt says why).
-      - name: apps/web (the rest)
+      # packingListPrintLayout.test.ts measures the printed packing list in headless Chromium and
+      # reads the PDF back with pdftotext (poppler-utils).
+      - name: Install Chromium and pdftotext
         working-directory: apps/web
         run: |
-          skip=$(grep -v '^\s*#' ../../.github/ci/web-test-linux-skip.txt | grep -v '^\s*$' || true)
-          mapfile -t files < <(find src scripts -name '*.test.ts' -o -name '*.test.tsx' | sort \
-            | grep -vxF 'src/shared/lib/guards.test.ts' | grep -vxF -f <(printf '%s\n' $skip))
-          echo "running ${#files[@]} files; skipped on Linux:"; printf '  %s\n' $skip
-          bun test "${files[@]/#/./}"
+          bunx playwright install --with-deps chromium
+          sudo apt-get install -y --no-install-recommends poppler-utils
+      # One bun process per test file (.github/ci/bun-test-per-file.sh says why), minus the Linux
+      # skip list (.github/ci/web-test-linux-skip.txt says why).
+      - name: apps/web
+        working-directory: apps/web
+        env:
+          LOG_DIR: ${{ runner.temp }}/web-tests
+        run: bash ../../.github/ci/bun-test-per-file.sh ../../.github/ci/web-test-linux-skip.txt -- src scripts
       - name: packages (domain, documents, i18n, ingest, ui)
         if: success() || failure()
         run: |
-          set -e
+          code=0
           for p in domain documents i18n ingest ui; do
             echo "::group::packages/$p"
-            bun run --cwd "packages/$p" test
+            (cd "packages/$p" && bash ../../.github/ci/bun-test-per-file.sh) || code=1
             echo "::endgroup::"
           done
+          exit $code
 
   e2e-smoke:
     name: E2E smoke (local stack)
@@ -172,6 +169,10 @@ jobs:
     timeout-minutes: 25
     env:
       CI: "true"
+      # The seed accounts' password: the committed local-only value from
+      # apps/server/wrangler.local.jsonc (vars.ORRN_LOCAL_PASSWORD), not a secret. The e2e helpers
+      # read it from here or from the gitignored .dev.local-account.local file.
+      ORRN_LOCAL_PASSWORD: orrn-local-dev-only
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
