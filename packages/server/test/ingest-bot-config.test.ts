@@ -47,7 +47,6 @@ const request = {
   system: [{ text: "s", cache: false }],
   messages: [{ role: "user" as const, content: "x" }],
   maxTokens: 100,
-  fallbacks: false,
   purpose: "shape" as const,
 };
 

@@ -69,13 +69,14 @@ describe("vision read", () => {
     expect(visionStartModel("image")).toBe("claude-sonnet-5-5");
   });
 
-  test("the page goes out as a base64 image block with the vision purpose; no fallbacks on Haiku", async () => {
+  test("the page goes out as a base64 image block with the vision purpose; no fallbacks field", async () => {
     const client = new FakeShapeClient([haiku(answer(table()))]);
     const a = args({ client });
     const r = ran(await runVisionAttempt(a));
     expect(r).toMatchObject({ outcome: "recipe", model: "claude-haiku-5-5", next: "done", attempt: 1 });
     const call = client.calls[0]!;
-    expect(call).toMatchObject({ purpose: "vision", model: "claude-haiku-5-5", fallbacks: false, maxTokens: 8_000 });
+    expect(call).toMatchObject({ purpose: "vision", model: "claude-haiku-5-5", maxTokens: 8_000 });
+    expect("fallbacks" in call).toBe(false);
     const parts = call.messages[0]!.content as { type: string; source?: { type: string; media_type: string; data: string } }[];
     expect(parts[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: toBase64(new Uint8Array([1, 2, 3, 250, 251, 252])) } });
     expect(parts[0]!.source!.data).toBe("AQID+vv8");
@@ -90,11 +91,20 @@ describe("vision read", () => {
     expect(r.tables![0]!.lowConfidenceRows).toEqual([2, 1]);
   });
 
-  test("a photo starts on Sonnet with server-side fallbacks", async () => {
+  test("a photo starts on Sonnet, with no fallbacks field", async () => {
     const client = new FakeShapeClient([sonnet(answer(table()))]);
     const r = ran(await runVisionAttempt(args({ client, pageKind: "image" })));
     expect(r.model).toBe("claude-sonnet-5-5");
-    expect(client.calls[0]).toMatchObject({ model: "claude-sonnet-5-5", fallbacks: true, maxTokens: 16_000 });
+    expect(client.calls[0]).toMatchObject({ model: "claude-sonnet-5-5", maxTokens: 16_000 });
+    expect("fallbacks" in client.calls[0]!).toBe(false);
+  });
+
+  test("a page read answered by another model is an error and its tables are never returned", async () => {
+    const client = new FakeShapeClient([sonnet(answer(table()), { modelUsed: "claude-sonnet-5" })]);
+    const a = args({ client, pageKind: "image" });
+    const r = ran(await runVisionAttempt(a));
+    expect(r).toMatchObject({ outcome: "error", errors: ["client:bad_model"], tables: null, model: "claude-sonnet-5-5" });
+    expect((a.store as MemoryBotRunStore).rows[0]).toMatchObject({ outcome: "error", model: "claude-sonnet-5-5", errorCodes: ["client:bad_model"] });
   });
 
   test("an invalid Haiku answer escalates to Sonnet with the error codes; Sonnet invalid is manual", async () => {

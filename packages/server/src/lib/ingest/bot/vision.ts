@@ -15,7 +15,7 @@
  */
 import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, checkCaps, countCalls } from "./caps";
 import { costOfResponse } from "./cost";
-import { getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
+import { canonicalShapeModel, getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
 import type { Next } from "./escalate";
 import { safeErrorCodes } from "./prompt";
 import { schemaErrorCodes, visionOutput, type VisionOutput } from "./schema";
@@ -206,7 +206,6 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
       system: [{ text: VISION_INSTRUCTIONS, cache: true }],
       messages: [{ role: "user", content }],
       maxTokens: MAX_TOKENS[model],
-      fallbacks: model === SONNET,
       purpose: "vision",
     });
   } catch (err) {
@@ -217,15 +216,16 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
   let tables: VisionTable[] | null = null;
   let codes: string[] = [];
   let usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  let usedModel: string = model;
   let cost = 0;
   let ms = now() - started;
   if (res) {
     usage = res.usage;
-    usedModel = res.modelUsed;
     cost = costOfResponse(res);
     ms = res.ms;
-    if (res.stopReason === "refusal") {
+    // Only the model that was asked for may answer; anything else is an error and its tables are dropped.
+    if (canonicalShapeModel(res.modelUsed) !== model) {
+      codes = ["client:bad_model"];
+    } else if (res.stopReason === "refusal") {
       outcome = "refused";
       codes = ["output:refusal"];
     } else if (res.stopReason === "max_tokens") {
@@ -258,7 +258,7 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
 
   const runId = await args.store.insertRun({
     ...base,
-    model: usedModel,
+    model,
     outcome,
     inputTokens: usage.input,
     outputTokens: usage.output,
@@ -269,6 +269,6 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
     createdAtMs: now(),
     errorCodes: codes.length > 0 ? codes : null,
   });
-  const after = planVision([...history, { attempt: plan.attempt, model: usedModel, outcome, errorCodes: codes }], start);
-  return { status: "ran", outcome, attempt: plan.attempt, model: usedModel, next: after.next, tables, errors: codes, costMicroUsd: cost, runId };
+  const after = planVision([...history, { attempt: plan.attempt, model, outcome, errorCodes: codes }], start);
+  return { status: "ran", outcome, attempt: plan.attempt, model, next: after.next, tables, errors: codes, costMicroUsd: cost, runId };
 }

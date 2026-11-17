@@ -34,13 +34,10 @@ const HAIKU_55: Price = {
   long: { inMicro: 500_000, outMicro: 2_500_000, cacheReadMicro: 50_000, cacheWriteMicro: 625_000 },
 };
 const SONNET_55: Price = { inMicro: 2_000_000, outMicro: 10_000_000, cacheReadMicro: 100_000, cacheWriteMicro: 2_500_000 };
-/** The server-side fallback for Sonnet 5.5 is Sonnet 5: same list prices, cache reads at 0.1x. */
-const SONNET_5: Price = { inMicro: 2_000_000, outMicro: 10_000_000, cacheReadMicro: 200_000, cacheWriteMicro: 2_500_000 };
 
 const PRICES: Record<string, Price> = {
   "claude-haiku-5-5": HAIKU_55,
   "claude-sonnet-5-5": SONNET_55,
-  "claude-sonnet-5": SONNET_5,
 };
 
 /** Unknown models are billed at the Sonnet 5.5 card, so a surprise model never reads as free. */
@@ -65,15 +62,8 @@ export function costOfUsage(model: string, usage: ShapeUsage): number {
   );
 }
 
-/**
- * Cost of one response. When the server ran a fallback model the response lists one entry per
- * attempt, and each is billed at its own model's card. Otherwise the single usage is billed at
- * `modelUsed`.
- */
-export function costOfResponse(res: Pick<ShapeResponse, "usage" | "modelUsed" | "iterations">): number {
-  if (res.iterations && res.iterations.length > 0) {
-    return res.iterations.reduce((sum, it) => sum + costOfUsage(it.model, it.usage), 0);
-  }
+/** Cost of one response: its usage, billed at the model that answered. */
+export function costOfResponse(res: Pick<ShapeResponse, "usage" | "modelUsed">): number {
   return costOfUsage(res.modelUsed, res.usage);
 }
 
@@ -88,22 +78,10 @@ export function estimateTokens(chars: number): number {
 
 /**
  * The most one call can cost before it is made (A8): every estimated input token billed as a cache
- * write (the dearest input rate) plus the full output budget, at the planned model's card. A claim
- * stores this as its cost, so parallel calls see each other's spend under the day cost cap.
+ * write (the dearest input rate) plus the full output budget, at the planned model's card. One call
+ * is one model (no server-side fallback), so this is the whole worst case. A claim stores this as its
+ * cost, so parallel calls see each other's spend under the day cost cap.
  */
 export function worstCaseCostMicro(model: string, inputTokens: number, maxOutputTokens: number): number {
   return costOfUsage(model, { input: 0, output: maxOutputTokens, cacheRead: 0, cacheWrite: inputTokens });
-}
-
-/** The models the server may run after the planned one when a call asks for fallbacks (client.ts). */
-export const SERVER_FALLBACKS: Record<string, readonly string[]> = { "claude-sonnet-5-5": ["claude-sonnet-5"] };
-
-/**
- * The most one call can cost, fallbacks included (A8): with fallbacks on, the server may bill the
- * planned model and then each fallback model, each with the full output budget. A claim stores this,
- * so a call whose fallback runs never takes the day past the cost cap.
- */
-export function worstCaseCallCostMicro(model: string, inputTokens: number, maxOutputTokens: number, fallbacks: boolean): number {
-  const chain = [model, ...(fallbacks ? (SERVER_FALLBACKS[model] ?? []) : [])];
-  return chain.reduce((sum, m) => sum + worstCaseCostMicro(m, inputTokens, maxOutputTokens), 0);
 }

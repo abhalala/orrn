@@ -10,9 +10,12 @@
  *  - structured output through `output_config.format` built by `zodOutputFormat`;
  *  - thinking and effort left at the model defaults. `thinking: disabled` is a 400 on
  *    Sonnet 5.5 and a forced `tool_choice` is a 400 too, so neither is ever sent;
- *  - Haiku 5.5 has no server-side fallback, so Haiku calls carry no `fallbacks`;
- *  - Sonnet 5.5 calls go through `client.beta.messages` with the beta
- *    `server-side-fallback-2026-07-01` and `fallbacks: "default"`;
+ *  - Haiku 5.5 and Sonnet 5.5 are the only models, and both take the same plain
+ *    `client.messages` call. There is no server-side fallback: it could answer with another
+ *    model, and the plant proxy would not honour it. Every call names one of the two ids exactly
+ *    and an answer from any other model is refused (`bad_model`);
+ *  - the route is the SDK default (Anthropic) or `ANTHROPIC_BASE_URL` (the plant proxy), with
+ *    the Cloudflare Access pair as default headers, see `resolveShapeConfig`;
  *  - the last system block carries `cache_control: { type: "ephemeral" }`.
  */
 import Anthropic from "@anthropic-ai/sdk";
@@ -31,7 +34,6 @@ export type ShapeRequest = {
   system: { text: string; cache: boolean }[];
   messages: { role: "user" | "assistant"; content: unknown }[];
   maxTokens: number;
-  fallbacks: boolean;
   purpose: ShapePurpose;
 };
 
@@ -42,22 +44,33 @@ export type ShapeResponse = {
   stopReason: string;
   /** The answer parsed as JSON, or null when there was no text or it was not JSON. */
   json: unknown | null;
-  /** The model that produced the answer. Fallbacks may change it. */
+  /**
+   * The model that produced the answer. The client reports the canonical id when the server sent a
+   * dated form of one of the two allowed ids, and the raw name otherwise. Callers refuse any name
+   * `canonicalShapeModel` does not know.
+   */
   modelUsed: string;
   usage: ShapeUsage;
   ms: number;
-  /**
-   * One entry per model attempt when the server ran a fallback. Cost is summed over these,
-   * each at its own model's prices. Absent when one model answered.
-   */
-  iterations?: { model: string; usage: ShapeUsage }[];
 };
 
 export interface ShapeModelClient {
   call(req: ShapeRequest): Promise<ShapeResponse>;
 }
 
-export type ShapeClientErrorKind = "timeout" | "network" | "rate_limit" | "auth" | "bad_request" | "server" | "unknown";
+export type ShapeClientErrorKind = "timeout" | "network" | "rate_limit" | "auth" | "bad_request" | "server" | "bad_model" | "unknown";
+
+/**
+ * The allowed model id for a name the server sent back, or null. Exact ids pass, and so does an id
+ * with an eight-digit date suffix (`claude-haiku-5-5-20261001`), which some servers send for an alias.
+ * `claude-sonnet-5` and every other name are null.
+ */
+export function canonicalShapeModel(name: string): ShapeModelId | null {
+  for (const id of [HAIKU, SONNET]) {
+    if (name === id || (name.startsWith(`${id}-`) && /^\d{8}$/.test(name.slice(id.length + 1)))) return id;
+  }
+  return null;
+}
 
 /** Thrown by a client when no answer came back. The message never contains the key. */
 export class ShapeClientError extends Error {
@@ -76,7 +89,6 @@ export const MAX_TOKENS: Record<ShapeModelId, number> = { "claude-haiku-5-5": 8_
 
 export const REQUEST_TIMEOUT_MS = 90_000;
 export const MAX_RETRIES = 1;
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export type AnthropicShapeClientOptions = {
   apiKey: string;
@@ -171,33 +183,6 @@ export class AnthropicShapeClient implements ShapeModelClient {
     }));
     const messages = req.messages as Anthropic.MessageParam[];
     try {
-      if (req.fallbacks) {
-        const msg = await this.sdk.beta.messages
-          .stream({
-            model: req.model,
-            max_tokens: req.maxTokens,
-            system,
-            messages: messages as never,
-            output_config: { format },
-            betas: [FALLBACK_BETA],
-            fallbacks: "default",
-          })
-          .finalMessage();
-        const text = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-        const iterations = (msg.usage.iterations ?? []).flatMap((it) =>
-          it.type === "message" || it.type === "fallback_message"
-            ? [{ model: it.model ?? msg.model, usage: toUsage(it) }]
-            : [],
-        );
-        return {
-          stopReason: msg.stop_reason ?? "unknown",
-          json: msg.stop_reason === "refusal" ? null : parseJson(text),
-          modelUsed: msg.model,
-          usage: toUsage(msg.usage),
-          ms: Date.now() - started,
-          ...(iterations.length > 0 ? { iterations } : {}),
-        };
-      }
       const msg = await this.sdk.messages
         .stream({
           model: req.model,
@@ -211,7 +196,7 @@ export class AnthropicShapeClient implements ShapeModelClient {
       return {
         stopReason: msg.stop_reason ?? "unknown",
         json: msg.stop_reason === "refusal" ? null : parseJson(text),
-        modelUsed: msg.model,
+        modelUsed: canonicalShapeModel(msg.model) ?? msg.model,
         usage: toUsage(msg.usage),
         ms: Date.now() - started,
       };

@@ -14,7 +14,7 @@ function sse(events: [string, unknown][]): Response {
   return new Response(text, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
-function stubStream(text: string, over: { stop?: string; model?: string; usage?: Record<string, unknown>; iterations?: unknown[] } = {}) {
+function stubStream(text: string, over: { stop?: string; model?: string; usage?: Record<string, unknown> } = {}) {
   const seen: Seen[] = [];
   const model = over.model ?? "claude-haiku-5-5";
   const fetchStub = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -25,7 +25,7 @@ function stubStream(text: string, over: { stop?: string; model?: string; usage?:
       ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }],
       ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } }],
       ["content_block_stop", { type: "content_block_stop", index: 0 }],
-      ["message_delta", { type: "message_delta", delta: { stop_reason: over.stop ?? "end_turn", stop_sequence: null }, usage: { output_tokens: 25, ...over.usage, ...(over.iterations ? { iterations: over.iterations } : {}) } }],
+      ["message_delta", { type: "message_delta", delta: { stop_reason: over.stop ?? "end_turn", stop_sequence: null }, usage: { output_tokens: 25, ...over.usage } }],
       ["message_stop", { type: "message_stop" }],
     ]);
   }) as typeof fetch;
@@ -40,13 +40,12 @@ const req = (over: Partial<ShapeRequest> = {}): ShapeRequest => ({
   ],
   messages: [{ role: "user", content: [{ type: "text", text: "<file_data_x>{}</file_data_x>" }] }],
   maxTokens: 8_000,
-  fallbacks: false,
   purpose: "shape",
   ...over,
 });
 
 describe("AnthropicShapeClient call shape", () => {
-  test("Haiku: streamed, structured output, cache breakpoint, no thinking, no forced tool, no fallbacks", async () => {
+  test("Haiku: streamed, structured output, cache breakpoint, no thinking, no forced tool, no fallbacks, no beta", async () => {
     const { seen, fetchStub } = stubStream(JSON.stringify({ result: { kind: "no_target", reason: "not_a_table" } }));
     const client = new AnthropicShapeClient({ apiKey: "sk-test-123", fetch: fetchStub, baseURL: "https://stub.invalid" });
     const res = await client.call(req());
@@ -77,21 +76,23 @@ describe("AnthropicShapeClient call shape", () => {
     expect(res.stopReason).toBe("end_turn");
     expect(res.modelUsed).toBe("claude-haiku-5-5");
     expect(res.usage).toEqual({ input: 100, output: 25, cacheRead: 40, cacheWrite: 0 });
-    expect(res.iterations).toBeUndefined();
+    expect(Object.keys(res).sort()).toEqual(["json", "modelUsed", "ms", "stopReason", "usage"]);
   });
 
-  test("Sonnet: beta fallbacks with the default mode, same output config, still streamed", async () => {
+  test("Sonnet: the same plain streamed call as Haiku, with no fallbacks and no beta header", async () => {
     const { seen, fetchStub } = stubStream("{}", { model: "claude-sonnet-5-5" });
     const client = new AnthropicShapeClient({ apiKey: "sk", fetch: fetchStub, baseURL: "https://stub.invalid" });
-    await client.call(req({ model: "claude-sonnet-5-5", maxTokens: 16_000, fallbacks: true }));
-    const { headers, body } = seen[0]!;
+    await client.call(req({ model: "claude-sonnet-5-5", maxTokens: 16_000 }));
+    const { url, headers, body } = seen[0]!;
+    expect(url).toBe("https://stub.invalid/v1/messages");
     expect(body.model).toBe("claude-sonnet-5-5");
     expect(body.max_tokens).toBe(16_000);
     expect(body.stream).toBe(true);
-    expect(body.fallbacks).toBe("default");
+    expect("fallbacks" in body).toBe(false);
+    expect(JSON.stringify(body)).not.toContain("fallback");
     expect(body.thinking).toBeUndefined();
     expect(body.tool_choice).toBeUndefined();
-    expect(headers.get("anthropic-beta")).toContain("server-side-fallback-2026-07-01");
+    expect(headers.get("anthropic-beta")).toBeNull();
     expect(body.output_config.format.type).toBe("json_schema");
   });
 
@@ -122,19 +123,16 @@ describe("AnthropicShapeClient call shape", () => {
     expect((await client.call(req())).json).toEqual({ result: { kind: "recipe" } });
   });
 
-  test("a fallback run lists one usage entry per attempt and reports the model that answered", async () => {
-    const entry = (type: string, model: string, input: number, output: number) => ({ type, model, input_tokens: input, output_tokens: output, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, cache_creation: null });
-    const { fetchStub } = stubStream("{}", {
-      model: "claude-sonnet-5",
-      iterations: [entry("message", "claude-sonnet-5-5", 900, 0), entry("fallback_message", "claude-sonnet-5", 900, 300)],
-    });
+  test("a dated model id from the proxy is reported as the canonical id", async () => {
+    const { fetchStub } = stubStream("{}", { model: "claude-sonnet-5-5-20261001" });
     const client = new AnthropicShapeClient({ apiKey: "sk", fetch: fetchStub, baseURL: "https://stub.invalid" });
-    const res = await client.call(req({ model: "claude-sonnet-5-5", fallbacks: true }));
-    expect(res.modelUsed).toBe("claude-sonnet-5");
-    expect(res.iterations).toEqual([
-      { model: "claude-sonnet-5-5", usage: { input: 900, output: 0, cacheRead: 0, cacheWrite: 0 } },
-      { model: "claude-sonnet-5", usage: { input: 900, output: 300, cacheRead: 0, cacheWrite: 0 } },
-    ]);
+    expect((await client.call(req({ model: "claude-sonnet-5-5" }))).modelUsed).toBe("claude-sonnet-5-5");
+  });
+
+  test("an answer from any other model keeps its own name, so the caller can refuse it", async () => {
+    const { fetchStub } = stubStream("{}", { model: "claude-sonnet-5" });
+    const client = new AnthropicShapeClient({ apiKey: "sk", fetch: fetchStub, baseURL: "https://stub.invalid" });
+    expect((await client.call(req({ model: "claude-sonnet-5-5" }))).modelUsed).toBe("claude-sonnet-5");
   });
 });
 

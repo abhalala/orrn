@@ -7,9 +7,9 @@
  * dry run, both passed in as functions.
  */
 import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
-import { costOfResponse, estimateTokens, worstCaseCallCostMicro } from "./cost";
+import { costOfResponse, estimateTokens, worstCaseCostMicro } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
-import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeResponse } from "./client";
+import { canonicalShapeModel, getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeResponse } from "./client";
 import { buildSystem, buildUserContent, type CatalogueTarget, newNonce, requestChars } from "./prompt";
 import { buildSample, MAX_COLUMNS, type Sample } from "./sample";
 import { botOutput, type NoTargetReason, type Recipe, schemaErrorCodes } from "./schema";
@@ -224,13 +224,12 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
   }
 
   // Claim this call's place under the caps before the model is called (A8). The claim carries the
-  // call's worst-case cost, the server-side fallback attempt included, so the day cost cap counts
-  // calls still in flight; finishRun replaces it with the real cost.
+  // call's worst-case cost, so the day cost cap counts calls still in flight; finishRun replaces it
+  // with the real cost.
   const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0 };
-  const fallbacks = model === "claude-sonnet-5-5";
   let claimId: string | null = null;
   if (args.store.finishRun) {
-    const worst = worstCaseCallCostMicro(model, inputEstimate, MAX_TOKENS[model], fallbacks);
+    const worst = worstCaseCostMicro(model, inputEstimate, MAX_TOKENS[model]);
     claimId = await args.store.insertRun({ ...base, model, outcome: "pending", ...zero, costMicroUsd: worst, createdAtMs: now(), errorCodes: null });
     const late = await capsAfterClaim({
       store: args.store,
@@ -255,7 +254,6 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
       system,
       messages: [{ role: "user", content }],
       maxTokens: MAX_TOKENS[model],
-      fallbacks,
       purpose: "shape",
     });
   } catch (err) {
@@ -264,15 +262,20 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
 
   let evaluated: Evaluated;
   let usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  let usedModel: string = model;
   let cost = 0;
   let ms = now() - started;
   if (res) {
-    evaluated = await evaluate(res, args);
     usage = res.usage;
-    usedModel = res.modelUsed;
     cost = costOfResponse(res);
     ms = res.ms;
+    // Only the model that was asked for may answer. Anything else (another model, a server fallback,
+    // a proxy that swapped it) is an error: the answer is not looked at and never stored. The tokens
+    // were spent, so they stay on the row, and the row names the model asked for.
+    if (canonicalShapeModel(res.modelUsed) !== model) {
+      evaluated = { outcome: "error", recipe: null, noTargetReason: null, errors: ["client:bad_model"] };
+    } else {
+      evaluated = await evaluate(res, args);
+    }
   } else {
     const kind = typeof clientError?.kind === "string" ? clientError.kind : "unknown";
     evaluated = { outcome: "error", recipe: null, noTargetReason: null, errors: [`client:${kind}`] };
@@ -280,7 +283,7 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
 
   const record: BotRunRecord = {
     ...base,
-    model: usedModel,
+    model,
     outcome: evaluated.outcome,
     inputTokens: usage.input,
     outputTokens: usage.output,
@@ -300,14 +303,14 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
   }
 
   const after = planNext(
-    [...history, { attempt: plan.attempt, model: usedModel, outcome: evaluated.outcome, errorCodes: evaluated.errors }],
+    [...history, { attempt: plan.attempt, model, outcome: evaluated.outcome, errorCodes: evaluated.errors }],
     start,
   );
   return {
     status: "ran",
     outcome: evaluated.outcome,
     attempt: plan.attempt,
-    model: usedModel,
+    model,
     next: after.next,
     recipe: evaluated.recipe,
     noTargetReason: evaluated.noTargetReason,
