@@ -19,6 +19,10 @@ jobs:
       ALCHEMY_STAGE: dev
       # Column helper for imports. Optional: without it people map new layouts by hand.
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Optional proxy route (the plant CLIProxyAPI behind Cloudflare Access). Set the Access pair together.
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      MODEL_ACCESS_CLIENT_ID: ${{ secrets.MODEL_ACCESS_CLIENT_ID }}
+      MODEL_ACCESS_CLIENT_SECRET: ${{ secrets.MODEL_ACCESS_CLIENT_SECRET }}
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

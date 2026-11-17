@@ -922,11 +922,10 @@ describe("A5 note: with no date column, an old order number matches only an open
   });
 });
 
-// ---------------------------------------------------------------------------
-// Item 4b: a Sonnet claim covers the server-side fallback attempt
+// Item 4b: a Sonnet claim is the worst case of Sonnet 5.5 alone (no server-side fallback any more)
 // ---------------------------------------------------------------------------
 
-describe("A8 note: one Sonnet call with a server-side fallback stays under the day cost cap", () => {
+describe("A8 note: one Sonnet call claims its own worst case and stays under the day cost cap", () => {
   async function bot() {
     const { runShapeAttempt } = await import("../src/lib/ingest/bot");
     const { DAY_COST_CAP_MICRO, MemoryBotRunStore } = await import("../src/lib/ingest/bot/caps");
@@ -935,10 +934,10 @@ describe("A8 note: one Sonnet call with a server-side fallback stays under the d
     return { runShapeAttempt, DAY_COST_CAP_MICRO, MemoryBotRunStore, FakeShapeClient, ...fx };
   }
 
-  /** Two attempts, each with the full Sonnet output budget: what a fallback can bill for one call. */
-  const fallbackUsage = { input: 4_000, output: 16_000, cacheRead: 0, cacheWrite: 0 };
+  /** One attempt with the full Sonnet output budget: what one call can bill. */
+  const fullUsage = { input: 4_000, output: 16_000, cacheRead: 0, cacheWrite: 0 };
 
-  test("the claim of a Sonnet call is the worst case of Sonnet 5.5 plus its fallback", async () => {
+  test("the claim of a Sonnet call is the worst case of Sonnet 5.5 and nothing more", async () => {
     const b = await bot();
     const seen: number[] = [];
     class Probe extends b.MemoryBotRunStore {
@@ -950,11 +949,29 @@ describe("A8 note: one Sonnet call with a server-side fallback stays under the d
     const args = b.baseArgs({ store: new Probe(), noFitBlocks: 2 });
     await b.runShapeAttempt({ ...args, client: new b.FakeShapeClient([b.sonnet(b.recipeAnswer())]) });
     expect(seen).toHaveLength(1);
-    // 16,000 output tokens at 10 USD per million is 160,000 micro-USD per attempt; two attempts.
-    expect(seen[0]!).toBeGreaterThan(320_000);
+    // 16,000 output tokens at 10 USD per million is 160,000 micro-USD, plus the input estimate. One attempt only.
+    expect(seen[0]!).toBeGreaterThan(160_000);
+    expect(seen[0]!).toBeLessThan(320_000);
   });
 
-  test("with room for one attempt only, the call is capped before it is made and the day stays under 5 USD", async () => {
+  test("with room for less than one attempt, the call is capped before it is made and the day stays under 5 USD", async () => {
+    const b = await bot();
+    const args = b.baseArgs({ noFitBlocks: 2 });
+    const at = args.nowMs!();
+    await args.store.insertRun({
+      companyId: "co1", blockId: "old", candidateId: null, purpose: "shape", model: "claude-sonnet-5-5", attempt: 1, outcome: "recipe",
+      inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: b.DAY_COST_CAP_MICRO - 100_000,
+      durationMs: 0, createdBy: null, createdAtMs: at - 1000, errorCodes: null,
+    });
+    const fake = new b.FakeShapeClient([b.sonnet(b.recipeAnswer(), { usage: fullUsage })]);
+    const r = await b.runShapeAttempt({ ...args, client: fake });
+    expect(fake.calls).toHaveLength(0);
+    expect(r).toMatchObject({ status: "ran", outcome: "capped", capReason: "day_cost" });
+    const day = await args.store.dayTotals({ companyId: "co1", sinceMs: 0 });
+    expect(day.costMicroUsd).toBeLessThanOrEqual(b.DAY_COST_CAP_MICRO);
+  });
+
+  test("with room for exactly one attempt, the call is made (it used to be capped by the fallback share)", async () => {
     const b = await bot();
     const args = b.baseArgs({ noFitBlocks: 2 });
     const at = args.nowMs!();
@@ -963,19 +980,10 @@ describe("A8 note: one Sonnet call with a server-side fallback stays under the d
       inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: b.DAY_COST_CAP_MICRO - 250_000,
       durationMs: 0, createdBy: null, createdAtMs: at - 1000, errorCodes: null,
     });
-    const fake = new b.FakeShapeClient([
-      b.sonnet(b.recipeAnswer(), {
-        modelUsed: "claude-sonnet-5",
-        usage: fallbackUsage,
-        iterations: [
-          { model: "claude-sonnet-5-5", usage: fallbackUsage },
-          { model: "claude-sonnet-5", usage: fallbackUsage },
-        ],
-      }),
-    ]);
+    const fake = new b.FakeShapeClient([b.sonnet(b.recipeAnswer(), { usage: fullUsage })]);
     const r = await b.runShapeAttempt({ ...args, client: fake });
-    expect(fake.calls).toHaveLength(0);
-    expect(r).toMatchObject({ status: "ran", outcome: "capped", capReason: "day_cost" });
+    expect(fake.calls).toHaveLength(1);
+    expect(r).toMatchObject({ status: "ran", outcome: "recipe" });
     const day = await args.store.dayTotals({ companyId: "co1", sinceMs: 0 });
     expect(day.costMicroUsd).toBeLessThanOrEqual(b.DAY_COST_CAP_MICRO);
   });

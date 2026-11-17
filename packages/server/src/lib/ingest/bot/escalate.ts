@@ -2,8 +2,8 @@
  * Which model and which attempt comes next (plan B6, "Attempt" table).
  *
  * One call per `shape.make`. The history is every earlier run of the block in this hole
- * version. Model names are the ones that actually answered, so a fallback to another Sonnet
- * still counts as Sonnet.
+ * version. Model names are the ones asked for (an answer from another model is an error row
+ * that keeps the asked-for name), so the table only ever sees Haiku 5.5 and Sonnet 5.5.
  *
  * | Attempt | Model | Next                                                                   |
  * | 1       | start | invalid: attempt 2 same model with errors; sample failed or refusal: Sonnet |

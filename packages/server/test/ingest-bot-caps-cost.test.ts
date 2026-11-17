@@ -12,6 +12,7 @@ import {
   evaluateSampleStats,
   plantDayStartMs,
   runShapeAttempt,
+  worstCaseCostMicro,
   type BotRunRecord,
 } from "../src/lib/ingest/bot";
 import { baseArgs, haiku, recipeAnswer, badAnswer, sonnet } from "./ingest-bot-fixture";
@@ -72,22 +73,19 @@ describe("cost maths, list prices from the claude-api skill (cached 2026-11-03)"
     expect(costOfUsage("claude-haiku-5-5", { input: 4, output: 0, cacheRead: 0, cacheWrite: 0 })).toBe(0);
   });
 
-  test("a fallback is billed per attempt at each model's own price", () => {
-    const res = {
-      modelUsed: "claude-sonnet-5",
-      usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 },
-      iterations: [
-        { model: "claude-sonnet-5-5", usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 } },
-        { model: "claude-sonnet-5", usage: { input: 1_000_000, output: 100_000, cacheRead: 0, cacheWrite: 0 } },
-      ],
-    };
-    expect(costOfResponse(res)).toBe(2_000_000 + 2_000_000 + 1_000_000);
-  });
-
-  test("with no iterations the single usage is billed at the model that answered", () => {
+  test("the single usage is billed at the model that answered, whatever else the response carries", () => {
     const usage = { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 };
     expect(costOfResponse({ modelUsed: "claude-haiku-5-5", usage: { ...usage, input: 100_000 } })).toBe(10_000);
     expect(costOfResponse({ modelUsed: "claude-sonnet-5-5", usage })).toBe(2_000_000);
+    // A dated id of an allowed model is priced as that model, not with the unknown-name card.
+    expect(costOfResponse({ modelUsed: "claude-haiku-5-5-20261001", usage: { ...usage, input: 100_000 } })).toBe(10_000);
+    // Old responses listed one entry per fallback attempt. Nothing reads that list any more.
+    const withList = { modelUsed: "claude-sonnet-5-5", usage, iterations: [{ model: "claude-sonnet-5", usage: { ...usage, input: 9_000_000 } }] };
+    expect(costOfResponse(withList)).toBe(2_000_000);
+  });
+
+  test("the worst case of one call is the planned model alone", () => {
+    expect(worstCaseCostMicro("claude-sonnet-5-5", 4_000, 16_000)).toBe(costOfUsage("claude-sonnet-5-5", { input: 0, output: 16_000, cacheRead: 0, cacheWrite: 4_000 }));
   });
 
   test("an unknown model is billed at the Sonnet 5.5 card, never as free", () => {
