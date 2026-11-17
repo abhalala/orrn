@@ -1,0 +1,233 @@
+name: CI
+
+# Pull-request checks for main and prod. No secrets: every job runs on the
+# local stack (wrangler + local D1) or plain bun, never against dev or prod.
+# The `ci` job at the bottom is the one stable name to require later.
+#
+# Runners are pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, where
+# Playwright 1.60 has no Chromium build.
+on:
+  pull_request:
+    branches:
+      - main
+      - prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.3.13
+  # web's check-types runs `vite build`, which validates this URL (packages/env/src/web.ts).
+  # A dummy loopback value: nothing is called during the build.
+  VITE_SERVER_URL: http://127.0.0.1:3000
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  typecheck:
+    name: Type-check + route budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      # Low concurrency: all packages at once is what exhausts RAM locally.
+      - name: Check types (every package, two at a time)
+        run: bunx turbo check-types --concurrency=2
+      # web's check-types already ran `vite build`, so dist/ is here; these are the
+      # two guards `bun run build` runs after it.
+      - name: Modulepreload guard
+        working-directory: apps/web
+        run: bun scripts/check-modulepreload.ts
+      - name: Route budget guard
+        working-directory: apps/web
+        run: bun scripts/check-route-budget.ts
+
+  test-server:
+    name: Server tests (${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1-4: the ordinary packages/server files, split round-robin by name.
+        # bounded: the 5,000-row ingest files (about 11 min each on an M-series Mac).
+        shard: ["1", "2", "3", "4", "bounded"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: apps/server
+        if: matrix.shard == '1'
+        run: bun run --cwd apps/server test
+      # One bun process per file (packages/server/scripts/test-per-file.sh): a single
+      # process cascades on Linux CI. TIMEOUT_MS is the per-test timeout the repo uses
+      # for the full suite under load.
+      - name: packages/server (process per file)
+        timeout-minutes: 40
+        working-directory: packages/server
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 4
+          JOBS: 2
+          TIMEOUT_MS: 60000
+          LOG_DIR: ${{ runner.temp }}/server-tests
+        run: |
+          files=()
+          i=0
+          for f in test/*.test.ts; do
+            case "$f" in
+              *bounded*) [ "$SHARD" = bounded ] && files+=("$f") ;;
+              *) [ "$SHARD" != bounded ] && [ $((i % SHARDS + 1)) = "$SHARD" ] && files+=("$f"); i=$((i + 1)) ;;
+            esac
+          done
+          echo "shard $SHARD: ${#files[@]} files"
+          # Full paths as filters: each matches only its own file.
+          bash scripts/test-per-file.sh "${files[@]}"
+      - name: Failed file logs
+        if: failure()
+        run: |
+          for log in $(grep -h '^FAIL\|^FLAKY' "${{ runner.temp }}/server-tests/results.txt" 2>/dev/null | sed -E 's/.*log=([^ ]+).*/\1/'); do
+            echo "::group::$log"; tail -80 "$log"; echo "::endgroup::"
+          done
+      - name: Upload per-file logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-logs-${{ matrix.shard }}
+          path: ${{ runner.temp }}/server-tests
+          retention-days: 7
+          if-no-files-found: ignore
+
+  test-web:
+    name: Web + package unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      # packingListPrintLayout.test.ts measures the printed packing list in headless Chromium and
+      # reads the PDF back with pdftotext (poppler-utils).
+      - name: Install Chromium and pdftotext
+        working-directory: apps/web
+        run: |
+          bunx playwright install --with-deps chromium
+          sudo apt-get install -y --no-install-recommends poppler-utils
+      # One bun process per test file (.github/ci/bun-test-per-file.sh says why), minus the Linux
+      # skip list (.github/ci/web-test-linux-skip.txt says why). One file at a time: four ingest
+      # files each start a Vite server in beforeAll (30 s budget) and starve each other when run
+      # side by side on the 4-vCPU runner.
+      - name: apps/web
+        working-directory: apps/web
+        env:
+          JOBS: 1
+          LOG_DIR: ${{ runner.temp }}/web-tests
+        run: bash ../../.github/ci/bun-test-per-file.sh ../../.github/ci/web-test-linux-skip.txt -- src scripts
+      - name: packages (domain, documents, i18n, ingest, ui)
+        if: success() || failure()
+        run: |
+          code=0
+          for p in domain documents i18n ingest ui; do
+            echo "::group::packages/$p"
+            skip=""
+            [ -f ".github/ci/$p-test-linux-skip.txt" ] && skip="../../.github/ci/$p-test-linux-skip.txt"
+            (cd "packages/$p" && bash ../../.github/ci/bun-test-per-file.sh $skip) || code=1
+            echo "::endgroup::"
+          done
+          exit $code
+
+  e2e-smoke:
+    name: E2E smoke (local stack)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      # The seed accounts' password: the committed local-only value from
+      # apps/server/wrangler.local.jsonc (vars.ORRN_LOCAL_PASSWORD), not a secret. The e2e helpers
+      # read it from here or from the gitignored .dev.local-account.local file.
+      ORRN_LOCAL_PASSWORD: orrn-local-dev-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - name: Install Chromium
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+      # The e2e project depends on e2e-setup (seeds via POST /dev/seed), and the config starts
+      # the wrangler API (local D1, migrations applied) and Vite itself. Calling playwright
+      # directly: `bun run test:e2e -- <spec>` can run the whole suite (scripts/e2e-group.sh).
+      - name: Smoke specs (session, front door, redirects)
+        working-directory: apps/web
+        run: >-
+          bunx playwright test --project=e2e
+          tests/e2e/session.spec.ts
+          tests/e2e/front-door.spec.ts
+          tests/e2e/redirects.spec.ts
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+  ci:
+    name: ci
+    if: always()
+    needs: [typecheck, test-server, test-web, e2e-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done

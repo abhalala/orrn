@@ -1,0 +1,11 @@
+# apps/web unit test files that CI on Linux does not run. One path per line, relative to apps/web.
+# Every file here is a known gap. Take it off the list as soon as its cause is fixed.
+#
+# Cause: Bun on Linux ships its own ICU 75 (full CLDR); Bun on macOS uses Apple's ICU. These tests
+# compare the pinned app formatters with the old Intl-based ones (test-support/legacy), and on full CLDR
+# the old ones print "5 Sept" (en-IN) and "24 Oct at 14:05" where the app prints "5 Sep" and
+# "24 Oct, 14:05". They pass on macOS. Found 2026-11-17 on PR #7, 19 of their tests fail on Linux.
+src/shared/lib/date-parity.test.ts
+src/shared/lib/fmt-text.test.ts
+src/shared/lib/plant-dates.test.tsx
+src/shared/lib/paper-units.test.tsx
