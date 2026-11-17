@@ -9,7 +9,7 @@
 import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
 import { costOfResponse, estimateTokens, worstCaseCallCostMicro } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
-import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeModelClient, type ShapeResponse } from "./client";
+import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeResponse } from "./client";
 import { buildSystem, buildUserContent, type CatalogueTarget, newNonce, requestChars } from "./prompt";
 import { buildSample, MAX_COLUMNS, type Sample } from "./sample";
 import { botOutput, type NoTargetReason, type Recipe, schemaErrorCodes } from "./schema";
@@ -66,8 +66,8 @@ export type BotBlock = {
 };
 
 export type RunShapeArgs = {
-  /** Only `ANTHROPIC_API_KEY` is read. */
-  env: { ANTHROPIC_API_KEY?: string | undefined };
+  /** The model route: key, optional base URL, optional Access pair. See `ShapeEnv`. */
+  env: ShapeEnv;
   /** Lane A's store over `ingest_bot_run`. */
   store: BotRunStore;
   companyId: string;

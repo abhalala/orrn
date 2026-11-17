@@ -209,9 +209,27 @@ const ingestVault = await optionalR2Bucket("ingest-vault", {
   create: () => R2Bucket("ingest-vault", { adopt: true, delete: false }),
 });
 
-/** The column helper's model key (owner decision 2026-11-10). Optional: without it a person maps columns. */
+/**
+ * The column helper's model route (owner decisions 2026-11-10 and 2026-11-17). Optional: without a key a
+ * person maps columns. The key may be a proxy key: with `ANTHROPIC_BASE_URL` the SDK calls the plant's
+ * CLIProxyAPI (an origin only, no path) and `MODEL_ACCESS_CLIENT_ID` + `MODEL_ACCESS_CLIENT_SECRET` are the
+ * Cloudflare Access service token that proxy sits behind. Each is bound on its own, so the Worker sees a
+ * half-set pair as it is and turns the helper off with a log line. Values are never printed.
+ */
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
-console.log(`Imports   -> column helper ${anthropicApiKey ? "key present" : "not configured (manual mapping only)"}`);
+const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL?.trim() ?? "";
+const modelAccessClientId = process.env.MODEL_ACCESS_CLIENT_ID?.trim() ?? "";
+const modelAccessClientSecret = process.env.MODEL_ACCESS_CLIENT_SECRET?.trim() ?? "";
+const helperRoute = !anthropicApiKey
+  ? "not configured (manual mapping only)"
+  : `${anthropicBaseUrl ? "via base URL" : "direct to Anthropic"}${modelAccessClientId && modelAccessClientSecret ? ", Access token present" : ""}`;
+console.log(`Imports   -> column helper ${helperRoute}`);
+if (Boolean(modelAccessClientId) !== Boolean(modelAccessClientSecret)) {
+  console.warn("Imports   -> MODEL_ACCESS_CLIENT_ID and MODEL_ACCESS_CLIENT_SECRET must be set together; the helper stays off until both are.");
+}
+if (!anthropicApiKey && (anthropicBaseUrl || modelAccessClientId || modelAccessClientSecret)) {
+  console.warn("Imports   -> a base URL or Access value is set but ANTHROPIC_API_KEY is not; the helper stays off.");
+}
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -278,6 +296,10 @@ export const server = await Worker("server", {
     ...(smtpPassword ? { PURELYMAIL_SMTP_PASSWORD: alchemy.secret(smtpPassword) } : {}),
     // Encrypted secret binding; absent key = no binding (the helper reports not set up).
     ...(anthropicApiKey ? { ANTHROPIC_API_KEY: alchemy.secret(anthropicApiKey) } : {}),
+    // The proxy origin and the Access client id are not secrets. The Access secret is encrypted.
+    ...(anthropicBaseUrl ? { ANTHROPIC_BASE_URL: anthropicBaseUrl } : {}),
+    ...(modelAccessClientId ? { MODEL_ACCESS_CLIENT_ID: modelAccessClientId } : {}),
+    ...(modelAccessClientSecret ? { MODEL_ACCESS_CLIENT_SECRET: alchemy.secret(modelAccessClientSecret) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",

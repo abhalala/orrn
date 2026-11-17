@@ -80,8 +80,10 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 export type AnthropicShapeClientOptions = {
   apiKey: string;
-  /** Tests point this at a stub. Production leaves it unset. */
+  /** The proxy origin (the SDK adds `/v1/messages`). Unset = the SDK default, Anthropic direct. */
   baseURL?: string;
+  /** Extra headers on every request: the Access token pair, and `x-api-key` on the proxy route. */
+  headers?: Record<string, string>;
   /** Tests inject a stub fetch. Production leaves it unset. */
   fetch?: typeof fetch;
   timeoutMs?: number;
@@ -154,6 +156,7 @@ export class AnthropicShapeClient implements ShapeModelClient {
       timeout: opts.timeoutMs ?? REQUEST_TIMEOUT_MS,
       maxRetries: MAX_RETRIES,
       ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
+      ...(opts.headers ? { defaultHeaders: opts.headers } : {}),
       ...(opts.fetch ? { fetch: opts.fetch } : {}),
     });
   }
@@ -218,9 +221,84 @@ export class AnthropicShapeClient implements ShapeModelClient {
   }
 }
 
-/** True when the environment holds a model key. Lane A's `status.botReady` is this. */
-export function botReady(env: { ANTHROPIC_API_KEY?: string | undefined }): boolean {
-  return typeof env.ANTHROPIC_API_KEY === "string" && env.ANTHROPIC_API_KEY.trim() !== "";
+/**
+ * The four names the helper reads. Only `ANTHROPIC_API_KEY` is needed for the direct route.
+ * `ANTHROPIC_BASE_URL` points the SDK at a proxy (the plant's CLIProxyAPI behind Cloudflare Access)
+ * and is an origin only, with no path. The two `MODEL_ACCESS_*` names are the Access service token:
+ * both or neither.
+ */
+export type ShapeEnv = {
+  ANTHROPIC_API_KEY?: string | undefined;
+  ANTHROPIC_BASE_URL?: string | undefined;
+  MODEL_ACCESS_CLIENT_ID?: string | undefined;
+  MODEL_ACCESS_CLIENT_SECRET?: string | undefined;
+};
+
+export type ShapeOffReason = "not_configured" | "incomplete_access" | "no_key_with_route";
+
+export type ShapeConfig =
+  | {
+      ok: true;
+      apiKey: string;
+      /** Null = the SDK default (Anthropic direct). */
+      baseURL: string | null;
+      /** Null unless both Access values are set. */
+      accessHeaders: { "CF-Access-Client-Id": string; "CF-Access-Client-Secret": string } | null;
+      route: "direct" | "base_url";
+    }
+  | { ok: false; reason: ShapeOffReason };
+
+const clean = (v: string | undefined): string => (typeof v === "string" ? v.trim() : "");
+
+/**
+ * One place that reads the environment. Off means: nothing set, one Access value without the
+ * other, or a base URL or Access pair with no key. Nothing here ever returns or logs a value
+ * in an error: `reportShapeConfig` names variables, never what they hold.
+ */
+export function resolveShapeConfig(env: ShapeEnv): ShapeConfig {
+  const apiKey = clean(env.ANTHROPIC_API_KEY);
+  const baseURL = clean(env.ANTHROPIC_BASE_URL);
+  const id = clean(env.MODEL_ACCESS_CLIENT_ID);
+  const secret = clean(env.MODEL_ACCESS_CLIENT_SECRET);
+  if ((id === "") !== (secret === "")) return { ok: false, reason: "incomplete_access" };
+  if (apiKey === "") {
+    return { ok: false, reason: baseURL !== "" || id !== "" ? "no_key_with_route" : "not_configured" };
+  }
+  return {
+    ok: true,
+    apiKey,
+    baseURL: baseURL === "" ? null : baseURL,
+    accessHeaders: id !== "" ? { "CF-Access-Client-Id": id, "CF-Access-Client-Secret": secret } : null,
+    route: baseURL === "" ? "direct" : "base_url",
+  };
+}
+
+const OFF_LINES: Record<Exclude<ShapeOffReason, "not_configured">, string> = {
+  incomplete_access:
+    "ingest model helper is off: set both MODEL_ACCESS_CLIENT_ID and MODEL_ACCESS_CLIENT_SECRET, or neither.",
+  no_key_with_route:
+    "ingest model helper is off: ANTHROPIC_BASE_URL or MODEL_ACCESS_CLIENT_ID is set but ANTHROPIC_API_KEY is not.",
+};
+
+const logged = new Set<string>();
+
+/** For tests: forget which off lines were already printed. */
+export function resetShapeConfigLogForTests(): void {
+  logged.clear();
+}
+
+/** Prints the reason once per isolate per reason. Variable names only, never values. */
+function reportShapeConfig(cfg: ShapeConfig): void {
+  if (cfg.ok || cfg.reason === "not_configured" || logged.has(cfg.reason)) return;
+  logged.add(cfg.reason);
+  console.warn(OFF_LINES[cfg.reason]);
+}
+
+/** True when the environment holds a usable route to the model. Lane A's `status.botReady` is this. */
+export function botReady(env: ShapeEnv): boolean {
+  const cfg = resolveShapeConfig(env);
+  reportShapeConfig(cfg);
+  return cfg.ok;
 }
 
 let testClient: ShapeModelClient | null = null;
@@ -232,15 +310,25 @@ export function setShapeClientForTests(client: ShapeModelClient | null): void {
 
 /**
  * The client for this environment. A test client wins, so the fake works with no key.
- * Returns null when there is neither a test client nor a key.
+ * Returns null when there is neither a test client nor a usable config. `opts.fetch` is for tests.
  */
-export function getShapeClient(env: { ANTHROPIC_API_KEY?: string | undefined }): ShapeModelClient | null {
+export function getShapeClient(env: ShapeEnv, opts: { fetch?: typeof fetch } = {}): ShapeModelClient | null {
   if (testClient) return testClient;
-  if (!botReady(env)) return null;
-  return new AnthropicShapeClient({ apiKey: env.ANTHROPIC_API_KEY!.trim() });
+  const cfg = resolveShapeConfig(env);
+  reportShapeConfig(cfg);
+  if (!cfg.ok) return null;
+  // This SDK sends the key as `Authorization: Bearer`. A proxy (CLIProxyAPI) is probed and known to
+  // accept `x-api-key`, so on the proxy route the key goes out in that header as well.
+  const headers = { ...(cfg.accessHeaders ?? {}), ...(cfg.baseURL ? { "x-api-key": cfg.apiKey } : {}) };
+  return new AnthropicShapeClient({
+    apiKey: cfg.apiKey,
+    ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  });
 }
 
-/** Whether the bot can run: a test client is set, or a key exists. */
-export function shapeBotReady(env: { ANTHROPIC_API_KEY?: string | undefined }): boolean {
+/** Whether the bot can run: a test client is set, or the config is usable. */
+export function shapeBotReady(env: ShapeEnv): boolean {
   return testClient !== null || botReady(env);
 }

@@ -15,7 +15,7 @@
  */
 import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, checkCaps, countCalls } from "./caps";
 import { costOfResponse } from "./cost";
-import { getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
+import { getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
 import type { Next } from "./escalate";
 import { safeErrorCodes } from "./prompt";
 import { schemaErrorCodes, visionOutput, type VisionOutput } from "./schema";
@@ -59,7 +59,7 @@ export type VisionPage = {
 };
 
 export type RunVisionArgs = {
-  env: { ANTHROPIC_API_KEY?: string | undefined };
+  env: ShapeEnv;
   store: BotRunStore;
   companyId: string;
   userId: string | null;
