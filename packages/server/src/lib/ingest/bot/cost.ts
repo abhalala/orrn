@@ -12,7 +12,7 @@
  * Plan B6 says cache reads are 0.1x for both. The skill says Sonnet 5.5 reads are 0.05x
  * ($0.10 per MTok), so Sonnet follows the skill.
  */
-import type { ShapeResponse, ShapeUsage } from "./client";
+import { canonicalShapeModel, type ShapeResponse, type ShapeUsage } from "./client";
 
 type Price = {
   /** micro-USD per million input tokens, for prompts of 100K tokens or fewer */
@@ -64,7 +64,8 @@ export function costOfUsage(model: string, usage: ShapeUsage): number {
 
 /** Cost of one response: its usage, billed at the model that answered. */
 export function costOfResponse(res: Pick<ShapeResponse, "usage" | "modelUsed">): number {
-  return costOfUsage(res.modelUsed, res.usage);
+  // A dated id of an allowed model is priced as that model, not with the unknown-name card.
+  return costOfUsage(canonicalShapeModel(res.modelUsed) ?? res.modelUsed, res.usage);
 }
 
 /**

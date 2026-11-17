@@ -165,6 +165,9 @@ describe("vision read", () => {
     expect(planVision([row(1, S, "invalid")], S)).toMatchObject({ next: "manual" });
     expect(planVision([row(1, H, "error")], H)).toMatchObject({ next: "retry", model: H });
     expect(planVision([row(1, H, "error"), row(2, H, "error")], H)).toMatchObject({ next: "manual" });
+    // A failed Sonnet escalation retries on Sonnet, never back on Haiku (it would loop H invalid, S error).
+    expect(planVision([row(1, H, "invalid"), row(2, S, "error")], H)).toMatchObject({ next: "retry", model: S, carryErrors: true });
+    expect(planVision([row(1, H, "invalid"), row(2, S, "error"), row(3, S, "error")], H)).toMatchObject({ next: "manual" });
   });
 
   test("table checks catch width, confidence and size problems", () => {

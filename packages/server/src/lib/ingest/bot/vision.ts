@@ -117,8 +117,10 @@ export function planVision(history: readonly BotRunHistoryRow[], start: ShapeMod
     let trailing = 0;
     for (let i = calls.length - 1; i >= 0 && calls[i]!.outcome === "error"; i--) trailing++;
     if (trailing >= 2) return { next: "manual", model: null, attempt, carryErrors: false };
+    // A transport error repeats the model that failed, as the shape planner does (A34). Taking the
+    // model from the last real row would send a failed Sonnet escalation back to Haiku.
     const prev = real[real.length - 1];
-    const model: ShapeModelId = prev ? (isHaiku(prev.model) ? HAIKU : SONNET) : start;
+    const model: ShapeModelId = isHaiku(last.model) ? HAIKU : SONNET;
     return { next: "retry", model, attempt, carryErrors: prev?.outcome === "invalid" };
   }
   if (isHaiku(last.model)) return { next: "escalate", model: SONNET, attempt, carryErrors: last.outcome === "invalid" };

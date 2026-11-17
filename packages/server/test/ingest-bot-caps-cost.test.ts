@@ -77,6 +77,8 @@ describe("cost maths, list prices from the claude-api skill (cached 2026-11-03)"
     const usage = { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 };
     expect(costOfResponse({ modelUsed: "claude-haiku-5-5", usage: { ...usage, input: 100_000 } })).toBe(10_000);
     expect(costOfResponse({ modelUsed: "claude-sonnet-5-5", usage })).toBe(2_000_000);
+    // A dated id of an allowed model is priced as that model, not with the unknown-name card.
+    expect(costOfResponse({ modelUsed: "claude-haiku-5-5-20261001", usage: { ...usage, input: 100_000 } })).toBe(10_000);
     // Old responses listed one entry per fallback attempt. Nothing reads that list any more.
     const withList = { modelUsed: "claude-sonnet-5-5", usage, iterations: [{ model: "claude-sonnet-5", usage: { ...usage, input: 9_000_000 } }] };
     expect(costOfResponse(withList)).toBe(2_000_000);
