@@ -8,7 +8,7 @@ import { canRemove, methodCounts, signInChangeErrorKey, type Methods } from "./s
 const methods = (over: Partial<Methods> = {}): Methods => ({ password: false, passkeys: 0, google: false, authenticator: false, ...over });
 
 /**
- * `canRemove` mirrors the server's guard (`signInMethodGuardBody`, packages/auth/src/sign-in-methods.ts)
+ * `canRemove` mirrors the server's guard (`signInRemovalBody`, packages/auth/src/sign-in-removal.ts)
  * so the Sign-in tab can disable a button and say why; the server stays the judge.
  */
 describe("canRemove: the last way in", () => {

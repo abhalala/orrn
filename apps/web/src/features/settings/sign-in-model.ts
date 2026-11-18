@@ -4,7 +4,7 @@ import type { AuthClientError } from "@/features/auth/auth-errors";
 
 /**
  * Pure rules for Settings > Sign-in (plan 2026-11-18, Task 5). `canRemove` repeats the server's guard
- * (`signInMethodGuardBody`, packages/auth/src/sign-in-methods.ts) so a button can be disabled with the
+ * (`signInRemovalBody`, packages/auth/src/sign-in-removal.ts) so a button can be disabled with the
  * reason shown before anyone presses it; the server stays the judge and its refusal is mapped to the same
  * words (`signInChangeErrorKey`).
  */
