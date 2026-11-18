@@ -803,3 +803,62 @@ describe("the /link-social exemption belongs to the signed-in person who sent it
     expect((await accountsOf(attacker.id)).map((a) => a.providerId)).toEqual(["credential"]);
   });
 });
+
+describe("linking Google through the redirect flow keeps the session that links (council round 2, Gemini)", () => {
+  async function linkByRedirect(email: string, sessionCookie: string) {
+    const start = await call("link-social", {
+      body: { provider: "google", callbackURL: "https://app.test/welcome", disableRedirect: true },
+      cookie: sessionCookie,
+    });
+    expect(start.status).toBe(200);
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email });
+    return call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, {
+      method: "GET",
+      cookie: `${sessionCookie}; ${cookieHeader(start)}`,
+    });
+  }
+
+  test("an unverified account: other sessions and the password go, this session stays and counts as Google", async () => {
+    const existing = await makeUser({ emailVerified: false });
+    const other = cookieHeader(await passwordSignIn(existing.email));
+    const mine = cookieHeader(await passwordSignIn(existing.email));
+    const res = await linkByRedirect(existing.email, mine);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://app.test/welcome");
+    expect(await sessionUser(mine)).toBe(existing.id);
+    expect(await sessionUser(other)).toBeNull();
+    const left = await env.db.select().from(session).where(eq(session.userId, existing.id)).all();
+    expect(left).toHaveLength(1);
+    expect(left[0]!.signInMethod).toBe("google");
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["google"]);
+  });
+
+  test("a weak session of a person who already has a strong method, in a strict plant, cannot finish a link", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    await env.db.insert(passkey).values({
+      id: crypto.randomUUID(), name: "Phone", publicKey: "pk", userId: existing.id, credentialID: `cred-${crypto.randomUUID()}`,
+      counter: 0, deviceType: "multiDevice", backedUp: true, transports: "internal",
+    } as never);
+    const mine = cookieHeader(await passwordSignIn(existing.email));
+    // The link was started before the plant turned the policy on.
+    const start = await call("link-social", {
+      body: { provider: "google", callbackURL: "https://app.test/settings", disableRedirect: true },
+      cookie: mine,
+    });
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    const { companyId } = await env.seedCompany({ settings: { requireStrongSignIn: true } });
+    await env.addMembership(existing.id, companyId, "packer");
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, {
+      method: "GET",
+      cookie: `${mine}; ${cookieHeader(start)}`,
+    });
+    // Refused where the link row is written; Better Auth's callback answers that with the error itself
+    // (403 STRONG_SIGN_IN_NEEDED), not a redirect. Rare: the start (/link-social) is refused already.
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["credential"]);
+    expect((await env.db.select().from(session).where(eq(session.userId, existing.id)).all()).map((s) => s.signInMethod)).toEqual(["password"]);
+  });
+});

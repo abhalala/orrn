@@ -6,6 +6,7 @@ import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
+import { assertEnrolmentAllowed } from "./enrolment-guard";
 import { sessionOfRequest, upgradeSession } from "./session-method";
 import { writeUserAudit } from "./sign-in-methods";
 
@@ -256,13 +257,17 @@ async function acceptInvitesQuietly(db: Db, userId: string, email: string): Prom
  * is linked. If the link write fails after the batch, the old methods are already gone and the
  * account is verified but not linked; a retry recovers: the account is verified now, so Better Auth
  * links it and this clean-up does not run again.
+ *
+ * Council round 2 (Gemini): the session that is linking (Settings > Sign-in, the secure step) is kept.
+ * In the redirect flow's callback `ctx.context.session` is empty, so it is found from the request's own
+ * session cookie (`sessionOfRequest`); the account-create after-hook then upgrades it to Google.
  */
 async function onGoogleLink(db: Db, userId: string, ctx: HookCtx): Promise<void> {
   const row = await db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, userId)).get();
   if (!row) return;
   if (await isPlatformStaff(db, userId)) throw new APIError("FORBIDDEN", { code: GOOGLE_NOT_FOR_STAFF, message: MESSAGES[GOOGLE_NOT_FOR_STAFF] });
   if (row.emailVerified) return;
-  const current = ctx?.context?.session?.session;
+  const current = ctx?.context?.session?.session ?? (await sessionOfRequest(db, ctx));
   const keep = current && current.userId === userId ? current.id : null;
   await atomicBatch(db, [
     db.delete(account).where(and(eq(account.userId, userId), eq(account.providerId, "credential"))),
@@ -297,6 +302,11 @@ export function googleDatabaseHooks(db: Db) {
       create: {
         before: async (data: { providerId?: unknown; userId?: unknown }, ctx: HookCtx) => {
           if (data.providerId !== "google" || typeof data.userId !== "string") return;
+          // Council round 2 (N-C1): a link from a weak session of a person who already has a strong
+          // method, in a strict plant, is refused here too (the redirect flow's callback carries no
+          // path the before-hook can tell from a sign-in). A Google sign-in has no session of this user.
+          const linking = await sessionOfRequest(db, ctx);
+          if (linking?.userId === data.userId) await assertEnrolmentAllowed(db, { userId: data.userId, signInMethod: linking.signInMethod });
           await onGoogleLink(db, data.userId, ctx);
         },
         // The link row exists now (a new account made by Google included). User-level audit, no
