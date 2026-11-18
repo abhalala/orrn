@@ -12,7 +12,7 @@ import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 import { ingestBotRun } from "@orrn/db/schema/ingest";
 
 import { createId } from "../id";
-import { shapeBotReady, type BotRunStore } from "./bot";
+import { shapeBotReady, type BotRunStore, type ShapeEnv } from "./bot";
 import { historyOutcome, type BotRunRecord } from "./bot/caps";
 import { mergeEngine as mergeImpl } from "./merge";
 import type { IngestCtx, MergeStepOut } from "./types";
@@ -29,9 +29,14 @@ export interface MergeEngine {
 /** Lane B's merge: planner, step runner and adapters in `./merge`. */
 export const mergeEngine: MergeEngine = mergeImpl;
 
-export function anthropicEnv(): { ANTHROPIC_API_KEY?: string } {
-  const key = env.ANTHROPIC_API_KEY;
-  return key ? { ANTHROPIC_API_KEY: key } : {};
+/** The model route from the Worker bindings: the key, and the optional proxy URL and Access pair. */
+export function anthropicEnv(): ShapeEnv {
+  const out: ShapeEnv = {};
+  if (env.ANTHROPIC_API_KEY) out.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+  if (env.ANTHROPIC_BASE_URL) out.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL;
+  if (env.MODEL_ACCESS_CLIENT_ID) out.MODEL_ACCESS_CLIENT_ID = env.MODEL_ACCESS_CLIENT_ID;
+  if (env.MODEL_ACCESS_CLIENT_SECRET) out.MODEL_ACCESS_CLIENT_SECRET = env.MODEL_ACCESS_CLIENT_SECRET;
+  return out;
 }
 
 export const shapeBot = {

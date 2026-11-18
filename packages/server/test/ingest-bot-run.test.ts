@@ -119,15 +119,17 @@ describe("runShapeAttempt", () => {
     expect(r.recipe?.target).toBe("dies");
     expect(args.store.rows).toHaveLength(1);
     expect(args.store.rows[0]).toMatchObject({ outcome: "recipe", model: "claude-haiku-5-5", attempt: 1, purpose: "shape", candidateId: "cand1" });
-    // Haiku: no fallbacks. The request carries the plan's token cap.
-    expect(client.calls[0]).toMatchObject({ model: "claude-haiku-5-5", maxTokens: 8_000, fallbacks: false, purpose: "shape" });
+    // The request carries the plan's token cap and no fallbacks field.
+    expect(client.calls[0]).toMatchObject({ model: "claude-haiku-5-5", maxTokens: 8_000, purpose: "shape" });
+    expect("fallbacks" in client.calls[0]!).toBe(false);
   });
 
-  test("Sonnet calls ask for server-side fallbacks and 16,000 tokens", async () => {
+  test("Sonnet calls carry 16,000 tokens and no fallbacks field", async () => {
     const client = new FakeShapeClient([sonnet(recipeAnswer())]);
     const r = ran(await runShapeAttempt(baseArgs({ client, noFitBlocks: 2 })));
     expect(r.model).toBe("claude-sonnet-5-5");
-    expect(client.calls[0]).toMatchObject({ model: "claude-sonnet-5-5", maxTokens: 16_000, fallbacks: true });
+    expect(client.calls[0]).toMatchObject({ model: "claude-sonnet-5-5", maxTokens: 16_000 });
+    expect("fallbacks" in client.calls[0]!).toBe(false);
   });
 
   test("the system prefix ends with the cache breakpoint", async () => {
@@ -243,12 +245,40 @@ describe("runShapeAttempt", () => {
     expect(args.store.rows[0]).toMatchObject({ inputTokens: 8_000, outputTokens: 1_500, cacheReadTokens: 6_000, cacheWriteTokens: 0, costMicroUsd: 1_610, durationMs: 900 });
   });
 
-  test("a fallback that changes the model is recorded as the model actually used", async () => {
+  test("an answer from a model other than Haiku 5.5 or Sonnet 5.5 is an error: never evaluated, never stored", async () => {
+    // A valid recipe, but from `claude-sonnet-5`. It must not become a recipe.
     const client = new FakeShapeClient([sonnet(recipeAnswer(), { modelUsed: "claude-sonnet-5" })]);
     const args = baseArgs({ client, noFitBlocks: 2 });
     const r = ran(await runShapeAttempt(args));
-    expect(r.model).toBe("claude-sonnet-5");
-    expect(args.store.rows[0]!.model).toBe("claude-sonnet-5");
+    expect(r).toMatchObject({ outcome: "error", errors: ["client:bad_model"], recipe: null, model: "claude-sonnet-5-5" });
+    expect(args.store.rows).toHaveLength(1);
+    // The row names the model that was asked for, so the escalation table still reads Sonnet. Tokens are kept and billed.
+    expect(args.store.rows[0]).toMatchObject({ outcome: "error", model: "claude-sonnet-5-5", errorCodes: ["client:bad_model"], inputTokens: 14_000, outputTokens: 5_000 });
+    expect(args.store.rows[0]!.costMicroUsd).toBeGreaterThan(0);
+    // An error repeats the same model; a second one goes manual.
+    expect(r.next).toBe("retry");
+  });
+
+  test("a response from the other allowed model than the one asked for is refused too", async () => {
+    const client = new FakeShapeClient([haiku(recipeAnswer(), { modelUsed: "claude-sonnet-5-5" })]);
+    const r = ran(await runShapeAttempt(baseArgs({ client })));
+    expect(r).toMatchObject({ outcome: "error", errors: ["client:bad_model"], recipe: null, model: "claude-haiku-5-5" });
+  });
+
+  test("a dated id of the model asked for is accepted and recorded as the canonical id", async () => {
+    const client = new FakeShapeClient([haiku(recipeAnswer(), { modelUsed: "claude-haiku-5-5-20261001" })]);
+    const args = baseArgs({ client });
+    const r = ran(await runShapeAttempt(args));
+    expect(r).toMatchObject({ outcome: "recipe", model: "claude-haiku-5-5" });
+    expect(args.store.rows[0]!.model).toBe("claude-haiku-5-5");
+  });
+
+  test("two bad-model answers in a row end the block in manual", async () => {
+    const client = new FakeShapeClient([haiku(recipeAnswer(), { modelUsed: "gpt-x" }), haiku(recipeAnswer(), { modelUsed: "gpt-x" })]);
+    const args = baseArgs({ client });
+    await runShapeAttempt(args);
+    const second = ran(await runShapeAttempt(args));
+    expect(second).toMatchObject({ outcome: "error", next: "manual" });
   });
 
   test("a done block is not called again; an exhausted block is not called again", async () => {

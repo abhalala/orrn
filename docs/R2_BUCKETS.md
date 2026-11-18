@@ -47,7 +47,9 @@ that do not match (code 10037, answered as 400). A second PUT to the same key is
 `artifact.commitRaw` checks the stored size and marks the artifact stored.
 
 The bot (`ANTHROPIC_API_KEY`) is a separate optional secret. Without it the column helper is skipped
-and a person maps the columns.
+and a person maps the columns. It may run through a proxy: `ANTHROPIC_BASE_URL` plus the Access pair
+`MODEL_ACCESS_CLIENT_ID` and `MODEL_ACCESS_CLIENT_SECRET` (see `docs/DEPLOY_PROMOTION.md`). Haiku 5.5 and
+Sonnet 5.5 only.
 
 To turn the vault on: enable R2, redeploy the stage. Alchemy creates or adopts `ingest-vault` with
 `delete: false`, so removing the binding later never deletes the bucket or its files.

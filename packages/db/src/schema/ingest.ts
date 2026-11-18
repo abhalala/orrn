@@ -505,7 +505,7 @@ export const ingestBotRun = sqliteTable(
     blockId: text("block_id").notNull(),
     candidateId: text("candidate_id"),
     purpose: text("purpose", { enum: ["shape", "vision"] }).notNull(),
-    /** The model actually used; fallbacks may change it. */
+    /** The model asked for and answered: Haiku 5.5 or Sonnet 5.5 only. */
     model: text("model").notNull(),
     attempt: integer("attempt").notNull(),
     outcome: text("outcome", { enum: BOT_RUN_OUTCOMES }).notNull(),

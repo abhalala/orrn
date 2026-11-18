@@ -51,6 +51,11 @@ export interface CloudflareEnv {
   INGEST_VAULT?: R2Bucket;
   /** Infinity Portal column helper (Claude API, production secret). Optional: absent = people map columns by hand. */
   ANTHROPIC_API_KEY?: string;
+  /** Optional proxy origin for the column helper (the plant's CLIProxyAPI). Unset = Anthropic direct. */
+  ANTHROPIC_BASE_URL?: string;
+  /** Optional Cloudflare Access service token for the proxy. Both or neither. */
+  MODEL_ACCESS_CLIENT_ID?: string;
+  MODEL_ACCESS_CLIENT_SECRET?: string;
 }
 
 declare global {

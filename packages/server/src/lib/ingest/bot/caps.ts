@@ -21,7 +21,7 @@ export type StoredOutcome = BotOutcome | "pending";
 /** What `escalate.ts` needs to know about an earlier run. */
 export type BotRunHistoryRow = {
   attempt: number;
-  /** The model that actually answered. Fallbacks can change it. */
+  /** The model asked for, which is the model that answered (any other answer is an error row). */
   model: string;
   outcome: BotOutcome;
   /** Codes of the failure, when the store kept them. Sent back on a retry. */
