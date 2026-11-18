@@ -395,15 +395,28 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const userId = me?.impersonation ? undefined : me?.user.id;
   const companyId = me?.company?.id;
 
-  // Fresh palette every time it opens.
+  // Fresh palette every time it opens. Reset while rendering the opening (not in an effect), so the very first
+  // committed render, and the live region's first announcement, already have the empty query, search mode and the
+  // stored recents, never the last session's text.
+  const [openedFor, setOpenedFor] = useState(false);
+  if (open !== openedFor) {
+    setOpenedFor(open);
+    if (open) {
+      setQuery("");
+      setCommandMode(false);
+      setActiveId(null);
+      setRecents(userId && companyId ? readRecents(userId, companyId) : []);
+    }
+  }
   useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setCommandMode(false);
-    setActiveId(null);
-    pendingRef.current = null;
-    setRecents(userId && companyId ? readRecents(userId, companyId) : []);
-  }, [open, userId, companyId]);
+    if (open) pendingRef.current = null;
+  }, [open]);
+  // A plant switch or the end of impersonation while open: read that person's and plant's list.
+  useEffect(() => {
+    if (open) setRecents(userId && companyId ? readRecents(userId, companyId) : []);
+    // `open` is handled above; this only follows the identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, companyId]);
 
   const trimmed = query.trim();
   const debounced = useDebounced(trimmed, 160);

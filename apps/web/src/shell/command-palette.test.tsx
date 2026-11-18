@@ -652,3 +652,85 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
     }
   });
 });
+
+describe("command palette: announcements across reopening", () => {
+  test("each open announces once, from the fresh state, never the last session's mode or query", async () => {
+    const { PaletteBody } = await import("./command-palette");
+    const { useState } = await import("react");
+    localStorage.setItem(recentStorageKey("user-1", "plant-1"), JSON.stringify([{ kind: "page", ref: "masters" }, { kind: "page", ref: "stock" }]));
+    let setOpen: (open: boolean) => void = () => {};
+    function Harness() {
+      const [open, set] = useState(false);
+      setOpen = set;
+      return (
+        <I18nProvider locale="en">
+          <PaletteBody
+            open={open}
+            onOpenChange={set}
+            me={testMe("owner")}
+            theme="system"
+            scanAvailable
+            arrangeAvailable={false}
+            useRemote={stubRemote}
+            effects={{ go: () => {}, navigate: () => {}, openScan: () => {}, switchPlant: () => {}, setLocale: () => {}, setTheme: () => {}, openArrange: () => {}, signOut: () => {} }}
+          />
+        </I18nProvider>
+      );
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const wait = (ms: number) => act(async () => void (await new Promise((r) => setTimeout(r, ms))));
+    // Every text the live region showed while open, in order. The observer callback runs after a batch of DOM
+    // changes, so the texts in between come from the records (old values and removed nodes), then the final text.
+    let seen: string[] = [];
+    const inRegion = (n: Node | null) => !!(n && (n.parentElement ?? (n as Element)).closest?.("[data-testid='palette-live']"));
+    const observer = new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === "characterData" && inRegion(r.target)) seen.push(r.oldValue ?? "");
+        if (r.type === "childList" && (r.target as Element).matches?.("[data-testid='palette-live']")) {
+          for (const n of Array.from(r.removedNodes)) seen.push(n.textContent ?? "");
+        }
+        // The region arriving with the dialog: the text it was inserted with.
+        for (const n of Array.from(r.addedNodes)) {
+          const region = n instanceof window.Element ? (n.matches("[data-testid='palette-live']") ? n : n.querySelector("[data-testid='palette-live']")) : null;
+          if (region) seen.push(region.textContent ?? "");
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, characterData: true, characterDataOldValue: true, subtree: true });
+    const openAndListen = async () => {
+      seen = [];
+      await act(async () => setOpen(true));
+      await wait(300);
+      const all = [...seen, live()].filter((x) => x !== "");
+      const heard = all.filter((x, i) => x !== all[i - 1]);
+      return { heard, rows: options().length };
+    };
+    try {
+      await act(async () => root.render(<Harness />));
+      const first = await openAndListen();
+      expect(first.heard).toEqual([`Search. ${first.rows} results`]);
+      // Leave it in command mode with a query, as running ">scan" does.
+      await type(document.querySelector<HTMLInputElement>("input[role='combobox']")!, ">scan");
+      await wait(200);
+      await act(async () => setOpen(false));
+      await wait(300);
+      const second = await openAndListen();
+      expect(second.heard).toEqual([`Search. ${second.rows} results`]);
+      // Leave a search query behind.
+      await type(document.querySelector<HTMLInputElement>("input[role='combobox']")!, "sto");
+      await wait(250);
+      await act(async () => setOpen(false));
+      await wait(300);
+      const third = await openAndListen();
+      expect(third.heard).toEqual([`Search. ${third.rows} results`]);
+    } finally {
+      observer.disconnect();
+      await act(async () => root.unmount());
+      host.remove();
+      document.body.innerHTML = "";
+      localStorage.clear();
+    }
+  });
+});
