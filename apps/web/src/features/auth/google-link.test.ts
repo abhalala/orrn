@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { googleLinkErrorKey, googleLinkUrls } from "./google-link";
+import { googleLinkErrorKey, googleLinkUrls, linkRemovals } from "./google-link";
 
 describe("googleLinkUrls", () => {
   test("Google comes back to the page that asked, on the web origin, both ways", () => {
@@ -35,5 +35,35 @@ describe("googleLinkErrorKey: the ?error= Better Auth sends back, as words", () 
   test("anything else reads as the generic link failure, never the code", () => {
     expect(googleLinkErrorKey("unable_to_link_account")).toBe("auth.errors.googleLinkFailed");
     expect(googleLinkErrorKey("access_denied")).toBe("auth.errors.googleLinkFailed");
+  });
+});
+
+// Council round 1, A9: the warning before linking Google to an unconfirmed email lists only what goes.
+describe("linkRemovals", () => {
+  test("lists only the methods the account has, then other devices", () => {
+    expect(linkRemovals({ password: true, passkeys: 0, authenticator: false })).toEqual([
+      { key: "settings.signIn.linkWipesPassword" },
+      { key: "settings.signIn.linkWipesDevices" },
+    ]);
+    expect(linkRemovals({ password: true, passkeys: 2, authenticator: true })).toEqual([
+      { key: "settings.signIn.linkWipesPassword" },
+      { key: "settings.signIn.linkWipesPasskeys", count: 2 },
+      { key: "settings.signIn.linkWipesAuthenticator" },
+      { key: "settings.signIn.linkWipesDevices" },
+    ]);
+    expect(linkRemovals({ password: false, passkeys: 1, authenticator: false })).toEqual([
+      { key: "settings.signIn.linkWipesPasskeys", count: 1 },
+      { key: "settings.signIn.linkWipesDevices" },
+    ]);
+    expect(linkRemovals({ password: false, passkeys: 0, authenticator: false })).toEqual([{ key: "settings.signIn.linkWipesDevices" }]);
+  });
+
+  test("unknown (the list did not load): names everything that could go", () => {
+    expect(linkRemovals(undefined)).toEqual([
+      { key: "settings.signIn.linkWipesPassword" },
+      { key: "settings.signIn.linkWipesPasskeys", count: 2 },
+      { key: "settings.signIn.linkWipesAuthenticator" },
+      { key: "settings.signIn.linkWipesDevices" },
+    ]);
   });
 });

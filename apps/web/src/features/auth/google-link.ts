@@ -39,3 +39,23 @@ export async function startGoogleLink(link: LinkSocial, origin: string, path: st
     return "auth.errors.googleLinkFailed";
   }
 }
+
+/** What the account has now, from `auth.signInMethods` (passkeys as a count). */
+export type LinkMethods = { password: boolean; passkeys: number; authenticator: boolean };
+export type LinkRemoval = { key: MessageKey; count?: number };
+
+/**
+ * Council round 1, A9: linking Google to an account whose email was never confirmed removes the password,
+ * every passkey and the authenticator app, and signs out every other device (google-guard.ts
+ * `onGoogleLink`). The warning lists only what this account has; other devices always go. When the list
+ * is unknown (it did not load), it names everything that could go.
+ */
+export function linkRemovals(methods: LinkMethods | undefined): LinkRemoval[] {
+  const m = methods ?? { password: true, passkeys: 2, authenticator: true };
+  const out: LinkRemoval[] = [];
+  if (m.password) out.push({ key: "settings.signIn.linkWipesPassword" });
+  if (m.passkeys > 0) out.push({ key: "settings.signIn.linkWipesPasskeys", count: m.passkeys });
+  if (m.authenticator) out.push({ key: "settings.signIn.linkWipesAuthenticator" });
+  out.push({ key: "settings.signIn.linkWipesDevices" });
+  return out;
+}

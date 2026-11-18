@@ -89,7 +89,6 @@ export const guSettings = {
       unlinkBody: "તમે હવે Google થી સાઇન ઇન નહીં કરી શકો.",
       unlinked: "Google છૂટું થયું.",
       linkTitle: "Google જોડવું છે?",
-      linkWipes: "તમારો ઇમેલ હજી પાકો થયો નથી. Google જોડવાથી તે પાકો થશે અને તમારો પાસવર્ડ, પાસકી અને authenticator ઍપ નીકળી જશે. પછી તમે Google થી સાઇન ઇન કરશો.",
       password: "પાસવર્ડ",
       passwordHint: "તમારા ઇમેલ અને પાસવર્ડથી સાઇન ઇન કરો.",
       passwordSet: "સેટ છે",
@@ -113,6 +112,13 @@ export const guSettings = {
       signInAgain: "ફરી સાઇન ઇન કરો",
       // Council r1 Lane A (2026-11-18): sign-in method changes.
       busy: "તમારા સાઇન-ઇનનો બીજો ફેરફાર હજી સેવ થાય છે. થોડી વારમાં ફરી પ્રયત્ન કરો.",
+      // Council r1 Lane A (2026-11-18): linking Google to an unconfirmed email lists only what goes.
+      linkWipesIntro: "તમારો ઇમેલ હજી પાકો થયો નથી. Google જોડવાથી તે પાકો થશે, અને પછી:",
+      linkWipesPassword: "તમારો પાસવર્ડ નીકળી જશે.",
+      linkWipesPasskeys: "તમારી {count:પાસકી નીકળી જશે|બધી પાસકી નીકળી જશે}.",
+      linkWipesAuthenticator: "તમારી authenticator ઍપ બંધ થશે.",
+      linkWipesDevices: "તમે તમારા બીજા ડિવાઇસ પર સાઇન આઉટ થઈ જશો.",
+      linkWipesAfter: "પછી તમે Google થી સાઇન ઇન કરશો.",
     },
     units: {
       title: "એકમ અને રૂપ",

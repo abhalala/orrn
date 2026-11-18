@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8304 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8309 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2266,7 +2266,7 @@ Counts: 8304 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (343)
+### settings (348)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2333,7 +2333,6 @@ Counts: 8304 screen strings in 50 groups, 45 guides with 866 strings.
 | `signIn.unlinkBody` | You won't be able to sign in with Google any more. | आप अब Google से साइन इन नहीं कर पाएंगे। |
 | `signIn.unlinked` | Google unlinked. | Google हट गया। |
 | `signIn.linkTitle` | Link Google? | Google जोड़ें? |
-| `signIn.linkWipes` | Your email isn't confirmed yet. Linking Google confirms it and removes your password, passkeys and authenticator app. After that you sign in with Google. | आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा और आपका पासवर्ड, पासकी और authenticator ऐप हट जाएंगे। उसके बाद आप Google से साइन इन करेंगे। |
 | `signIn.password` | Password | पासवर्ड |
 | `signIn.passwordHint` | Sign in with your email and a password. | अपने ईमेल और पासवर्ड से साइन इन करें। |
 | `signIn.passwordSet` | Set | सेट है |
@@ -2356,6 +2355,12 @@ Counts: 8304 screen strings in 50 groups, 45 guides with 866 strings.
 | `signIn.reasonPlant` | A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first. | आपका एक प्लांट सुरक्षित साइन-इन ज़रूरी रखता है। पासकी, Google या authenticator ऐप रखें, या पहले कोई दूसरा जोड़ें। |
 | `signIn.signInAgain` | Sign in again | फिर से साइन इन करें |
 | `signIn.busy` | Another change to your sign-in is still saving. Try again in a moment. | आपके साइन-इन का एक और बदलाव अभी सेव हो रहा है। थोड़ी देर में फिर कोशिश करें। |
+| `signIn.linkWipesIntro` | Your email isn't confirmed yet. Linking Google confirms it, and then: | आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा, और फिर: |
+| `signIn.linkWipesPassword` | Your password is removed. | आपका पासवर्ड हट जाएगा। |
+| `signIn.linkWipesPasskeys` | Your {count:passkey is\|passkeys are} removed. | आपकी {count:पासकी हट जाएगी\|सभी पासकी हट जाएंगी}। |
+| `signIn.linkWipesAuthenticator` | Your authenticator app is turned off. | आपका authenticator ऐप बंद हो जाएगा। |
+| `signIn.linkWipesDevices` | You're signed out on your other devices. | आप अपने दूसरे डिवाइस पर साइन आउट हो जाएंगे। |
+| `signIn.linkWipesAfter` | After that you sign in with Google. | उसके बाद आप Google से साइन इन करेंगे। |
 | `units.title` | Units and formats | इकाइयाँ और रूप |
 | `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
 | `units.weight` | Weight | वज़न |

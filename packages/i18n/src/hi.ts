@@ -2605,7 +2605,6 @@ export const hi = {
       unlinkBody: "आप अब Google से साइन इन नहीं कर पाएंगे।",
       unlinked: "Google हट गया।",
       linkTitle: "Google जोड़ें?",
-      linkWipes: "आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा और आपका पासवर्ड, पासकी और authenticator ऐप हट जाएंगे। उसके बाद आप Google से साइन इन करेंगे।",
       password: "पासवर्ड",
       passwordHint: "अपने ईमेल और पासवर्ड से साइन इन करें।",
       passwordSet: "सेट है",
@@ -2629,6 +2628,13 @@ export const hi = {
       signInAgain: "फिर से साइन इन करें",
       // Council r1 Lane A (2026-11-18): sign-in method changes.
       busy: "आपके साइन-इन का एक और बदलाव अभी सेव हो रहा है। थोड़ी देर में फिर कोशिश करें।",
+      // Council r1 Lane A (2026-11-18): linking Google to an unconfirmed email lists only what goes.
+      linkWipesIntro: "आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा, और फिर:",
+      linkWipesPassword: "आपका पासवर्ड हट जाएगा।",
+      linkWipesPasskeys: "आपकी {count:पासकी हट जाएगी|सभी पासकी हट जाएंगी}।",
+      linkWipesAuthenticator: "आपका authenticator ऐप बंद हो जाएगा।",
+      linkWipesDevices: "आप अपने दूसरे डिवाइस पर साइन आउट हो जाएंगे।",
+      linkWipesAfter: "उसके बाद आप Google से साइन इन करेंगे।",
     },
     units: {
       title: "इकाइयाँ और रूप",

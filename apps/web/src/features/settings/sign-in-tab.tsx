@@ -326,7 +326,13 @@ function GoogleCard({ listed, initialError }: { listed: Listed; initialError: Me
           ) : null}
         </>
       ) : methods.data?.google === true ? (
-        <GoogleLinkButton path={SIGN_IN_TAB_PATH} className="self-start" emailVerified={listed.emailVerified} onError={setError} />
+        <GoogleLinkButton
+          path={SIGN_IN_TAB_PATH}
+          className="self-start"
+          emailVerified={listed.emailVerified}
+          methods={methodCounts(listed)}
+          onError={setError}
+        />
       ) : null}
       {error ? <MethodError error={error} next={SIGN_IN_TAB_PATH} /> : null}
       {unlinking ? <UnlinkDialog onClose={() => setUnlinking(false)} onError={setError} /> : null}

@@ -2618,7 +2618,6 @@ export const en = {
       unlinkBody: "You won't be able to sign in with Google any more.",
       unlinked: "Google unlinked.",
       linkTitle: "Link Google?",
-      linkWipes: "Your email isn't confirmed yet. Linking Google confirms it and removes your password, passkeys and authenticator app. After that you sign in with Google.",
       password: "Password",
       passwordHint: "Sign in with your email and a password.",
       passwordSet: "Set",
@@ -2642,6 +2641,13 @@ export const en = {
       signInAgain: "Sign in again",
       // Council r1 Lane A (2026-11-18): sign-in method changes.
       busy: "Another change to your sign-in is still saving. Try again in a moment.",
+      // Council r1 Lane A (2026-11-18): linking Google to an unconfirmed email lists only what goes.
+      linkWipesIntro: "Your email isn't confirmed yet. Linking Google confirms it, and then:",
+      linkWipesPassword: "Your password is removed.",
+      linkWipesPasskeys: "Your {count:passkey is|passkeys are} removed.",
+      linkWipesAuthenticator: "Your authenticator app is turned off.",
+      linkWipesDevices: "You're signed out on your other devices.",
+      linkWipesAfter: "After that you sign in with Google.",
     },
     units: {
       title: "Units and formats",

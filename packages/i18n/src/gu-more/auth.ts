@@ -140,6 +140,11 @@ export const guAuth = {
       googleHint: "{email} વાળા Google અકાઉન્ટથી સાઇન ઇન કરો.",
       otherWay: "બીજી રીત પસંદ કરો",
     },
+    // Council r1 Lane A (2026-11-18): Settings > Sign-in reuses these two (turning the authenticator app on or off).
+    twoFactor: {
+      confirmPassword: "તમારો પાસવર્ડ",
+      wrongPassword: "આ પાસવર્ડ ખોટો છે. જે પાસવર્ડથી સાઇન ઇન કરો છો તે લખો.",
+    },
     done: {
       passkeyTitle: "આગલી વખતે ઝડપથી સાઇન ઇન કરો",
       passkeyBody: "પાસકી ઉમેરો અને તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. ઇચ્છો તો આ છોડી શકો છો.",
