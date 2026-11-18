@@ -6,7 +6,7 @@
  * row and the audit row land only with the claim. `beforeNextBatch` runs the other mutation after the
  * accept's reads and before its write, which is the race GPT reproduced.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 
 import { auditLog, customerPortalUser, invite, membership, user } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -184,5 +184,59 @@ describe("party (portal) invite: accept racing revoke or a fresh grant", () => {
     // The new link works.
     await expect(env.callerForUser(userId).invite.acceptByToken({ token: fresh })).resolves.toEqual({ success: true, portal: true });
     expect((await env.db.select().from(customerPortalUser).where(eq(customerPortalUser.id, portalUserId)).get())?.status).toBe("active");
+  });
+});
+
+/**
+ * Council round 2 (Claude N-M3): the abort is recognised by its SQLite text, which live D1 might wrap.
+ * With the text not recognised, a lost claim still answers as a lost claim (never a 500), and a batch
+ * that failed for another reason while the claim could still land is thrown as it is.
+ */
+describe("a lost claim whose abort text is not recognised", () => {
+  async function unrecognised<T>(run: () => Promise<T>): Promise<T> {
+    const atomic = await import("../src/lib/atomic");
+    const spy = spyOn(atomic, "isBatchAbort").mockReturnValue(false);
+    try {
+      return await run();
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  test("a revoke that won still answers 'expired or no longer valid'", async () => {
+    const { companyId } = await env.seedCompany();
+    const email = `race.unrecognised.${uid()}@test.orrn`;
+    const inv = await memberInvite(companyId, email);
+    const userId = await accountFor(email);
+    env.beforeNextBatch(() => env.caller({ role: "owner", companyId }).invite.revoke({ inviteId: inv.id }));
+    await unrecognised(() =>
+      expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Invite is expired or no longer valid",
+      }),
+    );
+    expect(await membershipOf(userId, companyId)).toBeUndefined();
+  });
+
+  test("the same account's double accept still answers success", async () => {
+    const { companyId } = await env.seedCompany();
+    const email = `race.unrecognised2.${uid()}@test.orrn`;
+    const inv = await memberInvite(companyId, email);
+    const userId = await accountFor(email);
+    env.beforeNextBatch(() => env.callerForUser(userId).invite.acceptByToken({ token: inv.token }));
+    await unrecognised(() => expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).resolves.toMatchObject({ success: true }));
+    expect(await membershipOf(userId, companyId)).toBeDefined();
+  });
+
+  test("a batch that failed for another reason, with the claim still open, is thrown as it is", async () => {
+    const { companyId } = await env.seedCompany();
+    const email = `race.other.${uid()}@test.orrn`;
+    const inv = await memberInvite(companyId, email);
+    const userId = await accountFor(email);
+    env.beforeNextBatch(async () => {
+      throw new Error("D1_ERROR: network connection lost");
+    });
+    await unrecognised(() => expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toThrow(/network connection lost/));
+    expect((await inviteRow(inv.id))?.acceptedAt).toBeNull();
   });
 });

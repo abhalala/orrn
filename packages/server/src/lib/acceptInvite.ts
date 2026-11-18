@@ -89,10 +89,48 @@ async function claimedBatch(db: OrrnDb, target: InviteRow, userId: string, at: D
       ...rest,
     ]);
   } catch (error) {
-    if (!isBatchAbort(error)) throw error;
+    // Council round 2 (Claude N-M3): the abort is told by its text, which live D1 may wrap differently.
+    // Whatever the text, a batch that failed while the claim can no longer land lost the race; one whose
+    // claim could still land failed for another reason and is thrown as it is.
+    if (!isBatchAbort(error) && !(await claimLost(db, target, at))) throw error;
     if (await inviteHeldBy(db, target, userId)) return;
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
   }
+}
+
+/**
+ * True when the claim (or, for a party login, its portal row) can no longer land: the invite was
+ * accepted, revoked, re-sent (another token) or has expired, or its portal row is no longer waiting.
+ * Read after a failed batch, which D1 rolled back whole.
+ */
+async function claimLost(db: OrrnDb, target: InviteRow, at: Date): Promise<boolean> {
+  const [open] = await db
+    .select({ id: invite.id })
+    .from(invite)
+    .where(
+      and(
+        eq(invite.id, target.id),
+        eq(invite.tokenHash, target.tokenHash),
+        isNull(invite.acceptedAt),
+        isNull(invite.revokedAt),
+        gt(invite.expiresAt, at),
+      ),
+    )
+    .limit(1);
+  if (!open) return true;
+  if (target.kind !== "portal") return false;
+  const [waiting] = await db
+    .select({ id: customerPortalUser.id })
+    .from(customerPortalUser)
+    .where(
+      and(
+        eq(customerPortalUser.companyId, target.companyId),
+        eq(customerPortalUser.inviteId, target.id),
+        eq(customerPortalUser.status, "invited"),
+      ),
+    )
+    .limit(1);
+  return !waiting;
 }
 
 /**
