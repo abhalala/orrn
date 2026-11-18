@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { auditLog, company } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -85,6 +85,33 @@ describe("company.updateSettings against the current value", () => {
     expect(rows).toContainEqual({ requireStrongSignIn: { from: false, to: true } });
     expect(rows).toContainEqual({ requireStrongSignIn: { from: true, to: false } });
     expect(rows).toHaveLength(2);
+  });
+
+  // Council round 2 (Gemini minor): the press balance warning is one key inside `press`; a save of it
+  // must not write back the rest of `press` as it was read.
+  test("the press balance warning patches only press.balanceWarnBp, keeping a press key written in between", async () => {
+    const { companyId } = await env.seedCompany({ settings: { press: { balanceWarnBp: 100, shiftTarget: 5 } } });
+    env.beforeNextBatch(async () => {
+      await env.db
+        .update(company)
+        .set({ settings: sql`json_set(${company.settings}, '$.press.shiftTarget', 9, '$.press.newKey', 'kept')` })
+        .where(eq(company.id, companyId));
+    });
+    await env.caller({ role: "admin", companyId }).company.updateSettings({ pressBalanceWarnBp: 250 });
+    expect((await settingsOf(companyId)).press).toEqual({ balanceWarnBp: 250, shiftTarget: 9, newKey: "kept" });
+    // The audit row keeps its shape: `press` as an object holding the new warning.
+    const [audit] = await env.db
+      .select({ meta: auditLog.meta })
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "company.settings.update")))
+      .all();
+    expect(audit!.meta).toEqual({ changed: { press: { balanceWarnBp: 250, shiftTarget: 5 } }, previous: { press: { balanceWarnBp: 100, shiftTarget: 5 } } });
+  });
+
+  test("the press balance warning lands when the plant has no press settings yet", async () => {
+    const { companyId } = await env.seedCompany({ settings: { press: null } });
+    await env.caller({ role: "admin", companyId }).company.updateSettings({ pressBalanceWarnBp: 250 });
+    expect((await settingsOf(companyId)).press).toEqual({ balanceWarnBp: 250 });
   });
 
   test("a value it already has writes no security row", async () => {

@@ -47,6 +47,30 @@ const standardPair = z.object({
   cml: z.string().trim().max(MAX_STANDARD_TEXT),
 });
 
+/**
+ * The audit row's `changed` / `previous` for a settings save. A dotted patch key (`press.balanceWarnBp`)
+ * is shown as its parent object, as the audit screens read it (`changed.press.balanceWarnBp`), with
+ * `previous` the parent as it was read.
+ */
+function auditChange(patch: Record<string, unknown>, settings: Record<string, unknown>) {
+  const changed: Record<string, unknown> = {};
+  const previous: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const dot = key.indexOf(".");
+    if (dot < 0) {
+      changed[key] = value;
+      previous[key] = settings[key] ?? null;
+      continue;
+    }
+    const parent = key.slice(0, dot);
+    const before = settings[parent];
+    const base = before && typeof before === "object" && !Array.isArray(before) ? (before as Record<string, unknown>) : {};
+    changed[parent] = { ...base, ...((changed[parent] as Record<string, unknown> | undefined) ?? {}), [key.slice(dot + 1)]: value };
+    previous[parent] = before ?? null;
+  }
+  return { changed, previous };
+}
+
 export const companyRouter = router({
   /**
    * Make `companyId` this user's default active company (spec P10). Requires a
@@ -366,7 +390,8 @@ export const companyRouter = router({
         }
         if (input.recoveryBands !== undefined) patch.recoveryBands = input.recoveryBands;
         if (input.pressBalanceWarnBp !== undefined) {
-          patch.press = { ...((row.settings?.press ?? {}) as Record<string, unknown>), balanceWarnBp: input.pressBalanceWarnBp };
+          // One key inside `press`, patched in SQL against the row as it is then (council round 2).
+          patch["press.balanceWarnBp"] = input.pressBalanceWarnBp;
         }
       }
       if (input.castSeriesStart !== undefined) {
@@ -411,7 +436,7 @@ export const companyRouter = router({
                 action: "company.settings.update",
                 subjectType: "company",
                 subjectId: ctx.companyId,
-                meta: { changed: patch, previous: Object.fromEntries(Object.keys(patch).map((k) => [k, (row.settings ?? {})[k] ?? null])) },
+                meta: auditChange(patch, row.settings ?? {}),
               }),
             ]
           : []),

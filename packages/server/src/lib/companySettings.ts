@@ -23,20 +23,31 @@ import type { OrrnDb } from "./atomic";
 const SETTINGS_KEY = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /**
- * The new `company.settings` value with only `patch`'s top-level keys replaced, computed in SQL from
- * the value in the row when the statement runs (`json_set`), never from a copy read earlier. Every
- * settings write uses it, so two saves of different keys both land and a save never turns back a key
- * it did not name (the owner's "Require secure sign-in" above all). A key's own value is whatever the
- * caller computed (a nested object is replaced whole).
+ * The new `company.settings` value with only `patch`'s keys replaced, computed in SQL from the value
+ * in the row when the statement runs (`json_set`), never from a copy read earlier. Every settings
+ * write uses it, so two saves of different keys both land and a save never turns back a key it did
+ * not name (the owner's "Require secure sign-in" above all). A key's own value is whatever the caller
+ * computed (a nested object is replaced whole).
+ *
+ * A dotted key (`press.balanceWarnBp`, council round 2) replaces one key inside a nested object and
+ * keeps its siblings as they are in the row; a parent that is missing or not an object becomes `{}`
+ * first, so the inner key always lands.
  */
 export function settingsPatchSql(patch: Record<string, unknown>): SQL {
   const pairs = Object.entries(patch).filter(([, v]) => v !== undefined);
   if (pairs.length === 0) return sql`coalesce(${company.settings}, '{}')`;
-  const args = pairs.map(([key, value]) => {
-    if (!SETTINGS_KEY.test(key)) throw new Error(`settings key ${key} is not a plain name`);
-    return sql`${sql.raw(`'$.${key}'`)}, json(${JSON.stringify(value)})`;
-  });
-  return sql`json_set(coalesce(${company.settings}, '{}'), ${sql.join(args, sql`, `)})`;
+  const base = sql`coalesce(${company.settings}, '{}')`;
+  const args: SQL[] = [];
+  for (const [key, value] of pairs) {
+    const parts = key.split(".");
+    if (!parts.every((part) => SETTINGS_KEY.test(part))) throw new Error(`settings key ${key} is not a plain name`);
+    for (let i = 1; i < parts.length; i++) {
+      const parent = sql.raw(`'$.${parts.slice(0, i).join(".")}'`);
+      args.push(sql`${parent}, json(CASE WHEN json_type(${base}, ${parent}) = 'object' THEN json_extract(${base}, ${parent}) ELSE '{}' END)`);
+    }
+    args.push(sql`${sql.raw(`'$.${key}'`)}, json(${JSON.stringify(value)})`);
+  }
+  return sql`json_set(${base}, ${sql.join(args, sql`, `)})`;
 }
 
 
