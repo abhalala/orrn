@@ -38,3 +38,20 @@ export function createStrongSignInSignOut(signOut: () => Promise<void>) {
     }
   };
 }
+
+type NoticeText =
+  | { key: "auth.login.strongSignInNeeded" | "auth.login.strongSignInNeededPhone"; params: { plant: string } }
+  | { key: "auth.login.strongSignInNeededPlant" | "auth.login.strongSignInNeededPhonePlant"; params?: undefined };
+
+/**
+ * The notice's words (council round 2, Claude N-M2). When this phone offers both a passkey and Google, the
+ * plain words do; when it offers only one or neither (Android hides Google, a build without the passkey
+ * association hides passkeys), it also says where to get the authenticator code: the web's Settings.
+ */
+export function strongNoticeText(notice: Notice, offered: { passkey: boolean; google: boolean }): NoticeText {
+  const phone = !(offered.passkey && offered.google);
+  if (notice.plant) {
+    return { key: phone ? "auth.login.strongSignInNeededPhone" : "auth.login.strongSignInNeeded", params: { plant: notice.plant } };
+  }
+  return { key: phone ? "auth.login.strongSignInNeededPhonePlant" : "auth.login.strongSignInNeededPlant" };
+}

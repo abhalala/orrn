@@ -341,6 +341,9 @@ export const en = {
       // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
       strongSignInNeeded: "{plant} needs a passkey, Google or your authenticator code. Sign in with one of them.",
       strongSignInNeededPlant: "This plant needs a passkey, Google or your authenticator code. Sign in with one of them.",
+      // Council r2 (2026-11-18): the phone may offer no passkey or Google; then say where to get the code.
+      strongSignInNeededPhone: "{plant} needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web and turn on the authenticator app in Settings > Sign-in.",
+      strongSignInNeededPhonePlant: "This plant needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web and turn on the authenticator app in Settings > Sign-in.",
     },
     totp: {
       title: "Enter your code",

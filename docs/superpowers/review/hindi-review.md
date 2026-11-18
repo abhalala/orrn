@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8309 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -285,7 +285,7 @@ Counts: 8309 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (155)
+### auth (157)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -310,6 +310,8 @@ Counts: 8309 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.passwordLinkSent` | If {email} has an orrn account, a link to set a password is on its way. It works for one hour. | अगर {email} का orrn अकाउंट है, तो पासवर्ड बनाने का लिंक आ रहा है। यह एक घंटे तक चलेगा। |
 | `login.strongSignInNeeded` | {plant} needs a passkey, Google or your authenticator code. Sign in with one of them. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
 | `login.strongSignInNeededPlant` | This plant needs a passkey, Google or your authenticator code. Sign in with one of them. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPhone` | {plant} needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web and turn on the authenticator app in Settings > Sign-in. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर साइन इन करें और सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
+| `login.strongSignInNeededPhonePlant` | This plant needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web and turn on the authenticator app in Settings > Sign-in. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर साइन इन करें और सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |

@@ -333,6 +333,9 @@ export const hi = {
       // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
       strongSignInNeeded: "{plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें।",
       strongSignInNeededPlant: "इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें।",
+      // Council r2 (2026-11-18): the phone may offer no passkey or Google; then say where to get the code.
+      strongSignInNeededPhone: "{plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर साइन इन करें और सेटिंग्स > साइन इन में authenticator ऐप चालू करें।",
+      strongSignInNeededPhonePlant: "इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर साइन इन करें और सेटिंग्स > साइन इन में authenticator ऐप चालू करें।",
     },
     totp: {
       title: "अपना कोड डालें",

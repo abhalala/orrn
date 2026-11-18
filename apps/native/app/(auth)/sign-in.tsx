@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { feedback } from "@/lib/feedback";
 import { Field } from "@/components/ui/field";
 import { ScreenTitle } from "@/components/ui/screen-title";
-import { AltSignIn } from "@/features/auth/alt-sign-in";
+import { AltSignIn, useAltSignInButtons } from "@/features/auth/alt-sign-in";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
 import { AnimatedView } from "@/lib/nativewind-interop";
 import { afterPassword, afterTotp, cleanTotp, totpInputError } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
-import { signInNotice } from "@/lib/sign-in-notice";
+import { signInNotice, strongNoticeText } from "@/lib/sign-in-notice";
 import { webUrl } from "@/lib/web-url";
 import { FORGOT_PASSWORD_PATH } from "@/lib/web-link";
 
@@ -53,6 +53,8 @@ export default function SignInScreen() {
   const passwordRef = useRef<TextInput>(null);
   /** A plant that requires secure sign-in just signed this phone out (council round 1, A4). Read once. */
   const [notice] = useState(() => signInNotice.take());
+  const offered = useAltSignInButtons();
+  const noticeText = notice ? strongNoticeText(notice, offered) : null;
 
   /** Shows a form error. It renders in a live region, which Android reads by itself. */
   function fail(key: MessageKey) {
@@ -149,7 +151,7 @@ export default function SignInScreen() {
                 accessibilityRole="alert"
                 className="rounded-input bg-tone-blue-tint px-4 py-3 font-sans-medium text-[15px] leading-6 text-tone-blue-ink"
               >
-                {notice.plant ? t("auth.login.strongSignInNeeded", { plant: notice.plant }) : t("auth.login.strongSignInNeededPlant")}
+                {noticeText?.params ? t(noticeText.key, noticeText.params) : noticeText ? t(noticeText.key) : null}
               </Text>
             ) : null}
 

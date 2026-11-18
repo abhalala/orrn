@@ -322,3 +322,26 @@ describe("sign-in notice (council r1 A4)", () => {
     expect(signInNotice.take()).toBeNull();
   });
 });
+
+// Council round 2 (Claude N-M2): the phone may offer no passkey or Google; then the notice says where to get the code.
+describe("strongNoticeText", () => {
+  test("plain words only when the phone offers both a passkey and Google", async () => {
+    const { strongNoticeText } = await import("../lib/sign-in-notice");
+    expect(strongNoticeText({ plant: "Shree Ganesh" }, { passkey: true, google: true })).toEqual({
+      key: "auth.login.strongSignInNeeded",
+      params: { plant: "Shree Ganesh" },
+    });
+    expect(strongNoticeText({ plant: null }, { passkey: true, google: true })).toEqual({ key: "auth.login.strongSignInNeededPlant" });
+    for (const offered of [
+      { passkey: false, google: true },
+      { passkey: true, google: false },
+      { passkey: false, google: false },
+    ]) {
+      expect(strongNoticeText({ plant: "Shree Ganesh" }, offered)).toEqual({
+        key: "auth.login.strongSignInNeededPhone",
+        params: { plant: "Shree Ganesh" },
+      });
+      expect(strongNoticeText({ plant: null }, offered)).toEqual({ key: "auth.login.strongSignInNeededPhonePlant" });
+    }
+  });
+});
