@@ -113,13 +113,14 @@ async function hasPasskeyOrAuthenticator(db: Db, userId: string): Promise<boolea
 /**
  * Decides a Google identity before Better Auth links or creates anything. The account is found the
  * way Better Auth's `findOAuthUser` finds it: the linked Google account first, then the email.
- * `linking`: the signed-in person is linking Google from Settings (`linkSocial`), not signing in.
+ * `linkingUserId`: the signed-in person linking Google from Settings (`linkSocial`); the A6 refusal is
+ * skipped only when the account found by email is that same person.
  */
 export async function guardGoogleIdentity(
   db: Db,
   identity: GoogleIdentity,
   now: Date = new Date(),
-  opts: { linking?: boolean } = {},
+  opts: { linkingUserId?: string | null } = {},
 ): Promise<void> {
   if (identity.emailVerified !== true) await refuse(GOOGLE_EMAIL_NOT_VERIFIED);
   const email = (identity.email ?? "").trim().toLowerCase();
@@ -133,20 +134,24 @@ export async function guardGoogleIdentity(
   if (userId) {
     if (await isPlatformStaff(db, userId)) await refuse(GOOGLE_NOT_FOR_STAFF);
     // A6: found by email, not yet linked, and this is a sign-in: never link over a passkey or the code.
-    if (byEmail && !opts.linking && (await hasPasskeyOrAuthenticator(db, byEmail.id))) await refuse(GOOGLE_LINK_FROM_SETTINGS);
+    const ownLink = Boolean(opts.linkingUserId) && opts.linkingUserId === byEmail?.id;
+    if (byEmail && !ownLink && (await hasPasskeyOrAuthenticator(db, byEmail.id))) await refuse(GOOGLE_LINK_FROM_SETTINGS);
     return;
   }
   if (!(await googleCreateAllowed(db, email, now))) await refuse(GOOGLE_NOT_INVITED);
 }
 
 /**
- * Id tokens a signed-in person sent to `/link-social` (Settings > Sign-in), so the provider's
- * `getUserInfo`, which only sees the token, knows the request is a link and not a sign-in. Filled by
- * the auth before-hook (`noteGoogleLinkToken`) and emptied by its after-hook; each entry also expires
- * after a minute. The browser redirect flow needs none of this: its OAuth state says `link`.
+ * Id tokens a signed-in person sent to `/link-social` (Settings > Sign-in), with that person's user id, so
+ * the provider's `getUserInfo`, which only sees the token, knows the request is that person's link and not
+ * a sign-in. Filled by the auth before-hook (`noteGoogleLinkToken`), which runs before Better Auth checks
+ * the session, so the hook reads the session itself and notes nothing without one: a token sent with no
+ * session, or by someone else, never exempts a sign-in for another account. Emptied by the after-hook;
+ * each entry also expires after a minute. The browser redirect flow needs none of this: its OAuth state
+ * carries `link.userId`.
  */
 const LINK_TOKEN_TTL_MS = 60_000;
-const linkTokens = new Map<string, number>();
+const linkTokens = new Map<string, { userId: string; until: number }>();
 
 export const LINK_SOCIAL_PATH = "/link-social";
 
@@ -155,13 +160,15 @@ function tokenOf(ctx: { body?: unknown }): string | null {
   return typeof token === "string" && token ? token : null;
 }
 
-/** `hooks.before` on `/link-social`: remember the id token as a link. */
-export function noteGoogleLinkToken(ctx: { path?: string; body?: unknown }, nowMs = Date.now()): void {
+/** `hooks.before` on `/link-social`: remember the id token as this signed-in person's link. */
+export async function noteGoogleLinkToken(db: Db, ctx: { path?: string; body?: unknown }, nowMs = Date.now()): Promise<void> {
   if (ctx.path !== LINK_SOCIAL_PATH) return;
   const token = tokenOf(ctx);
   if (!token) return;
-  for (const [key, until] of linkTokens) if (until <= nowMs) linkTokens.delete(key);
-  linkTokens.set(token, nowMs + LINK_TOKEN_TTL_MS);
+  for (const [key, entry] of linkTokens) if (entry.until <= nowMs) linkTokens.delete(key);
+  const current = await sessionOfRequest(db, ctx);
+  if (!current) return;
+  linkTokens.set(token, { userId: current.userId, until: nowMs + LINK_TOKEN_TTL_MS });
 }
 
 /** `hooks.after` on `/link-social`: forget it. */
@@ -171,11 +178,13 @@ export function forgetGoogleLinkToken(ctx: { path?: string; body?: unknown }): v
   if (token) linkTokens.delete(token);
 }
 
-async function isLinking(token: { idToken?: string }): Promise<boolean> {
+/** The user linking Google in this request (OAuth state `link.userId`, or a noted id token), else null. */
+async function linkingUserId(token: { idToken?: string }): Promise<string | null> {
   const state = await getOAuthState().catch(() => null);
-  if (state && typeof state === "object" && "link" in state && state.link) return true;
-  const until = token.idToken ? linkTokens.get(token.idToken) : undefined;
-  return until !== undefined && until > Date.now();
+  const link = state && typeof state === "object" && "link" in state ? (state as { link?: { userId?: unknown } }).link : undefined;
+  if (link && typeof link.userId === "string" && link.userId) return link.userId;
+  const entry = token.idToken ? linkTokens.get(token.idToken) : undefined;
+  return entry && entry.until > Date.now() ? entry.userId : null;
 }
 
 type GoogleEnv = { GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string };
@@ -198,7 +207,7 @@ export function googleProviderFor(db: Db, environment: GoogleEnv) {
       getUserInfo: async (token: Parameters<typeof base.getUserInfo>[0]) => {
         const info = await base.getUserInfo(token);
         if (!info) return null;
-        await guardGoogleIdentity(db, info.user, new Date(), { linking: await isLinking(token as { idToken?: string }) });
+        await guardGoogleIdentity(db, info.user, new Date(), { linkingUserId: await linkingUserId(token as { idToken?: string }) });
         return info;
       },
     },

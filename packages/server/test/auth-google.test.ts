@@ -756,3 +756,50 @@ describe("the Expo sign-in proxy only sends the browser to Google (council round
     expect(stateCookieSet(res)).toBe(false);
   });
 });
+
+describe("the /link-social exemption belongs to the signed-in person who sent it (council round 1, A6 follow-up)", () => {
+  /** A hook context whose session cookie names `sessionToken` (as Better Auth's signed cookie reads it). */
+  const linkCtx = (token: string, sessionToken?: string) => ({
+    path: "/link-social",
+    body: { idToken: { token } },
+    getSignedCookie: async () => sessionToken ?? null,
+    context: { secret: "test", authCookies: { sessionToken: { name: "better-auth.session_token" } } },
+  });
+
+  test("a token noted without a session does not let a sign-in skip the refusal", async () => {
+    const victim = await makeUser({ emailVerified: true, twoFactor: true });
+    const token = await idToken({ sub: crypto.randomUUID(), email: victim.email });
+    const { noteGoogleLinkToken } = await import("@orrn/auth/google-guard");
+    // As if a /link-social with this token were in flight (its before-hook ran, its after-hook not yet).
+    await noteGoogleLinkToken(env.db as never, linkCtx(token));
+    const res = await call("sign-in/social", { body: { provider: "google", idToken: { token } } });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("GOOGLE_LINK_FROM_SETTINGS");
+  });
+
+  test("a token noted from someone else's session does not either", async () => {
+    const victim = await makeUser({ emailVerified: true, twoFactor: true });
+    const attacker = await makeUser({ emailVerified: true });
+    await passwordSignIn(attacker.email);
+    const own = await env.db.select().from(session).where(eq(session.userId, attacker.id)).get();
+    const token = await idToken({ sub: crypto.randomUUID(), email: victim.email });
+    const { noteGoogleLinkToken } = await import("@orrn/auth/google-guard");
+    await noteGoogleLinkToken(env.db as never, linkCtx(token, own!.token));
+    const res = await call("sign-in/social", { body: { provider: "google", idToken: { token } } });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("GOOGLE_LINK_FROM_SETTINGS");
+    expect((await accountsOf(victim.id)).map((a) => a.providerId)).toEqual(["credential"]);
+  });
+
+  test("linking from another account's session to this email's Google is refused, nothing linked", async () => {
+    const victim = await makeUser({ emailVerified: true, twoFactor: true });
+    const attacker = await makeUser({ emailVerified: true });
+    const res = await call("link-social", {
+      body: { provider: "google", idToken: { token: await idToken({ sub: crypto.randomUUID(), email: victim.email }) } },
+      cookie: cookieHeader(await passwordSignIn(attacker.email)),
+    });
+    expect(res.status).toBe(403);
+    expect((await accountsOf(victim.id)).map((a) => a.providerId)).toEqual(["credential"]);
+    expect((await accountsOf(attacker.id)).map((a) => a.providerId)).toEqual(["credential"]);
+  });
+});

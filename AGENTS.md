@@ -1276,8 +1276,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   (`GOOGLE_NOT_FOR_STAFF`), and proves the mailbox; each link writes `auth.google.link` (`auth-google.test.ts`).
   Council round 1: Google never links itself at sign-in to an account found by email that has a passkey or the
   authenticator app on (`GOOGLE_LINK_FROM_SETTINGS`, A6); linking from Settings with `linkSocial` while signed in
-  stays allowed (the redirect's OAuth state says `link`; an id token sent to `/link-social` is noted by the
-  before-hook). A password-only account and a new invitee keep one-tap Google. `/expo-authorization-proxy`
+  stays allowed, and only for the signed-in person's own account (the redirect's OAuth state carries
+  `link.userId`; an id token sent to `/link-social` is noted by the before-hook with the user id of the request's
+  own session, nothing without one). A password-only account and a new invitee keep one-tap Google. `/expo-authorization-proxy`
   follows only an `https://accounts.google.com` URL and refuses `oauthState` (`EXPO_PROXY_REFUSED`,
   `expo-proxy-guard.ts`, A5). The public `/passkey/generate-authenticate-options` is limited to 120 per 10
   minutes per IP (`passkey-throttle.ts`, A10; no readable IP, no limit). Auth log masking catches invite and

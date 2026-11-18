@@ -140,7 +140,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         expoProxyGuard(ctx);
         await signUpGuardBody(db, ctx);
         await signInMethodGuardBody(db, ctx);
-        noteGoogleLinkToken(ctx);
+        await noteGoogleLinkToken(db, ctx);
         // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
         await limitPasskeyOptions(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
