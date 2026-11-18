@@ -338,6 +338,9 @@ export const en = {
       passwordLink: "Email me a link to set a password",
       passwordLinkSending: "Sending",
       passwordLinkSent: "If {email} has an orrn account, a link to set a password is on its way. It works for one hour.",
+      // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
+      strongSignInNeeded: "{plant} needs a passkey, Google or your authenticator code. Sign in with one of them.",
+      strongSignInNeededPlant: "This plant needs a passkey, Google or your authenticator code. Sign in with one of them.",
     },
     totp: {
       title: "Enter your code",
@@ -520,7 +523,7 @@ export const en = {
     /** The plant's "Require secure sign-in" step (plan 2026-11-18, Task 9). */
     secure: {
       title: "Secure your sign-in",
-      required: "{company} asks everyone to sign in with more than a password.",
+      required: "{company} needs a passkey, Google or an authenticator code to sign in. A password alone no longer opens it.",
       choose: "Choose one way to continue. You can add more later in Settings.",
       passkey: "Add a passkey",
       passkeyHint: "Sign in with your fingerprint, face or screen lock. Nothing to type.",
@@ -2576,7 +2579,7 @@ export const en = {
       title: "Sign-in",
       body: "How people in this plant sign in.",
       require: "Require secure sign-in",
-      requireHint: "Everyone in this plant signs in with a passkey, Google or an authenticator app, not a password alone. Anyone without one is asked to set it up the next time they open this plant.",
+      requireHint: "Everyone signs in to this plant with a passkey, Google or their authenticator code. A password alone no longer opens it: a person who signs in that way is signed out and asked for one of them. Anyone who has none is asked to add one the next time they open this plant.",
       ownerOnly: "Only an owner can change this.",
       saved: "Secure sign-in saved.",
       saveFailed: "Could not save. Try again.",

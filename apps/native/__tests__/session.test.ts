@@ -269,3 +269,56 @@ describe("the app's QueryClient (utils/trpc.ts)", () => {
     me.unsubscribe();
   });
 });
+
+describe("a plant that requires secure sign-in (council r1 A4)", () => {
+  const strong = (reason: string, plant: string | null = "Shree Ganesh") => ({ data: { code: "FORBIDDEN", httpStatus: 403, meta: { reason, plant } } });
+
+  test("strongSignInRefusal reads the server's reason and plant, nothing else", async () => {
+    const { strongSignInRefusal } = await import("../lib/session");
+    expect(strongSignInRefusal(strong("STRONG_SIGN_IN_NEEDED"))).toEqual({ reason: "STRONG_SIGN_IN_NEEDED", plant: "Shree Ganesh" });
+    expect(strongSignInRefusal(strong("STRONG_METHOD_NEEDED", null))).toEqual({ reason: "STRONG_METHOD_NEEDED", plant: null });
+    expect(strongSignInRefusal({ data: { code: "FORBIDDEN", meta: { reason: "device_revoked" } } })).toBeNull();
+    expect(strongSignInRefusal({ message: "This plant needs a passkey", data: { code: "FORBIDDEN" } })).toBeNull();
+  });
+
+  test("STRONG_SIGN_IN_NEEDED calls the registered handler; STRONG_METHOD_NEEDED reads auth.me again", async () => {
+    const { handleSessionError, registerStrongSignInHandler, ME_QUERY_KEY } = await import("../lib/session");
+    const { QueryClient } = await import("@tanstack/react-query");
+    const qc = new QueryClient();
+    let meFetches = 0;
+    qc.setQueryDefaults(ME_QUERY_KEY, { queryFn: async () => ++meFetches });
+    const unsubscribe = qc.getQueryCache().subscribe(() => {});
+    await qc.prefetchQuery({ queryKey: ME_QUERY_KEY });
+    const observer = qc.getQueryCache().find({ queryKey: ME_QUERY_KEY });
+    expect(observer).toBeDefined();
+    const seen: unknown[] = [];
+    registerStrongSignInHandler((r) => seen.push(r));
+    await handleSessionError(qc, strong("STRONG_SIGN_IN_NEEDED"), [["bundle", "list"], { type: "query" }]);
+    expect(seen).toEqual([{ reason: "STRONG_SIGN_IN_NEEDED", plant: "Shree Ganesh" }]);
+    registerStrongSignInHandler(null);
+    const before = qc.getQueryState(ME_QUERY_KEY)?.isInvalidated;
+    expect(before).toBe(false);
+    await handleSessionError(qc, strong("STRONG_METHOD_NEEDED"), [["bundle", "list"], { type: "query" }]);
+    expect(qc.getQueryState(ME_QUERY_KEY)?.isInvalidated).toBe(true);
+    unsubscribe();
+  });
+});
+
+describe("sign-in notice (council r1 A4)", () => {
+  test("the sign-out handler leaves the notice once and signs out once for a burst of refusals", async () => {
+    const { createStrongSignInSignOut, signInNotice } = await import("../lib/sign-in-notice");
+    let signOuts = 0;
+    let release: () => void = () => {};
+    const handler = createStrongSignInSignOut(() => {
+      signOuts += 1;
+      return new Promise<void>((r) => (release = r));
+    });
+    const first = handler({ plant: "Shree Ganesh" });
+    void handler({ plant: "Shree Ganesh" });
+    release();
+    await first;
+    expect(signOuts).toBe(1);
+    expect(signInNotice.take()).toEqual({ plant: "Shree Ganesh" });
+    expect(signInNotice.take()).toBeNull();
+  });
+});

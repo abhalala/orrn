@@ -12,7 +12,8 @@ import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
-import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
+import { queryClient, registerSessionEndedHandler, registerStrongSignInHandler, trpc } from "@/shared/utils/trpc";
+import { createStrongSignInHandler, rememberStrongSignInPlant, STRONG_SIGN_IN_ERROR } from "@/shared/lib/strong-sign-in";
 
 /**
  * BACKLOG 22: a person who asked the system for less motion gets no route cross-fade at all: no view
@@ -76,6 +77,22 @@ registerSessionEndedHandler(() => {
       leavingForLogin = false;
     });
 });
+
+/**
+ * The plant requires secure sign-in (council round 1, A4): a session made with a password alone is
+ * signed out and the sign-in page asks for a passkey, Google or the code; a person with none of them
+ * goes to the secure step on /welcome.
+ */
+registerStrongSignInHandler(
+  createStrongSignInHandler({
+    remember: rememberStrongSignInPlant,
+    // Loaded on demand: the sign-out steps pull the pack and press modules, which the entry must not carry.
+    signOut: async () => (await import("@/shared/lib/sign-out")).signOutAndReset(() => {}),
+    toLogin: () => router.navigate({ to: "/login", search: { error: STRONG_SIGN_IN_ERROR }, replace: true }),
+    refreshMe: () => queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() }),
+    toWelcome: () => router.navigate({ to: "/welcome", replace: true }),
+  }),
+);
 
 function WebNotFoundPage() {
   return (

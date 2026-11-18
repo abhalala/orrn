@@ -48,6 +48,8 @@ const LOGIN_PAGE_ERRORS = new Set(["GOOGLE_NOT_INVITED", "GOOGLE_NOT_FOR_STAFF",
  */
 export function loginErrorKey(code: string | undefined): MessageKey | null {
   if (!code) return null;
+  // Council r1 A4: the plant's secure sign-in notice is its own block on the page (it names the plant).
+  if (code === "STRONG_SIGN_IN_NEEDED") return null;
   return LOGIN_PAGE_ERRORS.has(code) ? METHOD_ERRORS[code]! : "auth.errors.signInFailed";
 }
 

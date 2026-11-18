@@ -1,7 +1,11 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { isStrongSession } from "@orrn/auth/session-method";
+import { hasStrongMethod, signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { company } from "@orrn/db/schema/tenant";
+import { eq } from "drizzle-orm";
 
 import type { Context } from "./context";
-import { errorMetaOf } from "./lib/errorMeta";
+import { errorMetaOf, TRPCMetaError } from "./lib/errorMeta";
 import { assertModule, moduleForPath } from "./lib/moduleGate";
 import { PORTAL_REFUSALS, resolvePortalAccess } from "./lib/portal";
 import { COMPANY_HEADER, IMPERSONATE_HEADER } from "./lib/tenantContext";
@@ -52,6 +56,41 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
 
 export const protectedProcedure = authedProcedure;
 
+/**
+ * The refusal reasons `companyProcedure` puts in `error.data.meta.reason` when the active plant requires
+ * secure sign-in (council round 1, A4; spec "Amendment 2: enforcement"):
+ * - `STRONG_SIGN_IN_NEEDED`: the person has a passkey, Google or the authenticator app, but this
+ *   session was made without one (a password alone). Clients sign out and ask for one of them.
+ * - `STRONG_METHOD_NEEDED`: the person has none yet. Clients read `auth.me` again; its tenant guard
+ *   sends them to the mandatory "Secure your sign-in" step (web) or "finish on the web" (phone).
+ */
+export const STRONG_SIGN_IN_NEEDED = "STRONG_SIGN_IN_NEEDED";
+export const STRONG_METHOD_NEEDED = "STRONG_METHOD_NEEDED";
+
+/**
+ * "Require secure sign-in" is enforced here, for every tenant procedure. Only `auth.*` (authed, not
+ * tenant: `auth.me`, `auth.signInMethods`, `auth.completeOnboarding`, the password steps),
+ * `company.switch` and Better Auth's own endpoints (passkey add, the authenticator app, Google link)
+ * stay open, which is all the secure step and the plant picker need. An impersonating platform admin is
+ * never held by it: support must be able to reach a locked-out plant.
+ */
+async function assertStrongSignIn(ctx: Context & { companyId: string; membership: NonNullable<Context["membership"]> }) {
+  if (ctx.impersonation || ctx.membership.requireStrongSignIn !== true) return;
+  const session = ctx.session?.session as { signInMethod?: unknown } | undefined;
+  if (isStrongSession(session?.signInMethod)) return;
+  const userId = ctx.session?.user.id;
+  if (!userId) return;
+  const strong = hasStrongMethod(await signInMethodsFor(ctx.db, userId));
+  const plant = await ctx.db.select({ name: company.name }).from(company).where(eq(company.id, ctx.companyId)).get();
+  throw new TRPCMetaError({
+    code: "FORBIDDEN",
+    message: strong
+      ? "This plant needs a passkey, Google or your authenticator code. Sign in with one of them."
+      : "This plant needs a passkey, Google or an authenticator app. Add one first.",
+    meta: { reason: strong ? STRONG_SIGN_IN_NEEDED : STRONG_METHOD_NEEDED, plant: plant?.name ?? null },
+  });
+}
+
 export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, type }) => {
   if (!ctx.companyId || !ctx.membership || !ctx.role) {
     throw new TRPCError({
@@ -59,6 +98,8 @@ export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, ty
       message: "Company access required",
     });
   }
+
+  await assertStrongSignIn({ ...ctx, companyId: ctx.companyId, membership: ctx.membership });
 
   // FP-PF-07: a mutation of a module that is off for this plant is refused at the router level
   // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads are not gated.

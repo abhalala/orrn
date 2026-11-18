@@ -4,10 +4,12 @@ import { useEffect, useRef } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { loginErrorKey } from "@/features/auth/auth-errors";
+import { FormAlert } from "@/features/auth/form-alert";
 import { SignInForm } from "@/features/auth/sign-in-form";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { usePageTitle } from "@/features/auth/use-page-title";
 import { readStoredLocale } from "@/shared/lib/locale";
+import { readStrongSignInPlant, STRONG_SIGN_IN_ERROR } from "@/shared/lib/strong-sign-in";
 
 type LoginSearch = { next?: string; error?: string; via?: "google" };
 
@@ -48,6 +50,7 @@ function LoginPage() {
 
   return (
     <AuthFrame brand>
+      {error === STRONG_SIGN_IN_ERROR ? <StrongSignInNotice /> : null}
       <SignInForm
         next={next}
         alternatives
@@ -65,6 +68,22 @@ function LoginPage() {
         }
       />
     </AuthFrame>
+  );
+}
+
+/**
+ * A plant that requires secure sign-in signed out a session made with a password alone (council round
+ * 1, A4): say which plant, and what works. The name comes from sessionStorage, never the URL.
+ */
+function StrongSignInNotice() {
+  const { t } = useT();
+  const plant = readStrongSignInPlant();
+  return (
+    <FormAlert tone="blue" className="mb-5">
+      <span data-testid="strong-sign-in-notice">
+        {plant ? t("auth.login.strongSignInNeeded", { plant }) : t("auth.login.strongSignInNeededPlant")}
+      </span>
+    </FormAlert>
   );
 }
 

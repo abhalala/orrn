@@ -6,6 +6,7 @@ import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
+import { sessionOfRequest, upgradeSession } from "./session-method";
 import { writeUserAudit } from "./sign-in-methods";
 
 /**
@@ -224,9 +225,15 @@ export function googleDatabaseHooks(db: Db) {
         },
         // The link row exists now (a new account made by Google included). User-level audit, no
         // plant; never the Google account id or a token. Never throws.
-        after: async (created: { providerId?: unknown; userId?: unknown }) => {
+        // Council round 1, A4: Google linked while signed in (Settings > Sign-in, the secure step) has
+        // just been proven in this session, so the session counts as a Google sign-in from now on.
+        after: async (created: { providerId?: unknown; userId?: unknown }, ctx: HookCtx) => {
           if (created.providerId !== "google" || typeof created.userId !== "string") return;
           await writeUserAudit(db, { userId: created.userId, action: "auth.google.link" });
+          const current = await sessionOfRequest(db, ctx);
+          if (current?.userId === created.userId) {
+            await upgradeSession(db, { sessionId: current.id, userId: created.userId, method: "google" });
+          }
         },
       },
     },

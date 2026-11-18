@@ -24,7 +24,8 @@ import { GateContext } from "@/lib/gate-context";
 import { plantChoice } from "@/lib/plant-choice";
 import { readInitialLocale, storeLocale } from "@/lib/locale-store";
 import { useStackOptions } from "@/lib/screen-options";
-import { gateQueryRetry } from "@/lib/session";
+import { gateQueryRetry, registerStrongSignInHandler } from "@/lib/session";
+import { createStrongSignInSignOut } from "@/lib/sign-in-notice";
 import { sessionPresence } from "@/lib/session-presence";
 import { signOut } from "@/lib/sign-out";
 import { useThemeColor } from "@/lib/theme";
@@ -42,6 +43,9 @@ void SplashScreen.preventAutoHideAsync();
 colorScheme.set(readThemePref());
 // Coming back to the foreground refetches stale queries (auth.me included), as window focus does on web.
 focusManager.setEventListener(appStateFocus(AppState));
+// A plant that requires secure sign-in refused a password-only session (council round 1, A4): sign out,
+// and the sign-in screen says which plant and what works.
+registerStrongSignInHandler(createStrongSignInSignOut(signOut));
 
 /** The native splash never stays longer than this; a slow first auth.me shows a spinner instead. */
 const SPLASH_MAX_MS = 2_000;

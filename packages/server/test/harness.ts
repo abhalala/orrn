@@ -283,6 +283,8 @@ export async function createTestEnv(): Promise<TestEnv> {
       if (!row) {
         throw new Error(`No ${as.role} member in company ${as.companyId}; call seedCompany() first`);
       }
+      // The plant's policy, read as resolveTenantContext reads it (council round 1, A4).
+      const [plant] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, as.companyId)).limit(1);
       return {
         ...base,
         session: {
@@ -294,6 +296,7 @@ export async function createTestEnv(): Promise<TestEnv> {
           companyId: as.companyId,
           role: as.role,
           companyStatus: "active" as const,
+          requireStrongSignIn: (plant?.settings as Record<string, unknown> | undefined)?.requireStrongSignIn === true,
         },
         companyId: as.companyId,
         role: as.role,

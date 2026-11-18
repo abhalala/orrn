@@ -132,8 +132,12 @@ describe("company.updateSettings requireStrongSignIn", () => {
       .all();
     expect(general).toHaveLength(0);
 
-    // Turning it off is the owner's too, and is audited.
-    await env.caller({ role: "owner", companyId }).company.updateSettings({ requireStrongSignIn: false });
+    // Turning it off is the owner's too, and is audited. The plant now holds the owner as well: only a
+    // session made with a passkey, Google or the code reaches it (council round 1, A4).
+    await expect(env.caller({ role: "owner", companyId }).company.updateSettings({ requireStrongSignIn: false })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await env.caller({ role: "owner", companyId, signInMethod: "passkey" }).company.updateSettings({ requireStrongSignIn: false });
     expect((await env.caller({ role: "owner", companyId }).auth.me()).company?.requireStrongSignIn).toBe(false);
     const after = await env.db
       .select({ meta: auditLog.meta })
@@ -150,7 +154,7 @@ describe("company.updateSettings requireStrongSignIn", () => {
 
   test("sending the value it already has writes no audit row and leaves the settings alone", async () => {
     const { companyId } = await env.seedCompany();
-    const owner = env.caller({ role: "owner", companyId });
+    const owner = env.caller({ role: "owner", companyId, signInMethod: "passkey" });
     const auditRows = async () =>
       (await env.db.select({ action: auditLog.action }).from(auditLog).where(eq(auditLog.companyId, companyId)).all()).map((r) => r.action);
 

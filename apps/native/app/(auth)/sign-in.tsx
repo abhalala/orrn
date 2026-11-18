@@ -17,6 +17,7 @@ import { authClient } from "@/lib/auth-client";
 import { AnimatedView } from "@/lib/nativewind-interop";
 import { afterPassword, afterTotp, cleanTotp, totpInputError } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
+import { signInNotice } from "@/lib/sign-in-notice";
 import { webUrl } from "@/lib/web-url";
 import { FORGOT_PASSWORD_PATH } from "@/lib/web-link";
 
@@ -50,6 +51,8 @@ export default function SignInScreen() {
   /** A passkey or Google attempt's message, shown under those buttons; a password attempt clears it. */
   const [altError, setAltError] = useState<MessageKey | null>(null);
   const passwordRef = useRef<TextInput>(null);
+  /** A plant that requires secure sign-in just signed this phone out (council round 1, A4). Read once. */
+  const [notice] = useState(() => signInNotice.take());
 
   /** Shows a form error. It renders in a live region, which Android reads by itself. */
   function fail(key: MessageKey) {
@@ -139,6 +142,16 @@ export default function SignInScreen() {
               <ScreenTitle>{title}</ScreenTitle>
               <Text className="font-sans text-base leading-6 text-ink-muted">{subtitle}</Text>
             </View>
+
+            {notice && step === "password" ? (
+              <Text
+                testID="strong-sign-in-notice"
+                accessibilityRole="alert"
+                className="rounded-input bg-tone-blue-tint px-4 py-3 font-sans-medium text-[15px] leading-6 text-tone-blue-ink"
+              >
+                {notice.plant ? t("auth.login.strongSignInNeeded", { plant: notice.plant }) : t("auth.login.strongSignInNeededPlant")}
+              </Text>
+            ) : null}
 
             {step === "password" ? (
               <View className="gap-4">

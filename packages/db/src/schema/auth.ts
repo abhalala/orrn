@@ -38,6 +38,14 @@ export const session = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * How this session was made (council round 1, A4): passkey, google, totp, password, magicLink or
+     * other (`packages/auth/src/session-method.ts`). Null for a session made before the column. A plant
+     * that requires secure sign-in accepts only passkey, google and totp. No default on purpose: Better
+     * Auth carries the old session's value into a session it remakes (two-factor off, for one), and a
+     * default would overwrite it.
+     */
+    signInMethod: text("sign_in_method"),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
 );

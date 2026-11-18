@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8303 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -285,7 +285,7 @@ Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (152)
+### auth (154)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -308,6 +308,8 @@ Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.passwordLink` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
 | `login.passwordLinkSending` | Sending | भेज रहे हैं |
 | `login.passwordLinkSent` | If {email} has an orrn account, a link to set a password is on its way. It works for one hour. | अगर {email} का orrn अकाउंट है, तो पासवर्ड बनाने का लिंक आ रहा है। यह एक घंटे तक चलेगा। |
+| `login.strongSignInNeeded` | {plant} needs a passkey, Google or your authenticator code. Sign in with one of them. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPlant` | This plant needs a passkey, Google or your authenticator code. Sign in with one of them. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -461,7 +463,7 @@ Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
 | `password.submitting` | Saving | सेव हो रहा है |
 | `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
 | `secure.title` | Secure your sign-in | अपना साइन-इन सुरक्षित करें |
-| `secure.required` | {company} asks everyone to sign in with more than a password. | {company} चाहता है कि हर कोई सिर्फ़ पासवर्ड से नहीं, उससे ज़्यादा से साइन इन करे। |
+| `secure.required` | {company} needs a passkey, Google or an authenticator code to sign in. A password alone no longer opens it. | {company} में साइन इन के लिए पासकी, Google या authenticator कोड चाहिए। सिर्फ़ पासवर्ड से यह अब नहीं खुलता। |
 | `secure.choose` | Choose one way to continue. You can add more later in Settings. | आगे बढ़ने के लिए एक तरीका चुनें। बाद में सेटिंग में और जोड़ सकते हैं। |
 | `secure.passkey` | Add a passkey | पासकी जोड़ें |
 | `secure.passkeyHint` | Sign in with your fingerprint, face or screen lock. Nothing to type. | अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। कुछ टाइप नहीं करना। |
@@ -2296,7 +2298,7 @@ Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
 | `security.title` | Sign-in | साइन-इन |
 | `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
 | `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
-| `security.requireHint` | Everyone in this plant signs in with a passkey, Google or an authenticator app, not a password alone. Anyone without one is asked to set it up the next time they open this plant. | इस प्लांट में हर कोई पासकी, Google या authenticator ऐप से साइन इन करता है, सिर्फ़ पासवर्ड से नहीं। जिसके पास इनमें से कोई नहीं है, उसे अगली बार यह प्लांट खोलने पर इसे सेट करने को कहा जाएगा। |
+| `security.requireHint` | Everyone signs in to this plant with a passkey, Google or their authenticator code. A password alone no longer opens it: a person who signs in that way is signed out and asked for one of them. Anyone who has none is asked to add one the next time they open this plant. | इस प्लांट में हर कोई पासकी, Google या अपने authenticator कोड से साइन इन करता है। सिर्फ़ पासवर्ड से यह प्लांट अब नहीं खुलता: जो ऐसे साइन इन करता है, उसे साइन आउट करके इनमें से एक माँगा जाता है। जिसके पास इनमें से कोई नहीं है, उसे अगली बार यह प्लांट खोलने पर एक जोड़ने को कहा जाएगा। |
 | `security.ownerOnly` | Only an owner can change this. | इसे सिर्फ़ मालिक बदल सकता है। |
 | `security.saved` | Secure sign-in saved. | सुरक्षित साइन-इन सेव हुआ। |
 | `security.saveFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |

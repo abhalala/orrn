@@ -11,6 +11,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
 import { signInAuditAfter, signInMethodGuardBody } from "./sign-in-methods";
+import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { writeAuthLog } from "./logger";
 import { betterAuth } from "better-auth";
@@ -142,6 +143,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       }),
       after: createAuthMiddleware(async (ctx) => {
         await signInAuditAfter(db, ctx);
+        await sessionMethodAfter(db, ctx, () => sessionOfRequest(db, ctx));
       }),
     },
     // Google (plan 2026-11-18): only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both set.
@@ -157,7 +159,23 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     account: {
       accountLinking: { enabled: true, trustedProviders: ["google"], allowUnlinkingAll: true },
     },
-    databaseHooks: googleDatabaseHooks(db),
+    // Council round 1, A4: every session records how it was made (`session.sign_in_method`,
+    // session-method.ts); a plant that requires secure sign-in accepts only passkey, Google and the
+    // authenticator code (`companyProcedure` in @orrn/server). No `defaultValue`: Better Auth carries
+    // the old session's value into a session it remakes, and a default would overwrite it.
+    session: {
+      additionalFields: {
+        signInMethod: { type: "string", required: false, input: false },
+      },
+    },
+    databaseHooks: {
+      ...googleDatabaseHooks(db),
+      session: {
+        create: {
+          before: async (data: Record<string, unknown>, ctx: { path?: string } | null) => stampSignInMethod(data, ctx),
+        },
+      },
+    },
     // A refused or failed browser sign-in (Google redirect flow) lands on the web sign-in page with
     // `?error=CODE`, unless the client named another trusted error URL.
     ...(webLoginUrl(environment) ? { onAPIError: { errorURL: webLoginUrl(environment) } } : {}),

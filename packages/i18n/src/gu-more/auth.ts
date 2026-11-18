@@ -24,6 +24,9 @@ export const guAuth = {
       passwordLink: "પાસવર્ડ બનાવવાની લિંક ઇમેઇલ કરો",
       passwordLinkSending: "મોકલીએ છીએ",
       passwordLinkSent: "જો {email} નું orrn અકાઉન્ટ હોય, તો પાસવર્ડ બનાવવાની લિંક આવી રહી છે. તે એક કલાક સુધી ચાલશે.",
+      // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
+      strongSignInNeeded: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
+      strongSignInNeededPlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
     },
     totp: {
       title: "તમારો કોડ લખો",
@@ -126,7 +129,7 @@ export const guAuth = {
     },
     secure: {
       title: "તમારું સાઇન-ઇન સુરક્ષિત કરો",
-      required: "{company} ઇચ્છે છે કે દરેક જણ ફક્ત પાસવર્ડથી નહીં, તેનાથી વધુથી સાઇન ઇન કરે.",
+      required: "{company} માં સાઇન ઇન માટે પાસકી, Google કે authenticator કોડ જોઈએ. ફક્ત પાસવર્ડથી તે હવે ખૂલતું નથી.",
       choose: "આગળ વધવા એક રીત પસંદ કરો. પછીથી સેટિંગમાં વધુ ઉમેરી શકો છો.",
       passkey: "પાસકી ઉમેરો",
       passkeyHint: "તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. કંઈ ટાઇપ કરવાનું નથી.",

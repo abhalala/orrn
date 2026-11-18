@@ -555,3 +555,47 @@ describe("without Google configured", () => {
     expect(pw.status).toBe(200);
   });
 });
+
+describe("how a Google session is recorded (council round 1, A4)", () => {
+  const latestSession = async (userId: string) =>
+    (await env.db.select().from(session).where(eq(session.userId, userId)).all()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+
+  test("a Google sign-in (id token) makes a google session", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email: existing.email })).status).toBe(200);
+    expect((await latestSession(existing.id))?.signInMethod).toBe("google");
+  });
+
+  test("a Google sign-in through the browser redirect makes a google session", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    const start = await call("sign-in/social", { body: { provider: "google", callbackURL: "https://app.test/", disableRedirect: true } });
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, { method: "GET", cookie: cookieHeader(start) });
+    expect(res.status).toBe(302);
+    expect((await latestSession(existing.id))?.signInMethod).toBe("google");
+  });
+
+  test("Google linked while signed in with a password upgrades that session to google", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    const signedIn = await passwordSignIn(existing.email);
+    const sessionCookie = cookieHeader(signedIn);
+    const [own] = await env.db.select().from(session).where(eq(session.userId, existing.id)).all();
+    expect(own?.signInMethod).toBe("password");
+
+    const start = await call("link-social", {
+      body: { provider: "google", callbackURL: "https://app.test/settings", disableRedirect: true },
+      cookie: sessionCookie,
+    });
+    expect(start.status).toBe(200);
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, {
+      method: "GET",
+      cookie: `${sessionCookie}; ${cookieHeader(start)}`,
+    });
+    expect(res.status).toBe(302);
+    expect((await accountsOf(existing.id)).map((a) => a.providerId).sort()).toEqual(["credential", "google"]);
+    expect((await env.db.select().from(session).where(eq(session.id, own!.id)).get())?.signInMethod).toBe("google");
+  });
+});

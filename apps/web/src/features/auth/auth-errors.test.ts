@@ -65,6 +65,8 @@ describe("loginErrorKey (the sign-in page's ?error=, from the Google callback an
 
   test("no ?error= means no message", () => {
     expect(loginErrorKey(undefined)).toBeNull();
+    // Council r1 A4: the plant's secure sign-in notice is its own block, not the form's error.
+    expect(loginErrorKey("STRONG_SIGN_IN_NEEDED")).toBeNull();
     expect(loginErrorKey("")).toBeNull();
   });
 });
