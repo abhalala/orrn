@@ -8,7 +8,7 @@ import { masterEntries } from "@/features/masters/masters-model";
 import type { NavModule } from "../nav-items";
 import { buildCommands, visibleSections, type PaletteCommand } from "./actions";
 import { PAGE_SECTIONS } from "./page-index";
-import { procedureActions, reportCardModules, routeFile, routerModule, routeTree, settingsTabRequires } from "./source-guards";
+import { gateOf, procedureActions, reportCardModules, routeFile, routerModule, routeTree, settingsTabRequires } from "./source-guards";
 import { testMe } from "./test-me";
 
 /**
@@ -338,6 +338,23 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     expect(pageModule("/vendors")).toBe("purchase");
     expect(pageModule("/orders/plan")).toBe("orders");
     expect(pageModule("/casts/new")).toBe("foundry");
+  });
+
+  test("the gate reader resolves spread lists and never returns an empty gate (CodeRabbit)", () => {
+    const src = [
+      'const READERS = ["purchase.receipt", "reports.read"] as const;',
+      "const reader = anyActionProcedure(...READERS);",
+      'const writer = actionProcedure("purchase.receipt");',
+      "const lost = anyActionProcedure(...MISSING);",
+    ].join("\n");
+    expect(gateOf(src, "reader.query(")).toEqual(["purchase.receipt", "reports.read"]);
+    expect(gateOf(src, "anyActionProcedure(...READERS).query(")).toEqual(["purchase.receipt", "reports.read"]);
+    expect(gateOf(src, "writer.mutation(")).toEqual(["purchase.receipt"]);
+    expect(gateOf(src, 'actionProcedure("a.b").query(')).toEqual(["a.b"]);
+    // Unresolvable: null, so the caller reports it, never [] (which would refuse every role silently).
+    expect(gateOf(src, "lost.query(")).toBeNull();
+    expect(gateOf(src, "anyActionProcedure(...MISSING).query(")).toBeNull();
+    expect(gateOf(src, "protectedProcedure.query(")).toBeNull();
   });
 });
 

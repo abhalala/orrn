@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@orrn/ui/components/dropdown-menu";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useIsMutating, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import { expectPlant } from "@/shared/lib/plant-sync";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
-import { switcherPlants } from "./plant-switcher-model";
+import { canStartSwitch, switcherPlants } from "./plant-switcher-model";
 
 /**
  * Switching plants, shared by the header control and the command palette: `plants` is null when there is nothing to
@@ -54,8 +54,13 @@ export function usePlantSwitch() {
     }),
   );
 
+  // Every `company.switch` in the app, not only this hook's: the header and the palette must not race.
+  const switchKey = trpc.company.switch.mutationKey();
+  const switching = useIsMutating({ mutationKey: switchKey }) > 0;
+
   const pick = (companyId: string) => {
-    if (!plants || !current || companyId === current.companyId || sw.isPending) return;
+    // Read the live count, not the last render's: a click can land before the other surface re-renders.
+    if (!plants || !canStartSwitch(plants, companyId, queryClient.isMutating({ mutationKey: switchKey }))) return;
     const target = plants.find((p) => p.companyId === companyId);
     if (target) toast.message(t("nav.plantSwitch.switching", { name: target.name }));
     // Press changes waiting for this plant stay saved under it; they are not sent in the other plant.
@@ -64,7 +69,7 @@ export function usePlantSwitch() {
     sw.mutate({ companyId });
   };
 
-  return { plants, current, pick, pending: sw.isPending };
+  return { plants, current, pick, pending: switching || sw.isPending };
 }
 
 /**

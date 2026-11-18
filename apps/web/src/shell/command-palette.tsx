@@ -1,4 +1,4 @@
-import { parseScan } from "@orrn/domain";
+import { parseScan, type BundleStatus } from "@orrn/domain";
 import { createI18n, useT, type MessageKey } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 import { CommandDialog } from "@orrn/ui/components/command-dialog";
@@ -225,94 +225,127 @@ function moduleOn(me: Me | null | undefined, m: string): boolean {
   return modules.length === 0 || modules.includes(m);
 }
 
+type RemoteGates = { bundles: boolean; dispatches: boolean; dies: boolean; customers: boolean };
+
+type RemoteData = {
+  bundles?: { items: readonly { id: string; serial: string; status: BundleStatus; dieSeries?: string | null; dieSectionCode?: string | null }[] };
+  dispatches?: { items: readonly { id: string; code: string; status: string; customerName?: string | null }[] };
+  dies?: { items: readonly { id: string; series: string; sectionCode?: string | null; name?: string | null }[] };
+  customers?: { items: readonly { id: string; name: string }[] };
+};
+
+/** Remote search rows, only for modules that are on (cached data of a switched-off module never shows). */
+export function remoteRows(data: RemoteData, on: RemoteGates, t: ReturnType<typeof useT>["t"]): Result[] {
+  const out: Result[] = [];
+  for (const b of on.bundles ? (data.bundles?.items ?? []) : []) {
+    const to = `/b/${encodeURIComponent(b.serial)}`;
+    const meta = [[b.dieSeries, b.dieSectionCode].filter(Boolean).join(" "), t(`status.bundle.${b.status}`)].join(" · ");
+    out.push({
+      id: `bundle-row-${b.id}`,
+      group: "bundle",
+      label: b.serial,
+      mono: true,
+      meta,
+      icon: Package,
+      action: { kind: "go", to },
+      recent: bundleRecent(b.serial),
+    });
+  }
+  for (const d of on.dispatches ? (data.dispatches?.items ?? []) : []) {
+    const status = DISPATCH_STATUS[d.status];
+    const to = `/dispatch/${d.id}`;
+    const meta = [d.customerName, status ? t(status) : null].filter(Boolean).join(" · ");
+    out.push({
+      id: `dispatch-${d.id}`,
+      group: "dispatches",
+      label: d.code,
+      mono: true,
+      meta,
+      icon: Truck,
+      action: { kind: "go", to },
+      recent: { kind: "dispatch", ref: d.id, label: d.code, mono: true, to, ...(d.customerName ? { meta: d.customerName } : {}) },
+    });
+  }
+  for (const d of on.dies ? (data.dies?.items ?? []) : []) {
+    const to = `/dies/${d.id}`;
+    const label = d.sectionCode || d.series;
+    const meta = [d.series, d.name].filter((x) => x && x !== d.sectionCode).join(" · ");
+    out.push({
+      id: `die-${d.id}`,
+      group: "dies",
+      label,
+      mono: true,
+      meta,
+      icon: Cylinder,
+      action: { kind: "go", to },
+      recent: { kind: "die", ref: d.id, label, mono: true, to, ...(meta ? { meta } : {}) },
+    });
+  }
+  for (const c of on.customers ? (data.customers?.items ?? []) : []) {
+    const to = `/customers/${c.id}`;
+    out.push({
+      id: `customer-${c.id}`,
+      group: "customers",
+      label: c.name,
+      icon: Users,
+      action: { kind: "go", to },
+      recent: { kind: "customer", ref: c.id, label: c.name, to },
+    });
+  }
+  return out;
+}
+
 export type RemoteSearch = (query: string, enabled: boolean, me: Me | null | undefined) => { rows: Result[]; fetching: boolean };
 
 /** Server-side search: bundles, dispatches, dies and customers whose code or name contains the text. */
 const useRemoteGroups: RemoteSearch = (query, enabled, me) => {
   const { t } = useT();
+  const modules = me?.company?.modules;
+  // A switched-off module's query stops but keeps its cached rows: the same gates filter the rows too.
+  const on = useMemo<RemoteGates>(
+    () => ({
+      bundles: moduleOn(me, "bundles"),
+      dispatches: moduleOn(me, "dispatches"),
+      dies: moduleOn(me, "dies"),
+      customers: moduleOn(me, "customers"),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [modules?.join(",")],
+  );
   const dispatches = useQuery({
     ...trpc.dispatch.listDispatches.queryOptions({ search: query, limit: 5 }),
-    enabled: enabled && moduleOn(me, "dispatches"),
+    enabled: enabled && on.dispatches,
     staleTime: 30_000,
   });
   const dies = useQuery({
     ...trpc.die.list.queryOptions({ search: query, limit: 5 }),
-    enabled: enabled && moduleOn(me, "dies"),
+    enabled: enabled && on.dies,
     staleTime: 30_000,
   });
   const customers = useQuery({
     ...trpc.customer.list.queryOptions({ search: query, limit: 5 }),
-    enabled: enabled && moduleOn(me, "customers"),
+    enabled: enabled && on.customers,
     staleTime: 30_000,
   });
   // Partial serials and PO numbers (Task 21): the bundles whose serial or PO contains the text.
   const bundles = useQuery({
     ...trpc.bundle.listBundles.queryOptions({ search: query, limit: 5 }),
-    enabled: enabled && moduleOn(me, "bundles"),
+    enabled: enabled && on.bundles,
     staleTime: 30_000,
   });
   const fetching = bundles.isFetching || dispatches.isFetching || dies.isFetching || customers.isFetching;
 
-  const rows = useMemo<Result[]>(() => {
-    if (!enabled) return [];
-    const out: Result[] = [];
-    for (const b of bundles.data?.items ?? []) {
-      const to = `/b/${encodeURIComponent(b.serial)}`;
-      const meta = [[b.dieSeries, b.dieSectionCode].filter(Boolean).join(" "), t(`status.bundle.${b.status}`)].join(" · ");
-      out.push({
-        id: `bundle-row-${b.id}`,
-        group: "bundle",
-        label: b.serial,
-        mono: true,
-        meta,
-        icon: Package,
-        action: { kind: "go", to },
-        recent: bundleRecent(b.serial),
-      });
-    }
-    for (const d of dispatches.data?.items ?? []) {
-      const status = DISPATCH_STATUS[d.status];
-      const to = `/dispatch/${d.id}`;
-      const meta = [d.customerName, status ? t(status) : null].filter(Boolean).join(" · ");
-      out.push({
-        id: `dispatch-${d.id}`,
-        group: "dispatches",
-        label: d.code,
-        mono: true,
-        meta,
-        icon: Truck,
-        action: { kind: "go", to },
-        recent: { kind: "dispatch", ref: d.id, label: d.code, mono: true, to, ...(d.customerName ? { meta: d.customerName } : {}) },
-      });
-    }
-    for (const d of dies.data?.items ?? []) {
-      const to = `/dies/${d.id}`;
-      const label = d.sectionCode || d.series;
-      const meta = [d.series, d.name].filter((x) => x && x !== d.sectionCode).join(" · ");
-      out.push({
-        id: `die-${d.id}`,
-        group: "dies",
-        label,
-        mono: true,
-        meta,
-        icon: Cylinder,
-        action: { kind: "go", to },
-        recent: { kind: "die", ref: d.id, label, mono: true, to, ...(meta ? { meta } : {}) },
-      });
-    }
-    for (const c of customers.data?.items ?? []) {
-      const to = `/customers/${c.id}`;
-      out.push({
-        id: `customer-${c.id}`,
-        group: "customers",
-        label: c.name,
-        icon: Users,
-        action: { kind: "go", to },
-        recent: { kind: "customer", ref: c.id, label: c.name, to },
-      });
-    }
-    return out;
-  }, [enabled, bundles.data, dispatches.data, dies.data, customers.data, t]);
+  const rows = useMemo<Result[]>(
+    () =>
+      enabled
+        ? remoteRows(
+            { bundles: bundles.data, dispatches: dispatches.data, dies: dies.data, customers: customers.data },
+            on,
+            t,
+          )
+        : [],
+    [enabled, on, bundles.data, dispatches.data, dies.data, customers.data, t],
+  );
 
   return { rows, fetching };
 };

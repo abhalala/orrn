@@ -111,21 +111,25 @@ export function procedureActions(path: string): string[] | null {
   return null;
 }
 
-function gateOf(source: string, value: string): string[] | null {
-  const direct = /^(actionProcedure|anyActionProcedure)\(([^)]*)\)/.exec(value);
-  if (direct) return quoted(direct[2]!);
+/**
+ * The actions in a procedure value: `actionProcedure("x")`, `anyActionProcedure("x", "y")`, either with a spread list
+ * constant (`anyActionProcedure(...READERS)`), or a named procedure built from one of those in the same file. Null
+ * when the actions cannot be read, so the caller reports an unresolved gate instead of an empty one.
+ */
+export function gateOf(source: string, value: string): string[] | null {
+  const actionsIn = (args: string): string[] | null => {
+    const spread = /^\s*\.\.\.(\w+)\s*$/.exec(args);
+    const list = spread ? new RegExp(`const ${spread[1]}\\b[^=]*= \\[([^\\]]*)\\]`).exec(source)?.[1] : args;
+    const actions = list === undefined ? [] : quoted(list);
+    return actions.length ? actions : null;
+  };
+  const direct = /^(?:actionProcedure|anyActionProcedure)\(([^)]*)\)/.exec(value);
+  if (direct) return actionsIn(direct[1]!);
   // A named procedure in the same file: `const purchaseReader = anyActionProcedure(...)`.
   const named = /^(\w+)/.exec(value);
   if (!named) return null;
-  const def = new RegExp(`const ${named[1]} = (actionProcedure|anyActionProcedure)\\(([^)]*)\\)`).exec(source);
-  if (def) return quoted(def[2]!);
-  // ...or one built from a list constant: `anyActionProcedure(...PURCHASE_READERS)`.
-  const spread = new RegExp(`const ${named[1]} = anyActionProcedure\\(\\.\\.\\.(\\w+)\\)`).exec(source);
-  if (spread) {
-    const list = new RegExp(`const ${spread[1]}[^=]*= \\[([^\\]]*)\\]`).exec(source);
-    if (list) return quoted(list[1]!);
-  }
-  return null;
+  const def = new RegExp(`const ${named[1]} = (?:actionProcedure|anyActionProcedure)\\(([^)]*)\\)`).exec(source);
+  return def ? actionsIn(def[1]!) : null;
 }
 
 /** The module the server gates a router's writes on, or null (lib/moduleGate.ts ROUTER_MODULE). */

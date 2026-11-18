@@ -734,3 +734,23 @@ describe("command palette: announcements across reopening", () => {
     }
   });
 });
+
+describe("command palette: remote rows follow the module gates (CodeRabbit)", () => {
+  const data = {
+    bundles: { items: [{ id: "b1", serial: "26K4001", status: "available" as const, dieSeries: "A", dieSectionCode: "S1" }] },
+    dispatches: { items: [{ id: "d1", code: "DSP-1", status: "draft", customerName: "Acme" }] },
+    dies: { items: [{ id: "x1", series: "A", sectionCode: "S1", name: "Angle" }] },
+    customers: { items: [{ id: "c1", name: "Acme" }] },
+  };
+  const all = { bundles: true, dispatches: true, dies: true, customers: true };
+
+  test("cached rows of a switched-off module never show; the others stay", async () => {
+    const { remoteRows } = await import("./command-palette");
+    const { createI18n } = await import("@orrn/i18n");
+    const t = createI18n("en").t;
+    expect(remoteRows(data, all, t).map((r) => r.group)).toEqual(["bundle", "dispatches", "dies", "customers"]);
+    const customersOff = remoteRows(data, { ...all, customers: false }, t);
+    expect(customersOff.map((r) => r.group)).toEqual(["bundle", "dispatches", "dies"]);
+    expect(remoteRows(data, { bundles: false, dispatches: false, dies: false, customers: false }, t)).toEqual([]);
+  });
+});
