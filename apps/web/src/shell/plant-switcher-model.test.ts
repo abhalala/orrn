@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { switcherPlants } from "./plant-switcher-model";
+import { canStartSwitch, switcherPlants } from "./plant-switcher-model";
 
 const two = [
   { companyId: "b", name: "Plant B", role: "accountant" },
@@ -22,5 +22,23 @@ describe("FP-PF-17 plant switcher", () => {
       { companyId: "a", name: "Plant A", role: "office", current: true },
       { companyId: "b", name: "Plant B", role: "accountant", current: false },
     ]);
+  });
+});
+
+describe("one plant switch at a time across the header and the palette (CodeRabbit)", () => {
+  const plants = [
+    { companyId: "a", name: "Plant A", role: "office", current: true },
+    { companyId: "b", name: "Plant B", role: "office", current: false },
+  ];
+  test("starts when nothing is switching and the target is another known plant", () => {
+    expect(canStartSwitch(plants, "b", 0)).toBe(true);
+  });
+  test("never while any switch is in flight, from either surface", () => {
+    expect(canStartSwitch(plants, "b", 1)).toBe(false);
+  });
+  test("never to the current plant, an unknown plant, or with nothing to switch", () => {
+    expect(canStartSwitch(plants, "a", 0)).toBe(false);
+    expect(canStartSwitch(plants, "zz", 0)).toBe(false);
+    expect(canStartSwitch(null, "b", 0)).toBe(false);
   });
 });
