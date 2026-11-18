@@ -3,14 +3,16 @@ import type { Me } from "./me";
 export type HomePath = "/admin" | "/today" | "/welcome" | "/no-access";
 
 /**
- * The account can't sign in with email + password yet: a temp password to
- * replace, or no password at all (a magic-link account from waitlist
- * approval; the link is single use and /login takes only a password, so
- * without one they are locked out when the session ends). `hasPassword`
- * missing (an older `auth.me`) counts as having one.
+ * The account can't sign in on its own yet: a temp password to replace, or no
+ * way in at all (a magic-link account from waitlist approval; the link is
+ * single use, so without a password, a passkey or Google they are locked out
+ * when the session ends). A passkey or Google counts like a password (plan
+ * 2026-11-18). A missing `hasPassword` (an older `auth.me`) counts as having
+ * one, and a missing `hasPasskey` / `hasGoogle` as not having it.
  */
 export function needsPassword(me: Me): boolean {
-  return me.user.mustChangePassword === true || me.user.hasPassword === false;
+  if (me.user.mustChangePassword === true) return true;
+  return me.user.hasPassword === false && me.user.hasPasskey !== true && me.user.hasGoogle !== true;
 }
 
 /** Where a signed-in user belongs: the one place every post-login redirect agrees on. */

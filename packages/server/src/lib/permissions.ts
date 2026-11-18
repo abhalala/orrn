@@ -426,6 +426,10 @@ export type Me = {
     mustChangePassword?: boolean;
     /** A credential (email + password) login exists. False for a magic-link account until it sets one. */
     hasPassword?: boolean;
+    /** The account has at least one passkey (plan 2026-11-18). */
+    hasPasskey?: boolean;
+    /** A Google account is linked (plan 2026-11-18). */
+    hasGoogle?: boolean;
   };
   company: {
     id: string;

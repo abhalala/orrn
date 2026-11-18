@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8153 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7752,7 +7752,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (311)
+### audit (314)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7854,6 +7854,9 @@ Please check, Lalubhai:
 | `actions.app_release__update` | App build changed | ऐप बिल्ड बदला |
 | `actions.approval__approved` | Request approved | रिक्वेस्ट मंज़ूर की |
 | `actions.approval__rejected` | Request rejected | रिक्वेस्ट नामंज़ूर की |
+| `actions.auth__google__link` | Google sign-in linked | Google साइन-इन जोड़ा |
+| `actions.auth__passkey__add` | Passkey added | पासकी जोड़ी |
+| `actions.auth__passkey__remove` | Passkey removed | पासकी हटाई |
 | `actions.auth__password_force_change` | Password change asked for | पासवर्ड बदलने को कहा |
 | `actions.auth__password_set` | Password set | पासवर्ड सेट किया |
 | `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |

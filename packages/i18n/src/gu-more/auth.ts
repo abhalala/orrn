@@ -80,4 +80,12 @@ export const guAuth = {
     sessionExpired: "તમારું સેશન પૂરું થઈ ગયું. ફરી સાઇન ઇન કરો.",
     signOut: "સાઇન આઉટ",
   },
+  // Plan 2026-11-18: the audit words for sign-in changes (the rest of audit falls back to English).
+  audit: {
+    actions: {
+      auth__google__link: "Google સાઇન-ઇન જોડ્યું",
+      auth__passkey__add: "પાસકી ઉમેરી",
+      auth__passkey__remove: "પાસકી કાઢી",
+    },
+  },
 } as const satisfies DeepPartial<Messages>;

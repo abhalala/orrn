@@ -4,6 +4,15 @@ import { needsPassword } from "@/shared/lib/home";
 
 export { needsPassword };
 
+/**
+ * The owner second-factor rule (AGENTS.md, Sign-in facts; plan 2026-11-18): met by
+ * the authenticator app, a passkey or a linked Google account. The server refuses
+ * to remove an owner's last one (`OWNER_NEEDS_STRONG_METHOD`).
+ */
+export function hasStrongMethod(me: Me): boolean {
+  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
+}
+
 /** A step the welcome stepper can still ask for, in the order it asks. */
 export type WelcomeStep = "password" | "twoFactor" | "company";
 
@@ -17,7 +26,8 @@ export type WelcomeStage = WelcomeStep | "done";
  *
  * - password: a forced change for temp-password accounts, or the first
  *   password for an account that has none (magic-link owners);
- * - twoFactor: owners whose onboarding is open and who haven't turned it on;
+ * - twoFactor: owners whose onboarding is open and who have no strong method
+ *   yet (`hasStrongMethod`: the authenticator app, a passkey or Google);
  * - company: owners and admins (the roles with `settings.update`, the rule
  *   the server uses to accept the fields), while their onboarding is open.
  *
@@ -30,7 +40,7 @@ export function welcomeSteps(me: Me): WelcomeStep[] {
   const setupOpen = Boolean(ownCompany) && !me.user.onboardingCompleted;
   const steps: WelcomeStep[] = [];
   if (needsPassword(me)) steps.push("password");
-  if (setupOpen && ownCompany?.role === "owner" && !me.user.twoFactorEnabled) steps.push("twoFactor");
+  if (setupOpen && ownCompany?.role === "owner" && !hasStrongMethod(me)) steps.push("twoFactor");
   if (setupOpen && ownCompany && COMPANY_SETUP_ROLES.includes(ownCompany.role)) steps.push("company");
   return steps;
 }

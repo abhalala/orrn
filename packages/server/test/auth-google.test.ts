@@ -296,6 +296,35 @@ describe("Google on an existing account", () => {
     expect((await passwordSignIn(existing.email)).status).toBe(200);
   });
 
+  test("linking Google writes auth.google.link (user-level, no plant, no Google data)", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    const sub = crypto.randomUUID();
+    expect((await googleSignIn({ sub, email: existing.email })).status).toBe(200);
+    const rows = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "auth.google.link"), eq(auditLog.actorId, existing.id)))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ companyId: null, subjectType: "user", subjectId: existing.id });
+    expect(JSON.stringify(rows[0]!.meta)).not.toContain(sub);
+    // A second Google sign-in reuses the link and writes nothing more.
+    expect((await googleSignIn({ sub, email: existing.email })).status).toBe(200);
+    expect(
+      await env.db.select().from(auditLog).where(and(eq(auditLog.action, "auth.google.link"), eq(auditLog.actorId, existing.id))).all(),
+    ).toHaveLength(1);
+  });
+
+  test("an account made by Google writes auth.google.link too", async () => {
+    const email = unique("newlink");
+    await makeInvite(email);
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email })).status).toBe(200);
+    const made = await userByEmail(email);
+    const rows = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "auth.google.link"), eq(auditLog.actorId, made!.id))).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.companyId).toBeNull();
+  });
+
   test("google on an unverified account drops the password, passkeys, two-factor and other sessions", async () => {
     const existing = await makeUser({ emailVerified: false });
     await env.db.update(user).set({ mustChangePassword: true }).where(eq(user.id, existing.id));

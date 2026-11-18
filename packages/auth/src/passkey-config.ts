@@ -15,20 +15,24 @@ export function passkeyConfigFor(webUrl: string, androidApkKeyHash?: string): Pa
 
 type PasskeyEnv = { WEB_PUBLIC_URL?: string; CORS_ORIGIN?: string; ANDROID_APK_KEY_HASH?: string };
 
+/** True for an `http:` or `https:` URL with a host. `new URL("localhost:3001")` parses, as scheme `localhost:`. */
+function isWebUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname !== "";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The stage's config, from the web URL `@orrn/server` `lib/webUrl.ts` reads (`WEB_PUBLIC_URL`, else
- * `CORS_ORIGIN`). A stage with neither (or an unparsable one) fails closed: no origin is allowed, so
- * no passkey registers or signs in. The plugin never sees a null origin, which would make it trust
- * the request's own `Origin` header.
+ * `CORS_ORIGIN`). A stage with neither, or with one that is not an http(s) URL with a host, fails
+ * closed: no origin is allowed, so no passkey registers or signs in. The plugin never sees a null
+ * origin, which would make it trust the request's own `Origin` header.
  */
 export function passkeyConfigForEnv(environment: PasskeyEnv): PasskeyConfig {
   const webUrl = environment.WEB_PUBLIC_URL ?? environment.CORS_ORIGIN;
-  if (webUrl) {
-    try {
-      return passkeyConfigFor(webUrl, environment.ANDROID_APK_KEY_HASH);
-    } catch {
-      // fall through to the closed config
-    }
-  }
+  if (webUrl && isWebUrl(webUrl)) return passkeyConfigFor(webUrl, environment.ANDROID_APK_KEY_HASH);
   return { rpID: "localhost", rpName: "ORRN", origin: [] };
 }

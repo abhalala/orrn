@@ -5,7 +5,7 @@ import { can } from "@orrn/server/lib/permissions";
 
 import type { Me } from "@/shared/lib/me";
 
-import { COMPANY_SETUP_ROLES, leaveWelcome, needsPassword, welcomeSteps, welcomeTimeline } from "./welcome-steps";
+import { COMPANY_SETUP_ROLES, hasStrongMethod, leaveWelcome, needsPassword, welcomeSteps, welcomeTimeline } from "./welcome-steps";
 
 type MeOver = Partial<Omit<Me, "user" | "company">> & {
   user?: Partial<Me["user"]>;
@@ -145,6 +145,35 @@ describe("needsPassword", () => {
     expect(needsPassword(me({ user: { hasPassword: false } }))).toBe(true);
     expect(needsPassword(me({ user: { hasPassword: true } }))).toBe(false);
     expect(needsPassword(me())).toBe(false);
+  });
+});
+
+describe("passkeys and Google (plan 2026-11-18)", () => {
+  test("welcomeSteps omits twoFactor when the owner has a passkey or Google", () => {
+    const open = { onboardingCompleted: false, twoFactorEnabled: false, hasPassword: true };
+    expect(welcomeSteps(me({ user: open }))).toEqual(["twoFactor", "company"]);
+    expect(welcomeSteps(me({ user: { ...open, hasPasskey: true } }))).toEqual(["company"]);
+    expect(welcomeSteps(me({ user: { ...open, hasGoogle: true } }))).toEqual(["company"]);
+  });
+
+  test("needsPassword is false for a google-only or passkey-only user", () => {
+    expect(needsPassword(me({ user: { hasPassword: false, hasGoogle: true } }))).toBe(false);
+    expect(needsPassword(me({ user: { hasPassword: false, hasPasskey: true } }))).toBe(false);
+    expect(needsPassword(me({ user: { hasPassword: false, hasPasskey: false, hasGoogle: false } }))).toBe(true);
+    // A forced change still asks, whatever else the account has.
+    expect(needsPassword(me({ user: { mustChangePassword: true, hasGoogle: true } }))).toBe(true);
+  });
+
+  test("a google-only owner is asked for neither a password nor two-factor", () => {
+    const owner = me({ user: { onboardingCompleted: false, hasPassword: false, hasGoogle: true } });
+    expect(welcomeSteps(owner)).toEqual(["company"]);
+  });
+
+  test("hasStrongMethod: authenticator, passkey or Google", () => {
+    expect(hasStrongMethod(me())).toBe(false);
+    expect(hasStrongMethod(me({ user: { twoFactorEnabled: true } }))).toBe(true);
+    expect(hasStrongMethod(me({ user: { hasPasskey: true } }))).toBe(true);
+    expect(hasStrongMethod(me({ user: { hasGoogle: true } }))).toBe(true);
   });
 });
 

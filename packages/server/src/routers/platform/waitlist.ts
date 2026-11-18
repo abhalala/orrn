@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { company, membership, waitlistRequest } from "@orrn/db/schema/tenant";
-import { account, user, verification } from "@orrn/db/schema/auth";
+import { account, passkey, user, verification } from "@orrn/db/schema/auth";
+import { hasWayIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { auditLog } from "@orrn/db/schema/audit";
 import type { createDb } from "@orrn/db";
 
@@ -28,7 +29,7 @@ function escapeHtml(text: string) {
 
 /** Why an approval came back without a sign-in link. */
 export type SignInRefusal =
-  /** The owner already signs in with a password (and maybe 2FA): a link would skip both. */
+  /** The owner already has a way in (password, passkey or Google; maybe 2FA): a link would skip it. */
   | "has_password"
   /** The caller's staff role does not hold `platform.waitlist.signInLink` (support). */
   | "not_allowed";
@@ -49,8 +50,9 @@ function mayIssueSignInLink(platformRole: PlatformStaffRole | null | undefined) 
 }
 
 /**
- * The requester's user row and whether it can sign in with a password: a
- * `credential` account with a password set (the same test as T17 `hasPassword`).
+ * The requester's user row and whether it already has a way in: a password (a `credential` account
+ * with a password set, the T17 `hasPassword` test), a passkey or Google (plan 2026-11-18). Such an
+ * owner gets no sign-in link (the magic-link guard would refuse it at verify anyway).
  */
 async function ownerAccount(db: Db, email: string) {
   const owner = await db
@@ -59,12 +61,7 @@ async function ownerAccount(db: Db, email: string) {
     .where(eq(user.email, email))
     .get();
   if (!owner) return { owner: null, hasPassword: false };
-  const credential = await db
-    .select({ id: account.id })
-    .from(account)
-    .where(and(eq(account.userId, owner.id), eq(account.providerId, "credential"), isNotNull(account.password)))
-    .get();
-  return { owner, hasPassword: Boolean(credential) };
+  return { owner, hasPassword: hasWayIn(await signInMethodsFor(db, owner.id)) };
 }
 
 function randomToken() {
@@ -337,7 +334,7 @@ export const waitlistProcedures = {
       }
     }),
 
-  /** Approved requests whose owner has not set a password yet (for example, the email never arrived). */
+  /** Approved requests whose owner has no way in yet: no password, passkey or Google (for example, the email never arrived). */
   waitlistAwaitingSignIn: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
     // Approvals from the last 30 days, newest first, at most 100 (platform views stay bounded).
     const since = new Date(Date.now() - AWAITING_WINDOW_MS);
@@ -350,26 +347,35 @@ export const waitlistProcedures = {
       .all();
     if (approved.length === 0) return [];
 
+    // An owner with a way in (password, passkey or Google; `ownerAccount`) is not waiting.
     // `inArray` binds one parameter per email; D1 allows 100 per statement.
-    const withPassword = new Set<string>();
+    const signsIn = new Set<string>();
     const emails = [...new Set(approved.map((r) => r.requesterEmail))];
     for (let i = 0; i < emails.length; i += 90) {
-      const rows = await ctx.db
-        .selectDistinct({ email: user.email })
-        .from(account)
-        .innerJoin(user, eq(user.id, account.userId))
-        .where(
-          and(
-            eq(account.providerId, "credential"),
-            isNotNull(account.password),
-            inArray(user.email, emails.slice(i, i + 90)),
-          ),
-        )
-        .all();
-      for (const r of rows) withPassword.add(r.email);
+      const slice = emails.slice(i, i + 90);
+      const [byAccount, byPasskey] = await Promise.all([
+        ctx.db
+          .selectDistinct({ email: user.email })
+          .from(account)
+          .innerJoin(user, eq(user.id, account.userId))
+          .where(
+            and(
+              or(and(eq(account.providerId, "credential"), isNotNull(account.password)), eq(account.providerId, "google")),
+              inArray(user.email, slice),
+            ),
+          )
+          .all(),
+        ctx.db
+          .selectDistinct({ email: user.email })
+          .from(passkey)
+          .innerJoin(user, eq(user.id, passkey.userId))
+          .where(inArray(user.email, slice))
+          .all(),
+      ]);
+      for (const r of [...byAccount, ...byPasskey]) signsIn.add(r.email);
     }
 
-    return approved.filter((r) => !withPassword.has(r.requesterEmail));
+    return approved.filter((r) => !signsIn.has(r.requesterEmail));
   }),
 
   /**

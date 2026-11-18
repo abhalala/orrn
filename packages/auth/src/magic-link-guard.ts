@@ -1,6 +1,8 @@
 import type { createDb } from "@orrn/db";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 
+import { hasWayIn, signInMethodsFor } from "./sign-in-methods";
+
 /**
  * FP-PF-08 (C27): a magic link never stands in for the second factor. A link is a full session
  * without a password or an authenticator code, so it may only sign in an account that has
@@ -60,19 +62,18 @@ export async function hashMagicLinkToken(token: string): Promise<string> {
 
 type Db = ReturnType<typeof createDb>;
 
-/** True when `email` may sign in by link: no account yet, or no password and no second factor. */
+/**
+ * True when `email` may sign in by link: no account yet, or no second factor and no way in yet
+ * (no password, no passkey, no Google; plan 2026-11-18). A link never beats a stronger method.
+ */
 export async function magicLinkAllowed(db: Db, email: string): Promise<boolean> {
   const found = await db.query.user.findFirst({
-    columns: { id: true, twoFactorEnabled: true },
+    columns: { id: true },
     where: (u, { eq }) => eq(u.email, email.trim().toLowerCase()),
   });
   if (!found) return true;
-  if (found.twoFactorEnabled) return false;
-  const credential = await db.query.account.findFirst({
-    columns: { id: true },
-    where: (a, { and, eq, isNotNull }) => and(eq(a.userId, found.id), eq(a.providerId, "credential"), isNotNull(a.password)),
-  });
-  return !credential;
+  const methods = await signInMethodsFor(db, found.id);
+  return !methods.authenticator && !hasWayIn(methods);
 }
 
 /**

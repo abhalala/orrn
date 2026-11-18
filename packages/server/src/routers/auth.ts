@@ -1,12 +1,13 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
-import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
+import { account, passkey, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
+import { isOwnerAnywhere, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { env } from "@orrn/env/server";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
@@ -31,6 +32,9 @@ const navOrderInput = z
       ctx.addIssue({ code: "custom", message: "The More divider must name a menu item", path: ["moreFrom"] });
     }
   });
+
+/** A person has a handful of passkeys; the settings list stays bounded all the same. */
+const PASSKEY_LIST_LIMIT = 50;
 
 function readPreferences(value: unknown): Record<string, unknown> {
   try {
@@ -94,13 +98,10 @@ export const authRouter = router({
       .get();
 
     // A magic-link account (waitlist approval) has no credential password until
-    // the welcome stepper sets one; /login takes only email + password, so the
-    // stepper keeps asking until it exists (Task 17 fix round 1).
-    const credential = await ctx.db
-      .select({ id: account.id })
-      .from(account)
-      .where(and(eq(account.userId, userId), eq(account.providerId, "credential"), isNotNull(account.password)))
-      .get();
+    // the welcome stepper sets one (Task 17 fix round 1). A passkey or Google is a
+    // way in too (plan 2026-11-18): the stepper asks for a password only when the
+    // account has none of the three (`needsPassword` on the web).
+    const methods = await signInMethodsFor(ctx.db, userId);
 
     const companyRow =
       ctx.membership && ctx.companyId
@@ -145,7 +146,9 @@ export const authRouter = router({
         onboardingCompleted: userRow?.onboardingCompleted ?? false,
         twoFactorEnabled: userRow?.twoFactorEnabled ?? false,
         mustChangePassword: userRow?.mustChangePassword ?? false,
-        hasPassword: Boolean(credential),
+        hasPassword: methods.password,
+        hasPasskey: methods.passkeys > 0,
+        hasGoogle: methods.google,
       },
       company:
         companyRow && ctx.role
@@ -175,6 +178,39 @@ export const authRouter = router({
             expiresAt: ctx.impersonation.expiresAt.toISOString(),
           }
         : null,
+    };
+  }),
+
+  /**
+   * The signed-in person's own sign-in methods, for Settings > Sign-in (plan 2026-11-18). Passkeys
+   * are listed by row id, name and dates only: never the credential id or the public key. The
+   * plugin's table keeps no last-use time, so `lastUsedAt` is null until it does.
+   * `isOwnerAnywhere` tells the page that the strong-method rule applies (sign-in-methods.ts).
+   */
+  signInMethods: authedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+    const [methods, passkeys, owner] = await Promise.all([
+      signInMethodsFor(ctx.db, userId),
+      ctx.db
+        .select({ id: passkey.id, name: passkey.name, createdAt: passkey.createdAt })
+        .from(passkey)
+        .where(eq(passkey.userId, userId))
+        .orderBy(asc(passkey.createdAt), asc(passkey.id))
+        .limit(PASSKEY_LIST_LIMIT)
+        .all(),
+      isOwnerAnywhere(ctx.db, userId),
+    ]);
+    return {
+      password: methods.password,
+      authenticator: methods.authenticator,
+      google: methods.google,
+      passkeys: passkeys.map((p) => ({
+        id: p.id,
+        name: p.name ?? null,
+        createdAt: p.createdAt ?? new Date(0),
+        lastUsedAt: null as Date | null,
+      })),
+      isOwnerAnywhere: owner,
     };
   }),
 

@@ -146,6 +146,16 @@ describe("passkeyConfigFor", () => {
       "android:apk-key-hash:abc",
     ]);
   });
+
+  test("a web URL without an http(s) scheme or host is closed", async () => {
+    const { passkeyConfigForEnv } = await import("@orrn/auth/passkey-config");
+    const closed = { rpID: "localhost", rpName: "ORRN" as const, origin: [] as string[] };
+    // `new URL("localhost:3001")` parses (scheme `localhost:`), so the try/catch alone would let it through.
+    expect(passkeyConfigForEnv({ WEB_PUBLIC_URL: "localhost:3001" })).toEqual(closed);
+    expect(passkeyConfigForEnv({ WEB_PUBLIC_URL: "file:///tmp/x" })).toEqual(closed);
+    expect(passkeyConfigForEnv({ CORS_ORIGIN: "javascript:alert(1)" })).toEqual(closed);
+    expect(passkeyConfigForEnv({ WEB_PUBLIC_URL: "http://localhost:3001" }).origin).toEqual(["http://localhost:3001"]);
+  });
 });
 
 describe("passkey endpoints", () => {

@@ -6,6 +6,8 @@ import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
+import { writeUserAudit } from "./sign-in-methods";
+
 /**
  * Google sign-in (plan 2026-11-18; spec Design §3-6). ORRN has no public sign-up (D14), so:
  *
@@ -219,6 +221,12 @@ export function googleDatabaseHooks(db: Db) {
         before: async (data: { providerId?: unknown; userId?: unknown }, ctx: HookCtx) => {
           if (data.providerId !== "google" || typeof data.userId !== "string") return;
           await onGoogleLink(db, data.userId, ctx);
+        },
+        // The link row exists now (a new account made by Google included). User-level audit, no
+        // plant; never the Google account id or a token. Never throws.
+        after: async (created: { providerId?: unknown; userId?: unknown }) => {
+          if (created.providerId !== "google" || typeof created.userId !== "string") return;
+          await writeUserAudit(db, { userId: created.userId, action: "auth.google.link" });
         },
       },
     },

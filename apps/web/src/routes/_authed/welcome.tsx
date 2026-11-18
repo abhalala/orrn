@@ -49,9 +49,11 @@ function WelcomePage() {
   }, [index]);
 
   const stage = stages[index] ?? "done";
-  // `hasPassword` is read live, so Sign out returns once the password step is done.
+  // Read live, so Sign out returns once the password step is done. A passkey or Google is a way
+  // back in too (plan 2026-11-18).
   const live = useQuery(trpc.auth.me.queryOptions()).data;
-  const canSignOut = (live ?? me).user.hasPassword !== false;
+  const liveUser = (live ?? me).user;
+  const canSignOut = liveUser.hasPassword !== false || liveUser.hasPasskey === true || liveUser.hasGoogle === true;
   const advance = () => setIndex((i) => Math.min(i + 1, stages.length - 1));
 
   return (

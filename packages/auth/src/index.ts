@@ -10,6 +10,7 @@ import { googleDatabaseHooks, googleProviderFor, webLoginUrl } from "./google-gu
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
+import { signInAuditAfter, signInMethodGuardBody } from "./sign-in-methods";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { writeAuthLog } from "./logger";
 import { betterAuth } from "better-auth";
@@ -125,13 +126,21 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // Security review 2026-11-04 (HIGH 3): no public sign-up. An HTTP `/sign-up/email` needs a live
     // invite for that email (sign-up-guard.ts); server code still creates accounts in-process.
     // Tested in packages/server/test/auth-signup-invite.test.ts.
+    // Plan 2026-11-18: removing a passkey, turning two-factor off or unlinking an account may not leave
+    // the account with no way in (LAST_SIGN_IN_METHOD), nor an owner with only a password
+    // (OWNER_NEEDS_STRONG_METHOD); a passkey added or removed is audited (sign-in-methods.ts).
+    // Tested in packages/server/test/auth-sign-in-methods.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         await signUpGuardBody(db, ctx);
+        await signInMethodGuardBody(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
         return magicLinkGuardBody(db, ctx);
+      }),
+      after: createAuthMiddleware(async (ctx) => {
+        await signInAuditAfter(db, ctx);
       }),
     },
     // Google (plan 2026-11-18): only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both set.
