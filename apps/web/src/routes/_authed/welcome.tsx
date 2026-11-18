@@ -9,6 +9,7 @@ import { AuthFrame } from "@/features/auth/auth-frame";
 import { CompanyStep } from "@/features/auth/welcome/company-step";
 import { DoneStep } from "@/features/auth/welcome/done-step";
 import { PasswordStep } from "@/features/auth/welcome/password-step";
+import { googleLinkErrorKey } from "@/features/auth/google-link";
 import { SecureSignInStep } from "@/features/auth/welcome/secure-sign-in-step";
 import { leaveWelcome, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
@@ -26,6 +27,9 @@ import { trpc } from "@/shared/utils/trpc";
  * plant's policy or setup does not hold them here.
  */
 export const Route = createFileRoute("/_authed/welcome")({
+  // `?error=`: a Google link from "Secure your sign-in" that failed (Better Auth appends the code).
+  validateSearch: (search: Record<string, unknown>): { error?: string } =>
+    typeof search.error === "string" && search.error ? { error: search.error.slice(0, 64) } : {},
   beforeLoad: ({ context }) => {
     const { me } = context;
     // Nothing left to do here: home, like the old /change-password did.
@@ -41,6 +45,7 @@ function WelcomePage() {
   const navigate = useNavigate();
   const signOut = useSignOutAndReset();
   const { me } = Route.useRouteContext();
+  const { error: linkCode } = Route.useSearch();
   // Fixed for this visit: finishing a step must not reshuffle the stepper.
   const [stages] = useState(() => welcomeTimeline(welcomeSteps(me)));
   const [index, setIndex] = useState(0);
@@ -105,7 +110,9 @@ function WelcomePage() {
         <SecureSignInStep
           headingRef={heading}
           userId={me.user.id}
+          email={me.user.email}
           plantName={me.company?.name ?? ""}
+          linkError={googleLinkErrorKey(linkCode)}
           password={password.current}
           onDone={() => {
             password.current = null;

@@ -56,6 +56,13 @@ export const guAuth = {
       passkeyCancelled: "પાસકીથી સાઇન ઇન રદ થયું. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",
       passkeyNotFound: "orrn આ પાસકી ઓળખતું નથી. બીજી પાસકી અજમાવો, અથવા બીજી રીતે સાઇન ઇન કરો.",
       signInFailed: "સાઇન ઇન પૂરું થયું નહીં. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",
+      passkeyAddCancelled: "પાસકી ઉમેરવાનું રદ થયું. તૈયાર હો ત્યારે ફરી પ્રયત્ન કરો.",
+      passkeyExists: "આ ડિવાઇસ પર તમારા અકાઉન્ટની પાસકી પહેલેથી છે.",
+      passkeyAddFailed: "પાસકી ઉમેરાઈ નહીં. ફરી પ્રયત્ન કરો.",
+      signInAgain: "તમારી સુરક્ષા માટે આ માટે હાલનું સાઇન ઇન જોઈએ. ફરી સાઇન ઇન કરો, પછી એક વાર ફરી પ્રયત્ન કરો.",
+      googleLinkOtherEmail: "તે Google અકાઉન્ટનો ઇમેલ જુદો છે. જેનો ઇમેલ આ અકાઉન્ટ જેવો જ હોય તે Google અકાઉન્ટ જોડો.",
+      googleLinkTaken: "તે Google અકાઉન્ટ પહેલેથી બીજા orrn અકાઉન્ટમાં સાઇન ઇન કરે છે.",
+      googleLinkFailed: "Google જોડાયું નહીં. ફરી પ્રયત્ન કરો.",
     },
     invite: {
       genericTitle: "orrn પર તમારી ટીમમાં જોડાઓ",
@@ -98,14 +105,27 @@ export const guAuth = {
     sessionExpired: "તમારું સેશન પૂરું થઈ ગયું. ફરી સાઇન ઇન કરો.",
     signOut: "સાઇન આઉટ",
   },
-  // Plan 2026-11-18, Task 9: the welcome stepper's plant policy step (the rest of welcome falls back to English).
+  // Plan 2026-11-18, Tasks 9 and 5: "Secure your sign-in" and the closing screen's passkey offer (the rest of welcome falls back to English).
   welcome: {
     steps: {
       secureSignIn: "સુરક્ષિત સાઇન-ઇન",
     },
     secure: {
       title: "તમારું સાઇન-ઇન સુરક્ષિત કરો",
-      required: "{company} ઇચ્છે છે કે દરેક જણ ફક્ત પાસવર્ડથી નહીં, તેનાથી વધુથી સાઇન ઇન કરે. આગળ વધવા authenticator ઍપ ચાલુ કરો.",
+      required: "{company} ઇચ્છે છે કે દરેક જણ ફક્ત પાસવર્ડથી નહીં, તેનાથી વધુથી સાઇન ઇન કરે.",
+      choose: "આગળ વધવા એક રીત પસંદ કરો. પછીથી સેટિંગમાં વધુ ઉમેરી શકો છો.",
+      passkey: "પાસકી ઉમેરો",
+      passkeyHint: "તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. કંઈ ટાઇપ કરવાનું નથી.",
+      authenticator: "authenticator ઍપ વાપરો",
+      authenticatorHint: "પાસવર્ડ પછી તમારા ફોનની ઍપનો 6 અંકનો કોડ ટાઇપ કરો.",
+      googleHint: "{email} વાળા Google અકાઉન્ટથી સાઇન ઇન કરો.",
+      otherWay: "બીજી રીત પસંદ કરો",
+    },
+    done: {
+      passkeyTitle: "આગલી વખતે ઝડપથી સાઇન ઇન કરો",
+      passkeyBody: "પાસકી ઉમેરો અને તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. ઇચ્છો તો આ છોડી શકો છો.",
+      passkeyAdd: "પાસકી ઉમેરો",
+      passkeyAdded: "પાસકી ઉમેરાઈ. આગલી વખતે તેનાથી સાઇન ઇન કરો.",
     },
   },
   // Plan 2026-11-18: the audit words for sign-in changes (the rest of audit falls back to English).

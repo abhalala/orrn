@@ -198,11 +198,12 @@ export const authRouter = router({
    * are listed by row id, name and dates only: never the credential id or the public key. The
    * plugin's table keeps no last-use time, so `lastUsedAt` is null until it does.
    * `requiredByPlant`: an active plant of theirs requires secure sign-in, so the last strong method
-   * cannot be removed (COMPANY_REQUIRES_STRONG_METHOD, sign-in-methods.ts).
+   * cannot be removed (COMPANY_REQUIRES_STRONG_METHOD, sign-in-methods.ts). `emailVerified`: whether
+   * linking Google would clear the other methods first (it does for an unconfirmed email).
    */
   signInMethods: authedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
-    const [methods, passkeys, requiredByPlant] = await Promise.all([
+    const [methods, passkeys, requiredByPlant, userRow] = await Promise.all([
       signInMethodsFor(ctx.db, userId),
       ctx.db
         .select({ id: passkey.id, name: passkey.name, createdAt: passkey.createdAt })
@@ -212,6 +213,7 @@ export const authRouter = router({
         .limit(PASSKEY_LIST_LIMIT)
         .all(),
       plantRequiresStrongSignIn(ctx.db, userId),
+      ctx.db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, userId)).get(),
     ]);
     return {
       password: methods.password,
@@ -224,6 +226,8 @@ export const authRouter = router({
         lastUsedAt: null as Date | null,
       })),
       requiredByPlant,
+      /** Linking Google to an unconfirmed email removes the other methods (google-guard.ts), so Settings warns first. */
+      emailVerified: userRow?.emailVerified === true,
     };
   }),
 

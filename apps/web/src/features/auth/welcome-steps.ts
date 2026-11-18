@@ -61,3 +61,24 @@ export function leaveWelcome(me: Me, steps: WelcomeStep[]): boolean {
 export function welcomeTimeline(steps: WelcomeStep[]): WelcomeStage[] {
   return [...steps, "done"];
 }
+
+/** A way to satisfy "Secure your sign-in". Any one of them does; the stepper never knows which. */
+export type SecureSignInChoice = "passkey" | "authenticator" | "google";
+
+/**
+ * The choices "Secure your sign-in" offers, in order (plan Task 5): a passkey first when this device can
+ * make one (`passkeySupport().available`), the authenticator app, then Google when the stage has it
+ * (`auth.methods.google`).
+ */
+export function secureSignInChoices(can: { passkey: boolean; google: boolean }): SecureSignInChoice[] {
+  return [...(can.passkey ? (["passkey"] as const) : []), "authenticator", ...(can.google ? (["google"] as const) : [])];
+}
+
+/**
+ * The closing screen offers an optional "Add a passkey" (plan Task 5, the brief's skippable prompt for
+ * everyone): when this device can make one, the person has none, and it is their own account (never
+ * while an admin impersonates a plant). It never blocks: "Go to Today" stays the main button.
+ */
+export function offerPasskeyOnDone(me: Me, passkeyAvailable: boolean): boolean {
+  return passkeyAvailable && me.user.hasPasskey !== true && !me.impersonation;
+}

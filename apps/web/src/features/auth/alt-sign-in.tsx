@@ -28,7 +28,7 @@ export type AltSignInProps = {
 };
 
 /** Google's "G", the mark its sign-in guidelines ask for, on a white disc so it reads on any pill. */
-function GoogleMark() {
+export function GoogleMark() {
   return (
     <span aria-hidden="true" className="inline-flex size-6 items-center justify-center rounded-full bg-white">
       <svg viewBox="0 0 48 48" className="size-4">

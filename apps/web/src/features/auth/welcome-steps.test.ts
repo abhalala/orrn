@@ -7,7 +7,16 @@ import type { Me } from "@/shared/lib/me";
 
 import { needsWelcome } from "@/shared/lib/home";
 
-import { COMPANY_SETUP_ROLES, hasStrongMethod, leaveWelcome, needsPassword, welcomeSteps, welcomeTimeline } from "./welcome-steps";
+import {
+  COMPANY_SETUP_ROLES,
+  hasStrongMethod,
+  leaveWelcome,
+  needsPassword,
+  offerPasskeyOnDone,
+  secureSignInChoices,
+  welcomeSteps,
+  welcomeTimeline,
+} from "./welcome-steps";
 
 type MeOver = Partial<Omit<Me, "user" | "company">> & {
   user?: Partial<Me["user"]>;
@@ -292,5 +301,32 @@ describe("COMPANY_SETUP_ROLES", () => {
     expect(roles.length).toBeGreaterThanOrEqual(13);
     const writers = roles.filter((role) => can(me({ company: { role } }), "settings.update"));
     expect([...COMPANY_SETUP_ROLES].sort()).toEqual([...writers].sort());
+  });
+});
+
+describe("secureSignInChoices: the order the step offers (plan Task 5)", () => {
+  test("a passkey first when the device can, then the authenticator app, then Google when the plant has it", () => {
+    expect(secureSignInChoices({ passkey: true, google: true })).toEqual(["passkey", "authenticator", "google"]);
+    expect(secureSignInChoices({ passkey: true, google: false })).toEqual(["passkey", "authenticator"]);
+  });
+
+  test("no WebAuthn: no passkey choice; the authenticator app always stays", () => {
+    expect(secureSignInChoices({ passkey: false, google: true })).toEqual(["authenticator", "google"]);
+    expect(secureSignInChoices({ passkey: false, google: false })).toEqual(["authenticator"]);
+  });
+});
+
+describe("offerPasskeyOnDone: the optional passkey prompt on the closing screen", () => {
+  test("anyone without a passkey, when the device can add one", () => {
+    for (const role of ["owner", "admin", "packer", "operator", "viewer"]) {
+      expect(offerPasskeyOnDone(me({ company: { role } }), true)).toBe(true);
+    }
+  });
+
+  test("not without WebAuthn, not with a passkey already, never while impersonating", () => {
+    expect(offerPasskeyOnDone(me(), false)).toBe(false);
+    expect(offerPasskeyOnDone(me({ user: { hasPasskey: true } }), true)).toBe(false);
+    const impersonating = me({ impersonation: { actorUserId: "a1", companyId: "c1", grantId: "g1", expiresAt: "2026-11-18T12:00:00.000Z" } });
+    expect(offerPasskeyOnDone(impersonating, true)).toBe(false);
   });
 });

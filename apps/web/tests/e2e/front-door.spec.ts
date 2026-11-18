@@ -337,6 +337,10 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
 
     await expect(h1(page, "Secure your sign-in")).toBeVisible();
     await expect(page.getByTestId("secure-sign-in-lead")).toContainText(companyName);
+    // A passkey is offered first (this browser has WebAuthn); the owner picks the authenticator app.
+    await expect(page.getByRole("button", { name: "Add a passkey" })).toBeVisible();
+    await page.getByRole("button", { name: "Use an authenticator app" }).click();
+    await expect(page.getByTestId("secure-sign-in-lead")).toContainText(companyName);
     await expect(key).toBeVisible();
     // The QR replaced the form: the keyboard goes to the code field.
     await expect(page.getByLabel("6-digit code")).toBeFocused();
@@ -350,6 +354,7 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
     await expect(h1(page, "Secure your sign-in")).toBeVisible();
     await expect(h1(page, "Set your password")).toHaveCount(0);
     await expect(stepper.getByRole("listitem")).toHaveCount(3);
+    await page.getByRole("button", { name: "Use an authenticator app" }).click();
 
     await page.getByLabel("Your password", { exact: true }).fill(`${first}-typo`);
     await page.getByRole("button", { name: "Show QR code" }).click();

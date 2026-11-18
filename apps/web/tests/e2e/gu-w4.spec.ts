@@ -158,7 +158,7 @@ test.describe("Gujarati at 375", () => {
     await open(page, "/settings");
     await expect(h1(page)).toHaveText(gu.settings.title);
     await expectGujarati(page);
-    for (const tab of ["company", "team", "shifts", "standards", "modules", "devices", "backup", "support", "about", "printing", "data"] as const) {
+    for (const tab of ["company", "team", "shifts", "standards", "modules", "devices", "backup", "signIn", "support", "about", "printing", "data"] as const) {
       const trigger = page.getByRole("tab", { name: gu.settings.tabs[tab] });
       if ((await trigger.count()) === 0) continue; // a tab the role or plant does not show
       await trigger.first().click();

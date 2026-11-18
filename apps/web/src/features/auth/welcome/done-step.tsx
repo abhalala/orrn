@@ -2,14 +2,18 @@ import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Check } from "lucide-react";
-import { useState, type Ref } from "react";
+import { Check, KeyRound } from "lucide-react";
+import { useId, useState, type Ref } from "react";
 
 import { homeTarget } from "@/shared/lib/home";
 import { useMe, type Me } from "@/shared/lib/me";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
 import { FormAlert } from "../form-alert";
+import { addPasskeyHere } from "../passkey-actions";
+import { passkeySupport } from "../passkey-support";
+import { MethodError } from "../sign-in-again";
+import { offerPasskeyOnDone } from "../welcome-steps";
 import { finishesOnboardingHere } from "./finishes-onboarding";
 
 /**
@@ -17,6 +21,9 @@ import { finishesOnboardingHere } from "./finishes-onboarding";
  * and the way in. People who can't change company settings finish their
  * onboarding here (`auth.completeOnboarding` with no company fields); owners
  * and admins already did in the company step. Then home, decided afresh.
+ *
+ * Under the way in, an optional "Add a passkey" for anyone without one whose device can make one (plan
+ * Task 5; `offerPasskeyOnDone`). It sits below the main button and never holds anyone here.
  */
 export function DoneStep({
   initialMe,
@@ -85,6 +92,57 @@ export function DoneStep({
       <Button size="lg" className="w-full" loading={opening} onClick={() => void go()}>
         {opening ? t("welcome.done.opening") : goLabel}
       </Button>
+      <PasskeyOffer me={me} />
     </div>
+  );
+}
+
+/** The optional passkey on the closing screen. Once added it says so and stays out of the way. */
+function PasskeyOffer({ me }: { me: Me }) {
+  const { t } = useT();
+  const [available] = useState(() => passkeySupport().available);
+  // Decided once, so the card does not vanish under the person the moment the passkey lands in `auth.me`.
+  const [offered] = useState(() => offerPasskeyOnDone(me, available));
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<MessageKey | null>(null);
+  const titleId = useId();
+  const bodyId = useId();
+  if (!offered) return null;
+
+  async function add() {
+    if (adding) return;
+    setError(null);
+    setAdding(true);
+    const failure = await addPasskeyHere();
+    setAdding(false);
+    if (failure) setError(failure);
+    else setAdded(true);
+  }
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      data-testid="done-passkey-offer"
+      className="flex flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 id={titleId} className="m-0 text-[17px] font-semibold leading-6">
+          {t("welcome.done.passkeyTitle")}
+        </h2>
+        <p id={bodyId} className="m-0 text-[14px] leading-5 text-muted-foreground break-words">
+          {t("welcome.done.passkeyBody")}
+        </p>
+      </div>
+      {added ? (
+        <FormAlert tone="blue">{t("welcome.done.passkeyAdded")}</FormAlert>
+      ) : (
+        <Button variant="secondary" className="self-start" loading={adding} aria-describedby={bodyId} onClick={() => void add()}>
+          {adding ? null : <KeyRound aria-hidden="true" />}
+          {t("welcome.done.passkeyAdd")}
+        </Button>
+      )}
+      {error ? <MethodError error={error} next="/welcome" /> : null}
+    </section>
   );
 }

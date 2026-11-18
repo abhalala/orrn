@@ -143,6 +143,7 @@ describe("auth.me and auth.signInMethods", () => {
     await addPasskey(other.id, "Someone else");
     const methods = await env.callerForUser(u.id).auth.signInMethods();
     expect(methods).toMatchObject({ password: true, authenticator: false, google: false, requiredByPlant: false });
+    expect(methods.emailVerified).toBe(true);
     expect(methods.passkeys).toHaveLength(1);
     expect(methods.passkeys[0]).toMatchObject({ id: passkeyId, name: "Ramesh's phone", lastUsedAt: null });
     expect(methods.passkeys[0]!.createdAt).toBeInstanceOf(Date);
@@ -155,6 +156,9 @@ describe("auth.me and auth.signInMethods", () => {
     expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ authenticator: true, requiredByPlant: false });
     await makeStrictMember(u.id);
     expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ requiredByPlant: true });
+    // Linking Google to an unconfirmed email clears the other methods (google-guard.ts): Settings warns first.
+    await env.db.update(user).set({ emailVerified: false }).where(eq(user.id, u.id));
+    expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ emailVerified: false });
   });
 
   test("auth.signInMethods needs a session", async () => {
