@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { account, user } from "@orrn/db/schema";
+import { eq } from "drizzle-orm";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
@@ -84,12 +85,16 @@ async function signIn(email: string, environment?: Env) {
   return cookieHeader(res);
 }
 
-async function get(path: string, opts: { cookie?: string; environment?: Env } = {}) {
+async function get(path: string, opts: { cookie?: string; environment?: Env; ip?: string } = {}) {
   const auth = await authFor(opts.environment);
   return auth.handler(
     new Request(`https://api.test/api/auth/${path}`, {
       method: "GET",
-      headers: { origin: "https://app.test", ...(opts.cookie ? { cookie: opts.cookie } : {}) },
+      headers: {
+        origin: "https://app.test",
+        ...(opts.cookie ? { cookie: opts.cookie } : {}),
+        ...(opts.ip ? { "cf-connecting-ip": opts.ip } : {}),
+      },
     }),
   );
 }
@@ -259,6 +264,48 @@ describe("auth.methods", () => {
     } finally {
       delete workersEnv.GOOGLE_CLIENT_ID;
       delete workersEnv.GOOGLE_CLIENT_SECRET;
+    }
+  });
+});
+
+// Council round 1, A10: the public passkey sign-in options write a challenge row each time, so they are
+// limited per client IP (generous: the sign-in page asks on every visit and a plant's phones share an IP).
+describe("passkey sign-in options are limited per IP", () => {
+  test("within the limit every call answers; past it, 429 for that IP only; a new window answers again", async () => {
+    const { PASSKEY_OPTIONS_LIMIT } = await import("@orrn/auth/passkey-throttle");
+    const { authThrottle } = await import("@orrn/db/schema/auth");
+    const ip = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+    const realNow = Date.now;
+    const t0 = realNow();
+    Date.now = () => t0;
+    try {
+      for (let i = 0; i < PASSKEY_OPTIONS_LIMIT.max; i += 1) {
+        expect((await get("passkey/generate-authenticate-options", { ip })).status).toBe(200);
+      }
+      const limited = await get("passkey/generate-authenticate-options", { ip });
+      expect(limited.status).toBe(429);
+      expect(setCookies(limited).some((c) => c.includes("passkey"))).toBe(false);
+      // Another IP (another plant) is not touched.
+      expect((await get("passkey/generate-authenticate-options", { ip: "203.0.113.9" })).status).toBe(200);
+      // Next window.
+      Date.now = () => t0 + PASSKEY_OPTIONS_LIMIT.windowMs + 1;
+      expect((await get("passkey/generate-authenticate-options", { ip })).status).toBe(200);
+    } finally {
+      Date.now = realNow;
+      await env.db.delete(authThrottle).where(eq(authThrottle.key, `passkey-options:i:${ip}`));
+    }
+  });
+
+  test("the limit is generous: at least 100 a window", async () => {
+    const { PASSKEY_OPTIONS_LIMIT } = await import("@orrn/auth/passkey-throttle");
+    expect(PASSKEY_OPTIONS_LIMIT.max).toBeGreaterThanOrEqual(100);
+  });
+
+  test("a request with no readable IP is not limited (local dev and e2e)", async () => {
+    const { PASSKEY_OPTIONS_LIMIT } = await import("@orrn/auth/passkey-throttle");
+    for (let i = 0; i <= PASSKEY_OPTIONS_LIMIT.max; i += 1) {
+      const res = await get("passkey/generate-authenticate-options");
+      if (res.status !== 200) throw new Error(`call ${i} answered ${res.status}`);
     }
   });
 });

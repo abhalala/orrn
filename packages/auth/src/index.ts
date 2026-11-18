@@ -7,6 +7,7 @@ import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
 import { passkeyConfigForEnv } from "./passkey-config";
 import { expoProxyGuard } from "./expo-proxy-guard";
+import { limitPasskeyOptions } from "./passkey-throttle";
 import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoogleLinkToken, webLoginUrl } from "./google-guard";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
@@ -140,6 +141,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         await signUpGuardBody(db, ctx);
         await signInMethodGuardBody(db, ctx);
         noteGoogleLinkToken(ctx);
+        // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
+        await limitPasskeyOptions(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
