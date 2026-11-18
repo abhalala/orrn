@@ -133,6 +133,28 @@ function credentialBody(result: unknown): Json {
   return { ...rest, id, rawId: typeof rest.rawId === "string" && rest.rawId ? rest.rawId : id, type: "public-key" };
 }
 
+/**
+ * What a platform passkey made on this phone can be reached by: the phone itself, and another device
+ * through the phone (QR / Bluetooth). Sent when the module reports none.
+ */
+export const PHONE_PASSKEY_TRANSPORTS = ["internal", "hybrid"] as const;
+
+/**
+ * The attestation body for `/passkey/verify-registration`. react-native-passkey 3.6.2 leaves
+ * `response.transports` out for an iCloud Keychain passkey on iOS (`ios/PasskeyDelegate.swift` sets it
+ * only for a security key), and `@better-auth/passkey` 1.6.9 calls `response.transports.join(",")`
+ * after verifying, so every iOS add failed with a 500 (council r1, Gemini C1). A missing or empty list
+ * becomes `PHONE_PASSKEY_TRANSPORTS` (never `[]`: the plugin reads `""` back as `[""]`); transports the
+ * module did report are kept.
+ */
+function registrationBody(result: unknown): Json {
+  const body = credentialBody(result);
+  const response = record(body.response);
+  const reported = response.transports;
+  const transports = Array.isArray(reported) && reported.length > 0 ? reported : [...PHONE_PASSKEY_TRANSPORTS];
+  return { ...body, response: { ...response, transports } };
+}
+
 export function createNativePasskey({ module, fetch }: { module: PasskeyModule; fetch: AuthFetch }): NativePasskey {
   async function call(path: string, mode: Mode, opts: { method: "GET" | "POST"; query?: Record<string, string>; body?: unknown }) {
     let answer: Awaited<ReturnType<AuthFetch>>;
@@ -172,7 +194,7 @@ export function createNativePasskey({ module, fetch }: { module: PasskeyModule; 
     async add(name) {
       const options = await call("/passkey/generate-register-options", "add", { method: "GET", query: { name } });
       const attestation = await native(() => module.create(withoutExtensions(options) as never), "add");
-      await call("/passkey/verify-registration", "add", { method: "POST", body: { response: credentialBody(attestation), name } });
+      await call("/passkey/verify-registration", "add", { method: "POST", body: { response: registrationBody(attestation), name } });
     },
   };
 }
