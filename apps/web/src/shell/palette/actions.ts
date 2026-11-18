@@ -1,3 +1,4 @@
+import type { CompanyModule } from "@orrn/domain";
 import { LOCALE_NAMES, LOCALES, type Locale, type MessageKey } from "@orrn/i18n";
 import { can, canAny, type Me } from "@orrn/server/lib/permissions";
 import {
@@ -20,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { TENANT_MORE, TENANT_PRIMARY, visibleItems, type NavModule } from "../nav-items";
+import { TENANT_MORE, TENANT_PRIMARY, visibleItems } from "../nav-items";
 import { canArrangeMenu } from "../nav-order";
 import { switcherPlants } from "../plant-switcher-model";
 import { PAGE_SECTIONS, type PageSection } from "./page-index";
@@ -85,7 +86,7 @@ const LOCALE_WORDS: Record<Locale, readonly string[]> = {
   gu: ["gujarati"],
 };
 
-function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
+function moduleOn(me: Me | null | undefined, module: CompanyModule): boolean {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   return modules.length === 0 || modules.includes(module);
 }
@@ -112,7 +113,7 @@ export function buildCommands(env: CommandEnv): PaletteCommand[] {
   if (nav.has("dispatch") && can(me, "dispatch.create")) {
     out.push({ id: "new-dispatch", labelKey: "dispatch.new.title", icon: Truck, aliases: ["challan", "truck", "create dispatch"], to: "/dispatch/new", run: go("/dispatch/new") });
   }
-  if (nav.has("orders") && can(me, "order.manage")) {
+  if (nav.has("orders") && can(me, "order.manage") && moduleOn(me, "orders")) {
     out.push({ id: "new-order", labelKey: "orders.new", icon: ListChecks, aliases: ["po", "purchase order", "sales order", "order book"], to: "/orders/new", run: go("/orders/new") });
   }
   if (nav.has("pack") && can(me, "bundle.pack")) {

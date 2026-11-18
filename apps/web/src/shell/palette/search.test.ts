@@ -158,6 +158,26 @@ describe("typo false positives on 4 and 5 letter words (review S1)", () => {
     expect(matchItem("custo", customers)).not.toBeNull(); // plain prefix
     expect(matchItem("custm", customers)).not.toBeNull(); // last letter wrong while typing
   });
+  test("two neighbouring letters swapped anywhere still match, the first two included (review 2)", () => {
+    expect(matchItem("stcok", stock)).not.toBeNull();
+    expect(matchItem("sotck", stock)).not.toBeNull();
+    expect(matchItem("tsock", stock)).not.toBeNull();
+    expect(matchItem("idspatch", dispatch)).not.toBeNull();
+    expect(matchItem("idspa", dispatch)).not.toBeNull(); // still typing
+    expect(matchItem("cutsomers", customers)).not.toBeNull();
+  });
+  test("a swap never turns a short word into a different one (no new false positives)", () => {
+    expect(matchItem("cast", customers)).toBeNull();
+    expect(matchItem("stock", pack)).toBeNull();
+    expect(matchItem("dies", dispatch)).toBeNull();
+  });
+  test("a long word's typo still reaches a term when the query also has a short exact word (review 2)", () => {
+    const note: Searchable = { id: "dispatch.notes", group: "sections", label: "Dispatch", terms: ["new dispatch note"] };
+    expect(matchItem("dispacth", note)).not.toBeNull();
+    expect(matchItem("new dispacth", { ...note, label: "Packing" })).not.toBeNull();
+    // A short word that itself needs a typo still never matches a term.
+    expect(matchItem("nwe dispacth", { ...note, label: "Packing" })).toBeNull();
+  });
 });
 
 describe("aliases and matched word", () => {

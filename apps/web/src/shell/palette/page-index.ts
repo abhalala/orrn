@@ -1,6 +1,6 @@
 import type { MessageKey } from "@orrn/i18n";
 import type { Action } from "@orrn/server/lib/permissions";
-import type { NavModule } from "../nav-items";
+import type { CompanyModule } from "@orrn/domain";
 
 /**
  * Keyword alternatives and the main words inside each page (owner decision 2026-11-18).
@@ -140,7 +140,7 @@ export type PageSection = {
    */
   requires?: readonly Action[];
   /** Extra module gate on top of the parent's (a reports card that needs its module). */
-  module?: NavModule;
+  module?: CompanyModule;
 };
 
 export const PAGE_SECTIONS: readonly PageSection[] = [
@@ -179,13 +179,14 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
   // Orders
   {
     id: "orders.new",
+    module: "orders",
     parentKey: "orders",
     labelKey: "orders.new",
     to: "/orders/new",
     terms: ["new PO", "customer PO", "expected date"],
     requires: ["order.manage"],
   },
-  { id: "orders.plan", parentKey: "orders", labelKey: "press.plan.title", to: "/orders/plan", terms: ["plan", "by die", "by order", "प्रेस प्लान"] },
+  { id: "orders.plan", parentKey: "orders", labelKey: "press.plan.title", to: "/orders/plan", terms: ["plan", "by die", "by order", "प्रेस प्लान"], module: "orders" },
 
   // Press
   { id: "press.alerts", parentKey: "press", labelKey: "press.alerts.title", to: "/press/alerts", terms: ["alerts", "reading", "limit", "प्रेस अलर्ट", "પ્રેસ એલર્ટ"] },
@@ -249,6 +250,7 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
   // Purchase
   {
     id: "purchase.new",
+    module: "purchase",
     parentKey: "purchase",
     labelKey: "purchase.new.title",
     to: "/purchase/new",
@@ -261,10 +263,10 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
   { id: "dies.makers", parentKey: "dies", labelKey: "dieRoom.maker.makers", to: "/dies/makers", terms: ["makers", "die maker", "maker", "मेकर", "મેકર"] },
 
   // Store
-  { id: "store.items", parentKey: "store", labelKey: "store.items", to: "/store/items", terms: ["items", "spares", "category", "unit"] },
-  { id: "store.issue", parentKey: "store", labelKey: "store.issue.title", to: "/store/issue", terms: ["issue", "माल दें"], requires: ["store.txn"] },
-  { id: "store.receive", parentKey: "store", labelKey: "store.receive.title", to: "/store/receive", terms: ["receive", "challan", "माल लें", "चालान"], requires: ["store.txn"] },
-  { id: "store.exchange", parentKey: "store", labelKey: "store.exchange.title", to: "/store/exchange", terms: ["exchange", "old for new"], requires: ["store.txn"] },
+  { id: "store.items", parentKey: "store", labelKey: "store.items", to: "/store/items", terms: ["items", "spares", "category", "unit"], module: "store" },
+  { id: "store.issue", parentKey: "store", labelKey: "store.issue.title", to: "/store/issue", terms: ["issue", "माल दें"], requires: ["store.txn"], module: "store" },
+  { id: "store.receive", parentKey: "store", labelKey: "store.receive.title", to: "/store/receive", terms: ["receive", "challan", "माल लें", "चालान"], requires: ["store.txn"], module: "store" },
+  { id: "store.exchange", parentKey: "store", labelKey: "store.exchange.title", to: "/store/exchange", terms: ["exchange", "old for new"], requires: ["store.txn"], module: "store" },
 
   // Printing (tabs in ?tab=; the queue is the default tab)
   { id: "printing.queue", parentKey: "printing", labelKey: "printing.tabs.queue", to: "/printing", terms: ["print queue", "jobs", "reprint"] },
@@ -279,7 +281,7 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
   },
 
   // Masters (the hub's own list, masters-model.ts)
-  { id: "masters.vendors", parentKey: "masters", labelKey: "masters.hub.vendors", to: "/vendors", terms: ["vendor", "supplier", "GSTIN", "सप्लायर", "સપ્લાયર"], requires: ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"] },
+  { id: "masters.vendors", parentKey: "masters", labelKey: "masters.hub.vendors", to: "/vendors", terms: ["vendor", "supplier", "GSTIN", "सप्लायर", "સપ્લાયર"], requires: ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"], module: "purchase" },
   { id: "masters.scrap", parentKey: "masters", labelKey: "masters.hub.scrap", to: "/masters/scrap", search: { tab: "items" }, terms: ["scrap", "scrap items", "स्क्रैप", "સ્ક્રેપ"] },
   { id: "masters.scrap.grades", parentKey: "masters", labelKey: "masters.scrap.tabs.grades", to: "/masters/scrap", search: { tab: "grades" }, terms: ["grades", "scrap grade"] },
   { id: "masters.scrap.streams", parentKey: "masters", labelKey: "masters.scrap.tabs.streams", to: "/masters/scrap", search: { tab: "streams" }, terms: ["return streams", "expected recovery"] },

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { COMPANY_MODULES } from "@orrn/domain";
 import { can, canAny, type Action, type CompanyRole } from "@orrn/server/lib/permissions";
 
 import { masterEntries } from "@/features/masters/masters-model";
@@ -134,6 +135,16 @@ function targetKey(to: string, search?: Readonly<Record<string, string>>): strin
 
 function commandKey(id: string): string {
   return id.replace(/^(switch-plant|language|theme)-.*$/, "$1");
+}
+
+/** First path segments whose router name differs from the path. */
+const PATH_ROUTER: Readonly<Record<string, string>> = { casts: "foundry", pack: "bundle", stock: "bundle" };
+
+/** The module of a page's own router: the router named by its first path segment (store, orders, vendor, ...). */
+function pageModule(to: string): string | null {
+  const segment = to.replace(/^\//, "").split(/[/?]/)[0]!;
+  const router = PATH_ROUTER[segment] ?? segment;
+  return routerModule(router) ?? routerModule(router.replace(/s$/, ""));
 }
 
 function moduleOn(modules: readonly string[], module: string): boolean {
@@ -271,6 +282,48 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     expect([...new Set(leaks)]).toEqual([]);
   });
 
+  test("every read a target page makes is allowed for everyone who sees its row (no trust in the table)", () => {
+    // The table above can say a page checks nothing. This reads the page's own data calls (the route file and the
+    // feature files it imports directly) and asks the server router what each one needs, so an emptied row or a
+    // forgotten gate still fails. Mutations are left out: their buttons carry their own gates.
+    const leaks = new Set<string>();
+    let reads = 0;
+    for (const role of ROLES) {
+      const me = testMe(role);
+      const rows = [
+        ...visibleSections(me).map((s) => ({ id: s.id, to: s.to })),
+        ...commandsFor(role, []).flatMap((c) => (c.to ? [{ id: c.id, to: c.to }] : [])),
+      ];
+      for (const row of rows) {
+        for (const m of routeTree(row.to, 1).source.matchAll(/trpc\.(\w+)\.(\w+)\.(?:queryOptions|infiniteQueryOptions)/g)) {
+          const actions = procedureActions(`${m[1]}.${m[2]}`);
+          if (!actions) continue;
+          reads++;
+          if (!canAny(me, actions as Action[])) leaks.add(`${role} sees ${row.id} but ${m[1]}.${m[2]} needs ${actions.join(" or ")}`);
+        }
+      }
+    }
+    expect(reads).toBeGreaterThan(100);
+    expect([...leaks]).toEqual([]);
+  });
+
+  test("no row shows while its page's own module is off, for every company module (not only the sidebar's)", () => {
+    const leaks = new Set<string>();
+    const sets = COMPANY_MODULES.map((off) => COMPANY_MODULES.filter((m) => m !== off));
+    for (const modules of sets) {
+      const off = COMPANY_MODULES.find((m) => !modules.includes(m))!;
+      for (const role of ROLES) {
+        const me = testMe(role, { modules: [...modules] });
+        const rows = [
+          ...visibleSections(me).map((s) => ({ id: s.id, to: s.to })),
+          ...commandsFor(role, modules).flatMap((c) => (c.to ? [{ id: c.id, to: c.to }] : [])),
+        ];
+        for (const row of rows) if (pageModule(row.to) === off) leaks.add(`${row.id} shows with ${off} off`);
+      }
+    }
+    expect([...leaks].sort()).toEqual([]);
+  });
+
   test("the source readers find real gates (so a broken reader cannot pass everything)", () => {
     expect(procedureActions("press.report")).toEqual(["reports.read"]);
     expect(procedureActions("store.balances")).toEqual(["store.txn", "masters.publish"]);
@@ -281,6 +334,10 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     expect(routeTree("/casts/new").source).toContain('"cast.enter"');
     // The press role reads the press nav but not reports: it is the case B1 was about.
     expect(can(testMe("press"), "reports.read")).toBe(false);
+    expect(pageModule("/store/issue")).toBe("store");
+    expect(pageModule("/vendors")).toBe("purchase");
+    expect(pageModule("/orders/plan")).toBe("orders");
+    expect(pageModule("/casts/new")).toBe("foundry");
   });
 });
 

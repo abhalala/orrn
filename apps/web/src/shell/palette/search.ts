@@ -193,23 +193,25 @@ function letterCount(word: string): number {
 /**
  * A query word within its edit allowance of a whole field word, or of a word's start (the person is still typing).
  *
- * The first letter must always match. A 4 or 5 letter word gets only the two slips that are clearly typos: its last
- * two letters swapped ("stokc"), or its last letter wrong while the word is still being typed ("dispq" for
- * dispa-tch). Any other single change to a short word usually spells a different word ("cast" and "cust"-omers,
- * "stock" and "stick"-er, "data" and "date"). Longer words take their allowance anywhere. The start of a word is
- * never shorter than what was typed: an unfinished word is longer, so "dies" never matches "dis"-patch.
+ * Two neighbouring letters swapped is forgiven anywhere, for any word of 4+ letters ("stcok", "idspatch"). Apart
+ * from that the first letter must match. A 4 or 5 letter word then gets only its last letter wrong while it is still
+ * being typed ("dispq" for dispa-tch). Any other single change to a short word usually spells a different word
+ * ("cast" and "cust"-omers, "stock" and "stick"-er, "data" and "date"). Longer words take their allowance
+ * anywhere. The start of a word is never shorter than what was typed: an unfinished word is longer, so "dies" never matches "dis"-patch.
  * "स्टॉक" counts as 3 letters, so like "dix" it gets no allowance.
  */
 function typoMatchesWord(token: string, word: string): boolean {
   const letters = letterCount(token);
   const max = allowedEdits(letters);
-  if (max === 0 || token.charCodeAt(0) !== word.charCodeAt(0)) return false;
+  if (max === 0) return false;
   const n = token.length;
+  // Two neighbouring letters swapped is a slip of the fingers, not another word's spelling, so it is forgiven
+  // anywhere, the first two letters included ("stcok", "idspatch"), against the whole word or its start.
+  if (word.length >= n && oneAdjacentSwap(token, word.slice(0, n))) return true;
+  if (token.charCodeAt(0) !== word.charCodeAt(0)) return false;
   if (letters <= SHORT_WORD) {
-    if (word.length < n || word.slice(0, n - 2) !== token.slice(0, n - 2)) return false;
-    const swapped = word[n - 2] === token[n - 1] && word[n - 1] === token[n - 2];
-    const lastWrongWhileTyping = word.length > n && word[n - 2] === token[n - 2];
-    return swapped || lastWrongWhileTyping;
+    // Otherwise a short word is forgiven only a wrong last letter while it is still being typed ("dispq").
+    return word.length > n && word.slice(0, n - 1) === token.slice(0, n - 1);
   }
   if (editDistance(token, word, max) <= max) return true;
   // Still typing: compare against the start of the word, never shorter than what was typed.
@@ -218,6 +220,15 @@ function typoMatchesWord(token: string, word: string): boolean {
     if (editDistance(token, word.slice(0, len), max) <= max) return true;
   }
   return false;
+}
+
+/** `a` and `b` differ only by one pair of neighbouring letters swapped. */
+function oneAdjacentSwap(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  if (i >= a.length - 1) return false;
+  return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
 }
 
 function anyWordStartsWith(words: readonly string[], token: string): boolean {
@@ -284,8 +295,9 @@ function scoreField(q: Query, f: Field): number {
   if (f.text.includes(q.text)) return TIER.substring;
   const tight = subsequence(q.compact, f);
   if (tight >= 0) return TIER.subsequence + Math.round(tight * 40);
-  // A term is the weakest evidence: a short word's slip against one names a word the person never meant.
-  if (f.kind === Kind.Term && q.tokens.some((t) => letterCount(t) <= SHORT_WORD)) return -1;
+  // A term is the weakest evidence: a short word's slip against one names a word the person never meant. A short
+  // word typed exactly ("new" in "new dispacth") is fine; only a short word that itself needs a typo is refused.
+  if (f.kind === Kind.Term && q.tokens.some((t) => letterCount(t) <= SHORT_WORD && !anyWordStartsWith(f.words, t))) return -1;
   if (typoAll(q.tokens, f.words)) return TIER.typo;
   return -1;
 }
