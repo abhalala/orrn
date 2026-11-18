@@ -74,6 +74,7 @@ describe("methodCounts", () => {
 describe("signInChangeErrorKey: server refusals as words, never the server's text", () => {
   test("the two guard codes", () => {
     expect(signInChangeErrorKey({ code: "LAST_SIGN_IN_METHOD", status: 403, message: "raw" })).toBe("settings.signIn.reasonLast");
+    expect(signInChangeErrorKey({ code: "SIGN_IN_CHANGE_BUSY", status: 409, message: "raw" })).toBe("settings.signIn.busy");
     expect(signInChangeErrorKey({ code: "COMPANY_REQUIRES_STRONG_METHOD", status: 403, message: "raw" })).toBe("settings.signIn.reasonPlant");
   });
 

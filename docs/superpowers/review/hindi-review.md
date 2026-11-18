@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8300 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8301 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2263,7 +2263,7 @@ Counts: 8300 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (342)
+### settings (343)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2352,6 +2352,7 @@ Counts: 8300 screen strings in 50 groups, 45 guides with 866 strings.
 | `signIn.reasonLast` | This is your last way to sign in. Add another one first. | यह साइन इन करने का आपका आखिरी तरीका है। पहले दूसरा तरीका जोड़ें। |
 | `signIn.reasonPlant` | A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first. | आपका एक प्लांट सुरक्षित साइन-इन ज़रूरी रखता है। पासकी, Google या authenticator ऐप रखें, या पहले कोई दूसरा जोड़ें। |
 | `signIn.signInAgain` | Sign in again | फिर से साइन इन करें |
+| `signIn.busy` | Another change to your sign-in is still saving. Try again in a moment. | आपके साइन-इन का एक और बदलाव अभी सेव हो रहा है। थोड़ी देर में फिर कोशिश करें। |
 | `units.title` | Units and formats | इकाइयाँ और रूप |
 | `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
 | `units.weight` | Weight | वज़न |

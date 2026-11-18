@@ -111,6 +111,8 @@ export const guSettings = {
       reasonLast: "આ સાઇન ઇન કરવાની તમારી છેલ્લી રીત છે. પહેલાં બીજી રીત ઉમેરો.",
       reasonPlant: "તમારો એક પ્લાન્ટ સુરક્ષિત સાઇન-ઇન ફરજિયાત રાખે છે. પાસકી, Google કે authenticator ઍપ રાખો, અથવા પહેલાં બીજું ઉમેરો.",
       signInAgain: "ફરી સાઇન ઇન કરો",
+      // Council r1 Lane A (2026-11-18): sign-in method changes.
+      busy: "તમારા સાઇન-ઇનનો બીજો ફેરફાર હજી સેવ થાય છે. થોડી વારમાં ફરી પ્રયત્ન કરો.",
     },
     units: {
       title: "એકમ અને રૂપ",

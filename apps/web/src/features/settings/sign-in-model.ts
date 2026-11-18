@@ -63,6 +63,8 @@ export function signInChangeErrorKey(error: AuthClientError): MessageKey {
   if (error.status === 429 || code.startsWith("TOO_MANY")) return "auth.errors.tooMany";
   if (code === "LAST_SIGN_IN_METHOD" || code === "COMPANY_REQUIRES_STRONG_METHOD") return REMOVE_REASON[code];
   if (code === "SESSION_NOT_FRESH") return "auth.errors.signInAgain";
+  // Council r1 A2: another removal of this person's methods is still in flight.
+  if (code === "SIGN_IN_CHANGE_BUSY") return "settings.signIn.busy";
   if (code === "INVALID_PASSWORD") return "welcome.twoFactor.wrongPassword";
   return "errors.generic";
 }

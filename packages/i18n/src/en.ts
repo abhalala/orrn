@@ -2635,6 +2635,8 @@ export const en = {
       reasonLast: "This is your last way to sign in. Add another one first.",
       reasonPlant: "A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first.",
       signInAgain: "Sign in again",
+      // Council r1 Lane A (2026-11-18): sign-in method changes.
+      busy: "Another change to your sign-in is still saving. Try again in a moment.",
     },
     units: {
       title: "Units and formats",
