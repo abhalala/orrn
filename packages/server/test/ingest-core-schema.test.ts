@@ -40,19 +40,21 @@ describe("migration NNNN_ingest", () => {
     expect(rows.results.map((r) => r.name)).toEqual(INGEST_TABLES);
   });
 
-  test("is the last migration in the journal, chained after the one before it", async () => {
+  // It was the head when it landed; later migrations (0050_passkey) follow it, so it is found by name.
+  test("is in the journal once, chained after the one before it", async () => {
     const journal = (await import("../../db/src/migrations/meta/_journal.json")).default as {
       entries: { idx: number; tag: string; when: number }[];
     };
-    const last = journal.entries.at(-1)!;
-    const prev = journal.entries.at(-2)!;
-    expect(last.tag).toMatch(/^\d{4}_ingest$/);
-    expect(last.idx).toBe(journal.entries.length - 1);
-    expect(last.tag).toBe(`${String(last.idx).padStart(4, "0")}_ingest`);
-    expect(prev.idx).toBe(last.idx - 1);
+    const ingest = journal.entries.filter((e) => /^\d{4}_ingest$/.test(e.tag));
+    expect(ingest).toHaveLength(1);
+    const entry = ingest[0]!;
+    expect(journal.entries[entry.idx]).toBe(entry);
+    const prev = journal.entries[entry.idx - 1]!;
+    expect(entry.tag).toBe(`${String(entry.idx).padStart(4, "0")}_ingest`);
+    expect(prev.idx).toBe(entry.idx - 1);
     expect(prev.tag).not.toMatch(/_ingest$/);
-    expect(last.when).toBeGreaterThan(prev.when);
-    expect(await Bun.file(new URL(`../../db/src/migrations/${last.tag}.sql`, import.meta.url)).exists()).toBe(true);
+    expect(entry.when).toBeGreaterThan(prev.when);
+    expect(await Bun.file(new URL(`../../db/src/migrations/${entry.tag}.sql`, import.meta.url)).exists()).toBe(true);
   });
 
   test("one active merge run per plant; a finished run frees the slot", async () => {

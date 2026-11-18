@@ -122,10 +122,48 @@ export const twoFactor = sqliteTable(
   ],
 );
 
+/**
+ * Better Auth passkey plugin (`@better-auth/passkey`, plan 2026-11-18). The JS keys are the plugin's
+ * field names (note `credentialID`); the adapter maps them to these columns. A passkey row holds a
+ * public key only, never a secret, and is not company data (no backup).
+ */
+export const passkey = sqliteTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: integer("backed_up", { mode: "boolean" }).notNull(),
+    transports: text("transports"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(
+      sql`(cast(unixepoch('subsecond') * 1000 as integer))`,
+    ),
+    aaguid: text("aaguid"),
+  },
+  (table) => [
+    index("passkey_userId_idx").on(table.userId),
+    index("passkey_credentialID_idx").on(table.credentialID),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   twoFactors: many(twoFactor),
+  passkeys: many(passkey),
+}));
+
+export const passkeyRelations = relations(passkey, ({ one }) => ({
+  user: one(user, {
+    fields: [passkey.userId],
+    references: [user.id],
+  }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

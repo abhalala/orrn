@@ -56,6 +56,17 @@ export interface CloudflareEnv {
   /** Optional Cloudflare Access service token for the proxy. Both or neither. */
   MODEL_ACCESS_CLIENT_ID?: string;
   MODEL_ACCESS_CLIENT_SECRET?: string;
+  /**
+   * Google sign-in (plan 2026-11-18). Optional: unless both are set, Google is not offered
+   * (`auth.methods.google` is false).
+   */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * The Android app's signing key hash, allowed as a passkey origin (`android:apk-key-hash:<hash>`).
+   * Optional: unset = only the web origin answers a passkey challenge.
+   */
+  ANDROID_APK_KEY_HASH?: string;
 }
 
 declare global {

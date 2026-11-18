@@ -6,6 +6,8 @@ import { hashPassword } from "@orrn/auth/password";
 import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
+import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
+import { env } from "@orrn/env/server";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
@@ -13,7 +15,7 @@ import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
-import { authedProcedure, companyProcedure, router } from "../index";
+import { authedProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 const navOrderInput = z
   .strictObject({
@@ -68,6 +70,16 @@ function readNavOrder(preferences: unknown): MemberNavOrder | null {
  * piecing it together from `authClient.useSession()`.
  */
 export const authRouter = router({
+  /**
+   * Public: which sign-in methods the sign-in screen may offer on this stage. Google only when both
+   * of its secrets are set; the passkey relying party is the web host (`passkey-config.ts`, the same
+   * value the auth plugin uses). Never add a secret or a per-user fact here: anyone can call it.
+   */
+  methods: publicProcedure.query(() => ({
+    google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    passkey: { rpID: passkeyConfigForEnv(env).rpID },
+  })),
+
   me: authedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 

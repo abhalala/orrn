@@ -1,9 +1,11 @@
 import { expo } from "@better-auth/expo";
+import { passkey } from "@better-auth/passkey";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
+import { passkeyConfigForEnv } from "./passkey-config";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
@@ -202,6 +204,15 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     plugins: [
       expo(),
       twoFactor(),
+      // Passkeys (plan 2026-11-18). The relying party is the web app's host, not the API's, and only
+      // the web origin (plus the Android app's key hash when set) may answer; see passkey-config.ts.
+      // A passkey must live on the device (resident key) so sign-in needs no email first.
+      // Registering one needs a fresh session (the plugin's freshSessionMiddleware).
+      // Tested in packages/server/test/auth-passkey.test.ts.
+      passkey({
+        ...passkeyConfigForEnv(environment),
+        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+      }),
       magicLink({
         // Every link requested here (the public endpoint) goes to the address by email and
         // nowhere else. Godseye's owner links are written server-side (platform/waitlist.ts).
