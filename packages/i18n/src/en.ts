@@ -290,6 +290,7 @@ export const en = {
       commandLabel: "Commands only",
       announceSearch: "Search. {count} {count:result|results}",
       announceCommands: "Commands only. {count} {count:command|commands}",
+      announceCommandCount: "{count} {count:command|commands}",
     },
     purchase: "Purchase",
     approvals: "Approvals",

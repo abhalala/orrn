@@ -29,7 +29,15 @@ import { useSignOut } from "./more-menu";
 import { TENANT_MORE, TENANT_PRIMARY, visibleItems, type NavItem } from "./nav-items";
 import { buildCommands, visibleSections, type CommandEffects, type PaletteCommand, type ThemeChoice } from "./palette/actions";
 import { PAGE_ALIASES, type PageSection } from "./palette/page-index";
-import { clearRecents, pushRecent, readRecents, type RecentItem } from "./palette/recents";
+import {
+  bundleRecent,
+  clearRecents,
+  notePaletteVisit,
+  pushRecent,
+  readRecents,
+  takePaletteVisit,
+  type RecentItem,
+} from "./palette/recents";
 import { rankItems, type Searchable } from "./palette/search";
 import { usePlantSwitch } from "./plant-switcher";
 
@@ -125,8 +133,9 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Pages and bundles visited by any route count as recent too. Dispatches, dies and customers are recorded when
- * opened from the palette only: their paths carry an id, not a name to show.
+ * Pages visited by any route count as recent too. Bundles are recorded by the bundle page once it has loaded the
+ * bundle (`useRecordBundleVisit`), so a mistyped serial never becomes a recent (QA F1). Dispatches, dies and
+ * customers are recorded when opened from the palette only: their paths carry an id, not a name to show.
  */
 function useRecordVisits() {
   const { data: me } = useMe();
@@ -135,22 +144,21 @@ function useRecordVisits() {
   const companyId = me?.company?.id;
   useEffect(() => {
     if (!userId || !companyId) return;
-    const bundle = /^\/b\/([^/]+)$/.exec(pathname);
-    if (bundle) {
-      let serial: string;
-      try {
-        serial = decodeURIComponent(bundle[1]!);
-      } catch {
-        return;
-      }
-      pushRecent(userId, companyId, { kind: "bundle", ref: serial, label: serial, mono: true, to: pathname });
-      return;
-    }
-    const item = visibleItems([...TENANT_PRIMARY, ...TENANT_MORE], me).find((i) => i.to === pathname);
-    if (item) pushRecent(userId, companyId, { kind: "page", ref: item.key });
+    const recent = pageVisitRecent(pathname, me);
+    if (recent) pushRecent(userId, companyId, recent);
     // `me` only matters through the ids and the gating at the moment of the visit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, userId, companyId]);
+}
+
+/**
+ * What a route visit adds to recents: the nav page at this exact path, unless the palette opened this path and
+ * already recorded what was chosen (a section on that page, QA F2). Every call clears the palette's mark.
+ */
+export function pageVisitRecent(pathname: string, me: Me | null | undefined): RecentItem | null {
+  if (takePaletteVisit(pathname)) return null;
+  const item = visibleItems([...TENANT_PRIMARY, ...TENANT_MORE], me).find((i) => i.to === pathname);
+  return item ? { kind: "page", ref: item.key } : null;
 }
 
 type Group = "recent" | "bundle" | "commands" | "pages" | "sections" | "dispatches" | "dies" | "customers";
@@ -259,7 +267,7 @@ const useRemoteGroups: RemoteSearch = (query, enabled, me) => {
         meta,
         icon: Package,
         action: { kind: "go", to },
-        recent: { kind: "bundle", ref: b.serial, label: b.serial, mono: true, to },
+        recent: bundleRecent(b.serial),
       });
     }
     for (const d of dispatches.data?.items ?? []) {
@@ -325,6 +333,7 @@ function CommandPalette({
   const { theme, setTheme } = useTheme();
   const plant = usePlantSwitch();
   const signOut = useSignOut();
+  const location = useRouterState({ select: (s) => s.location });
 
   const effects: Omit<CommandEffects, "clearRecent"> & { go(to: string, search?: Readonly<Record<string, string>>): void } = {
     go: (to, search) => void navigate({ to: to as never, ...(search ? { search: search as never } : {}) }),
@@ -347,6 +356,7 @@ function CommandPalette({
       arrangeAvailable={!!arrangeRef.current}
       effects={effects}
       useRemote={useRemoteGroups}
+      here={{ pathname: location.pathname, search: location.search as Record<string, unknown> }}
     />
   );
 }
@@ -363,12 +373,14 @@ export type PaletteBodyProps = {
   effects: Omit<CommandEffects, "clearRecent"> & { go(to: string, search?: Readonly<Record<string, string>>): void };
   /** A hook: server-side search groups. Tests pass a stub. */
   useRemote: RemoteSearch;
+  /** Where the person is now: that page or section is left out of Recent. */
+  here?: { pathname: string; search: Readonly<Record<string, unknown>> };
 };
 
 const ROW_PX = 48;
 
 /** The palette without router, tRPC or theme wiring, so its behaviour is testable. */
-export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arrangeAvailable, effects, useRemote }: PaletteBodyProps) {
+export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arrangeAvailable, effects, useRemote, here }: PaletteBodyProps) {
   const { t, locale } = useT();
   const tEn = useMemo(() => createI18n("en").t, []);
   const [query, setQuery] = useState("");
@@ -377,6 +389,8 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const [recents, setRecents] = useState<RecentItem[]>([]);
   const listId = useId();
   const listRef = useRef<HTMLUListElement | null>(null);
+  // A command that opens a sheet or dialog, waiting for the palette to finish closing (QA F0).
+  const pendingRef = useRef<(() => void) | null>(null);
   // No recents while impersonating: a support session must not leave a plant's names in the staff browser.
   const userId = me?.impersonation ? undefined : me?.user.id;
   const companyId = me?.company?.id;
@@ -387,6 +401,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
     setQuery("");
     setCommandMode(false);
     setActiveId(null);
+    pendingRef.current = null;
     setRecents(userId && companyId ? readRecents(userId, companyId) : []);
   }, [open, userId, companyId]);
 
@@ -469,18 +484,23 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
     [sections, navByKey, commandRoutes, t, tEn],
   );
 
+  const herePath = here?.pathname;
+  const hereTab = typeof here?.search.tab === "string" ? here.search.tab : undefined;
   const recentResults = useMemo<Result[]>(() => {
     const out: Result[] = [];
+    // The page or section on screen right now is not "recent": it is where you are.
+    const isHere = (to: string, search?: Readonly<Record<string, string>>) =>
+      to === herePath && (search?.tab ?? undefined) === hereTab;
     for (const r of recents) {
       const id = `recent-${r.kind}-${r.ref}`;
       if (r.kind === "page") {
         const item = navByKey.get(r.ref);
-        if (item) out.push({ ...pageResult(item, id, "recent", t), recent: r });
+        if (item && !isHere(item.to)) out.push({ ...pageResult(item, id, "recent", t), recent: r });
       } else if (r.kind === "section") {
         const section = sections.find((s) => s.id === r.ref);
         const parent = section && navByKey.get(section.parentKey);
-        if (section && parent) out.push({ ...sectionResult(section, parent, id, "recent", t), recent: r });
-      } else if (r.label && r.to) {
+        if (section && parent && !isHere(section.to, section.search)) out.push({ ...sectionResult(section, parent, id, "recent", t), recent: r });
+      } else if (r.label && r.to && !isHere(r.to)) {
         const remoteModule = { bundle: "bundles", dispatch: "dispatches", die: "dies", customer: "customers" }[r.kind];
         if (!moduleOn(me, remoteModule)) continue;
         const icon = { bundle: Package, dispatch: Truck, die: Cylinder, customer: Users }[r.kind];
@@ -488,7 +508,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
       }
     }
     return out;
-  }, [recents, navByKey, sections, me, t]);
+  }, [recents, navByKey, sections, me, t, herePath, hereTab]);
 
   const grouped = useMemo<{ group: Group; items: Result[] }[]>(() => {
     const byGroup = new Map<Group, Result[]>();
@@ -516,7 +536,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
           label: t("nav.paletteOpenBundle", { serial }),
           icon: Package,
           action: { kind: "go", to },
-          recent: { kind: "bundle", ref: serial, label: serial, mono: true, to },
+          // No `recent`: the serial was typed and may not exist. The bundle page records it once it loads (QA F1).
         });
       }
       // Remote groups only for the query they were fetched for, so Enter never opens a stale row.
@@ -551,7 +571,11 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const choose = useCallback(
     (result: Result) => {
       onOpenChange(false);
-      if (result.recent && userId && companyId) pushRecent(userId, companyId, result.recent);
+      if (result.recent && userId && companyId) {
+        pushRecent(userId, companyId, result.recent);
+        // The route-visit hook must not record this visit a second time (as the section's parent page, QA F2).
+        if (result.action.kind === "go") notePaletteVisit(result.action.to);
+      }
       if (result.action.kind === "go") {
         effects.go(result.action.to, result.action.search);
         return;
@@ -564,8 +588,9 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
         },
       };
       const command = result.action.command;
-      // A command that opens a sheet waits for the palette to close, so focus lands in the new sheet.
-      if (command.deferred) window.setTimeout(() => command.run(fx), 0);
+      // A command that opens a sheet or dialog runs once the palette has closed and handed focus back to its opener
+      // (`onClosed`), so the new sheet's own focus comes last and stays there (QA F0).
+      if (command.deferred) pendingRef.current = () => command.run(fx);
       else command.run(fx);
     },
     [effects, onOpenChange, userId, companyId],
@@ -624,14 +649,15 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const optionId = (r: Result) => `${listId}-${r.id}`;
   const showEmpty = !loading && flat.length === 0 && (commandMode || trimmed.length >= 1);
   const inputLabel = commandMode ? `${t("nav.scanOrSearch")}. ${t("nav.cmd.commandLabel")}` : t("nav.scanOrSearch");
-  const announcement = commandMode
-    ? t("nav.cmd.announceCommands", { count: flat.length })
-    : trimmed.length >= 1 && !loading
-      ? t("nav.cmd.announceSearch", { count: flat.length })
-      : "";
+  const announcement = useAnnouncement({ open, commandMode, trimmed, settled, loading, count: flat.length, t });
+  const onClosed = useCallback(() => {
+    const run = pendingRef.current;
+    pendingRef.current = null;
+    run?.();
+  }, []);
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} label={t("nav.scanOrSearch")}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} label={t("nav.scanOrSearch")} onClosed={onClosed}>
       <div className="flex items-center gap-3 border-b border-border px-4 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-solid focus-within:outline-ring">
         <Search aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
         {commandMode ? (
@@ -773,6 +799,60 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
 }
 
 type T = ReturnType<typeof useT>["t"];
+
+/**
+ * The polite live region (review S3). A live region speaks whenever its text changes, so the text only changes
+ * when there is something new to say:
+ * - on opening and on each mode change: the mode and its count ("Search. 26 results", "Commands only. 15 commands");
+ * - after that, only once the typed text has settled (the remote search debounce) and nothing is loading: the
+ *   count ("Search. 4 results", or "3 commands" in command mode, where the mode was already said).
+ * Search keeps its 2-letter minimum: one letter says nothing new.
+ */
+function useAnnouncement({
+  open,
+  commandMode,
+  trimmed,
+  settled,
+  loading,
+  count,
+  t,
+}: {
+  open: boolean;
+  commandMode: boolean;
+  trimmed: string;
+  settled: boolean;
+  loading: boolean;
+  count: number;
+  t: T;
+}): string {
+  const [text, setText] = useState("");
+  // The mode last announced and the query it was announced for; null while closed.
+  const said = useRef<{ commandMode: boolean; query: string } | null>(null);
+  useEffect(() => {
+    if (!open) {
+      said.current = null;
+      setText("");
+      return;
+    }
+    const modeChanged = said.current?.commandMode !== commandMode;
+    if (modeChanged) {
+      said.current = { commandMode, query: trimmed };
+      setText(commandMode ? t("nav.cmd.announceCommands", { count }) : t("nav.cmd.announceSearch", { count }));
+      return;
+    }
+    if (!settled || loading) return;
+    if (commandMode) {
+      // Still the query the mode was announced with: the count was just said.
+      if (said.current?.query === trimmed) return;
+      said.current = { commandMode, query: "\u0000" };
+      setText(t("nav.cmd.announceCommandCount", { count }));
+      return;
+    }
+    if (trimmed.length === 1) return;
+    setText(t("nav.cmd.announceSearch", { count }));
+  }, [open, commandMode, trimmed, settled, loading, count, t]);
+  return text;
+}
 
 function pageResult(item: NavItem, id: string, group: Group, t: T): Result {
   return { id, group, label: t(item.labelKey), icon: item.icon, action: { kind: "go", to: item.to }, recent: { kind: "page", ref: item.key } };

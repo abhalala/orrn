@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { I18nProvider } from "@orrn/i18n";
 
 import type { PaletteBodyProps, RemoteSearch } from "./command-palette";
-import { recentStorageKey } from "./palette/recents";
+import { readRecents, recentStorageKey, takePaletteVisit } from "./palette/recents";
 import { testMe } from "./palette/test-me";
 
 const dom = new Window({ url: "http://localhost/today" });
@@ -147,6 +147,10 @@ const options = () => Array.from(document.querySelectorAll<HTMLElement>("[role='
 const activeOption = (input: HTMLInputElement) => document.getElementById(input.getAttribute("aria-activedescendant") ?? "");
 const groups = () => Array.from(document.querySelectorAll<HTMLElement>("[role='group']")).map((g) => g.dataset.group);
 const live = () => document.querySelector("[data-testid='palette-live']")?.textContent ?? "";
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 220));
+  });
 
 describe("command palette", () => {
   test("empty query: recent items first, then pages; groups are named", async () => {
@@ -364,7 +368,10 @@ describe("command palette", () => {
     }
   });
 
-  test("sheet commands run after the palette closes", async () => {
+  test("sheet commands run after the palette closes, not after a timer", async () => {
+    // This harness keeps `open` true (onOpenChange only records the request), so the palette never finishes
+    // closing: the command must still be waiting after a timer tick. The run after a real close, with focus
+    // already back on the opener, is the QA F0 test at the end of this file.
     let closed = false;
     const view = await renderPalette({ arrangeAvailable: true, onOpenChange: (o) => void (closed = !o) });
     try {
@@ -373,9 +380,9 @@ describe("command palette", () => {
       expect(closed).toBe(true);
       expect(view.calls.arrange).toBe(0);
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 50));
       });
-      expect(view.calls.arrange).toBe(1);
+      expect(view.calls.arrange).toBe(0);
     } finally {
       await view.cleanup();
     }
@@ -393,6 +400,255 @@ describe("command palette", () => {
       expect(localStorage.length).toBe(0);
     } finally {
       await view.cleanup();
+    }
+  });
+});
+
+describe("command palette: fix round", () => {
+  test("live region: says the mode once, then only settled counts, not every keystroke (review S3)", async () => {
+    const view = await renderPalette();
+    try {
+      const input = view.input();
+      const heard: string[] = [];
+      const region = document.querySelector("[data-testid='palette-live']")!;
+      const observer = new MutationObserver(() => heard.push(region.textContent ?? ""));
+      observer.observe(region, { childList: true, characterData: true, subtree: true });
+      await type(input, ">");
+      expect(live()).toMatch(/^Commands only\. \d+ commands$/);
+      for (const q of ["t", "th", "the", "them", "theme"]) await type(input, q);
+      // Typing fast: nothing new until the input settles.
+      expect(live()).toMatch(/^Commands only\. \d+ commands$/);
+      await settle();
+      // Settled: the count alone, the mode is not repeated.
+      expect(live()).toMatch(/^\d+ commands?$/);
+      await key(input, "Backspace");
+      for (let i = 0; i < 5; i++) await type(input, "theme".slice(0, 4 - i));
+      await type(input, "");
+      await key(input, "Backspace");
+      await settle();
+      expect(live()).toMatch(/^Search\. \d+ results?$/);
+      // Search mode: no announcement per keystroke either.
+      const before = heard.length;
+      for (const q of ["s", "st", "sto", "stoc"]) await type(input, q);
+      expect(heard.length).toBe(before);
+      await settle();
+      expect(live()).toMatch(/^Search\. \d+ results?$/);
+      observer.disconnect();
+      expect(heard.filter((h) => h.startsWith("Commands only")).length).toBe(1);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("opening the palette empty announces what it lists", async () => {
+    const view = await renderPalette();
+    try {
+      expect(live()).toBe(`Search. ${options().length} results`);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("Enter while remote rows are for an older query opens nothing stale (review S4)", async () => {
+    const remote: RemoteSearch = (query, enabled) => ({
+      rows: enabled
+        ? [{ id: `dispatch-${query}`, group: "dispatches", label: `DSP for ${query}`, icon: () => null, action: { kind: "go", to: `/dispatch/${query}` } }]
+        : [],
+      fetching: false,
+    });
+    const view = await renderPalette({ useRemote: remote as RemoteSearch });
+    try {
+      const input = view.input();
+      await type(input, "zzq");
+      await settle();
+      expect(options().map((o) => o.textContent)).toEqual(["DSP for zzq"]);
+      // One more letter, Enter before the debounce: the "zzq" row must not be opened for "zzqx".
+      await type(input, "zzqx");
+      await key(input, "Enter");
+      expect(view.calls.go).toEqual([]);
+      await settle();
+      await key(input, "Enter");
+      expect(view.calls.go).toEqual([["/dispatch/zzqx", undefined]]);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("Enter that confirms an IME composition does not open a row (review S4)", async () => {
+    const view = await renderPalette();
+    try {
+      const input = view.input();
+      await type(input, "stock");
+      await act(async () => {
+        const e = new dom.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }) as unknown as KeyboardEvent;
+        if (!e.isComposing) Object.defineProperty(e, "isComposing", { value: true });
+        input.dispatchEvent(e as unknown as Event);
+      });
+      expect(view.calls.go).toEqual([]);
+      await key(input, "Enter");
+      expect(view.calls.go[0]?.[0]).toBe("/stock");
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("typo false positives: cast does not list Customers; डाइ finds Dies first (review S1, S2)", async () => {
+    const view = await renderPalette();
+    try {
+      await type(view.input(), "cast");
+      expect(document.querySelector("[data-result-id='page-customers']")).toBeNull();
+      expect(document.querySelector("[data-result-id='page-masters']")).toBeNull();
+      await type(view.input(), "stock");
+      const secondary = Array.from(document.querySelectorAll("[data-testid='palette-secondary']")).map((x) => x.textContent ?? "");
+      expect(secondary.some((x) => x.includes("sticker"))).toBe(false);
+      await type(view.input(), "डाइ");
+      expect(options()[0]?.dataset.resultId).toBe("page-dies");
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a punctuation-only query lists nothing (review M1)", async () => {
+    const view = await renderPalette();
+    try {
+      await type(view.input(), "-");
+      expect(options()).toHaveLength(0);
+      await type(view.input(), ">");
+      await type(view.input(), ">");
+      expect(options()).toHaveLength(0);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("Open bundle from a typed serial is not saved as recent: it may not exist (QA F1)", async () => {
+    const view = await renderPalette();
+    try {
+      await type(view.input(), "NOPE-1");
+      await key(view.input(), "Enter");
+      expect(view.calls.go[0]?.[0]).toBe("/b/NOPE-1");
+      expect(readRecents("user-1", "plant-1")).toEqual([]);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("choosing a section marks the visit, so the route hook does not add its page too (QA F2)", async () => {
+    const view = await renderPalette();
+    try {
+      await type(view.input(), "printers");
+      await key(view.input(), "Enter");
+      expect(view.calls.go[0]).toEqual(["/printing", { tab: "printers" }]);
+      expect(readRecents("user-1", "plant-1")).toEqual([{ kind: "section", ref: "printing.printers" }]);
+      expect(takePaletteVisit("/printing")).toBe(true);
+      expect(takePaletteVisit("/printing")).toBe(false);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("the page you are on is not listed under Recent", async () => {
+    localStorage.setItem(
+      recentStorageKey("user-1", "plant-1"),
+      JSON.stringify([
+        { kind: "page", ref: "today" },
+        { kind: "section", ref: "printing.printers" },
+        { kind: "page", ref: "masters" },
+      ]),
+    );
+    const view = await renderPalette({ here: { pathname: "/today", search: {} } });
+    try {
+      const recent = document.querySelector<HTMLElement>("[data-group='recent']")!;
+      expect(Array.from(recent.querySelectorAll("[role='option']")).map((o) => o.textContent)).toEqual(["PrintersPrinting", "Masters"]);
+    } finally {
+      await view.cleanup();
+    }
+    localStorage.setItem(
+      recentStorageKey("user-1", "plant-1"),
+      JSON.stringify([
+        { kind: "section", ref: "printing.printers" },
+        { kind: "page", ref: "masters" },
+      ]),
+    );
+    const onPrinters = await renderPalette({ here: { pathname: "/printing", search: { tab: "printers" } } });
+    try {
+      const recent = document.querySelector<HTMLElement>("[data-group='recent']")!;
+      expect(Array.from(recent.querySelectorAll("[role='option']")).map((o) => o.textContent)).toEqual(["Masters"]);
+    } finally {
+      await onPrinters.cleanup();
+    }
+  });
+});
+
+describe("command palette: sheet commands and focus (QA F0)", () => {
+  test("a sheet command runs only after the palette has closed and given focus back to its opener", async () => {
+    const { PaletteBody } = await import("./command-palette");
+    const { useState } = await import("react");
+    const seen: { scanFocus: string | null; arrangeFocus: string | null } = { scanFocus: null, arrangeFocus: null };
+    let setOpen: (open: boolean) => void = () => {};
+    const focusName = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return el?.getAttribute("data-testid") ?? el?.tagName ?? null;
+    };
+    function Harness() {
+      const [open, set] = useState(false);
+      setOpen = set;
+      return (
+        <I18nProvider locale="en">
+          <button type="button" data-testid="opener" onClick={() => set(true)}>
+            Scan or search
+          </button>
+          <PaletteBody
+            open={open}
+            onOpenChange={set}
+            me={testMe("owner")}
+            theme="system"
+            scanAvailable
+            arrangeAvailable
+            useRemote={stubRemote}
+            effects={{
+              go: () => {},
+              navigate: () => {},
+              openScan: () => void (seen.scanFocus = focusName()),
+              switchPlant: () => {},
+              setLocale: () => {},
+              setTheme: () => {},
+              openArrange: () => void (seen.arrangeFocus = focusName()),
+              signOut: () => {},
+            }}
+          />
+        </I18nProvider>
+      );
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const wait = (ms: number) => act(async () => void (await new Promise((r) => setTimeout(r, ms))));
+    try {
+      await act(async () => root.render(<Harness />));
+      for (const [command, field] of [
+        ["scan", "scanFocus"],
+        ["arrange", "arrangeFocus"],
+      ] as const) {
+        const opener = document.querySelector<HTMLButtonElement>("[data-testid='opener']")!;
+        opener.focus();
+        await act(async () => opener.click());
+        await wait(10);
+        const input = document.querySelector<HTMLInputElement>("input[role='combobox']")!;
+        await type(input, `>${command}`);
+        await key(input, "Enter");
+        // Not yet: the palette is still closing.
+        expect(seen[field]).toBeNull();
+        await wait(300);
+        // Ran once, and by then focus was back on the opener, so the sheet's own focus wins after it.
+        expect(seen[field]).toBe("opener");
+        await act(async () => setOpen(false));
+        await wait(50);
+      }
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      document.body.innerHTML = "";
     }
   });
 });

@@ -114,3 +114,25 @@ export function clearRecents(userId: string, companyId: string, storage: Storage
     // Nothing to do: the list was not readable either.
   }
 }
+
+/** The recent row for a bundle, saved only once its page has loaded it (QA F1). Same shape as a remote row. */
+export function bundleRecent(serial: string): RecentItem {
+  return { kind: "bundle", ref: serial, label: serial, mono: true, to: `/b/${encodeURIComponent(serial)}` };
+}
+
+// The palette records what it opens itself; the route-visit hook must then not record the same visit again (a
+// section on /printing?tab=printers would also count as the Printing page, QA F2). One path, cleared by the next
+// pathname the hook sees, matching or not, so a stale mark never swallows a later real visit.
+let paletteVisit: string | null = null;
+
+/** The palette opened `pathname` and has recorded it. */
+export function notePaletteVisit(pathname: string): void {
+  paletteVisit = pathname;
+}
+
+/** True when the palette already recorded this visit. Always clears the mark. */
+export function takePaletteVisit(pathname: string): boolean {
+  const hit = paletteVisit === pathname;
+  paletteVisit = null;
+  return hit;
+}

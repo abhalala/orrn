@@ -282,6 +282,7 @@ export const hi = {
       commandLabel: "सिर्फ़ कमांड",
       announceSearch: "खोज। {count} {count:नतीजा|नतीजे}",
       announceCommands: "सिर्फ़ कमांड। {count} {count:कमांड|कमांड}",
+      announceCommandCount: "{count} {count:कमांड|कमांड}",
     },
     purchase: "खरीद",
     approvals: "मंज़ूरी",

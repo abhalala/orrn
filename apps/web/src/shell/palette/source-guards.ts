@@ -11,8 +11,9 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const WEB_SRC = resolve(import.meta.dir, "../..");
+const WEB_SRC = fileURLToPath(new URL("../..", import.meta.url));
 const SERVER_SRC = resolve(WEB_SRC, "../../../packages/server/src");
 
 function read(path: string): string {

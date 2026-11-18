@@ -127,6 +127,7 @@ export const guShell = {
       commandLabel: "ફક્ત કમાન્ડ",
       announceSearch: "શોધ. {count} {count:પરિણામ|પરિણામ}",
       announceCommands: "ફક્ત કમાન્ડ. {count} {count:કમાન્ડ|કમાન્ડ}",
+      announceCommandCount: "{count} {count:કમાન્ડ|કમાન્ડ}",
     },
     purchase: "ખરીદી",
     approvals: "મંજૂરી",
