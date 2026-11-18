@@ -469,6 +469,69 @@ describe("the browser redirect flow ends on the web login page", () => {
   });
 });
 
+describe("the phone's redirect flow comes back on the app's deep link", () => {
+  /** What the Expo client sends: no Origin, an `expo-origin` the server's expo plugin turns into one. */
+  async function nativeCall(path: string, init: { method?: string; body?: unknown; cookie?: string } = {}) {
+    return (await auth()).handler(
+      new Request(`https://api.test/api/auth/${path}`, {
+        method: init.method ?? "POST",
+        headers: {
+          "expo-origin": "orrn://",
+          ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
+          ...(init.cookie ? { cookie: init.cookie } : {}),
+        },
+        ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+      }),
+    );
+  }
+
+  /** apps/native/lib/google-flow.ts: one deep link for success and refusal, no redirect from the start call. */
+  async function nativeFlow(claims: Parameters<typeof idToken>[0]) {
+    const start = await nativeCall("sign-in/social", {
+      body: { provider: "google", callbackURL: "orrn:///", errorCallbackURL: "orrn:///", disableRedirect: true },
+    });
+    expect(start.status).toBe(200);
+    const { url, redirect } = (await start.json()) as { url: string; redirect: boolean };
+    expect(redirect).toBe(false);
+    const state = new URL(url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken(claims);
+    return call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, { method: "GET", cookie: cookieHeader(start) });
+  }
+
+  test("not invited: back to orrn:///?error=GOOGLE_NOT_INVITED, no session cookie in the link", async () => {
+    const email = unique("native-stranger");
+    const res = await nativeFlow({ sub: crypto.randomUUID(), email });
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.get("location")!);
+    expect(`${location.protocol}//${location.host}${location.pathname}`).toBe("orrn:///");
+    expect(location.searchParams.get("error")).toBe("GOOGLE_NOT_INVITED");
+    expect(location.searchParams.get("cookie") ?? "").not.toContain("session_token");
+    expect(await userByEmail(email)).toBeUndefined();
+  });
+
+  test("staff: back to orrn:///?error=GOOGLE_NOT_FOR_STAFF", async () => {
+    const staff = await makeUser({ emailVerified: true });
+    await env.db.insert(platformAdmin).values({ userId: staff.id, role: "support" });
+    const res = await nativeFlow({ sub: crypto.randomUUID(), email: staff.email });
+    expect(new URL(res.headers.get("location")!).searchParams.get("error")).toBe("GOOGLE_NOT_FOR_STAFF");
+  });
+
+  test("invited: back to orrn:/// with the session cookie for the app to store", async () => {
+    const email = unique("native-invited");
+    await makeInvite(email);
+    const res = await nativeFlow({ sub: crypto.randomUUID(), email });
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.get("location")!);
+    expect(location.searchParams.get("error")).toBeNull();
+    const cookie = location.searchParams.get("cookie") ?? "";
+    expect(cookie).toContain("better-auth.session_token=");
+    // The same cookie the app stores and sends back is a live session for the new account.
+    const [, name, value] = /((?:__Host-)?better-auth\.session_token)=([^;,\s]+)/.exec(cookie)!;
+    const made = await userByEmail(email);
+    expect(await sessionUser(`${name}=${value}`)).toBe(made!.id);
+  });
+});
+
 describe("without Google configured", () => {
   test("the provider is absent and nothing else breaks", async () => {
     const { createAuth } = await import("@orrn/auth");

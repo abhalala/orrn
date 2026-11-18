@@ -77,11 +77,14 @@ export const authRouter = router({
   /**
    * Public: which sign-in methods the sign-in screen may offer on this stage. Google only when both
    * of its secrets are set; the passkey relying party is the web host (`passkey-config.ts`, the same
-   * value the auth plugin uses). Never add a secret or a per-user fact here: anyone can call it.
+   * value the auth plugin uses). `native`: whether each phone app's passkey association is set up
+   * on this stage (the iOS Team ID is bound; the Android key hash is an allowed origin); the phone
+   * hides its passkey button otherwise. Never add a secret or a per-user fact here: anyone can call it.
    */
   methods: publicProcedure.query(() => ({
     google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     passkey: { rpID: passkeyConfigForEnv(env).rpID },
+    native: { ios: Boolean(env.ORRN_APPLE_TEAM_ID?.trim()), android: Boolean(env.ANDROID_APK_KEY_HASH?.trim()) },
   })),
 
   me: authedProcedure.query(async ({ ctx }) => {

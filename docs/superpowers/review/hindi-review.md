@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8257 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3819,7 +3819,7 @@ Counts: 8257 screen strings in 50 groups, 45 guides with 866 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (262)
+### native (267)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3845,6 +3845,11 @@ Counts: 8257 screen strings in 50 groups, 45 guides with 866 strings.
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
 | `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 | `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
+| `passkey.ownPhoneTitle` | Is this your own phone? | क्या यह आपका अपना फ़ोन है? |
+| `passkey.ownPhoneBody` | Anyone who can unlock this phone could sign in as you with its passkey. Add one only on a phone nobody else uses, never on a shared floor phone. | जो भी इस फ़ोन को अनलॉक कर सकता है, वह इसकी पासकी से आपके नाम से साइन इन कर सकता है। पासकी सिर्फ़ उसी फ़ोन पर जोड़ें जिसे कोई और इस्तेमाल नहीं करता, फ़्लोर के साझा फ़ोन पर कभी नहीं। |
+| `passkey.ownPhoneConfirm` | Yes, add a passkey | हां, पासकी जोड़ें |
+| `passkey.unavailable` | This phone can't use passkeys yet. | यह फ़ोन अभी पासकी इस्तेमाल नहीं कर सकता। |
+| `passkey.manageOnWeb` | To rename or remove a passkey, open Settings on orrn.in. | पासकी का नाम बदलने या उसे हटाने के लिए orrn.in पर Settings खोलें। |
 | `pack.openSession` | Open session {code} | सेशन {code} खोलें |
 | `pack.sessionLine` | {bundles} {bundles:bundle\|bundles}, {kg} kg | {bundles} bundle, {kg} kg |
 | `pack.showMore` | Show more sessions | और सेशन दिखाएं |

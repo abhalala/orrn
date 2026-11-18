@@ -225,7 +225,21 @@ describe("passkey endpoints", () => {
 describe("auth.methods", () => {
   test("auth.methods without Google secrets", async () => {
     const methods = await env.caller(null).auth.methods();
-    expect(methods).toEqual({ google: false, passkey: { rpID: WEB_HOST } });
+    expect(methods).toEqual({ google: false, passkey: { rpID: WEB_HOST }, native: { ios: false, android: false } });
+  });
+
+  test("auth.methods says which phone apps have a passkey association", async () => {
+    try {
+      workersEnv.ORRN_APPLE_TEAM_ID = "ABCDE12345";
+      expect((await env.caller(null).auth.methods()).native).toEqual({ ios: true, android: false });
+      workersEnv.ANDROID_APK_KEY_HASH = "FG3pg8VzBlDY7rmVLzT8ZBagg0LmHb6oigSWsj_PROU";
+      expect((await env.caller(null).auth.methods()).native).toEqual({ ios: true, android: true });
+      delete workersEnv.ORRN_APPLE_TEAM_ID;
+      expect((await env.caller(null).auth.methods()).native).toEqual({ ios: false, android: true });
+    } finally {
+      delete workersEnv.ORRN_APPLE_TEAM_ID;
+      delete workersEnv.ANDROID_APK_KEY_HASH;
+    }
   });
 
   test("auth.methods names the same rpID the registration options use", async () => {

@@ -13,6 +13,22 @@ export function passkeyConfigFor(webUrl: string, androidApkKeyHash?: string): Pa
   return { rpID: url.hostname, rpName: "ORRN", origin };
 }
 
+/**
+ * The Android passkey origin's hash from the release signing certificate's SHA-256 (the value
+ * `assetlinks.json` lists, hex, colons optional): base64url of those 32 bytes, no padding. Lets the
+ * deploy take one owner value (`ORRN_ANDROID_CERT_SHA256`) for both. Undefined for a blank or
+ * malformed value. Tested in packages/server/test/passkey-association.test.ts.
+ */
+export function apkKeyHashFromCertSha256(certSha256: string | undefined): string | undefined {
+  const hex = (certSha256 ?? "").trim().replaceAll(":", "");
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) return undefined;
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i += 1) bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
 type PasskeyEnv = { WEB_PUBLIC_URL?: string; CORS_ORIGIN?: string; ANDROID_APK_KEY_HASH?: string };
 
 /** True for an `http:` or `https:` URL with a host. `new URL("localhost:3001")` parses, as scheme `localhost:`. */

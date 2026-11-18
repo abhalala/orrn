@@ -55,4 +55,11 @@ describe("deploy env reaches alchemy through turbo", () => {
       expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]));
     }
   });
+
+  test("the native passkey values pass through and both workflows set them (web build and Worker read them)", () => {
+    const names = ["ORRN_APPLE_TEAM_ID", "ORRN_ANDROID_CERT_SHA256", "ANDROID_APK_KEY_HASH"];
+    const allowed = passThrough();
+    for (const n of names) expect(allowed.has(n)).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(names));
+  });
 });

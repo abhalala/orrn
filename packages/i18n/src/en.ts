@@ -4202,6 +4202,14 @@ export const en = {
     saveUnsureTitle: "Not sure it saved",
     saveUnsureBody: "orrn didn't confirm this save, so it may have gone through. Check before you try again.",
     monthsShort: "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+    /** Passkeys on the phone (plan 2026-11-18, Task 6): Settings adds one only after this question. */
+    passkey: {
+      ownPhoneTitle: "Is this your own phone?",
+      ownPhoneBody: "Anyone who can unlock this phone could sign in as you with its passkey. Add one only on a phone nobody else uses, never on a shared floor phone.",
+      ownPhoneConfirm: "Yes, add a passkey",
+      unavailable: "This phone can't use passkeys yet.",
+      manageOnWeb: "To rename or remove a passkey, open Settings on orrn.in.",
+    },
     ...packEn,
     ...scanEn,
     ...dispatchEn,
