@@ -34,6 +34,8 @@ export function passkeyAddErrorKey(error: AuthClientError): MessageKey {
   if (code === "ERROR_CEREMONY_ABORTED" || code === "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY") return "auth.errors.passkeyAddCancelled";
   if (code === "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED") return "auth.errors.passkeyExists";
   if (code === "SESSION_NOT_FRESH") return "auth.errors.signInAgain";
+  // Council round 2 (N-C1): a weak session in a strict plant, for a person who already has a strong method.
+  if (code === "STRONG_SIGN_IN_NEEDED") return "auth.login.strongSignInNeededPlant";
   return "auth.errors.passkeyAddFailed";
 }
 

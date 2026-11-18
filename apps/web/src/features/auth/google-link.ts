@@ -22,6 +22,7 @@ export function googleLinkErrorKey(code: string | undefined): MessageKey | null 
   if (code === "email_doesn't_match") return "auth.errors.googleLinkOtherEmail";
   if (code === "account_already_linked_to_different_user") return "auth.errors.googleLinkTaken";
   if (code === "GOOGLE_NOT_FOR_STAFF") return "auth.errors.googleNotForStaff";
+  if (code === "STRONG_SIGN_IN_NEEDED") return "auth.login.strongSignInNeededPlant";
   return "auth.errors.googleLinkFailed";
 }
 
@@ -34,7 +35,9 @@ type LinkSocial = (body: { provider: "google"; callbackURL: string; errorCallbac
 export async function startGoogleLink(link: LinkSocial, origin: string, path: string): Promise<MessageKey | null> {
   try {
     const { error } = await link({ provider: "google", ...googleLinkUrls(origin, path) });
-    return error ? "auth.errors.googleLinkFailed" : null;
+    if (!error) return null;
+    // Council round 2 (N-C1): a weak session in a strict plant, for a person who already has a strong method.
+    return (error as { code?: unknown }).code === "STRONG_SIGN_IN_NEEDED" ? "auth.login.strongSignInNeededPlant" : "auth.errors.googleLinkFailed";
   } catch {
     return "auth.errors.googleLinkFailed";
   }

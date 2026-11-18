@@ -14,7 +14,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { account, impersonationGrant, passkey, platformAdmin, session, user } from "@orrn/db/schema";
+import { account, impersonationGrant, passkey, platformAdmin, session, twoFactor, user, verification } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -312,5 +312,121 @@ describe("the path decides the method", () => {
     expect(stampSignInMethod({ signInMethod: "made-up" }, null).data.signInMethod).toBe("other");
     expect([isStrongSession("passkey"), isStrongSession("google"), isStrongSession("totp")]).toEqual([true, true, true]);
     expect([isStrongSession("password"), isStrongSession("magicLink"), isStrongSession(null)]).toEqual([false, false, false]);
+  });
+});
+
+/**
+ * Council round 2 (Claude N-C1): a weak session in a strict plant cannot enrol a strong method when the
+ * person already has one (that would upgrade the session and leave the attacker's factor behind).
+ * A person with none may still add their first one: the secure step.
+ */
+describe("enrolling a strong method from a weak session (council round 2, N-C1)", () => {
+  async function member(opts: { strict?: boolean; passkey?: boolean } = {}) {
+    const { companyId } = opts.strict === false ? await env.seedCompany() : await strictPlant();
+    const u = await makeUser();
+    if (opts.passkey !== false) await addPasskey(u.id);
+    await env.addMembership(u.id, companyId, "packer");
+    const res = await call("sign-in/email", { body: { email: u.email, password: PASSWORD } });
+    expect(res.status).toBe(200);
+    return { ...u, companyId, cookie: cookieHeader(res) };
+  }
+  const codeOf = async (res: Response) => ((await res.json()) as { code?: string }).code;
+
+  test("Claude's reproduction: a passkey holder's password session cannot turn on the authenticator app", async () => {
+    const m = await member();
+    const [s1] = await sessionsOf(m.id);
+    expect(s1!.signInMethod).toBe("password");
+    expect((await refusal(env.callerForUser(m.id, { signInMethod: s1!.signInMethod! }).company.getSettings()))?.reason).toBe("STRONG_SIGN_IN_NEEDED");
+    const enabled = await call("two-factor/enable", { body: { password: PASSWORD }, cookie: m.cookie });
+    expect(enabled.status).toBe(403);
+    expect(await codeOf(enabled)).toBe("STRONG_SIGN_IN_NEEDED");
+    expect(await env.db.select().from(twoFactor).where(eq(twoFactor.userId, m.id)).all()).toEqual([]);
+    const after = await sessionsOf(m.id);
+    expect(after.map((s) => s.signInMethod)).toEqual(["password"]);
+  });
+
+  test("nor finish a half-done authenticator enrolment (verify-totp with a session)", async () => {
+    const m = await member();
+    await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId: m.id } as never);
+    const res = await call("two-factor/verify-totp", { body: { code: "123456" }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+  });
+
+  test("nor register a passkey (options and verify)", async () => {
+    const m = await member();
+    const options = await call("passkey/generate-register-options", { method: "GET", cookie: m.cookie });
+    expect(options.status).toBe(403);
+    expect(await codeOf(options)).toBe("STRONG_SIGN_IN_NEEDED");
+    const verify = await call("passkey/verify-registration", { body: { response: {} }, cookie: m.cookie });
+    expect(verify.status).toBe(403);
+    expect(await codeOf(verify)).toBe("STRONG_SIGN_IN_NEEDED");
+  });
+
+  test("nor link Google", async () => {
+    const m = await member();
+    const res = await call("link-social", { body: { provider: "google", callbackURL: "https://app.test/settings" }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+  });
+
+  test("nor read the authenticator secret or new backup codes when the app is already on", async () => {
+    const m = await member({ passkey: false });
+    await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId: m.id } as never);
+    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, m.id));
+    for (const path of ["two-factor/get-totp-uri", "two-factor/generate-backup-codes"]) {
+      const res = await call(path, { body: { password: PASSWORD }, cookie: m.cookie });
+      expect({ path, status: res.status }).toEqual({ path, status: 403 });
+      expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+    }
+  });
+
+  test("a person with no strong method may add their first one from a password session (the secure step)", async () => {
+    const m = await member({ passkey: false });
+    const options = await call("passkey/generate-register-options", { method: "GET", cookie: m.cookie });
+    expect(options.status).toBe(200);
+    const enabled = await call("two-factor/enable", { body: { password: PASSWORD }, cookie: m.cookie });
+    expect(enabled.status).toBe(200);
+    const { createOTP } = await import("@better-auth/utils/otp");
+    const { base32 } = await import("@better-auth/utils/base32");
+    const encoded = new URL(((await enabled.json()) as { totpURI: string }).totpURI).searchParams.get("secret")!;
+    const secret = new TextDecoder().decode(base32.decode(encoded));
+    const verified = await call("two-factor/verify-totp", { body: { code: await createOTP(secret, { digits: 6, period: 30 }).totp() }, cookie: m.cookie });
+    expect(verified.status).toBe(200);
+    expect((await sessionsOf(m.id)).map((s) => s.signInMethod)).toEqual(["totp"]);
+  });
+
+  test("outside a strict plant, or from a strong session, enrolling works", async () => {
+    const relaxed = await member({ strict: false });
+    expect((await call("two-factor/enable", { body: { password: PASSWORD }, cookie: relaxed.cookie })).status).toBe(200);
+    const strong = await member();
+    await env.db.update(session).set({ signInMethod: "passkey" }).where(eq(session.userId, strong.id));
+    expect((await call("two-factor/enable", { body: { password: PASSWORD }, cookie: strong.cookie })).status).toBe(200);
+    expect((await call("passkey/generate-register-options", { method: "GET", cookie: strong.cookie })).status).toBe(200);
+  });
+});
+
+describe("turning the authenticator off on a trusted device (council round 2: the removal does what the plugin did)", () => {
+  test("the trusted-device record is deleted and its cookie expired", async () => {
+    const { createOTP } = await import("@better-auth/utils/otp");
+    const { base32 } = await import("@better-auth/utils/base32");
+    const u = await makeUser();
+    await addPasskey(u.id);
+    const first = await call("sign-in/email", { body: { email: u.email, password: PASSWORD } });
+    const cookie = cookieHeader(first);
+    const enabled = await call("two-factor/enable", { body: { password: PASSWORD }, cookie });
+    const encoded = new URL(((await enabled.json()) as { totpURI: string }).totpURI).searchParams.get("secret")!;
+    const secret = new TextDecoder().decode(base32.decode(encoded));
+    const code = () => createOTP(secret, { digits: 6, period: 30 }).totp();
+    expect((await call("two-factor/verify-totp", { body: { code: await code() }, cookie })).status).toBe(200);
+    const again = await call("sign-in/email", { body: { email: u.email, password: PASSWORD } });
+    const done = await call("two-factor/verify-totp", { body: { code: await code(), trustDevice: true }, cookie: cookieHeader(again) });
+    expect(done.status).toBe(200);
+    const trustRows = async () => (await env.db.select().from(verification).all()).filter((v) => v.identifier.startsWith("trust-device-"));
+    expect((await trustRows()).filter((v) => v.value === u.id)).toHaveLength(1);
+    const off = await call("two-factor/disable", { body: { password: PASSWORD }, cookie: cookieHeader(done) });
+    expect(off.status).toBe(200);
+    expect((await trustRows()).filter((v) => v.value === u.id)).toHaveLength(0);
+    expect(setCookies(off).some((c) => c.includes("trust_device=") && /Max-Age=0/i.test(c))).toBe(true);
   });
 });

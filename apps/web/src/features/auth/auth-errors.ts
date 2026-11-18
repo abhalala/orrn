@@ -84,10 +84,19 @@ export function offersPasswordLink(key: MessageKey | null): boolean {
 }
 
 /** Message for a failed authenticator code. */
+/**
+ * Council round 2 (N-C1): in a plant that requires secure sign-in, a session made with a password alone
+ * may not add a strong method when the person already has one (the server answers STRONG_SIGN_IN_NEEDED).
+ * Turning on the authenticator app, adding a passkey and linking Google all say so in these words.
+ */
+export const ENROL_REFUSED_CODE = "STRONG_SIGN_IN_NEEDED";
+export const ENROL_REFUSED_KEY: MessageKey = "auth.login.strongSignInNeededPlant";
+
 export function totpErrorKey(error: AuthClientError): MessageKey {
   const { code, status, network } = parts(error);
   if (network) return "errors.network";
   if (isRateLimited(code, status)) return "auth.errors.tooMany";
+  if (code === ENROL_REFUSED_CODE) return ENROL_REFUSED_KEY;
   // The short-lived two-factor cookie from the password step ran out.
   if (code === "INVALID_TWO_FACTOR_COOKIE") return "auth.errors.twoFactorExpired";
   if (code === "INVALID_CODE" || code === "INVALID_TWO_FACTOR_CODE" || status === 401) return "auth.totp.wrongCode";

@@ -111,7 +111,7 @@ export function TwoFactorStep({
       const { data, error } = await authClient.twoFactor.enable({ password: pw, issuer: "orrn" });
       if (error || !data) {
         setPhase("confirm");
-        if (error?.code === "INVALID_PASSWORD" || error?.status === 400 || error?.status === 401) {
+        if (error?.code !== "STRONG_SIGN_IN_NEEDED" && (error?.code === "INVALID_PASSWORD" || error?.status === 400 || error?.status === 401)) {
           setPasswordError("welcome.twoFactor.wrongPassword");
           requestAnimationFrame(() => passwordRef.current?.focus());
         } else {

@@ -12,6 +12,7 @@ import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoog
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
+import { enrolmentGuardBody } from "./enrolment-guard";
 import { signInAuditAfter } from "./sign-in-methods";
 import { signInRemovalBody } from "./sign-in-removal";
 import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
@@ -140,6 +141,9 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         // Council round 1, A5: the Expo proxy follows only Google's authorization URL (expo-proxy-guard.ts).
         expoProxyGuard(ctx);
         await signUpGuardBody(db, ctx);
+        // Council round 2 (Claude N-C1): a weak session in a strict plant may not enrol a strong method
+        // when the person already has one (enrolment-guard.ts).
+        await enrolmentGuardBody(db, ctx);
         await noteGoogleLinkToken(db, ctx);
         // Council round 2 (GPT I1): removals are done here, each as one conditional write that holds
         // LAST_SIGN_IN_METHOD and COMPANY_REQUIRES_STRONG_METHOD; the answer ends the request

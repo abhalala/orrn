@@ -67,3 +67,23 @@ describe("linkRemovals", () => {
     ]);
   });
 });
+
+// Council round 2 (N-C1): a weak session in a strict plant may not add a strong method it already has.
+describe("the enrolment refusal (STRONG_SIGN_IN_NEEDED) reads in its own words", () => {
+  test("a refused start and a refused return", async () => {
+    const { startGoogleLink } = await import("./google-link");
+    const refused = async () => ({ data: null, error: { code: "STRONG_SIGN_IN_NEEDED", status: 403 } });
+    expect(await startGoogleLink(refused, "https://orrn.in", "/settings")).toBe("auth.login.strongSignInNeededPlant");
+    expect(googleLinkErrorKey("STRONG_SIGN_IN_NEEDED")).toBe("auth.login.strongSignInNeededPlant");
+  });
+
+  test("adding a passkey, turning on the authenticator app, and the Settings refusal", async () => {
+    const { passkeyAddErrorKey } = await import("./passkey-add");
+    const { totpErrorKey } = await import("./auth-errors");
+    const { signInChangeErrorKey } = await import("../settings/sign-in-model");
+    const error = { code: "STRONG_SIGN_IN_NEEDED", status: 403 };
+    expect(passkeyAddErrorKey(error)).toBe("auth.login.strongSignInNeededPlant");
+    expect(totpErrorKey(error)).toBe("auth.login.strongSignInNeededPlant");
+    expect(signInChangeErrorKey(error)).toBe("auth.login.strongSignInNeededPlant");
+  });
+});

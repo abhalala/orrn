@@ -135,7 +135,7 @@ type CookieCtx = {
  * so the hooks that upgrade a session use this instead. Null when there is no cookie, it is not signed
  * with our secret, or the session has ended.
  */
-export async function sessionOfRequest(db: Db, ctx: unknown): Promise<{ id: string; userId: string } | null> {
+export async function sessionOfRequest(db: Db, ctx: unknown): Promise<{ id: string; userId: string; signInMethod: string | null } | null> {
   try {
     const c = ctx as CookieCtx | null;
     const name = c?.context?.authCookies?.sessionToken?.name;
@@ -144,11 +144,11 @@ export async function sessionOfRequest(db: Db, ctx: unknown): Promise<{ id: stri
     const token = await c.getSignedCookie(name, secret);
     if (!token) return null;
     const row = await db
-      .select({ id: session.id, userId: session.userId, expiresAt: session.expiresAt })
+      .select({ id: session.id, userId: session.userId, expiresAt: session.expiresAt, signInMethod: session.signInMethod })
       .from(session)
       .where(eq(session.token, token))
       .get();
-    return row && row.expiresAt.getTime() > Date.now() ? { id: row.id, userId: row.userId } : null;
+    return row && row.expiresAt.getTime() > Date.now() ? { id: row.id, userId: row.userId, signInMethod: row.signInMethod ?? null } : null;
   } catch {
     return null;
   }
