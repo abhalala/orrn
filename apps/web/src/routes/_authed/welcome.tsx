@@ -2,14 +2,14 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Stepper } from "@orrn/ui/components/stepper";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { CompanyStep } from "@/features/auth/welcome/company-step";
 import { DoneStep } from "@/features/auth/welcome/done-step";
 import { PasswordStep } from "@/features/auth/welcome/password-step";
-import { TwoFactorStep } from "@/features/auth/welcome/two-factor-step";
+import { SecureSignInStep } from "@/features/auth/welcome/secure-sign-in-step";
 import { leaveWelcome, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
 import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
@@ -17,10 +17,13 @@ import { trpc } from "@/shared/utils/trpc";
 
 /**
  * One stepper for everything a person still owes before the app (spec
- * section 3): set password, two-factor, company details, done. Only the
- * steps `auth.me` says are open are shown, so a reload, a detour or a later
- * sign-in resumes at the first open step. The old `/setup-credentials`
- * (magic link), `/onboarding` and `/change-password` land here.
+ * section 3; owner amendment 2026-11-18): set password, secure sign-in (only
+ * when the active plant requires it), company details (this plant's setup),
+ * done. Only the steps `auth.me` says are open are shown, so a reload, a
+ * detour or a later sign-in resumes at the first open step. The old
+ * `/setup-credentials` (magic link), `/onboarding` and `/change-password` land
+ * here. A person in several plants can leave for "Choose a plant": another
+ * plant's policy or setup does not hold them here.
  */
 export const Route = createFileRoute("/_authed/welcome")({
   beforeLoad: ({ context }) => {
@@ -54,6 +57,8 @@ function WelcomePage() {
   const live = useQuery(trpc.auth.me.queryOptions()).data;
   const liveUser = (live ?? me).user;
   const canSignOut = liveUser.hasPassword !== false || liveUser.hasPasskey === true || liveUser.hasGoogle === true;
+  // Not before a way in exists (the password step), and never while impersonating.
+  const canPickPlant = canSignOut && !me.impersonation && (me.memberships?.length ?? 0) > 1;
   const advance = () => setIndex((i) => Math.min(i + 1, stages.length - 1));
 
   return (
@@ -63,7 +68,14 @@ function WelcomePage() {
         // No Sign out while there is no password: a magic-link owner who
         // leaves has no way back in (no reset flow, the link was single-use).
         canSignOut ? (
-          <div className="flex justify-center">
+          <div className="flex flex-wrap justify-center gap-2">
+            {canPickPlant ? (
+              <Button variant="ghost" className="text-muted-foreground" asChild>
+                <Link to="/choose-plant" data-testid="welcome-choose-plant">
+                  {t("auth.choosePlant.another")}
+                </Link>
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               className="text-muted-foreground"
@@ -84,15 +96,16 @@ function WelcomePage() {
           headingRef={heading}
           forced={Boolean(me.user.mustChangePassword) && me.user.hasPassword !== false}
           onDone={(pw) => {
-            // Kept in memory only, and only when the two-factor step needs it next.
-            password.current = stages[index + 1] === "twoFactor" ? pw : null;
+            // Kept in memory only, and only when the secure sign-in step needs it next.
+            password.current = stages[index + 1] === "secureSignIn" ? pw : null;
             advance();
           }}
         />
-      ) : stage === "twoFactor" ? (
-        <TwoFactorStep
+      ) : stage === "secureSignIn" ? (
+        <SecureSignInStep
           headingRef={heading}
           userId={me.user.id}
+          plantName={me.company?.name ?? ""}
           password={password.current}
           onDone={() => {
             password.current = null;

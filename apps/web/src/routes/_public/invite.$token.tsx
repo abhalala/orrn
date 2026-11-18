@@ -41,6 +41,7 @@ const HOME_LABEL: Record<HomePath, MessageKey> = {
   "/admin": "welcome.done.goAdmin",
   "/welcome": "welcome.done.goOther",
   "/no-access": "welcome.done.goOther",
+  "/choose-plant": "welcome.done.goOther",
 };
 
 /**

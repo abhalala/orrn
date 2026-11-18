@@ -77,12 +77,31 @@ export const guAuth = {
       switchAccount: "સાઇન આઉટ કરીને બીજું અકાઉન્ટ વાપરો",
       ownPlant: "તમારા પોતાના પ્લાન્ટ માટે orrn શરૂ કરવું છે?",
     },
+    choosePlant: {
+      title: "પ્લાન્ટ પસંદ કરો",
+      body: "તમે એકથી વધુ પ્લાન્ટમાં કામ કરો છો. જે ખોલવો હોય તે પસંદ કરો. પછીથી મેનુમાંથી બદલી શકો છો.",
+      setupPending: "સેટઅપ બાકી",
+      opening: "{name} ખૂલે છે",
+      failed: "તે પ્લાન્ટ ખૂલ્યો નહીં. ફરી પ્રયત્ન કરો.",
+      another: "બીજો પ્લાન્ટ પસંદ કરો",
+    },
     sessionExpired: "તમારું સેશન પૂરું થઈ ગયું. ફરી સાઇન ઇન કરો.",
     signOut: "સાઇન આઉટ",
+  },
+  // Plan 2026-11-18, Task 9: the welcome stepper's plant policy step (the rest of welcome falls back to English).
+  welcome: {
+    steps: {
+      secureSignIn: "સુરક્ષિત સાઇન-ઇન",
+    },
+    secure: {
+      title: "તમારું સાઇન-ઇન સુરક્ષિત કરો",
+      required: "{company} ઇચ્છે છે કે દરેક જણ ફક્ત પાસવર્ડથી નહીં, તેનાથી વધુથી સાઇન ઇન કરે. આગળ વધવા authenticator ઍપ ચાલુ કરો.",
+    },
   },
   // Plan 2026-11-18: the audit words for sign-in changes (the rest of audit falls back to English).
   audit: {
     actions: {
+      company__security__update: "સુરક્ષિત સાઇન-ઇન બદલ્યું",
       auth__google__link: "Google સાઇન-ઇન જોડ્યું",
       auth__passkey__add: "પાસકી ઉમેરી",
       auth__passkey__remove: "પાસકી કાઢી",

@@ -221,9 +221,18 @@ export const companyRouter = router({
         driftAmberMaxBp: bpInput.optional(),
         recoveryBands: z.object({ greenMinBp: bpInput, amberMinBp: bpInput }).nullable().optional(),
         pressBalanceWarnBp: bpInput.optional(),
+        /**
+         * "Require secure sign-in" (Settings > Security; plan 2026-11-18, Task 9): every member must keep a
+         * passkey, Google or the authenticator app. The owner's alone (an admin holds `settings.update`
+         * but is refused); it has its own audit row, `company.security.update`.
+         */
+        requireStrongSignIn: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.requireStrongSignIn !== undefined && ctx.role !== "owner") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only an owner can change secure sign-in" });
+      }
       const [row] = await ctx.db
         .select({ settings: company.settings })
         .from(company)
@@ -381,16 +390,36 @@ export const companyRouter = router({
       if (input.shifts !== undefined) {
         patch.shifts = await checkedShifts(ctx.db, ctx.companyId, input.shifts, readFloorSettings(row.settings).shifts);
       }
+      const wasStrict = row.settings?.requireStrongSignIn === true;
+      const security = input.requireStrongSignIn !== undefined ? { from: wasStrict, to: input.requireStrongSignIn } : null;
       const settings = { ...(row.settings ?? {}), ...patch };
+      if (security) (settings as Record<string, unknown>).requireStrongSignIn = security.to;
+      // The general row is written for every other call (an empty one included, as before); a call that
+      // only sets the security policy writes the security row alone.
+      const generalRow = Object.keys(patch).length > 0 || !security;
 
       await atomicBatch(ctx.db, [
         ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),
-        auditInsert(ctx, {
-          action: "company.settings.update",
-          subjectType: "company",
-          subjectId: ctx.companyId,
-          meta: { changed: patch, previous: Object.fromEntries(Object.keys(patch).map((k) => [k, (row.settings ?? {})[k] ?? null])) },
-        }),
+        ...(generalRow
+          ? [
+              auditInsert(ctx, {
+                action: "company.settings.update",
+                subjectType: "company",
+                subjectId: ctx.companyId,
+                meta: { changed: patch, previous: Object.fromEntries(Object.keys(patch).map((k) => [k, (row.settings ?? {})[k] ?? null])) },
+              }),
+            ]
+          : []),
+        ...(security
+          ? [
+              auditInsert(ctx, {
+                action: "company.security.update",
+                subjectType: "company",
+                subjectId: ctx.companyId,
+                meta: { requireStrongSignIn: security },
+              }),
+            ]
+          : []),
       ]);
 
       return { settings };

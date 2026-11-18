@@ -295,7 +295,7 @@ test.describe("invite", () => {
 });
 
 test.describe("welcome: waitlist-approved owner (magic link)", () => {
-  test("password, a reload mid-setup, two-factor, company details, then a sign-in with an authenticator code", async ({
+  test("password, the plant's secure sign-in step with a reload, company details, then a sign-in with an authenticator code", async ({
     page,
     browser,
   }) => {
@@ -309,22 +309,34 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
     await page.goto(url);
     await expect(page).toHaveURL(/\/welcome$/);
     await expect(h1(page, "Set your password")).toBeVisible();
-    await expect(stepper.getByRole("listitem")).toHaveCount(4);
+    // Two-factor is opt-in (owner amendment 2026-11-18): password, company details, done.
+    await expect(stepper.getByRole("listitem")).toHaveCount(3);
+    await expect(stepper).not.toContainText("Secure sign-in");
     // No way to end the session while there is no password: the link was single-use.
     await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
     await expectNoSeriousAxe(page);
+
+    // The owner's plant turns on "Require secure sign-in" (Settings > Security, here over the API).
+    const policy = await page.context().request.post(`${API}/trpc/company.updateSettings`, {
+      headers: { origin: ORIGIN },
+      data: { requireStrongSignIn: true },
+    });
+    expect(policy.ok(), `company.updateSettings returned ${policy.status()}: ${await policy.text()}`).toBe(true);
 
     // Leaving before the password (typing /today) does not skip it: the steps come from the account.
     await page.goto("/today");
     await expect(page).toHaveURL(/\/welcome$/);
     await expect(h1(page, "Set your password")).toBeVisible();
+    await expect(stepper.getByRole("listitem")).toHaveCount(4);
+    await expect(stepper).toContainText("Secure sign-in");
 
     const first = `First-${crypto.randomUUID().slice(0, 10)}`;
     await page.getByLabel("New password", { exact: true }).fill(first);
     await page.getByLabel("Type it again", { exact: true }).fill(first);
     await page.getByRole("button", { name: "Save password" }).click();
 
-    await expect(h1(page, "Turn on two-factor")).toBeVisible();
+    await expect(h1(page, "Secure your sign-in")).toBeVisible();
+    await expect(page.getByTestId("secure-sign-in-lead")).toContainText(companyName);
     await expect(key).toBeVisible();
     // The QR replaced the form: the keyboard goes to the code field.
     await expect(page.getByLabel("6-digit code")).toBeFocused();
@@ -335,7 +347,7 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
 
     // The phone drops the tab while the owner copies the key into the authenticator app.
     await page.reload();
-    await expect(h1(page, "Turn on two-factor")).toBeVisible();
+    await expect(h1(page, "Secure your sign-in")).toBeVisible();
     await expect(h1(page, "Set your password")).toHaveCount(0);
     await expect(stepper.getByRole("listitem")).toHaveCount(3);
 

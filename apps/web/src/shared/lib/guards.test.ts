@@ -70,3 +70,32 @@ describe("guards send an account with no password to /welcome", () => {
     expect(await redirectTarget(() => requirePlatformAdmin(args(ok)))).toBeNull();
   });
 });
+
+describe("requireCompanyMe: entering a plant (plan 2026-11-18, Task 9)", () => {
+  const plant = (company: Record<string, unknown>) => ({
+    company: { id: "c1", name: "Co", slug: "co", status: "active", plan: "growth", role: "packer", ...company },
+  });
+
+  test("a plant that requires secure sign-in, without a strong method: /welcome", async () => {
+    const me = meWith({}, plant({ requireStrongSignIn: true, setupPending: false }));
+    expect(await redirectTarget(() => requireCompanyMe(args(me)))).toBe("/welcome");
+  });
+
+  test("with a passkey, Google or the authenticator app: in", async () => {
+    for (const strong of [{ hasPasskey: true }, { hasGoogle: true }, { twoFactorEnabled: true }]) {
+      const me = meWith(strong, plant({ requireStrongSignIn: true, setupPending: false }));
+      expect(await redirectTarget(() => requireCompanyMe(args(me)))).toBeNull();
+    }
+  });
+
+  test("not when impersonating", async () => {
+    const grant = { actorUserId: "u1", companyId: "c1", grantId: "g1", expiresAt: "2099-01-01T00:00:00.000Z" };
+    const me = meWith({ onboardingCompleted: false }, { ...plant({ requireStrongSignIn: true, setupPending: true }), impersonation: grant });
+    expect(await redirectTarget(() => requireCompanyMe(args(me)))).toBeNull();
+  });
+
+  test("a plant whose setup is pending for the person: /welcome, whatever the user flag says", async () => {
+    expect(await redirectTarget(() => requireCompanyMe(args(meWith({ onboardingCompleted: true }, plant({ setupPending: true })))))).toBe("/welcome");
+    expect(await redirectTarget(() => requireCompanyMe(args(meWith({ onboardingCompleted: false }, plant({ setupPending: false })))))).toBeNull();
+  });
+});

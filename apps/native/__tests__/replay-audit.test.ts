@@ -105,6 +105,8 @@ const GUARDED: Record<string, Guarded> = {
   "ageing.batches.unhold": { how: "guarded", server: "ageing.ts", leaf: "unhold", guard: "not_held: a second clear is refused 'not held' (status guard); a batch that moved on answers wrong_status" },
   "ageing.batches.requestOverride": { how: "guarded", server: "ageing.ts", leaf: "requestOverride", guard: "one pending ageing_override approval per batch: a second request is refused override_pending" },
   "device.register": { how: "guarded", server: "release.ts", leaf: "register", guard: "upsert by install id, once per launch per plant" },
+  // Plan 2026-11-18, Task 9: the plant picker after a sign-in.
+  "company.switch": { how: "guarded", server: "company.ts", leaf: "switch", guard: "sets which plant is active (membership.last_active_at): a repeat picks the same plant again, the same state plus one more company.switch audit row; the rows are disabled while a pick is in flight" },
 };
 
 /** The procedure's definition, from its name to its `.mutation(`, plus the body of a shared `.input(name)` constant when it uses one. */

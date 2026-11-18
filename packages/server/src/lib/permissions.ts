@@ -443,9 +443,16 @@ export type Me = {
     /** Resolved units and formats for this plant's screens (`screenPrefs`). Absent on old payloads. */
     units?: ResolvedPrefs;
     navOrder?: MemberNavOrder | null;
+    /** The plant requires a passkey, Google or the authenticator app of every member (plan 2026-11-18, Task 9). */
+    requireStrongSignIn?: boolean;
+    /** This plant's onboarding is still open for the person (`membership.onboarded_at` is null). Absent on old payloads. */
+    setupPending?: boolean;
   } | null;
-  /** Every active company the user belongs to (spec P10); `company` is the active one. */
-  memberships?: { companyId: string; name: string; role: CompanyRole }[];
+  /**
+   * Every active company the user belongs to (spec P10); `company` is the active one. `setupPending`:
+   * that plant's onboarding is still open for the person (the plant picker's "Setup pending").
+   */
+  memberships?: { companyId: string; name: string; role: CompanyRole; setupPending?: boolean }[];
   isPlatformAdmin: boolean;
   platformRole?: PlatformStaffRole | null;
   impersonation?: {

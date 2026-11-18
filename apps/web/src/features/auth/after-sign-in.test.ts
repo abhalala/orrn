@@ -43,3 +43,18 @@ describe("destinationAfterSignIn", () => {
     expect(destinationAfterSignIn(null, "//evil.com")).toBe("/today");
   });
 });
+
+describe("destinationAfterSignIn: several plants (plan 2026-11-18, Task 9)", () => {
+  const two = {
+    memberships: [
+      { companyId: "c1", name: "Fourcubes", role: "owner" as const },
+      { companyId: "c2", name: "Other", role: "packer" as const },
+    ],
+  };
+
+  test("lands on the picker, carrying a same-origin next", () => {
+    expect(destinationAfterSignIn(me(two))).toBe("/choose-plant");
+    expect(destinationAfterSignIn(me(two), "/b/26I4086?c=fourcubes")).toBe("/choose-plant?next=%2Fb%2F26I4086%3Fc%3Dfourcubes");
+    expect(destinationAfterSignIn(me(two), "//evil.example")).toBe("/choose-plant");
+  });
+});

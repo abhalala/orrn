@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -267,7 +267,7 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (117)
+### auth (123)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -386,15 +386,21 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
 | `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
+| `choosePlant.title` | Choose a plant | प्लांट चुनें |
+| `choosePlant.body` | You work in more than one plant. Pick the one to open. You can switch later from the menu. | आप एक से ज़्यादा प्लांट में काम करते हैं। जो खोलना है उसे चुनें। बाद में मेन्यू से बदल सकते हैं। |
+| `choosePlant.setupPending` | Setup pending | सेटअप बाकी |
+| `choosePlant.opening` | Opening {name} | {name} खुल रहा है |
+| `choosePlant.failed` | Couldn't open that plant. Try again. | वह प्लांट नहीं खुला। फिर कोशिश करें। |
+| `choosePlant.another` | Choose another plant | दूसरा प्लांट चुनें |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (58)
+### welcome (60)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `steps.password` | Password | पासवर्ड |
-| `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
+| `steps.secureSignIn` | Secure sign-in | सुरक्षित साइन-इन |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
@@ -407,6 +413,8 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `password.submit` | Save password | पासवर्ड सेव करें |
 | `password.submitting` | Saving | सेव हो रहा है |
 | `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
+| `secure.title` | Secure your sign-in | अपना साइन-इन सुरक्षित करें |
+| `secure.required` | {company} asks everyone to sign in with more than a password. Turn on an authenticator app to continue. | {company} चाहता है कि हर कोई सिर्फ़ पासवर्ड से नहीं, उससे ज़्यादा से साइन इन करे। आगे बढ़ने के लिए authenticator ऐप चालू करें। |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
 | `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
@@ -2197,7 +2205,7 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (276)
+### settings (284)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2225,6 +2233,14 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `tabs.printing` | Printing | प्रिंटिंग |
 | `tabs.data` | Data | डेटा |
 | `tabs.units` | Units | इकाइयाँ |
+| `tabs.security` | Security | सुरक्षा |
+| `security.title` | Sign-in | साइन-इन |
+| `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
+| `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
+| `security.requireHint` | Everyone in this plant signs in with a passkey, Google or an authenticator app, not a password alone. Anyone without one is asked to set it up the next time they open this plant. | इस प्लांट में हर कोई पासकी, Google या authenticator ऐप से साइन इन करता है, सिर्फ़ पासवर्ड से नहीं। जिसके पास इनमें से कोई नहीं है, उसे अगली बार यह प्लांट खोलने पर इसे सेट करने को कहा जाएगा। |
+| `security.ownerOnly` | Only an owner can change this. | इसे सिर्फ़ मालिक बदल सकता है। |
+| `security.saved` | Secure sign-in saved. | सुरक्षित साइन-इन सेव हुआ। |
+| `security.saveFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |
 | `units.title` | Units and formats | इकाइयाँ और रूप |
 | `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
 | `units.weight` | Weight | वज़न |
@@ -3722,7 +3738,7 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (259)
+### native (262)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3733,6 +3749,9 @@ Counts: 8156 screen strings in 50 groups, 45 guides with 866 strings.
 | `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer. Sign in, set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
 | `staffTitle` | Godseye is on the web | Godseye वेब पर है |
 | `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
+| `finishOnWebTitle` | Finish setting up on the web | सेटअप वेब पर पूरा करें |
+| `finishOnWebBody` | {company} needs a few setup steps first. Open orrn.in in your phone's browser or on a computer, sign in and finish them, then come back here. | {company} में पहले कुछ सेटअप बाकी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे पूरा करें, फिर यहाँ वापस आएं। |
+| `secureOnWebBody` | {company} requires secure sign-in. Open orrn.in in your phone's browser or on a computer, sign in and set it up, then come back here. | {company} में सुरक्षित साइन-इन ज़रूरी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे सेट करें, फिर यहाँ वापस आएं। |
 | `checkAgain` | Check again | फिर से जांचें |
 | `tooManyTries` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `codeTimedOut` | That took too long. Sign in again. | बहुत देर हो गई। फिर से साइन इन करें। |
@@ -7752,7 +7771,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (314)
+### audit (315)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7870,6 +7889,7 @@ Please check, Lalubhai:
 | `actions.cast__close_request` | Cast close sent for approval | कास्ट बंद करने की मंज़ूरी मांगी |
 | `actions.cast__open` | Cast opened | कास्ट खोला |
 | `actions.company__settings__update` | Plant settings changed | प्लांट की सेटिंग्स बदलीं |
+| `actions.company__security__update` | Secure sign-in changed | सुरक्षित साइन-इन बदला |
 | `actions.company__switch` | Switched plant | प्लांट बदला |
 | `actions.count__cancel` | Stock count cancelled | स्टॉक गिनती रद्द की |
 | `actions.count__close` | Stock count closed | स्टॉक गिनती बंद की |

@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 
-import { homeTarget, needsPassword } from "./home";
+import { homeTarget, needsPassword, needsWelcome } from "./home";
 import { clearImpersonation } from "./impersonation";
 import type { Me } from "./me";
 import { isImpersonationForbidden } from "./session-errors";
@@ -74,7 +74,12 @@ export async function requireSignedIn({ context, location }: GuardArgs) {
   return { me };
 }
 
-/** Tenant app: session + company membership; unauthenticated → login with `next`. */
+/**
+ * Tenant app: session + company membership; unauthenticated → login with `next`. Entering a plant
+ * (sign-in, plant pick, plant switch, any tenant URL) whose setup is open for the person, or which
+ * requires secure sign-in while they have no strong method, sends them to /welcome first
+ * (`needsWelcome`; never while impersonating).
+ */
 export async function requireCompanyMe({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
@@ -83,7 +88,7 @@ export async function requireCompanyMe({ context, location }: GuardArgs) {
     // Staff have no company of their own; their home is the console.
     throw redirect({ to: me.isPlatformAdmin && me.platformRole ? "/admin" : "/no-access" });
   }
-  if (!me.impersonation && !me.user.onboardingCompleted) throw redirect({ to: "/welcome" });
+  if (needsWelcome(me)) throw redirect({ to: "/welcome" });
   return { me };
 }
 

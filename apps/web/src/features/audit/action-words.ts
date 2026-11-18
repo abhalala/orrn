@@ -49,6 +49,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "cast.close",
   "cast.close_request",
   "cast.open",
+  "company.security.update",
   "company.settings.update",
   "company.switch",
   "count.cancel",

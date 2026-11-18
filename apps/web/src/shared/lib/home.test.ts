@@ -66,3 +66,34 @@ describe("homeTarget", () => {
     expect(homeTarget(me({ company: null }))).toBe("/no-access");
   });
 });
+
+describe("homeFor: several plants (plan 2026-11-18, Task 9)", () => {
+  const two = {
+    memberships: [
+      { companyId: "c1", name: "Co", role: "owner" as const, setupPending: false },
+      { companyId: "c2", name: "Other", role: "packer" as const, setupPending: true },
+    ],
+  };
+
+  test("nothing picked since this sign-in: /choose-plant", () => {
+    expect(homeFor(me(two))).toBe("/choose-plant");
+    expect(homeFor(me(two), false)).toBe("/choose-plant");
+  });
+
+  test("picked: the plant's own home", () => {
+    expect(homeFor(me(two), true)).toBe("/today");
+    expect(homeFor(me({ ...two, company: { ...me().company!, setupPending: true } }), true)).toBe("/welcome");
+  });
+
+  test("a password chore comes before the picker; impersonating never sees it", () => {
+    expect(homeFor(me({ ...two, user: { mustChangePassword: true } }))).toBe("/welcome");
+    const grant = { actorUserId: "u1", companyId: "c1", grantId: "g1", expiresAt: "2099-01-01T00:00:00.000Z" };
+    expect(homeFor(me({ ...two, impersonation: grant, isPlatformAdmin: true, platformRole: "owner" as never }))).toBe("/today");
+  });
+
+  test("a plant that requires secure sign-in, without a strong method: /welcome", () => {
+    const strict = { ...me().company!, requireStrongSignIn: true, setupPending: false };
+    expect(homeFor(me({ company: strict }))).toBe("/welcome");
+    expect(homeFor(me({ company: strict, user: { hasGoogle: true } }))).toBe("/today");
+  });
+});

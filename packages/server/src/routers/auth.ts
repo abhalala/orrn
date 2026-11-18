@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
@@ -7,7 +7,7 @@ import { account, passkey, session as sessionTable, user } from "@orrn/db/schema
 import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
-import { isOwnerAnywhere, signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { plantRequiresStrongSignIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { env } from "@orrn/env/server";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
@@ -131,11 +131,19 @@ export const authRouter = router({
             .get()
         : null;
 
+    // `setupPending`: this plant's onboarding is still open for the person (`membership.onboarded_at`
+    // is null; plan 2026-11-18, Task 9). The plant picker marks such a plant "Setup pending".
     const memberships = (await listActiveMemberships(ctx.db, userId)).map((m) => ({
       companyId: m.companyId,
       name: m.name,
       role: m.role,
+      setupPending: m.onboardedAt == null,
     }));
+    // The active plant's own membership. An impersonating admin has none in the plant: nothing is
+    // pending for them there.
+    const activeSetupPending = ctx.impersonation
+      ? false
+      : (memberships.find((m) => m.companyId === ctx.companyId)?.setupPending ?? false);
 
     return {
       user: {
@@ -164,6 +172,10 @@ export const authRouter = router({
               /** Units and formats every screen of this plant uses (default, then the plant's choice). */
               units: screenPrefs(readUnitSettings(companyRow.settings)),
               navOrder: readNavOrder(ownMembership?.preferences),
+              /** The plant requires a strong method of every member (Settings > Security, spec Amendment item 3). */
+              requireStrongSignIn: (companyRow.settings as Record<string, unknown> | null)?.requireStrongSignIn === true,
+              /** This plant's onboarding is still open for the person (their membership's `onboarded_at` is null). */
+              setupPending: activeSetupPending,
             }
           : null,
       /** Every active company this user belongs to, most recent first (spec P10). */
@@ -185,11 +197,12 @@ export const authRouter = router({
    * The signed-in person's own sign-in methods, for Settings > Sign-in (plan 2026-11-18). Passkeys
    * are listed by row id, name and dates only: never the credential id or the public key. The
    * plugin's table keeps no last-use time, so `lastUsedAt` is null until it does.
-   * `isOwnerAnywhere` tells the page that the strong-method rule applies (sign-in-methods.ts).
+   * `requiredByPlant`: an active plant of theirs requires secure sign-in, so the last strong method
+   * cannot be removed (COMPANY_REQUIRES_STRONG_METHOD, sign-in-methods.ts).
    */
   signInMethods: authedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
-    const [methods, passkeys, owner] = await Promise.all([
+    const [methods, passkeys, requiredByPlant] = await Promise.all([
       signInMethodsFor(ctx.db, userId),
       ctx.db
         .select({ id: passkey.id, name: passkey.name, createdAt: passkey.createdAt })
@@ -198,7 +211,7 @@ export const authRouter = router({
         .orderBy(asc(passkey.createdAt), asc(passkey.id))
         .limit(PASSKEY_LIST_LIMIT)
         .all(),
-      isOwnerAnywhere(ctx.db, userId),
+      plantRequiresStrongSignIn(ctx.db, userId),
     ]);
     return {
       password: methods.password,
@@ -210,7 +223,7 @@ export const authRouter = router({
         createdAt: p.createdAt ?? new Date(0),
         lastUsedAt: null as Date | null,
       })),
-      isOwnerAnywhere: owner,
+      requiredByPlant,
     };
   }),
 
@@ -393,12 +406,24 @@ export const authRouter = router({
         });
       }
 
+      // Onboarding is per plant (plan 2026-11-18, Task 9): only the active plant's membership is marked,
+      // keyed on (this user, the active plant) so an impersonation grant (no membership of the actor in
+      // the plant) marks nothing; the first time is kept. The user flag is still written for older
+      // clients that read it.
       const statements: SqliteBatchItem[] = [
         ctx.db
           .update(user)
           .set({ onboardingCompleted: true })
           .where(eq(user.id, userId)),
       ];
+      if (ctx.companyId && !ctx.impersonation) {
+        statements.push(
+          ctx.db
+            .update(membership)
+            .set({ onboardedAt: new Date() })
+            .where(and(eq(membership.userId, userId), eq(membership.companyId, ctx.companyId), isNull(membership.onboardedAt))),
+        );
+      }
 
       if (canWriteCompany && ctx.companyId) {
         const currentCompany = await ctx.db

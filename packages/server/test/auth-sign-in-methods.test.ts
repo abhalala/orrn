@@ -7,8 +7,9 @@
  * - `auth.me` says whether the account has a passkey or Google; `auth.signInMethods` lists them for
  *   the settings page.
  * - Removing the last way in (password, passkey, Google) is refused with `LAST_SIGN_IN_METHOD`.
- * - An owner (any plant) may not remove or turn off the last strong method (authenticator app,
- *   passkey, Google) so that only a password is left: `OWNER_NEEDS_STRONG_METHOD`.
+ * - A member of an active plant that requires secure sign-in may not remove or turn off the last
+ *   strong method (authenticator app, passkey, Google): `COMPANY_REQUIRES_STRONG_METHOD` (owner
+ *   amendment 2026-11-18, Task 9; it replaced the owner-only rule). More in auth-plant-policy.test.ts.
  * - Adding or removing a passkey writes a user-level audit row (no plant).
  * - The daily cron removes expired `verification` rows (passkey challenges pile up otherwise).
  */
@@ -90,6 +91,14 @@ async function addGoogle(userId: string) {
     .values({ id: crypto.randomUUID(), accountId: `g-${crypto.randomUUID()}`, providerId: "google", userId } as never);
 }
 
+/** A member (any role) of a plant that requires secure sign-in (Settings > Security). */
+async function makeStrictMember(userId: string, role: "owner" | "packer" = "packer") {
+  const { companyId } = await env.seedCompany({ settings: { requireStrongSignIn: true } });
+  await env.addMembership(userId, companyId, role);
+  return companyId;
+}
+
+/** An owner of a plant without the policy: two-factor is their own choice. */
 async function makeOwner(userId: string) {
   const { companyId } = await env.seedCompany();
   await env.addMembership(userId, companyId, "owner");
@@ -133,7 +142,7 @@ describe("auth.me and auth.signInMethods", () => {
     const other = await makeUser();
     await addPasskey(other.id, "Someone else");
     const methods = await env.callerForUser(u.id).auth.signInMethods();
-    expect(methods).toMatchObject({ password: true, authenticator: false, google: false, isOwnerAnywhere: false });
+    expect(methods).toMatchObject({ password: true, authenticator: false, google: false, requiredByPlant: false });
     expect(methods.passkeys).toHaveLength(1);
     expect(methods.passkeys[0]).toMatchObject({ id: passkeyId, name: "Ramesh's phone", lastUsedAt: null });
     expect(methods.passkeys[0]!.createdAt).toBeInstanceOf(Date);
@@ -142,7 +151,10 @@ describe("auth.me and auth.signInMethods", () => {
 
     await makeOwner(u.id);
     await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, u.id));
-    expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ authenticator: true, isOwnerAnywhere: true });
+    // Owning a plant alone no longer makes the rule apply; the plant's policy does.
+    expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ authenticator: true, requiredByPlant: false });
+    await makeStrictMember(u.id);
+    expect(await env.callerForUser(u.id).auth.signInMethods()).toMatchObject({ requiredByPlant: true });
   });
 
   test("auth.signInMethods needs a session", async () => {
@@ -260,14 +272,14 @@ describe("removing a sign-in method", () => {
     expect((await passkeysOf(u.id)).map((p) => p.id)).toEqual([mine]);
   });
 
-  test("owner cannot drop last strong method", async () => {
+  test("a member of a plant that requires secure sign-in cannot drop the last strong method", async () => {
     const u = await makeUser();
-    await makeOwner(u.id);
+    await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
     const passkeyId = await addPasskey(u.id);
     const refused = await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie });
     expect(refused.status).toBe(403);
-    expect(await codeOf(refused)).toBe("OWNER_NEEDS_STRONG_METHOD");
+    expect(await codeOf(refused)).toBe("COMPANY_REQUIRES_STRONG_METHOD");
     expect(await passkeysOf(u.id)).toHaveLength(1);
 
     // With the authenticator app on, the passkey is not the last strong method.
@@ -277,33 +289,34 @@ describe("removing a sign-in method", () => {
     expect(await passkeysOf(u.id)).toHaveLength(0);
   });
 
-  test("a non-owner may keep only a password", async () => {
+  test("without a plant policy anyone may keep only a password, owners too", async () => {
     const u = await makeUser();
+    await makeOwner(u.id);
     const cookie = await signIn(u.email);
     const passkeyId = await addPasskey(u.id);
     const res = await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie });
     expect(res.status).toBe(200);
   });
 
-  test("an owner cannot turn the authenticator off when it is the last strong method", async () => {
+  test("under the policy the authenticator cannot be turned off when it is the last strong method", async () => {
     const u = await makeUser();
-    await makeOwner(u.id);
+    await makeStrictMember(u.id, "owner");
     const cookie = await signIn(u.email);
     await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, u.id));
     const res = await call("two-factor/disable", { body: { password: PASSWORD }, cookie });
     expect(res.status).toBe(403);
-    expect(await codeOf(res)).toBe("OWNER_NEEDS_STRONG_METHOD");
+    expect(await codeOf(res)).toBe("COMPANY_REQUIRES_STRONG_METHOD");
     expect((await env.db.select().from(user).where(eq(user.id, u.id)).get())?.twoFactorEnabled).toBe(true);
   });
 
-  test("an owner cannot unlink Google when it is the last strong method; with a passkey left it may", async () => {
+  test("under the policy Google cannot be unlinked when it is the last strong method; with a passkey left it may", async () => {
     const u = await makeUser();
-    await makeOwner(u.id);
+    await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
     await addGoogle(u.id);
     const refused = await call("unlink-account", { body: { providerId: "google" }, cookie });
     expect(refused.status).toBe(403);
-    expect(await codeOf(refused)).toBe("OWNER_NEEDS_STRONG_METHOD");
+    expect(await codeOf(refused)).toBe("COMPANY_REQUIRES_STRONG_METHOD");
 
     await addPasskey(u.id);
     const allowed = await call("unlink-account", { body: { providerId: "google" }, cookie });
@@ -312,9 +325,9 @@ describe("removing a sign-in method", () => {
     expect(left.map((a) => a.providerId)).toEqual(["credential"]);
   });
 
-  test("unlinking the password of a google + passkey owner is allowed (strong methods stay)", async () => {
+  test("unlinking the password of a google + passkey member is allowed under the policy (strong methods stay)", async () => {
     const u = await makeUser();
-    await makeOwner(u.id);
+    await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
     await addGoogle(u.id);
     await addPasskey(u.id);
@@ -340,7 +353,7 @@ describe("audit", () => {
 
   test("a refused removal writes no audit row", async () => {
     const u = await makeUser();
-    await makeOwner(u.id);
+    await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
     const passkeyId = await addPasskey(u.id);
     expect((await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie })).status).toBe(403);

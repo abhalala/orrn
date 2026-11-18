@@ -266,8 +266,8 @@ into the gitignored `apps/server/.dev.local-account.local`); the e2e helper `sig
 ## Migrations: numbering map
 
 Migrations are Drizzle SQL files in `packages/db/src/migrations` with a journal (`meta/_journal.json`) and one snapshot each;
-`bun run db:generate` writes them (a clean run must write nothing). The head today is `0050_passkey`: 51 files, `0000` to
-`0050`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
+`bun run db:generate` writes them (a clean run must write nothing). The head today is `0051_membership_onboarded`: 52 files, `0000` to
+`0051`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
 previous snapshot and its journal `when` must stay above the previous one (the db tests check both). Never edit a shipped
 migration. Lanes that carry a migration are renumbered consecutively at merge (decision D30) and their snapshot regenerated
 on top of the new head; the SQL header of a renumbered file says what it was called before.
@@ -301,6 +301,7 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0048 | membership preferences | `membership.preferences`, per-person and per-plant JSON preferences, starting with the side menu order |
 | 0049 | ingest | Infinity Portal: the `ingest_*` tables and `customer_alias` (raw file bytes stay in R2) |
 | 0050 | passkey | `passkey`, the Better Auth passkey plugin's table (public keys only; not in plant backups) |
+| 0051 | membership_onboarded | `membership.onboarded_at` (onboarding per plant), backfilled from `user.onboarding_completed` with the membership's `created_at` |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.

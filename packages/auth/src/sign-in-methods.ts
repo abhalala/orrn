@@ -1,9 +1,9 @@
 import type { createDb } from "@orrn/db";
 import { auditLog } from "@orrn/db/schema/audit";
 import { account, passkey, user } from "@orrn/db/schema/auth";
-import { membership } from "@orrn/db/schema/tenant";
+import { company, membership } from "@orrn/db/schema/tenant";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
-import { and, count, eq, isNotNull } from "drizzle-orm";
+import { and, count, eq, isNotNull, sql } from "drizzle-orm";
 
 import { writeAuthLog } from "./logger";
 
@@ -17,18 +17,20 @@ import { writeAuthLog } from "./logger";
  * - A strong method is the authenticator app (`user.twoFactorEnabled`; a `two_factor` row alone may
  *   be a half-finished enrolment), a passkey, or Google.
  * - LAST_SIGN_IN_METHOD: no removal may leave an account with no way in.
- * - OWNER_NEEDS_STRONG_METHOD: an owner of any plant may not remove or turn off the last strong
- *   method. The welcome two-factor step does not come back after onboarding, so this keeps the
- *   owner rule (AGENTS.md, Sign-in facts) from breaking silently.
+ * - COMPANY_REQUIRES_STRONG_METHOD: while an active plant the person belongs to requires secure
+ *   sign-in (`company.settings.requireStrongSignIn`, spec Amendment 2026-11-18 item 3), they may not
+ *   remove or turn off their last strong method. Two-factor is otherwise the person's own choice,
+ *   owners included.
  *
- * Tested in packages/server/test/auth-sign-in-methods.test.ts.
+ * Tested in packages/server/test/auth-sign-in-methods.test.ts and auth-plant-policy.test.ts.
  */
 export const LAST_SIGN_IN_METHOD = "LAST_SIGN_IN_METHOD";
-export const OWNER_NEEDS_STRONG_METHOD = "OWNER_NEEDS_STRONG_METHOD";
+export const COMPANY_REQUIRES_STRONG_METHOD = "COMPANY_REQUIRES_STRONG_METHOD";
 
 const MESSAGES = {
   [LAST_SIGN_IN_METHOD]: "This is the last way to sign in to this account. Add another one first.",
-  [OWNER_NEEDS_STRONG_METHOD]: "An owner keeps a passkey, Google or the authenticator app. Add another one first.",
+  [COMPANY_REQUIRES_STRONG_METHOD]:
+    "A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first.",
 } as const;
 
 type Db = ReturnType<typeof createDb>;
@@ -63,12 +65,23 @@ export const hasWayIn = (m: SignInMethods) => m.password || m.passkeys > 0 || m.
 /** True when the account has a strong method (authenticator app, passkey or Google). */
 export const hasStrongMethod = (m: SignInMethods) => m.authenticator || m.passkeys > 0 || m.google;
 
-/** True when the user is an owner of any plant (any membership with the owner role). */
-export async function isOwnerAnywhere(db: Db, userId: string): Promise<boolean> {
+/**
+ * True when an active plant the user belongs to requires secure sign-in
+ * (`company.settings.requireStrongSignIn`). A suspended plant does not count: the person cannot enter
+ * it (tenantContext refuses it), so its policy does not hold them.
+ */
+export async function plantRequiresStrongSignIn(db: Db, userId: string): Promise<boolean> {
   const row = await db
     .select({ id: membership.id })
     .from(membership)
-    .where(and(eq(membership.userId, userId), eq(membership.role, "owner")))
+    .innerJoin(company, eq(company.id, membership.companyId))
+    .where(
+      and(
+        eq(membership.userId, userId),
+        eq(company.status, "active"),
+        sql`json_extract(${company.settings}, '$.requireStrongSignIn') = 1`,
+      ),
+    )
     .get();
   return Boolean(row);
 }
@@ -116,7 +129,8 @@ async function methodsAfter(db: Db, userId: string, ctx: GuardCtx, before: SignI
 
 /**
  * Better Auth `hooks.before`: refuses a passkey delete, a two-factor disable or an account unlink
- * that would leave no way in, or leave an owner with only a password.
+ * that would leave no way in, or leave a member of a plant that requires secure sign-in with no
+ * strong method.
  */
 export async function signInMethodGuardBody(db: Db, ctx: GuardCtx): Promise<void> {
   if (!ctx.path || !REMOVAL_PATHS.has(ctx.path)) return;
@@ -130,8 +144,11 @@ export async function signInMethodGuardBody(db: Db, ctx: GuardCtx): Promise<void
   if (hasWayIn(before) && !hasWayIn(after)) {
     throw new APIError("FORBIDDEN", { code: LAST_SIGN_IN_METHOD, message: MESSAGES[LAST_SIGN_IN_METHOD] });
   }
-  if (hasStrongMethod(before) && !hasStrongMethod(after) && (await isOwnerAnywhere(db, userId))) {
-    throw new APIError("FORBIDDEN", { code: OWNER_NEEDS_STRONG_METHOD, message: MESSAGES[OWNER_NEEDS_STRONG_METHOD] });
+  if (hasStrongMethod(before) && !hasStrongMethod(after) && (await plantRequiresStrongSignIn(db, userId))) {
+    throw new APIError("FORBIDDEN", {
+      code: COMPANY_REQUIRES_STRONG_METHOD,
+      message: MESSAGES[COMPANY_REQUIRES_STRONG_METHOD],
+    });
   }
 }
 

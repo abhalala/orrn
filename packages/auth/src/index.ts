@@ -127,9 +127,10 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // invite for that email (sign-up-guard.ts); server code still creates accounts in-process.
     // Tested in packages/server/test/auth-signup-invite.test.ts.
     // Plan 2026-11-18: removing a passkey, turning two-factor off or unlinking an account may not leave
-    // the account with no way in (LAST_SIGN_IN_METHOD), nor an owner with only a password
-    // (OWNER_NEEDS_STRONG_METHOD); a passkey added or removed is audited (sign-in-methods.ts).
-    // Tested in packages/server/test/auth-sign-in-methods.test.ts.
+    // the account with no way in (LAST_SIGN_IN_METHOD), nor a member of a plant that requires secure
+    // sign-in with no strong method (COMPANY_REQUIRES_STRONG_METHOD); a passkey added or removed is
+    // audited (sign-in-methods.ts). Tested in packages/server/test/auth-sign-in-methods.test.ts and
+    // auth-plant-policy.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         await signUpGuardBody(db, ctx);

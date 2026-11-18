@@ -57,7 +57,8 @@ async function copyText(text: string, done: string) {
 }
 
 /**
- * Turn on two-factor (owners during first setup). Better Auth's `twoFactor.enable`
+ * Turn on two-factor (the authenticator app; rendered by `SecureSignInStep` when
+ * a plant requires secure sign-in). Better Auth's `twoFactor.enable`
  * needs the password: the one just set in the password step, or typed here.
  * The QR is drawn in the browser (`qrcode`, loaded on demand) so the secret
  * never leaves the device; the old page sent it to a Google chart URL.
@@ -68,11 +69,17 @@ export function TwoFactorStep({
   password,
   onDone,
   headingRef,
+  title,
+  lead,
 }: {
   userId: string;
   password: string | null;
   onDone(): void;
   headingRef?: Ref<HTMLHeadingElement>;
+  /** The step's heading, when a caller names it (default "Turn on two-factor"). */
+  title?: string;
+  /** One line above the instructions saying why the step is asked (a plant's policy). */
+  lead?: string;
 }) {
   const { t } = useT();
   const [phase, setPhase] = useState<Phase>(password ? "loading" : "confirm");
@@ -211,9 +218,14 @@ export function TwoFactorStep({
     <div className="flex flex-col gap-6">
       <StepHeading
         headingRef={headingRef}
-        title={t("welcome.twoFactor.title")}
+        title={title ?? t("welcome.twoFactor.title")}
         body={phase === "confirm" ? t("welcome.twoFactor.confirmBody") : t("welcome.twoFactor.body")}
       />
+      {lead ? (
+        <p data-testid="secure-sign-in-lead" className="m-0 -mt-3 max-w-[52ch] text-[15px] leading-6 font-medium text-foreground">
+          {lead}
+        </p>
+      ) : null}
 
       {phase === "confirm" ? (
         <form

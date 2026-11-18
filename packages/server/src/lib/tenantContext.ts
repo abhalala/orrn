@@ -50,6 +50,8 @@ export async function listActiveMemberships(db: Db, userId: string) {
       role: membership.role,
       companyStatus: company.status,
       name: company.name,
+      /** Null while this plant's onboarding is open for the person (plan 2026-11-18, Task 9). */
+      onboardedAt: membership.onboardedAt,
     })
     .from(membership)
     .innerJoin(company, eq(company.id, membership.companyId))

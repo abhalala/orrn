@@ -436,6 +436,15 @@ export const en = {
       switchAccount: "Sign out and use another account",
       ownPlant: "Setting up orrn for your own plant?",
     },
+    /** After sign-in, for a person in more than one plant (plan 2026-11-18, Task 9). Web and the phone read it. */
+    choosePlant: {
+      title: "Choose a plant",
+      body: "You work in more than one plant. Pick the one to open. You can switch later from the menu.",
+      setupPending: "Setup pending",
+      opening: "Opening {name}",
+      failed: "Couldn't open that plant. Try again.",
+      another: "Choose another plant",
+    },
     sessionExpired: "Your session ended. Sign in again.",
     signOut: "Sign out",
   },
@@ -443,7 +452,7 @@ export const en = {
   welcome: {
     steps: {
       password: "Password",
-      twoFactor: "Two-factor",
+      secureSignIn: "Secure sign-in",
       company: "Company details",
       done: "Done",
     },
@@ -458,6 +467,11 @@ export const en = {
       submit: "Save password",
       submitting: "Saving",
       alreadySet: "This account already has a password, so we kept it. Use that one to sign in.",
+    },
+    /** The plant's "Require secure sign-in" step (plan 2026-11-18, Task 9). */
+    secure: {
+      title: "Secure your sign-in",
+      required: "{company} asks everyone to sign in with more than a password. Turn on an authenticator app to continue.",
     },
     twoFactor: {
       title: "Turn on two-factor",
@@ -2494,6 +2508,17 @@ export const en = {
       printing: "Printing",
       data: "Data",
       units: "Units",
+      security: "Security",
+    },
+    /** Settings > Security (plan 2026-11-18, Task 9). */
+    security: {
+      title: "Sign-in",
+      body: "How people in this plant sign in.",
+      require: "Require secure sign-in",
+      requireHint: "Everyone in this plant signs in with a passkey, Google or an authenticator app, not a password alone. Anyone without one is asked to set it up the next time they open this plant.",
+      ownerOnly: "Only an owner can change this.",
+      saved: "Secure sign-in saved.",
+      saveFailed: "Could not save. Try again.",
     },
     units: {
       title: "Units and formats",
@@ -4078,6 +4103,9 @@ export const en = {
     setPasswordBody: "Your account has a temporary password. Open orrn.in in your phone's browser or on a computer. Sign in, set a new password, then come back here.",
     staffTitle: "Godseye is on the web",
     staffBody: "Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye.",
+    finishOnWebTitle: "Finish setting up on the web",
+    finishOnWebBody: "{company} needs a few setup steps first. Open orrn.in in your phone's browser or on a computer, sign in and finish them, then come back here.",
+    secureOnWebBody: "{company} requires secure sign-in. Open orrn.in in your phone's browser or on a computer, sign in and set it up, then come back here.",
     checkAgain: "Check again",
     tooManyTries: "Too many tries. Wait a minute, then try again.",
     codeTimedOut: "That took too long. Sign in again.",
@@ -6706,6 +6734,7 @@ export const en = {
       cast__close_request: "Cast close sent for approval",
       cast__open: "Cast opened",
       company__settings__update: "Plant settings changed",
+      company__security__update: "Secure sign-in changed",
       company__switch: "Switched plant",
       count__cancel: "Stock count cancelled",
       count__close: "Stock count closed",

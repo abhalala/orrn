@@ -62,7 +62,7 @@ export const GU_FLOOR_NAMESPACES = [
   "orders.detail.lineShort", "orders.detail.basisLine", "orders.detail.timeline", "orders.detail.timelineEmpty", "orders.detail.notFound",
   "orders.edit.releasedPlan", "orders.edit.belowDispatched",
   // Phone sign in and invite, customers on the phone
-  "auth.login", "auth.totp", "auth.validation", "auth.errors", "auth.invite", "auth.noAccess", "auth.sessionExpired", "auth.signOut",
+  "auth.login", "auth.totp", "auth.validation", "auth.errors", "auth.invite", "auth.noAccess", "auth.choosePlant", "auth.sessionExpired", "auth.signOut",
   "customers.search", "customers.searchLabel", "customers.empty", "customers.noDispatches", "customers.period",
   "customers.form.notes", "customers.form.billingAddress", "customers.form.shippingAddress",
   "customers.detail.gstin", "customers.detail.lastToday", "customers.detail.lastYesterday", "customers.detail.lastDaysAgo",

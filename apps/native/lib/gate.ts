@@ -7,29 +7,59 @@ import { isUnauthorized } from "./session";
  * which group of screens a person may see. Pure so it is unit-tested; the
  * layout turns it into `Stack.Protected` guards.
  */
-export type GateRoute = "/(auth)/sign-in" | "/(tabs)/today" | "/no-access";
+export type GateRoute = "/(auth)/sign-in" | "/(tabs)/today" | "/no-access" | "/choose-plant";
 export type GateState = GateRoute | "loading" | "offline";
+
+/** A passkey, Google or the authenticator app (the web's `hasStrongMethod`, plan 2026-11-18). */
+export function hasStrongMethod(me: Me): boolean {
+  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
+}
+
+/** True when the person has more than one plant and owes a pick since the last sign-in (`lib/plant-choice.ts`). */
+export function needsPlantChoice(me: Me, pickPending: boolean): boolean {
+  return pickPending && Boolean(me.company) && !me.impersonation && (me.memberships?.length ?? 0) > 1;
+}
+
+/**
+ * Why the active plant cannot be used on the phone yet, if it cannot (owner amendment 2026-11-18,
+ * item 6; the phone has no welcome steps, so both go to the "finish on the web" screen):
+ * - `secure-on-web`: the plant requires secure sign-in and the person has no strong method (any role);
+ * - `finish-on-web`: the plant's setup is open for an owner or admin (company details). A floor role's
+ *   open setup is only the closing screen, so it never blocks the phone (ruling T28-1).
+ */
+export function plantBlock(me: Me): "secure-on-web" | "finish-on-web" | null {
+  const plant = me.company;
+  if (!plant || me.impersonation) return null;
+  if (plant.requireStrongSignIn === true && !hasStrongMethod(me)) return "secure-on-web";
+  if (plant.setupPending === true && (plant.role === "owner" || plant.role === "admin")) return "finish-on-web";
+  return null;
+}
 
 /**
  * Where a person belongs. Unlike web there is no welcome step: company setup
  * happens on the web, and a floor worker with only a phone must not be stuck
  * behind it (ruling T28-1). A temporary password still has to be replaced first.
+ * A person in several plants picks one after each sign-in (`pickPending`); a
+ * plant that requires secure sign-in, or whose setup an owner or admin still
+ * owes, sends them to the web (`plantBlock`).
  */
-export function routeForMe(me: Me | null | undefined): GateRoute {
+export function routeForMe(me: Me | null | undefined, pickPending = false): GateRoute {
   if (!me) return "/(auth)/sign-in";
   if (me.user.mustChangePassword) return "/no-access";
   if (!me.company) return "/no-access";
+  if (needsPlantChoice(me, pickPending)) return "/choose-plant";
+  if (plantBlock(me)) return "/no-access";
   return "/(tabs)/today";
 }
 
-export type NoAccessReason = "no-company" | "staff" | "set-password";
+export type NoAccessReason = "no-company" | "staff" | "set-password" | "secure-on-web" | "finish-on-web";
 
 /** Why `routeForMe` chose `/no-access`, so the screen can say what to do next. */
 export function noAccessReason(me: Me | null | undefined): NoAccessReason | null {
   if (!me) return null;
   if (me.user.mustChangePassword) return "set-password";
   if (!me.company) return me.isPlatformAdmin && me.platformRole ? "staff" : "no-company";
-  return null;
+  return plantBlock(me);
 }
 
 export type GateInput = {
@@ -47,6 +77,8 @@ export type GateInput = {
    * this is what tells "Try again" on the offline screen from a first load.
    */
   failedFetches?: number;
+  /** A plant pick is owed since the last sign-in (`lib/plant-choice.ts`). */
+  plantChoicePending?: boolean;
 };
 
 /**
@@ -60,13 +92,13 @@ export function offlineKind(error: unknown): "network" | "server" {
   return typeof status === "number" && status >= 500 ? "server" : "network";
 }
 
-export function resolveGate({ hasSession, me, error, isPending, failedFetches = 0 }: GateInput): GateState {
+export function resolveGate({ hasSession, me, error, isPending, failedFetches = 0, plantChoicePending = false }: GateInput): GateState {
   // Never signed in on this phone: sign-in works without asking the server first.
   if (!hasSession) return "/(auth)/sign-in";
   // The server says the session is gone; stale data must not keep the app open.
   if (isUnauthorized(error)) return "/(auth)/sign-in";
   // Cached data survives a network blip.
-  if (me) return routeForMe(me);
+  if (me) return routeForMe(me, plantChoicePending);
   // Retrying after a failure keeps the offline screen (its button spins).
   if (isPending) return failedFetches > 0 ? "offline" : "loading";
   return "offline";
@@ -83,8 +115,10 @@ export const ROOT_ROUTES = {
   app: ["(tabs)", "more", "b/[serial]"],
   /** Signed out. */
   auth: ["(auth)"],
-  /** Signed in, but no company or a temporary password. */
+  /** Signed in, but no company, a temporary password, or a plant to finish on the web. */
   noAccess: ["no-access"],
+  /** Signed in with several plants, right after a sign-in: pick one (plan 2026-11-18, Task 9). */
+  choosePlant: ["choose-plant"],
   /**
    * Anyone. `index` is "/" and the Stack's fallback: it redirects to the gate's
    * choice, so it must stay first and unguarded. Invite links open signed in or out.
