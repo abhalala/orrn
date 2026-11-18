@@ -131,7 +131,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 function useRecordVisits() {
   const { data: me } = useMe();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const userId = me?.user.id;
+  const userId = me?.impersonation ? undefined : me?.user.id;
   const companyId = me?.company?.id;
   useEffect(() => {
     if (!userId || !companyId) return;
@@ -377,7 +377,8 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const [recents, setRecents] = useState<RecentItem[]>([]);
   const listId = useId();
   const listRef = useRef<HTMLUListElement | null>(null);
-  const userId = me?.user.id;
+  // No recents while impersonating: a support session must not leave a plant's names in the staff browser.
+  const userId = me?.impersonation ? undefined : me?.user.id;
   const companyId = me?.company?.id;
 
   // Fresh palette every time it opens.
@@ -401,14 +402,26 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
   const sections = useMemo(() => visibleSections(me), [me]);
   const navByKey = useMemo(() => new Map(navItems.map((i) => [i.key, i])), [navItems]);
 
+  const commands = useMemo(
+    () => buildCommands({ me, locale, theme, scanAvailable, arrangeAvailable, hasRecents: recents.length > 0 }),
+    [me, locale, theme, scanAvailable, arrangeAvailable, recents.length],
+  );
+  // A section that opens the same route as a visible command (pack.new, dispatch.new, ...) is not listed twice:
+  // the command row takes over its words.
+  const commandRoutes = useMemo(() => new Set(commands.flatMap((c) => (c.to ? [c.to] : []))), [commands]);
+  const isCommandRoute = (s: PageSection) => !s.search && commandRoutes.has(s.to);
+
   const commandItems = useMemo<Item[]>(
     () =>
-      buildCommands({ me, locale, theme, scanAvailable, arrangeAvailable, hasRecents: recents.length > 0 }).map((command) => ({
+      commands.map((command) => ({
         id: `cmd-${command.id}`,
         group: "commands",
         label: t(command.labelKey, command.labelVars),
         labelEn: tEn(command.labelKey, command.labelVars),
-        aliases: command.aliases,
+        aliases: [
+          ...(command.aliases ?? []),
+          ...sections.filter((s) => !s.search && s.to === command.to).flatMap((s) => s.terms),
+        ],
         result: {
           id: `cmd-${command.id}`,
           group: "commands",
@@ -418,7 +431,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
           action: { kind: "run", command },
         },
       })),
-    [me, locale, theme, scanAvailable, arrangeAvailable, recents.length, t, tEn],
+    [commands, sections, t, tEn],
   );
 
   const pageItems = useMemo<Item[]>(
@@ -438,7 +451,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
     () =>
       sections.flatMap((section) => {
         const parent = navByKey.get(section.parentKey);
-        if (!parent) return [];
+        if (!parent || isCommandRoute(section)) return [];
         const result = sectionResult(section, parent, `section-${section.id}`, "sections", t);
         return [
           {
@@ -451,7 +464,9 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
           },
         ];
       }),
-    [sections, navByKey, t, tEn],
+    // `isCommandRoute` reads `commandRoutes`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sections, navByKey, commandRoutes, t, tEn],
   );
 
   const recentResults = useMemo<Result[]>(() => {
@@ -511,7 +526,7 @@ export function PaletteBody({ open, onOpenChange, me, theme, scanAvailable, arra
           add(r);
         }
       }
-      // Pages first in the input so equal scores favour the page over a command or section.
+      // Local groups follow their best match. Ties on score and label length go to search.ts's group order.
       for (const r of rankItems(trimmed, [...pageItems, ...sectionItems, ...commandItems])) {
         add({ ...r.result, matched: r.match.matched });
         if (!localOrder.includes(r.result.group)) localOrder.push(r.result.group);

@@ -69,11 +69,11 @@ const stubRemote: RemoteSearch = (query, enabled) => {
   return { rows: [], fetching: false };
 };
 
-type Calls = { go: [string, unknown][]; theme: string[]; locale: string[]; scan: number; signOut: number };
+type Calls = { go: [string, unknown][]; theme: string[]; locale: string[]; scan: number; arrange: number; signOut: number };
 
 async function renderPalette(props: Partial<PaletteBodyProps> = {}, locale: "en" | "hi" = "en") {
   const { PaletteBody } = await import("./command-palette");
-  const calls: Calls = { go: [], theme: [], locale: [], scan: 0, signOut: 0 };
+  const calls: Calls = { go: [], theme: [], locale: [], scan: 0, arrange: 0, signOut: 0 };
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root: Root = createRoot(host);
@@ -92,7 +92,7 @@ async function renderPalette(props: Partial<PaletteBodyProps> = {}, locale: "en"
       switchPlant: () => {},
       setLocale: (l) => void calls.locale.push(l),
       setTheme: (v) => void calls.theme.push(v),
-      openArrange: () => {},
+      openArrange: () => void calls.arrange++,
       signOut: () => void calls.signOut++,
     },
     ...props,
@@ -328,6 +328,69 @@ describe("command palette", () => {
       await type(view.input(), "stock");
       await key(view.input(), "Enter");
       expect(view.calls.go[0]?.[0]).toBe("/stock");
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a page section opens its route with its search params", async () => {
+    const view = await renderPalette();
+    try {
+      await type(view.input(), "spectro handled");
+      await key(view.input(), "Enter");
+      expect(view.calls.go[0]).toEqual(["/casts/inbox", { tab: "handled" }]);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a section stricter than its page: hidden from a viewer; for others the command row carries its words", async () => {
+    const viewer = await renderPalette({ me: testMe("viewer") });
+    try {
+      await type(viewer.input(), "ship date");
+      expect(document.querySelector("[data-result-id='section-dispatch.new']")).toBeNull();
+      expect(document.querySelector("[data-result-id='cmd-new-dispatch']")).toBeNull();
+    } finally {
+      await viewer.cleanup();
+    }
+    const owner = await renderPalette();
+    try {
+      await type(owner.input(), "ship date");
+      expect(document.querySelector("[data-result-id='section-dispatch.new']")).toBeNull();
+      const row = document.querySelector<HTMLElement>("[data-result-id='cmd-new-dispatch']");
+      expect(row?.textContent).toContain("matched: ship date");
+    } finally {
+      await owner.cleanup();
+    }
+  });
+
+  test("sheet commands run after the palette closes", async () => {
+    let closed = false;
+    const view = await renderPalette({ arrangeAvailable: true, onOpenChange: (o) => void (closed = !o) });
+    try {
+      await type(view.input(), ">arrange");
+      await key(view.input(), "Enter");
+      expect(closed).toBe(true);
+      expect(view.calls.arrange).toBe(0);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(view.calls.arrange).toBe(1);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("no recents are read or written while impersonating", async () => {
+    localStorage.setItem(recentStorageKey("user-1", "plant-1"), JSON.stringify([{ kind: "page", ref: "stock" }]));
+    const view = await renderPalette({ me: testMe("owner", { impersonating: true }) });
+    try {
+      expect(groups()).toEqual(["pages"]);
+      localStorage.clear();
+      await type(view.input(), "stock");
+      await key(view.input(), "Enter");
+      expect(view.calls.go[0]?.[0]).toBe("/stock");
+      expect(localStorage.length).toBe(0);
     } finally {
       await view.cleanup();
     }

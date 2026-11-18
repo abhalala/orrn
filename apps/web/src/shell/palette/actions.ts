@@ -68,6 +68,8 @@ export type PaletteCommand = {
   hint?: string;
   /** Words that find this command besides its label (English plant words). */
   aliases?: readonly string[];
+  /** The route a navigation command opens; the palette hides a page section that opens the same route. */
+  to?: string;
   /** Opens another dialog or sheet: run it after the palette has closed. */
   deferred?: boolean;
   run(fx: CommandEffects): void;
@@ -108,29 +110,29 @@ export function buildCommands(env: CommandEnv): PaletteCommand[] {
 
   // Create / start work. Each pairs the nav item's rule with the check the target screen makes.
   if (nav.has("dispatch") && can(me, "dispatch.create")) {
-    out.push({ id: "new-dispatch", labelKey: "dispatch.new.title", icon: Truck, aliases: ["challan", "truck", "create dispatch"], run: go("/dispatch/new") });
+    out.push({ id: "new-dispatch", labelKey: "dispatch.new.title", icon: Truck, aliases: ["challan", "truck", "create dispatch"], to: "/dispatch/new", run: go("/dispatch/new") });
   }
   if (nav.has("orders") && can(me, "order.manage")) {
-    out.push({ id: "new-order", labelKey: "orders.new", icon: ListChecks, aliases: ["po", "purchase order", "sales order", "order book"], run: go("/orders/new") });
+    out.push({ id: "new-order", labelKey: "orders.new", icon: ListChecks, aliases: ["po", "purchase order", "sales order", "order book"], to: "/orders/new", run: go("/orders/new") });
   }
   if (nav.has("pack") && can(me, "bundle.pack")) {
-    out.push({ id: "new-pack", labelKey: "pack.new.title", icon: PackagePlus, aliases: ["start packing", "new pack", "new bundle", "maal"], run: go("/pack/new") });
+    out.push({ id: "new-pack", labelKey: "pack.new.title", icon: PackagePlus, aliases: ["start packing", "new pack", "new bundle", "maal"], to: "/pack/new", run: go("/pack/new") });
   }
   if (nav.has("ingest") && can(me, "ingest.upload")) {
-    out.push({ id: "upload-import", labelKey: "nav.cmd.uploadImport", icon: UploadCloud, aliases: ["import", "upload", "excel", "sheet", "csv"], run: go("/ingest") });
+    out.push({ id: "upload-import", labelKey: "nav.cmd.uploadImport", icon: UploadCloud, aliases: ["import", "upload", "excel", "sheet", "csv"], to: "/ingest", run: go("/ingest") });
   }
   // Same rule as the shell's Scan button (app-shell.tsx `scanOn`).
   if (env.scanAvailable && moduleOn(me, "bundles")) {
     out.push({ id: "scan-bundle", labelKey: "nav.cmd.scanBundle", icon: ScanLine, aliases: ["scan", "qr", "serial", "camera", "label", "sticker"], deferred: true, run: (fx) => fx.openScan() });
   }
   if (nav.has("foundry") && can(me, "cast.enter")) {
-    out.push({ id: "new-cast", labelKey: "foundry.newCast.title", icon: Flame, aliases: ["new cast", "melt", "heat", "furnace"], run: go("/casts/new") });
+    out.push({ id: "new-cast", labelKey: "foundry.newCast.title", icon: Flame, aliases: ["new cast", "melt", "heat", "furnace"], to: "/casts/new", run: go("/casts/new") });
   }
   if (nav.has("ageing") && can(me, "ageing.load")) {
-    out.push({ id: "load-ageing", labelKey: "ageing.load.title", icon: Thermometer, aliases: ["load ageing", "ageing", "aging", "oven", "trolley"], run: go("/ageing/load") });
+    out.push({ id: "load-ageing", labelKey: "ageing.load.title", icon: Thermometer, aliases: ["load ageing", "ageing", "aging", "oven", "trolley"], to: "/ageing/load", run: go("/ageing/load") });
   }
   if (nav.has("printing")) {
-    out.push({ id: "print-queue", labelKey: "nav.cmd.printQueue", icon: Printer, aliases: ["print", "printer", "label", "sticker", "queue"], run: go("/printing") });
+    out.push({ id: "print-queue", labelKey: "nav.cmd.printQueue", icon: Printer, aliases: ["print", "printer", "label", "sticker", "queue"], to: "/printing", run: go("/printing") });
   }
 
   // Switch and settings.
