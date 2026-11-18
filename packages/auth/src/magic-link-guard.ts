@@ -16,8 +16,10 @@ import { hasWayIn, signInMethodsFor } from "./sign-in-methods";
  * let password-less owners mint links forever and let anyone send mail to any address. With
  * `disableSignUp: true` (index.ts) a link for an unknown email creates nothing.
  */
-export const MAGIC_LINK_REFUSED = "This account signs in with its password and authenticator code";
-export const MAGIC_LINK_REQUEST_REFUSED = "Sign-in links are sent by ORRN only. Sign in with your password and authenticator code";
+// Council round 1, A7: an account is refused when it has any way in (a password, a passkey or Google,
+// `hasWayIn`), so the words name all three, not only the password and code.
+export const MAGIC_LINK_REFUSED = "This account already has its own way to sign in (a password, a passkey or Google). Sign in with that";
+export const MAGIC_LINK_REQUEST_REFUSED = "Sign-in links are sent by ORRN only. Sign in with your password, a passkey or Google";
 
 /** `?error=` the guard sends a refused link back with (when the caller gave a trusted `errorCallbackURL`). */
 export const MAGIC_LINK_REFUSED_ERROR = "ACCOUNT_USES_PASSWORD";
