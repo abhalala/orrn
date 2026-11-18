@@ -4,8 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { invite, membership } from "@orrn/db/schema/tenant";
 import { customerPortalUser } from "@orrn/db/schema/portal";
 import type { Context } from "../context";
-import type { OrrnDb } from "./atomic";
-import { atomicBatch } from "./atomic";
+import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { auditInsert } from "./audit";
 import { hasLivePortalRow } from "./portal";
 import { nextCompanySeq } from "./sequence";
@@ -21,7 +20,7 @@ export type InviteActor = {
 /**
  * Accepts one invite for `userId`, the shared step of `invite.acceptByToken` and Google sign-up
  * (plan 2026-11-18). The caller has already checked the invite is live and is for this account's
- * email. A party (portal) invite turns its portal row active; a member invite makes the membership.
+ * email; the write checks it again (`claimedBatch`), so a revoke or resend that lands in between wins. A party (portal) invite turns its portal row active; a member invite makes the membership.
  * A party login is never also staff in the same plant, either way round (PF §9-12).
  */
 export async function acceptInvite(
@@ -40,18 +39,15 @@ export async function acceptInvite(
   }
 
   const membershipId = crypto.randomUUID();
+  const at = new Date();
 
-  await atomicBatch(db, [
+  await claimedBatch(db, target, userId, at, [
     db.insert(membership).values({
       id: membershipId,
       userId,
       companyId: target.companyId,
       role: target.role,
     }),
-    db
-      .update(invite)
-      .set({ acceptedAt: new Date() })
-      .where(eq(invite.id, target.id)),
     auditInsert(
       { db, session: actor.session, impersonation: actor.impersonation, companyId: target.companyId },
       {
@@ -64,6 +60,39 @@ export async function acceptInvite(
   ]);
 
   return { success: true };
+}
+
+/**
+ * Council round 1, A1: the claim is the batch's first write and is conditional on the invite as it
+ * is NOW (the token hash read, not accepted, not revoked, not expired), and the batch fails as a whole
+ * when the claim changed nothing. So a revoke, a resend (new token) or an expiry that lands after the
+ * caller's reads leaves no membership, no active portal row and no audit row. When the claim lost
+ * because the same account accepted it a moment earlier (a double tap, Google sign-up and the invite
+ * page), the answer is still success: `inviteHeldBy`.
+ */
+async function claimedBatch(db: OrrnDb, target: InviteRow, userId: string, at: Date, rest: readonly SqliteBatchItem[]): Promise<void> {
+  try {
+    await atomicBatch(db, [
+      db
+        .update(invite)
+        .set({ acceptedAt: at })
+        .where(
+          and(
+            eq(invite.id, target.id),
+            eq(invite.tokenHash, target.tokenHash),
+            isNull(invite.acceptedAt),
+            isNull(invite.revokedAt),
+            gt(invite.expiresAt, at),
+          ),
+        ),
+      abortBatchUnlessChanged(db),
+      ...rest,
+    ]);
+  } catch (error) {
+    if (!isBatchAbort(error)) throw error;
+    if (await inviteHeldBy(db, target, userId)) return;
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
+  }
 }
 
 /**
@@ -163,7 +192,7 @@ async function acceptPortalInvite(
   }
   const at = new Date();
   const seq = await nextCompanySeq({ db: ctx.db }, target.companyId);
-  await atomicBatch(ctx.db, [
+  await claimedBatch(ctx.db, target, userId, at, [
     ctx.db
       .update(customerPortalUser)
       .set({ status: "active", userId, acceptedAt: at, serverSeq: seq, updatedAt: at })
@@ -175,10 +204,8 @@ async function acceptPortalInvite(
           eq(customerPortalUser.inviteId, target.id),
         ),
       ),
-    ctx.db
-      .update(invite)
-      .set({ acceptedAt: at })
-      .where(and(eq(invite.id, target.id), isNull(invite.acceptedAt), isNull(invite.revokedAt))),
+    // The portal row may have been revoked or re-granted since it was read: then nothing lands.
+    abortBatchUnlessChanged(ctx.db),
     auditInsert(
       { ...ctx, companyId: target.companyId },
       {
