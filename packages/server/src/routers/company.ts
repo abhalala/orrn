@@ -23,12 +23,12 @@ import {
   type Shift,
   type ThresholdError,
 } from "@orrn/domain";
-import { atomicBatch, type OrrnDb } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { companyTimezone, DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow, zonedYmd } from "../lib/dayWindow";
 import { ageingSettingsInput } from "../lib/ageingContracts";
-import { companyStandards, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
+import { companyStandards, settingsPatchSql, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
 
@@ -390,19 +390,21 @@ export const companyRouter = router({
       if (input.shifts !== undefined) {
         patch.shifts = await checkedShifts(ctx.db, ctx.companyId, input.shifts, readFloorSettings(row.settings).shifts);
       }
-      const wasStrict = row.settings?.requireStrongSignIn === true;
       const strict = input.requireStrongSignIn;
       const securitySent = strict !== undefined;
-      // The value it already has changes nothing: no write of the key and no security row.
-      const security = strict !== undefined && strict !== wasStrict ? { from: wasStrict, to: strict } : null;
-      const settings = { ...(row.settings ?? {}), ...patch };
-      if (security) (settings as Record<string, unknown>).requireStrongSignIn = security.to;
       // The general row is written for every other call (an empty one included, as before); a call that
       // only sends the security policy writes the security row alone, or nothing when it is unchanged.
       const generalRow = Object.keys(patch).length > 0 || !securitySent;
+      // Council round 1, A3: only the keys this call names are written, against the row's value when the
+      // write runs (`settingsPatchSql`), so a save that started before the owner changed the policy never
+      // turns it back. The policy's own audit row is written only when the value it replaces differs, and
+      // it is written BEFORE the key in the same batch, so it names the value actually replaced.
+      const policyDiffers = securitySent ? sql`coalesce(json_extract(${company.settings}, '$.requireStrongSignIn'), 0) != ${strict ? 1 : 0}` : null;
 
-      await atomicBatch(ctx.db, [
-        ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),
+      const [after] = await atomicBatchLast<{ settings: Record<string, unknown> | null }>(ctx.db, [
+        ...(Object.keys(patch).length > 0
+          ? [ctx.db.update(company).set({ settings: settingsPatchSql(patch) }).where(eq(company.id, ctx.companyId))]
+          : []),
         ...(generalRow
           ? [
               auditInsert(ctx, {
@@ -413,19 +415,28 @@ export const companyRouter = router({
               }),
             ]
           : []),
-        ...(security
+        ...(securitySent && policyDiffers
           ? [
-              auditInsert(ctx, {
-                action: "company.security.update",
-                subjectType: "company",
-                subjectId: ctx.companyId,
-                meta: { requireStrongSignIn: security },
-              }),
+              auditInsertGuarded(
+                ctx,
+                {
+                  action: "company.security.update",
+                  subjectType: "company",
+                  subjectId: ctx.companyId,
+                  meta: { requireStrongSignIn: { from: !strict, to: strict } },
+                },
+                { from: company, where: and(eq(company.id, ctx.companyId), policyDiffers) },
+              ),
+              ctx.db
+                .update(company)
+                .set({ settings: settingsPatchSql({ requireStrongSignIn: strict }) })
+                .where(and(eq(company.id, ctx.companyId), policyDiffers)),
             ]
           : []),
+        ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)),
       ]);
 
-      return { settings };
+      return { settings: (after?.settings ?? {}) as Record<string, unknown> };
     }),
 
   /**

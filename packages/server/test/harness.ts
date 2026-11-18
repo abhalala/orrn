@@ -35,10 +35,14 @@ export const D1_MAX_PARAMS = 100;
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
 
-/** `sessionId` is the Better Auth session row id for the "current session" (optional). */
+/**
+ * `sessionId` is the Better Auth session row id for the "current session" (optional).
+ * `signInMethod` is how that session was made (`session.sign_in_method`, council round 1 A4); left out,
+ * the session is like one made before the column existed (not a strong sign-in).
+ */
 type CallerAs =
-  | { role: CompanyRole; companyId: string; sessionId?: string }
-  | { platformRole: PlatformStaffRole; sessionId?: string }
+  | { role: CompanyRole; companyId: string; sessionId?: string; signInMethod?: string }
+  | { platformRole: PlatformStaffRole; sessionId?: string; signInMethod?: string }
   | null;
 
 export type TestEnv = {
@@ -57,7 +61,7 @@ export type TestEnv = {
    */
   callerForUser(
     userId: string,
-    opts?: { company?: string; impersonate?: string; sessionId?: string },
+    opts?: { company?: string; impersonate?: string; sessionId?: string; signInMethod?: string },
   ): ReturnType<typeof appRouter.createCaller>;
   /** Insert a bare user (no membership); returns its id. */
   seedUser(name?: string): Promise<string>;
@@ -255,7 +259,7 @@ export async function createTestEnv(): Promise<TestEnv> {
           ...base,
           session: {
             user: { id: u.id, name: u.name, email: u.email },
-            session: { id: as.sessionId ?? "test-session" },
+            session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
           } as unknown as Context["session"],
           membership: null,
           companyId: null,
@@ -283,7 +287,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         ...base,
         session: {
           user: { id: row.userId, name: row.name, email: row.email },
-          session: { id: as.sessionId ?? "test-session" },
+          session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
         } as unknown as Context["session"],
         membership: {
           id: row.membershipId,
@@ -311,7 +315,7 @@ export async function createTestEnv(): Promise<TestEnv> {
     return id;
   }
 
-  function callerForUser(userId: string, opts: { company?: string; impersonate?: string; sessionId?: string } = {}) {
+  function callerForUser(userId: string, opts: { company?: string; impersonate?: string; sessionId?: string; signInMethod?: string } = {}) {
     return appRouter.createCaller(async (): Promise<Context> => {
       const [u] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
       if (!u) throw new Error(`No user ${userId}`);
@@ -326,7 +330,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         request: new Request("https://api.test"),
         session: {
           user: { id: u.id, name: u.name, email: u.email },
-          session: { id: opts.sessionId ?? "test-session" },
+          session: { id: opts.sessionId ?? "test-session", signInMethod: opts.signInMethod ?? null },
         } as unknown as Context["session"],
         ...tenant,
       };

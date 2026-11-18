@@ -13,7 +13,8 @@ import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { settingsPatchSql } from "../lib/companySettings";
 import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { authedProcedure, companyProcedure, publicProcedure, router } from "../index";
@@ -433,35 +434,31 @@ export const authRouter = router({
       }
 
       if (canWriteCompany && ctx.companyId) {
-        const currentCompany = await ctx.db
-          .select()
-          .from(company)
-          .where(eq(company.id, ctx.companyId))
-          .get();
-
-        if (currentCompany) {
-          const currentSettings = currentCompany.settings ?? {};
-          statements.push(
-            ctx.db
-              .update(company)
-              .set({
-                settings: {
-                  ...currentSettings,
-                  facilityLocation: input.facilityLocation,
-                  primaryContact: input.primaryContact,
-                  timezone: input.timezone,
-                  pressCount: input.pressCount,
-                },
-              })
-              .where(eq(company.id, ctx.companyId)),
-            auditInsert(ctx, {
+        // Council round 1, A3: only these four keys, against the row's value when the write runs, so a
+        // policy the owner changed meanwhile is never turned back by a stale copy.
+        statements.push(
+          ctx.db
+            .update(company)
+            .set({
+              settings: settingsPatchSql({
+                facilityLocation: input.facilityLocation,
+                primaryContact: input.primaryContact,
+                timezone: input.timezone,
+                pressCount: input.pressCount,
+              }),
+            })
+            .where(eq(company.id, ctx.companyId)),
+          auditInsertGuarded(
+            ctx,
+            {
               action: "settings.update",
               subjectType: "company",
               subjectId: ctx.companyId,
               meta: { via: "onboarding" },
-            }),
-          );
-        }
+            },
+            { from: company, where: eq(company.id, ctx.companyId) },
+          ),
+        );
       }
 
       await atomicBatch(ctx.db, statements);

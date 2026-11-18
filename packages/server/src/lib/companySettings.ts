@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 
 import { company } from "@orrn/db/schema/tenant";
 import {
@@ -15,6 +15,30 @@ import {
 } from "@orrn/domain";
 
 import type { OrrnDb } from "./atomic";
+
+// ---------------------------------------------------------------------------
+// Writing settings (council round 1, A3)
+// ---------------------------------------------------------------------------
+
+const SETTINGS_KEY = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/**
+ * The new `company.settings` value with only `patch`'s top-level keys replaced, computed in SQL from
+ * the value in the row when the statement runs (`json_set`), never from a copy read earlier. Every
+ * settings write uses it, so two saves of different keys both land and a save never turns back a key
+ * it did not name (the owner's "Require secure sign-in" above all). A key's own value is whatever the
+ * caller computed (a nested object is replaced whole).
+ */
+export function settingsPatchSql(patch: Record<string, unknown>): SQL {
+  const pairs = Object.entries(patch).filter(([, v]) => v !== undefined);
+  if (pairs.length === 0) return sql`coalesce(${company.settings}, '{}')`;
+  const args = pairs.map(([key, value]) => {
+    if (!SETTINGS_KEY.test(key)) throw new Error(`settings key ${key} is not a plain name`);
+    return sql`${sql.raw(`'$.${key}'`)}, json(${JSON.stringify(value)})`;
+  });
+  return sql`json_set(coalesce(${company.settings}, '{}'), ${sql.join(args, sql`, `)})`;
+}
+
 
 // ---------------------------------------------------------------------------
 // Shifts (FP-PF-05)
