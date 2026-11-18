@@ -1,6 +1,6 @@
 import type { createDb } from "@orrn/db";
 import { atomicBatch } from "@orrn/db/atomic";
-import { account, session, user } from "@orrn/db/schema/auth";
+import { account, passkey, session, twoFactor, user } from "@orrn/db/schema/auth";
 import { invite, platformAdmin } from "@orrn/db/schema/tenant";
 import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
@@ -167,9 +167,16 @@ async function acceptInvitesQuietly(db: Db, userId: string, email: string): Prom
 }
 
 /**
- * When Google is linked to an account whose email was never proven, Google has just proven it: the
- * old password goes (and with it any must-change flag), every other session ends, and the email is
- * marked verified, in one batch BEFORE the link is written, so a failure leaves nothing linked.
+ * When Google is linked to an account whose email was never proven, Google has just proven it, and
+ * whoever set the account up (an admin who also saw the invite link, say) may still hold a way in.
+ * So every sign-in method that person could have added goes: the password (and any must-change
+ * flag), every passkey, the authenticator app (its `two_factor` row and `twoFactorEnabled`), and
+ * every other session; and the email is marked verified. One D1 batch, all or nothing.
+ *
+ * It runs before Better Auth writes the link row. If the batch fails, nothing changes and nothing
+ * is linked. If the link write fails after the batch, the old methods are already gone and the
+ * account is verified but not linked; a retry recovers: the account is verified now, so Better Auth
+ * links it and this clean-up does not run again.
  */
 async function onGoogleLink(db: Db, userId: string, ctx: HookCtx): Promise<void> {
   const row = await db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, userId)).get();
@@ -180,8 +187,10 @@ async function onGoogleLink(db: Db, userId: string, ctx: HookCtx): Promise<void>
   const keep = current && current.userId === userId ? current.id : null;
   await atomicBatch(db, [
     db.delete(account).where(and(eq(account.userId, userId), eq(account.providerId, "credential"))),
+    db.delete(passkey).where(eq(passkey.userId, userId)),
+    db.delete(twoFactor).where(eq(twoFactor.userId, userId)),
     db.delete(session).where(keep ? and(eq(session.userId, userId), ne(session.id, keep)) : eq(session.userId, userId)),
-    db.update(user).set({ emailVerified: true, mustChangePassword: false }).where(eq(user.id, userId)),
+    db.update(user).set({ emailVerified: true, mustChangePassword: false, twoFactorEnabled: false }).where(eq(user.id, userId)),
   ]);
 }
 

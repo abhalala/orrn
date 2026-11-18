@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
-import { acceptInvite } from "../lib/acceptInvite";
+import { acceptInvite, inviteHeldBy } from "../lib/acceptInvite";
 import { hasLivePortalRow } from "../lib/portal";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
@@ -197,12 +197,15 @@ export const inviteRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Invalid invite token" });
       }
 
-      if (targetInvite.acceptedAt || targetInvite.revokedAt || targetInvite.expiresAt < new Date()) {
-         throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
-      }
+      const deadInvite = () => new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
+      if (targetInvite.revokedAt) throw deadInvite();
+      // An accepted invite is looked at further down: it may be this account's own (Google sign-up
+      // accepts invites as it makes the account, then the invite page asks again).
+      if (!targetInvite.acceptedAt && targetInvite.expiresAt < new Date()) throw deadInvite();
 
       // Check if the user is already authenticated
       if (!ctx.session) {
+         if (targetInvite.acceptedAt) throw deadInvite();
          throw new TRPCError({ code: "UNAUTHORIZED", message: "Must be logged in to accept invite" });
       }
 
@@ -210,7 +213,15 @@ export const inviteRouter = router({
       
       // Ensure the logged in user matches the invite email
       const currentUser = await ctx.db.query.user.findFirst({ where: eq(user.id, userId) });
-      if (currentUser?.email.toLowerCase() !== targetInvite.email.toLowerCase()) {
+      const emailMatches = currentUser?.email.toLowerCase() === targetInvite.email.toLowerCase();
+
+      if (targetInvite.acceptedAt) {
+        // Idempotent only for the account that already holds what the invite gives (plan 2026-11-18).
+        if (!emailMatches || !(await inviteHeldBy(ctx.db, targetInvite, userId))) throw deadInvite();
+        return targetInvite.kind === "portal" ? { success: true as const, portal: true as const } : { success: true as const };
+      }
+
+      if (!emailMatches) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Invite email does not match logged in user" });
       }
 

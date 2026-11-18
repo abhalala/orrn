@@ -67,6 +67,35 @@ export async function acceptInvite(
 }
 
 /**
+ * True when `userId` already holds what the invite gives: the membership in its company (member
+ * kind) or its portal row, active for this account (portal kind). Lets the invite page's
+ * `acceptByToken` answer success after Google sign-up has already accepted the invite.
+ */
+export async function inviteHeldBy(db: OrrnDb, target: InviteRow, userId: string): Promise<boolean> {
+  if (target.kind === "portal") {
+    const [row] = await db
+      .select({ id: customerPortalUser.id })
+      .from(customerPortalUser)
+      .where(
+        and(
+          eq(customerPortalUser.companyId, target.companyId),
+          eq(customerPortalUser.inviteId, target.id),
+          eq(customerPortalUser.userId, userId),
+          eq(customerPortalUser.status, "active"),
+        ),
+      )
+      .limit(1);
+    return Boolean(row);
+  }
+  const [member] = await db
+    .select({ id: membership.id })
+    .from(membership)
+    .where(and(eq(membership.userId, userId), eq(membership.companyId, target.companyId)))
+    .limit(1);
+  return Boolean(member);
+}
+
+/**
  * Google sign-up (plan 2026-11-18): accepts every live invite for the email, each through
  * `acceptInvite`, so the person lands in every plant that invited them. An invite `acceptInvite`
  * refuses (party/staff conflict, a portal row gone) is skipped and logged by invite id only.

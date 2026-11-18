@@ -9,9 +9,9 @@
  * No network: the real Google provider runs, and `fetch` answers Google's JWKS and token endpoints
  * from a key made here, so `verifyIdToken` checks a real RS256 signature.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 
-import { account, auditLog, membership, platformAdmin, session, user } from "@orrn/db/schema";
+import { account, auditLog, membership, passkey, platformAdmin, session, twoFactor, user } from "@orrn/db/schema";
 import { invite } from "@orrn/db/schema/tenant";
 import { and, eq } from "drizzle-orm";
 
@@ -116,16 +116,17 @@ async function sha256Hex(text: string) {
 async function makeInvite(email: string, over: Partial<typeof invite.$inferInsert> = {}) {
   const { companyId } = await env.seedCompany();
   const id = crypto.randomUUID();
+  const token = crypto.randomUUID();
   await env.db.insert(invite).values({
     id,
     companyId,
     email: email.toLowerCase(),
     role: "office",
-    tokenHash: await sha256Hex(crypto.randomUUID()),
+    tokenHash: await sha256Hex(token),
     expiresAt: new Date(Date.now() + 86_400_000),
     ...over,
   });
-  return { id, companyId };
+  return { id, companyId, token };
 }
 
 async function makeUser(opts: { emailVerified: boolean; twoFactor?: boolean }) {
@@ -221,7 +222,18 @@ describe("Google creates an account only from a live invite", () => {
     const good = await makeInvite(email);
     // A portal invite with no `invited` portal row is refused by acceptInvite ("no longer valid").
     const bad = await makeInvite(email, { kind: "portal" });
-    const res = await googleSignIn({ sub: crypto.randomUUID(), email });
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    let res: Response;
+    let warned: unknown[][];
+    try {
+      res = await googleSignIn({ sub: crypto.randomUUID(), email });
+      warned = [...warn.mock.calls];
+    } finally {
+      warn.mockRestore();
+    }
+    // Logged by invite id only, never the address.
+    expect(warned).toContainEqual([`Google sign-up: invite ${bad.id} not accepted (BAD_REQUEST)`]);
+    expect(warned.flat().join(" ")).not.toContain(email);
     expect(res.status).toBe(200);
     const made = await userByEmail(email);
     const members = await env.db.select().from(membership).where(eq(membership.userId, made!.id)).all();
@@ -284,13 +296,21 @@ describe("Google on an existing account", () => {
     expect((await passwordSignIn(existing.email)).status).toBe(200);
   });
 
-  test("google on an unverified account drops the password and other sessions", async () => {
+  test("google on an unverified account drops the password, passkeys, two-factor and other sessions", async () => {
     const existing = await makeUser({ emailVerified: false });
     await env.db.update(user).set({ mustChangePassword: true }).where(eq(user.id, existing.id));
+    // Whoever set the account up may have enrolled their own passkey and authenticator app too.
+    await env.db.insert(passkey).values({
+      id: crypto.randomUUID(), name: "admin laptop", publicKey: "pk", userId: existing.id, credentialID: crypto.randomUUID(),
+      counter: 0, deviceType: "singleDevice", backedUp: false, transports: "internal", createdAt: new Date(),
+    } as never);
+    await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId: existing.id } as never);
     const before = await passwordSignIn(existing.email);
     expect(before.status).toBe(200);
     const oldCookie = cookieHeader(before);
     expect(await sessionUser(oldCookie)).toBe(existing.id);
+    // Turned on after that session was made (with it on, the password sign-in would stop at the code).
+    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, existing.id));
 
     const res = await googleSignIn({ sub: crypto.randomUUID(), email: existing.email });
     expect(res.status).toBe(200);
@@ -305,6 +325,9 @@ describe("Google on an existing account", () => {
     expect(row?.emailVerified).toBe(true);
     // The temporary password is gone, so there is nothing left to change.
     expect(row?.mustChangePassword).toBe(false);
+    expect(row?.twoFactorEnabled).toBe(false);
+    expect(await env.db.select().from(passkey).where(eq(passkey.userId, existing.id)).all()).toEqual([]);
+    expect(await env.db.select().from(twoFactor).where(eq(twoFactor.userId, existing.id)).all()).toEqual([]);
     expect((await passwordSignIn(existing.email)).status).toBe(401);
     expect((await env.db.select().from(session).where(eq(session.userId, existing.id)).all()).length).toBe(1);
 
@@ -332,6 +355,49 @@ describe("Google on an existing account", () => {
     const res = await googleSignIn({ sub, email: staff.email });
     expect(res.status).toBe(403);
     expect(await codeOf(res)).toBe("GOOGLE_NOT_FOR_STAFF");
+  });
+});
+
+describe("the invite page after Google sign-up (acceptByToken is idempotent for the holder)", () => {
+  async function invitedViaGoogle() {
+    const email = unique("invitepage");
+    const inv = await makeInvite(email);
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email })).status).toBe(200);
+    const made = await userByEmail(email);
+    return { ...inv, email, userId: made!.id };
+  }
+  const codeOfCall = (p: Promise<unknown>) => p.then(() => "OK", (e: { code?: string }) => e.code);
+
+  test("an invite Google already accepted for this account answers success", async () => {
+    const { token, userId, companyId } = await invitedViaGoogle();
+    await expect(env.callerForUser(userId).invite.acceptByToken({ token })).resolves.toEqual({ success: true });
+    const members = await env.db.select().from(membership).where(eq(membership.userId, userId)).all();
+    expect(members.map((m) => m.companyId)).toEqual([companyId]);
+  });
+
+  test("an accepted invite the account does not hold is refused", async () => {
+    const { token, userId, companyId } = await invitedViaGoogle();
+    await env.db.delete(membership).where(and(eq(membership.userId, userId), eq(membership.companyId, companyId)));
+    expect(await codeOfCall(env.callerForUser(userId).invite.acceptByToken({ token }))).toBe("BAD_REQUEST");
+  });
+
+  test("an accepted invite is refused to another account and to nobody", async () => {
+    const { token } = await invitedViaGoogle();
+    const other = await makeUser({ emailVerified: true });
+    expect(await codeOfCall(env.callerForUser(other.id).invite.acceptByToken({ token }))).toBe("BAD_REQUEST");
+    expect(await codeOfCall(env.caller(null).invite.acceptByToken({ token }))).toBe("BAD_REQUEST");
+  });
+
+  test("a revoked invite is refused even to an account that holds the membership", async () => {
+    const { token, id, userId } = await invitedViaGoogle();
+    await env.db.update(invite).set({ revokedAt: new Date() }).where(eq(invite.id, id));
+    expect(await codeOfCall(env.callerForUser(userId).invite.acceptByToken({ token }))).toBe("BAD_REQUEST");
+  });
+
+  test("an expired invite never accepted is still refused", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    const { token } = await makeInvite(existing.email, { expiresAt: new Date(Date.now() - 60_000) });
+    expect(await codeOfCall(env.callerForUser(existing.id).invite.acceptByToken({ token }))).toBe("BAD_REQUEST");
   });
 });
 
