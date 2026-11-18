@@ -190,7 +190,7 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
   // Press
   { id: "press.alerts", parentKey: "press", labelKey: "press.alerts.title", to: "/press/alerts", terms: ["alerts", "reading", "limit", "प्रेस अलर्ट", "પ્રેસ એલર્ટ"] },
   { id: "press.lines", parentKey: "press", labelKey: "press.linesPage.title", to: "/press/lines", terms: ["press line", "tonnes", "lines"] },
-  { id: "press.report", parentKey: "press", labelKey: "press.report.title", to: "/press/report", terms: ["shift", "press report", "प्रेस रिपोर्ट", "પ્રેસ રિપોર્ટ"] },
+  { id: "press.report", parentKey: "press", labelKey: "press.report.title", to: "/press/report", terms: ["shift", "press report", "प्रेस रिपोर्ट", "પ્રેસ રિપોર્ટ"], requires: ["reports.read"] },
   { id: "press.summary", parentKey: "press", labelKey: "press.summary.title", to: "/press/summary", terms: ["daily", "recovery", "downtime", "pressed today"] },
 
   // Foundry
@@ -211,7 +211,7 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
     search: { tab: "handled" },
     terms: ["spectro handled"],
   },
-  { id: "foundry.new", parentKey: "foundry", labelKey: "foundry.newCast.title", to: "/casts/new", terms: ["new cast", "alloy", "furnace", "कास्ट"] },
+  { id: "foundry.new", parentKey: "foundry", labelKey: "foundry.newCast.title", to: "/casts/new", terms: ["new cast", "alloy", "furnace", "कास्ट"], requires: ["cast.enter"] },
   { id: "foundry.stock", parentKey: "foundry", labelKey: "foundry.stock.title", to: "/foundry/stock", terms: ["billet", "billet stock", "log", "return streams", "बिलेट स्टॉक"] },
 
   // Ageing
@@ -244,7 +244,7 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
     module: "foundry",
   },
   { id: "reports.orders", parentKey: "reports", labelKey: "reports.list.orders", to: "/reports/orders", terms: ["order book", "late orders", "by party", "ऑर्डर बुक", "ઓર્ડર બુક"] },
-  { id: "reports.ageing", parentKey: "reports", labelKey: "ageing.report.title", to: "/reports/ageing", terms: ["hardness", "oven", "एजिंग रिपोर्ट", "એજિંગ રિપોર્ટ"] },
+  { id: "reports.ageing", parentKey: "reports", labelKey: "ageing.report.title", to: "/reports/ageing", terms: ["hardness", "oven", "एजिंग रिपोर्ट", "એજિંગ રિપોર્ટ"], module: "ageing" },
 
   // Purchase
   {
@@ -262,9 +262,9 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
 
   // Store
   { id: "store.items", parentKey: "store", labelKey: "store.items", to: "/store/items", terms: ["items", "spares", "category", "unit"] },
-  { id: "store.issue", parentKey: "store", labelKey: "store.issue.title", to: "/store/issue", terms: ["issue", "माल दें"] },
-  { id: "store.receive", parentKey: "store", labelKey: "store.receive.title", to: "/store/receive", terms: ["receive", "challan", "माल लें", "चालान"] },
-  { id: "store.exchange", parentKey: "store", labelKey: "store.exchange.title", to: "/store/exchange", terms: ["exchange", "old for new"] },
+  { id: "store.issue", parentKey: "store", labelKey: "store.issue.title", to: "/store/issue", terms: ["issue", "माल दें"], requires: ["store.txn"] },
+  { id: "store.receive", parentKey: "store", labelKey: "store.receive.title", to: "/store/receive", terms: ["receive", "challan", "माल लें", "चालान"], requires: ["store.txn"] },
+  { id: "store.exchange", parentKey: "store", labelKey: "store.exchange.title", to: "/store/exchange", terms: ["exchange", "old for new"], requires: ["store.txn"] },
 
   // Printing (tabs in ?tab=; the queue is the default tab)
   { id: "printing.queue", parentKey: "printing", labelKey: "printing.tabs.queue", to: "/printing", terms: ["print queue", "jobs", "reprint"] },
