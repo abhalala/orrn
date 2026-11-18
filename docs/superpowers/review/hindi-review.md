@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8153 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 8153 screen strings in 50 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (71)
+### nav (89)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -243,6 +243,24 @@ Counts: 8153 screen strings in 50 groups, 45 guides with 866 strings.
 | `paletteResults` | {count} {count:result\|results} | {count} {count:नतीजा\|नतीजे} |
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
+| `cmd.groupRecent` | Recent | हाल में खोले |
+| `cmd.groupCommands` | Commands | कमांड |
+| `cmd.groupSections` | In pages | पेज के अंदर |
+| `cmd.uploadImport` | Upload an import file | इम्पोर्ट फ़ाइल अपलोड करें |
+| `cmd.scanBundle` | Scan a bundle | Bundle स्कैन करें |
+| `cmd.printQueue` | Print queue | प्रिंट की कतार |
+| `cmd.switchPlant` | Switch plant: {name} | प्लांट बदलें: {name} |
+| `cmd.language` | Language: {name} | भाषा: {name} |
+| `cmd.themeLight` | Light theme | लाइट थीम |
+| `cmd.themeDark` | Dark theme | डार्क थीम |
+| `cmd.themeSystem` | Theme: match device | थीम: डिवाइस के हिसाब से |
+| `cmd.clearRecent` | Clear recent | हाल की सूची साफ़ करें |
+| `cmd.matched` | matched: {word} | मिला: {word} |
+| `cmd.commandHint` | Type a command | कमांड लिखें |
+| `cmd.commandLabel` | Commands only | सिर्फ़ कमांड |
+| `cmd.announceSearch` | Search. {count} {count:result\|results} | खोज। {count} {count:नतीजा\|नतीजे} |
+| `cmd.announceCommands` | Commands only. {count} {count:command\|commands} | सिर्फ़ कमांड। {count} {count:कमांड\|कमांड} |
+| `cmd.announceCommandCount` | {count} {count:command\|commands} | {count} {count:कमांड\|कमांड} |
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
 | `audit` | Audit log | ऑडिट लॉग |

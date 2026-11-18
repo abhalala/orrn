@@ -12,7 +12,7 @@ import { ImpersonationBanner } from "@/shared/components/impersonation-banner";
 import { useMe } from "@/shared/lib/me";
 import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { CommandPaletteProvider } from "./command-palette";
+import { CommandPaletteProvider, usePaletteArrange } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
 import { canArrangeMenu, orderedNavItems } from "./nav-order";
@@ -100,6 +100,8 @@ function ShellFrame({ variant, children }: AppShellProps) {
         setArrangeOpen(true);
       }
     : undefined;
+  // The palette's "Arrange menu" command opens this same editor.
+  usePaletteArrange(openArrange);
   type AuthMe = Awaited<ReturnType<typeof trpcClient.auth.me.query>>;
   const navSaved = (navOrder: NonNullable<AuthMe["company"]>["navOrder"]) => {
     queryClient.setQueryData(trpc.auth.me.queryKey(), (current: AuthMe | undefined) =>
