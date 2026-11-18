@@ -7,6 +7,7 @@ import { authThrottle, user } from "@orrn/db/schema/auth";
 import { createAuth } from "@orrn/auth";
 import { clientIp, throttleHit } from "@orrn/auth/reset-throttle";
 import { signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { mayHandOutRole } from "@orrn/domain";
 import { env } from "@orrn/env/server";
 import { acceptInvite, inviteHeldBy } from "../lib/acceptInvite";
 import { hasLivePortalRow } from "../lib/portal";
@@ -33,17 +34,17 @@ const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), (b) => b.t
 const hashInviteToken = async (token: string) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
 
 /**
- * Counts one public call on each `auth_throttle` key (fixed window, the reset throttle's upsert) and
- * throws 429 when any is over. Every key is counted, so one busy key does not hide another's count.
+ * Counts one public call in `auth_throttle` (fixed window, the reset throttle's upsert) and throws 429
+ * when a key is over. Old windows are swept first, on every call, refused ones too (indexed on
+ * window_start). The IP key is counted first: once the IP is over, the call stops there, so a flood of
+ * made-up links from one IP adds no row per link. Then each other key (the link's own) is counted.
  */
-async function limitInviteCall(db: OrrnDb, keys: string[], limit: { max: number; windowMs: number }, nowMs: number) {
-  const allowed = await Promise.all(keys.map((key) => throttleHit(db as never, key, nowMs, limit)));
-  if (allowed.some((ok) => !ok)) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: BUSY });
-}
-
-/** Old windows are of no use; keep the table small (indexed on window_start). */
-async function sweepInviteThrottle(db: OrrnDb, nowMs: number) {
+async function limitInviteCall(db: OrrnDb, keys: { ip: string[]; other?: string[] }, limit: { max: number; windowMs: number }, nowMs: number) {
   await db.delete(authThrottle).where(and(like(authThrottle.key, "invite:%"), lt(authThrottle.windowStart, nowMs - 2 * INVITE_SET_PASSWORD_LIMIT.windowMs)));
+  for (const group of [keys.ip, keys.other ?? []]) {
+    const allowed = await Promise.all(group.map((key) => throttleHit(db as never, key, nowMs, limit)));
+    if (allowed.some((ok) => !ok)) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: BUSY });
+  }
 }
 
 /** The client IP's throttle key for `what`, or none when the platform reports no IP (local dev, tests). */
@@ -60,6 +61,23 @@ async function inviteAccountState(db: OrrnDb, email: string): Promise<"none" | "
   const found = await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email.toLowerCase()}`).get();
   if (!found) return "none";
   return (await signInMethodsFor(db as never, found.id)).password ? "password" : "noPassword";
+}
+
+/**
+ * `invite.create` and `invite.resend` refuse an email that is already staff here, or a party login here
+ * (PF §9-12: never both). Same messages from both.
+ */
+async function refuseIfAlreadyHere(db: OrrnDb, companyId: string, email: string) {
+  const existingUser = await db.query.user.findFirst({ where: sql`lower(${user.email}) = ${email.toLowerCase()}` });
+  if (existingUser) {
+    const existingMembership = await db.query.membership.findFirst({
+      where: and(eq(membership.userId, existingUser.id), eq(membership.companyId, companyId)),
+    });
+    if (existingMembership) throw new TRPCError({ code: "BAD_REQUEST", message: "User is already a member" });
+  }
+  if (await hasLivePortalRow(db, companyId, { email })) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This email is a party login here. Use another email for staff." });
+  }
 }
 
 export type InviteStatus =
@@ -125,7 +143,7 @@ export const inviteRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Emails are compared case-insensitively everywhere; store them lower-cased (audit S7).
       const email = input.email.toLowerCase();
-      if (input.role === "owner" && ctx.role !== "owner") {
+      if (!mayHandOutRole(ctx.role, input.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only an owner can invite another owner",
@@ -151,31 +169,13 @@ export const inviteRouter = router({
       const again = await inviteReplay();
       if (again) return again;
 
-      const existingUser = await ctx.db.query.user.findFirst({
-        where: sql`lower(${user.email}) = ${email}`,
-      });
-      
-      if (existingUser) {
-        // Check if already a member
-        const existingMembership = await ctx.db.query.membership.findFirst({
-          where: and(
-             eq(membership.userId, existingUser.id),
-             eq(membership.companyId, ctx.companyId)
-          )
-        });
-        if (existingMembership) {
-           throw new TRPCError({ code: "BAD_REQUEST", message: "User is already a member" });
-        }
-      }
-      // PF §9-12: an email that is a party login in this plant is never also staff here.
-      if (await hasLivePortalRow(ctx.db, ctx.companyId, { email })) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This email is a party login here. Use another email for staff." });
-      }
+      // Already a member here, or a party login here (PF §9-12: never also staff).
+      await refuseIfAlreadyHere(ctx.db, ctx.companyId, email);
 
       const inviteId = keyed?.id ?? crypto.randomUUID();
       const token = keyed ? await replayToken(ctx.companyId, "invite.create", keyed.key, "uuid") : crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+      const tokenHash = await hashInviteToken(token);
 
       try {
       await atomicBatch(ctx.db, [
@@ -264,9 +264,11 @@ export const inviteRouter = router({
       // Party invites are made again with portal.users.grant (it also resets the portal row).
       if (!target || target.kind !== "member") throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found" });
       if (target.acceptedAt || target.revokedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is no longer pending" });
-      if (target.role === "owner" && ctx.role !== "owner") {
+      if (!mayHandOutRole(ctx.role, target.role)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an owner can invite another owner" });
       }
+      // As create: not for someone already in this plant, as staff or as a party login.
+      await refuseIfAlreadyHere(ctx.db, ctx.companyId, target.email);
 
       const token = crypto.randomUUID();
       const tokenHash = await hashInviteToken(token);
@@ -297,13 +299,15 @@ export const inviteRouter = router({
    * on. It never says the email, the company, the role or which other ways in the account has. An
    * invite already accepted by the signed-in account (Google sign-up accepts invites as it makes the
    * account) stays live for that account, so the page offers Join and the idempotent accept answers.
-   * Public, so it is limited per client IP like the other public reads.
+   * Public, so it is limited per client IP like the other public reads. A mutation although it writes
+   * nothing but the throttle row: a mutation is a POST, so the token rides in the body and never in a
+   * GET URL that the request log or Workers Logs could keep (Task 8 fix round 1).
    */
   status: publicProcedure
     .input(z.object({ token: z.string().min(1).max(200) }))
-    .query(async ({ ctx, input }): Promise<InviteStatus> => {
+    .mutation(async ({ ctx, input }): Promise<InviteStatus> => {
       const nowMs = Date.now();
-      await limitInviteCall(ctx.db, ipKey("status", ctx.request), INVITE_STATUS_LIMIT, nowMs);
+      await limitInviteCall(ctx.db, { ip: ipKey("status", ctx.request) }, INVITE_STATUS_LIMIT, nowMs);
       const dead: InviteStatus = { live: false };
       const target = await ctx.db.query.invite.findFirst({ where: eq(invite.tokenHash, await hashInviteToken(input.token)) });
       if (!target || target.revokedAt) return dead;
@@ -316,7 +320,6 @@ export const inviteRouter = router({
         return dead;
       }
       const account = await inviteAccountState(ctx.db, target.email);
-      await sweepInviteThrottle(ctx.db, nowMs);
       return { live: true, kind: target.kind, account, google: googleOn() };
     }),
 
@@ -328,27 +331,31 @@ export const inviteRouter = router({
    * it says nothing about the invite's email. Limited per client IP and per link before anything is
    * compared; the reset request's own per-address limit and any send failure are swallowed for the same
    * reason. Finishing the reset proves the mailbox (`onPasswordReset` sets `emailVerified`), so a later
-   * Google link keeps the new password.
+   * Google link keeps the new password. The reset request (its writes and the email) runs after the
+   * answer through the Worker's `waitUntil`, so a match answers as fast as a mismatch.
    */
   sendSetPasswordLink: publicProcedure
     .input(z.object({ token: z.string().min(1).max(200), email: z.string().trim().min(1).max(320) }))
     .mutation(async ({ ctx, input }) => {
       const nowMs = Date.now();
       const tokenHash = await hashInviteToken(input.token);
-      await limitInviteCall(ctx.db, [...ipKey("setpw", ctx.request), `invite:setpw:t:${tokenHash.slice(0, 32)}`], INVITE_SET_PASSWORD_LIMIT, nowMs);
+      await limitInviteCall(ctx.db, { ip: ipKey("setpw", ctx.request), other: [`invite:setpw:t:${tokenHash.slice(0, 32)}`] }, INVITE_SET_PASSWORD_LIMIT, nowMs);
       const target = await ctx.db.query.invite.findFirst({ where: eq(invite.tokenHash, tokenHash) });
       const live = target && !target.revokedAt && !target.acceptedAt && target.expiresAt.getTime() >= nowMs;
       if (live && target.email.toLowerCase() === input.email.toLowerCase()) {
         const redirectTo = `${webBaseUrl()}/reset-password?next=${encodeURIComponent(`/invite/${input.token}`)}`;
-        try {
-          await createAuth().api.requestPasswordReset({
-            body: { email: target.email, redirectTo },
-            headers: ctx.request?.headers ?? new Headers(),
-          });
-        } catch (error) {
-          // The reset request's own limit or a failure: the answer stays the same. No address, no link.
-          console.warn("Invite set-password link not sent:", error instanceof Error ? error.name : "unknown");
-        }
+        const headers = ctx.request?.headers ?? new Headers();
+        const send = (async () => {
+          try {
+            await createAuth().api.requestPasswordReset({ body: { email: target.email, redirectTo }, headers });
+          } catch (error) {
+            // The reset request's own limit or a failure: the answer stays the same. No address, no link.
+            console.warn("Invite set-password link not sent:", error instanceof Error ? error.name : "unknown");
+          }
+        })();
+        // After the answer where the Worker allows it (prod, wrangler dev); awaited where it does not (tests).
+        if (ctx.waitUntil) ctx.waitUntil(send);
+        else await send;
       }
       return { success: true as const };
     }),
@@ -356,8 +363,8 @@ export const inviteRouter = router({
   acceptByToken: publicProcedure
     .input(z.object({ token: z.string(), name: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input.token)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-      
+      const tokenHash = await hashInviteToken(input.token);
+
       const targetInvite = await ctx.db.query.invite.findFirst({
         where: eq(invite.tokenHash, tokenHash)
       });

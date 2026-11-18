@@ -22,7 +22,7 @@ import type { Me } from "@/shared/lib/me";
 import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { isUnauthorized } from "@/shared/lib/session-errors";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
 type InviteSearch = { kind?: "portal" };
 
@@ -44,6 +44,9 @@ const HOME_LABEL: Record<HomePath, MessageKey> = {
   "/no-access": "welcome.done.goOther",
   "/choose-plant": "welcome.done.goOther",
 };
+
+/** The invite page's status read, by link. */
+const inviteStatusKey = (token: string) => ["invite", "status", token] as const;
 
 /**
  * Accept an invite (plan 2026-11-18, Task 8: every invite state has a way in). `invite.status` says
@@ -68,7 +71,10 @@ function InvitePage() {
   const meFailed = me.isError && me.data === undefined && !signedOut;
   // Read once; a failure (offline, the per-IP limit) shows Try again, never a guess.
   const status = useQuery({
-    ...trpc.invite.status.queryOptions({ token }),
+    // `invite.status` is a mutation (a POST): the token stays out of URLs and request logs. Read here
+    // as a query, so it loads with the page and can be invalidated.
+    queryKey: inviteStatusKey(token),
+    queryFn: () => trpcClient.invite.status.mutate({ token }),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
@@ -130,7 +136,7 @@ function InvitePage() {
   const useAnotherAccount = () =>
     signOut(() => {
       setLearned(null);
-      void queryClient.invalidateQueries(trpc.invite.status.queryFilter({ token }));
+      void queryClient.invalidateQueries({ queryKey: inviteStatusKey(token) });
     });
 
   const signedInEmail = me.data?.user.email;

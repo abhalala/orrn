@@ -86,6 +86,8 @@ test.describe("invite onboarding", () => {
     await page.getByTestId("set-password-email").fill(uniqueEmail("someone-else"));
     await page.getByTestId("set-password-submit").click();
     await expect(page.getByTestId("set-password-sent")).toBeVisible();
+    // The reset request runs after the answer (waitUntil): give a wrongly sent one time to land first.
+    await page.waitForTimeout(1_500);
     const none = await page.context().request.post(`${API}/dev/reset-token`, { data: { email } });
     expect(((await none.json()) as { token: string | null }).token).toBeNull();
 
@@ -94,9 +96,11 @@ test.describe("invite onboarding", () => {
     await page.getByTestId("set-password-email").fill(email.toUpperCase());
     await page.getByTestId("set-password-submit").click();
     await expect(page.getByTestId("set-password-sent")).toContainText("If that's the email this invite was sent to");
-    const res = await ok(await page.context().request.post(`${API}/dev/reset-token`, { data: { email } }), "/dev/reset-token");
-    const { token } = (await res.json()) as { token: string | null };
-    expect(token).toBeTruthy();
+    // Sent after the answer (waitUntil), so wait for it.
+    const readToken = async () =>
+      ((await (await ok(await page.context().request.post(`${API}/dev/reset-token`, { data: { email } }), "/dev/reset-token")).json()) as { token: string | null }).token;
+    await expect.poll(readToken, { timeout: 10_000 }).toBeTruthy();
+    const token = await readToken();
 
     // The emailed link: Better Auth checks the token and sends the person to the reset page, keeping next.
     const callback = `${ORIGIN}/reset-password?next=${encodeURIComponent(invite.path)}`;

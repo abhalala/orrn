@@ -1,3 +1,4 @@
+import { mayHandOutRole } from "@orrn/domain";
 import { COMPANY_ROLES, useT, type CompanyRole } from "@orrn/i18n";
 import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
@@ -92,7 +93,8 @@ export function TeamTab() {
       headerHidden: true,
       cell: (i) => (
         <div className="flex flex-wrap gap-2">
-          <ResendInvite invite={i} onResent={setInviteLink} />
+          {/* The server's own rule: only an owner resends an owner's invite. */}
+          {mayHandOutRole(me?.company?.role, i.role) ? <ResendInvite invite={i} onResent={setInviteLink} /> : null}
           <RevokeInvite invite={i} />
         </div>
       ),

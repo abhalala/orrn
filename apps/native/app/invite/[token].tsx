@@ -43,11 +43,15 @@ export default function InviteScreen() {
   const { t } = useT();
   const { token } = useLocalSearchParams<{ token: string }>();
   const hasSession = useSyncExternalStore(sessionPresence.subscribe, sessionPresence.get);
+  // `invite.status` is a mutation (a POST), so the token stays out of URLs and request logs; read here
+  // as a query. Read again when the app comes back to the front (focusManager follows AppState,
+  // app/_layout.tsx): after setting a password in the browser, the screen offers sign-in.
+  const statusCall = trpc.invite.status.mutationOptions();
   const status = useQuery({
-    ...trpc.invite.status.queryOptions({ token: token ?? "" }),
+    queryKey: ["invite", "status", token ?? ""],
+    queryFn: () => statusCall.mutationFn!({ token: token ?? "" }, undefined as never),
     enabled: Boolean(token),
     retry: false,
-    staleTime: Number.POSITIVE_INFINITY,
   });
   // An accept or a sign-up that found the link dead since it was read.
   const [expired, setExpired] = useState(false);
@@ -468,6 +472,8 @@ function SignInInvite({ token, onExpired, defaultEmail = "" }: { token: string; 
  */
 function NoPasswordInvite({ token, onExpired }: { token: string; onExpired(): void }) {
   const { t } = useT();
+  // After the link went: the person sets the password in the browser, then signs in here.
+  const [signIn, setSignIn] = useState(false);
   const buttons = useAltSignInButtons();
   const { run, failure, finish } = useAcceptAfterSignIn(token, onExpired);
   const send = useMutation(trpc.invite.sendSetPasswordLink.mutationOptions());
@@ -503,6 +509,8 @@ function NoPasswordInvite({ token, onExpired }: { token: string; onExpired(): vo
 
   const anyButton = buttons.passkey || buttons.google;
 
+  if (signIn) return <SignInInvite token={token} onExpired={onExpired} defaultEmail={email.trim()} />;
+
   return (
     <View className="gap-6">
       <Info text={`${t("auth.invite.noPasswordTitle")} ${t("auth.invite.noPasswordBody")}`} />
@@ -510,9 +518,13 @@ function NoPasswordInvite({ token, onExpired }: { token: string; onExpired(): vo
       {anyButton ? <AltSignIn divider={false} finish={() => run()} error={altError} onError={setAltError} /> : null}
       {anyButton ? <OrLine /> : null}
       {sent ? (
-        <Text accessibilityLiveRegion="polite" className="font-sans text-base leading-6 text-ink">
-          {t("auth.invite.setPasswordSent")}
-        </Text>
+        <View className="gap-4">
+          <Text accessibilityLiveRegion="polite" className="font-sans text-base leading-6 text-ink">
+            {t("auth.invite.setPasswordSent")}
+          </Text>
+          <Text className="font-sans text-base leading-6 text-ink-muted">{t("native.invite.afterSetPassword")}</Text>
+          <Button size="lg" label={t("native.invite.signInNow")} onPress={() => setSignIn(true)} />
+        </View>
       ) : (
         <View className="gap-4">
           <View className="gap-1">

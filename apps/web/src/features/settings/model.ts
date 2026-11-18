@@ -17,6 +17,7 @@ import {
   type StandardPair,
   type Standards,
 } from "@orrn/domain";
+import { mayHandOutRole } from "@orrn/domain";
 import type { CompanyRole } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 
@@ -62,9 +63,9 @@ export function timezoneOptions(current: string, supported?: readonly string[]):
   return [...new Set([DEFAULT_TIMEZONE, current, ...list])].sort((a, b) => a.localeCompare(b));
 }
 
-/** Roles one person may hand out when inviting: only an owner can invite an owner. */
+/** Roles one person may hand out when inviting: only an owner can invite an owner (the server's rule). */
 export function invitableRoles(myRole: CompanyRole | string | undefined, all: readonly CompanyRole[]): CompanyRole[] {
-  return all.filter((role) => role !== "owner" || myRole === "owner");
+  return all.filter((role) => mayHandOutRole(myRole, role));
 }
 
 export function isExpired(expiresAt: Date | string | number, now = Date.now()): boolean {

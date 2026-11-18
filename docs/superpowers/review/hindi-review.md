@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8280 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8282 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3836,7 +3836,7 @@ Counts: 8280 screen strings in 50 groups, 45 guides with 866 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (267)
+### native (269)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3988,6 +3988,8 @@ Counts: 8280 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.failed` | orrn didn't answer. Check the connection and try again. | orrn से जवाब नहीं आया। कनेक्शन देखें और फिर कोशिश करें। |
 | `invite.twoFactor` | This account asks for a code at sign in. Sign in first, then open the invite link again. | इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.afterSetPassword` | Open the link in the email and set a password. Then come back here and sign in with it. | ईमेल में आया लिंक खोलें और पासवर्ड बनाएं। फिर यहाँ वापस आकर उससे साइन इन करें। |
+| `invite.signInNow` | Sign in with my new password | नए पासवर्ड से साइन इन करें |
 | `invite.signedInTitle` | Join as {email} | {email} से जुड़ें |
 | `invite.signedInBody` | You are signed in. Accept the invite to join this team with this account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
 | `invite.accept` | Join the team | टीम से जुड़ें |

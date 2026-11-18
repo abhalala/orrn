@@ -20,4 +20,5 @@ export * from "./planView";
 export * from "./dispatchVehicle";
 export * from "./dispatchLate";
 export * from "./ageing";
+export * from "./invites";
 export * from "./units/index";

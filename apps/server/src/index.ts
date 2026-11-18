@@ -6,7 +6,7 @@ import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { requestLogger } from "@orrn/server/lib/requestLog";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
@@ -28,7 +28,8 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Fail closed: production never serves with a missing or all-zero ORRN_MASTER_KEY (lib/masterKeyGate.ts).
 app.use(masterKeyGate(() => env));
-app.use(logger());
+// Path only, never the query string: tRPC inputs, callbackURLs and magic-link tokens stay out of Workers Logs.
+app.use(requestLogger());
 
 // Production only: upgrade plain-HTTP requests to HTTPS and send HSTS.
 // Local dev runs on http://localhost and must keep working.

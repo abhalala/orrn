@@ -11,7 +11,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
 
-import { account, auditLog, company, invite, passkey, user, verification } from "@orrn/db/schema";
+import { account, auditLog, authThrottle, company, customerPortalUser, invite, passkey, user, verification } from "@orrn/db/schema";
 import { and, eq, like } from "drizzle-orm";
 
 import { workersEnv } from "./env-mock";
@@ -57,8 +57,9 @@ async function sha256(text: string) {
 }
 
 /** A caller with no session, from `ip` (what Cloudflare reports in cf-connecting-ip). */
-function visitor(ip: string | null = `198.51.100.${Math.floor(Math.random() * 250) + 1}`) {
+function visitor(ip: string | null = `198.51.100.${Math.floor(Math.random() * 250) + 1}`, waitUntil?: (job: Promise<unknown>) => void) {
   return appRouter.createCaller(async () => ({
+    ...(waitUntil ? { waitUntil } : {}),
     auth: null,
     db: env.db,
     request: new Request("https://api.test", { headers: ip ? { "cf-connecting-ip": ip } : {} }),
@@ -211,6 +212,11 @@ describe("invite.status", () => {
     expect(await visitor("192.0.2.200").invite.status({ token })).toMatchObject({ live: true });
   });
 
+  test("is a mutation, so the token travels in a POST body and never in a URL the request log could keep", () => {
+    const procedures = appRouter._def.procedures as unknown as Record<string, { _def: { type: string } }>;
+    expect(procedures["invite.status"]?._def.type).toBe("mutation");
+  });
+
   test("never accepts: a status read writes no membership and leaves the invite pending", async () => {
     const email = `look.${uid()}@test.orrn`;
     const userId = await makeAccount(email, { password: true });
@@ -296,6 +302,42 @@ describe("invite.sendSetPasswordLink", () => {
     expect((await env.db.select({ v: user.emailVerified }).from(user).where(eq(user.id, userId)).get())?.v).toBe(true);
     // The invite is still there to join with the new password.
     expect(await visitor().invite.status({ token })).toMatchObject({ live: true, account: "password" });
+  });
+
+  test("the reset request runs after the answer (waitUntil), so a match answers as fast as a mismatch", async () => {
+    const email = `fast.${uid()}@test.orrn`;
+    await makeAccount(email);
+    const { token } = await makeInvite(email);
+    const { createAuth } = await import("@orrn/auth");
+    // A reset request that never finishes: an answer that waited for it would never come.
+    const hang = spyOn(createAuth().api, "requestPasswordReset").mockImplementation((() => new Promise(() => {})) as never);
+    const jobs: Promise<unknown>[] = [];
+    try {
+      const answer = await Promise.race([
+        visitor(undefined, (job) => void jobs.push(job)).invite.sendSetPasswordLink({ token, email }),
+        new Promise((resolve) => setTimeout(() => resolve("waited"), 2_000)),
+      ]);
+      expect(answer).toEqual({ success: true });
+      expect(hang).toHaveBeenCalledTimes(1);
+      expect(jobs).toHaveLength(1);
+      // A wrong email schedules nothing and answers the same.
+      expect(await visitor(undefined, (job) => void jobs.push(job)).invite.sendSetPasswordLink({ token, email: `no.${uid()}@test.orrn` })).toEqual({ success: true });
+      expect(jobs).toHaveLength(1);
+    } finally {
+      hang.mockRestore();
+    }
+  });
+
+  test("once the IP is over its limit, a new link is not counted (no row for it), and old rows are swept on the refused call too", async () => {
+    const ip = `203.0.113.${Math.floor(Math.random() * 250) + 1}`;
+    const stale = `invite:setpw:t:stale-${uid()}`;
+    await env.db.insert(authThrottle).values({ key: stale, windowStart: Date.now() - 31 * 60 * 1000, hits: 1 });
+    for (let i = 0; i < 5; i += 1) await visitor(ip).invite.sendSetPasswordLink({ token: crypto.randomUUID(), email: `x${i}@test.orrn` });
+    const refused = crypto.randomUUID();
+    await expect(visitor(ip).invite.sendSetPasswordLink({ token: refused, email: "y@test.orrn" })).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+    const key = `invite:setpw:t:${(await sha256(refused)).slice(0, 32)}`;
+    expect(await env.db.select().from(authThrottle).where(eq(authThrottle.key, key)).get()).toBeUndefined();
+    expect(await env.db.select().from(authThrottle).where(eq(authThrottle.key, stale)).get()).toBeUndefined();
   });
 
   test("throttled per IP before the email is compared: the 429 is the same for the right and a wrong email", async () => {
@@ -395,6 +437,28 @@ describe("invite.resend", () => {
       expect(printed).not.toContain("/invite/");
     } finally {
       warn.mockRestore();
+    }
+  });
+
+  test("refused, as create is, when the email is already a member here or a party login here", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const memberEmail = `joined.${uid()}@test.orrn`;
+    const memberId = await makeAccount(memberEmail, { password: true });
+    await env.addMembership(memberId, companyId, "viewer");
+    const asMember = await makeInvite(memberEmail.toUpperCase(), { companyId });
+    await expect(owner.invite.resend({ inviteId: asMember.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "User is already a member" });
+
+    const partyEmail = `party.${uid()}@test.orrn`;
+    await env.db.insert(customerPortalUser).values({ id: crypto.randomUUID(), companyId, customerId: await env.seedCustomer(companyId), email: partyEmail, status: "active" } as never);
+    const asParty = await makeInvite(partyEmail, { companyId });
+    await expect(owner.invite.resend({ inviteId: asParty.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This email is a party login here. Use another email for staff.",
+    });
+    for (const inv of [asMember, asParty]) {
+      const row = await env.db.select({ h: invite.tokenHash }).from(invite).where(eq(invite.id, inv.id)).get();
+      expect(row?.h).toBe(await sha256(inv.token));
     }
   });
 

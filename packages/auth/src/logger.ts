@@ -2,8 +2,19 @@ const EMAIL_PATTERN = /[^\s@<>"',;()]+(?:@|%40)[^\s@<>"',;()]+\.[^\s@<>"',;()]{2
 const MAX_DEPTH = 5;
 const MAX_STRING_LENGTH = 20_000;
 
+/**
+ * Invite links (`/invite/<token>`, also percent-encoded inside a `callbackURL`) and the reset link's
+ * token (`/reset-password/<token>`). Better Auth logs a refused callback or redirect URL whole, and the
+ * invite page's set-password link carries `next=/invite/<token>` (global rule: never log invite tokens
+ * or links; plan 2026-11-18, Task 8 fix round 1).
+ */
+const LINK_TOKEN_PATTERN = /((?:\/|%2F)(?:invite|reset-password)(?:\/|%2F))[^\s/?#&"'%<>]+/gi;
+
 function redactText(value: string): string {
-  return value.slice(0, MAX_STRING_LENGTH).replace(EMAIL_PATTERN, "[redacted email]");
+  return value
+    .slice(0, MAX_STRING_LENGTH)
+    .replace(EMAIL_PATTERN, "[redacted email]")
+    .replace(LINK_TOKEN_PATTERN, "$1[redacted]");
 }
 
 function redact(value: unknown, seen: WeakSet<object>, depth: number): unknown {
