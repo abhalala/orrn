@@ -24,19 +24,15 @@ import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 
 import { LanguageToggle } from "./language-toggle";
 import type { NavItem } from "./nav-items";
+import { toThemeChoice, type ThemeChoice } from "./palette/actions";
 
 export type ShellVariant = "tenant" | "godseye";
 
-type ThemeChoice = "system" | "light" | "dark";
 const THEMES: readonly { value: ThemeChoice; labelKey: MessageKey }[] = [
   { value: "system", labelKey: "common.themeSystem" },
   { value: "light", labelKey: "common.themeLight" },
   { value: "dark", labelKey: "common.themeDark" },
 ];
-
-function toThemeChoice(value: string | undefined): ThemeChoice {
-  return value === "light" || value === "dark" ? value : "system";
-}
 
 /** Up to two initials from a display name ("Local Owner" → "LO"). */
 export function initials(name: string | undefined): string {
@@ -76,7 +72,8 @@ export function Avatar({ name, className }: { name: string | undefined; classNam
   );
 }
 
-function useSignOut() {
+/** Sign out, then land on the start page (account menu, More sheet, command palette). */
+export function useSignOut() {
   const navigate = useNavigate();
   const signOut = useSignOutAndReset();
   return () => signOut(() => void navigate({ to: "/" }));
