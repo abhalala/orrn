@@ -10,12 +10,14 @@
  * - A member of an active plant that requires secure sign-in may not remove or turn off the last
  *   strong method (authenticator app, passkey, Google): `COMPANY_REQUIRES_STRONG_METHOD` (owner
  *   amendment 2026-11-18, Task 9; it replaced the owner-only rule). More in auth-plant-policy.test.ts.
+ * - In such a plant a password or sign-in-link session may not remove a strong method at all while the
+ *   person has one: `STRONG_SIGN_IN_NEEDED`, as for adding one (council round 3, M1).
  * - Adding or removing a passkey writes a user-level audit row (no plant).
  * - The daily cron removes expired `verification` rows (passkey challenges pile up otherwise).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { account, auditLog, passkey, session, user, verification } from "@orrn/db/schema";
+import { account, auditLog, passkey, session, twoFactor, user, verification } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -96,6 +98,14 @@ async function makeStrictMember(userId: string, role: "owner" | "packer" = "pack
   const { companyId } = await env.seedCompany({ settings: { requireStrongSignIn: true } });
   await env.addMembership(userId, companyId, role);
   return companyId;
+}
+
+/**
+ * The person's sessions count as made with a passkey (as after a passkey sign-in). Council r3 M1: in a
+ * strict plant a password session may not remove a strong method, so the plant-rule tests use this.
+ */
+async function makeStrong(userId: string) {
+  await env.db.update(session).set({ signInMethod: "passkey" }).where(eq(session.userId, userId));
 }
 
 /** An owner of a plant without the policy: two-factor is their own choice. */
@@ -280,6 +290,7 @@ describe("removing a sign-in method", () => {
     const u = await makeUser();
     await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
+    await makeStrong(u.id);
     const passkeyId = await addPasskey(u.id);
     const refused = await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie });
     expect(refused.status).toBe(403);
@@ -306,6 +317,7 @@ describe("removing a sign-in method", () => {
     const u = await makeUser();
     await makeStrictMember(u.id, "owner");
     const cookie = await signIn(u.email);
+    await makeStrong(u.id);
     await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, u.id));
     const res = await call("two-factor/disable", { body: { password: PASSWORD }, cookie });
     expect(res.status).toBe(403);
@@ -317,6 +329,7 @@ describe("removing a sign-in method", () => {
     const u = await makeUser();
     await makeStrictMember(u.id);
     const cookie = await signIn(u.email);
+    await makeStrong(u.id);
     await addGoogle(u.id);
     const refused = await call("unlink-account", { body: { providerId: "google" }, cookie });
     expect(refused.status).toBe(403);
@@ -362,6 +375,112 @@ describe("removing a sign-in method", () => {
     await addPasskey(u.id);
     const res = await call("unlink-account", { body: { providerId: "credential" }, cookie });
     expect(res.status).toBe(200);
+  });
+});
+
+/**
+ * Council round 3, M1: in a plant that requires secure sign-in, a session made with a password alone (or
+ * a sign-in link) may not REMOVE a strong method either, when the person has one: the enrolment guard's
+ * rule (`assertEnrolmentAllowed`) applied to passkey delete, Google unlink and authenticator off. Each case
+ * leaves another strong method on the account, so only the session decides. A strong session, or a plant
+ * without the policy, behaves as before; a password unlink is not a strong method and stays allowed.
+ */
+describe("removing a strong method from a weak session (council round 3, M1)", () => {
+  async function weakStrictMember() {
+    const u = await makeUser();
+    await makeStrictMember(u.id);
+    const cookie = await signIn(u.email);
+    expect((await env.db.select().from(session).where(eq(session.userId, u.id)).all()).map((s) => s.signInMethod)).toEqual(["password"]);
+    return { ...u, cookie };
+  }
+  const googleRows = (userId: string) =>
+    env.db.select().from(account).where(and(eq(account.userId, userId), eq(account.providerId, "google"))).all();
+  const twoFactorOf = async (userId: string) => ({
+    enabled: (await env.db.select().from(user).where(eq(user.id, userId)).get())?.twoFactorEnabled ?? false,
+    rows: (await env.db.select().from(twoFactor).where(eq(twoFactor.userId, userId)).all()).length,
+  });
+  async function turnOnAuthenticator(userId: string) {
+    await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId } as never);
+    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, userId));
+  }
+
+  test("a password session cannot delete a passkey while Google stays: STRONG_SIGN_IN_NEEDED, nothing removed", async () => {
+    const m = await weakStrictMember();
+    const passkeyId = await addPasskey(m.id);
+    await addGoogle(m.id);
+    const res = await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+    expect((await passkeysOf(m.id)).map((p) => p.id)).toEqual([passkeyId]);
+    const audit = await env.db.select().from(auditLog).where(and(eq(auditLog.actorId, m.id), eq(auditLog.action, "auth.passkey.remove"))).all();
+    expect(audit).toHaveLength(0);
+  });
+
+  test("a password session cannot unlink Google while a passkey stays", async () => {
+    const m = await weakStrictMember();
+    await addPasskey(m.id);
+    await addGoogle(m.id);
+    const res = await call("unlink-account", { body: { providerId: "google" }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+    expect(await googleRows(m.id)).toHaveLength(1);
+  });
+
+  test("a password session cannot turn the authenticator off while a passkey stays", async () => {
+    const m = await weakStrictMember();
+    await addPasskey(m.id);
+    await turnOnAuthenticator(m.id);
+    const res = await call("two-factor/disable", { body: { password: PASSWORD }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+    expect(await twoFactorOf(m.id)).toEqual({ enabled: true, rows: 1 });
+  });
+
+  test("a sign-in link session is weak too", async () => {
+    const m = await weakStrictMember();
+    await env.db.update(session).set({ signInMethod: "magicLink" }).where(eq(session.userId, m.id));
+    const passkeyId = await addPasskey(m.id);
+    await addGoogle(m.id);
+    const res = await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie: m.cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("STRONG_SIGN_IN_NEEDED");
+  });
+
+  test("a strong session in the same plant removes all three as before", async () => {
+    const m = await weakStrictMember();
+    await makeStrong(m.id);
+    const passkeyId = await addPasskey(m.id, "Laptop");
+    await addPasskey(m.id, "Phone");
+    await addGoogle(m.id);
+    await turnOnAuthenticator(m.id);
+    expect((await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie: m.cookie })).status).toBe(200);
+    expect((await passkeysOf(m.id)).map((p) => p.name)).toEqual(["Phone"]);
+    expect((await call("unlink-account", { body: { providerId: "google" }, cookie: m.cookie })).status).toBe(200);
+    expect(await googleRows(m.id)).toHaveLength(0);
+    expect((await call("two-factor/disable", { body: { password: PASSWORD }, cookie: m.cookie })).status).toBe(200);
+    expect(await twoFactorOf(m.id)).toEqual({ enabled: false, rows: 0 });
+  });
+
+  test("a password session in a plant without the policy removes all three as before", async () => {
+    const u = await makeUser();
+    await makeOwner(u.id);
+    const cookie = await signIn(u.email);
+    const passkeyId = await addPasskey(u.id, "Laptop");
+    await addPasskey(u.id, "Phone");
+    await addGoogle(u.id);
+    await turnOnAuthenticator(u.id);
+    expect((await call("passkey/delete-passkey", { body: { id: passkeyId }, cookie })).status).toBe(200);
+    expect((await call("unlink-account", { body: { providerId: "google" }, cookie })).status).toBe(200);
+    expect(await googleRows(u.id)).toHaveLength(0);
+    expect((await call("two-factor/disable", { body: { password: PASSWORD }, cookie })).status).toBe(200);
+    expect(await twoFactorOf(u.id)).toEqual({ enabled: false, rows: 0 });
+  });
+
+  test("a password session may still unlink the password itself (not a strong method)", async () => {
+    const m = await weakStrictMember();
+    await addPasskey(m.id);
+    await addGoogle(m.id);
+    expect((await call("unlink-account", { body: { providerId: "credential" }, cookie: m.cookie })).status).toBe(200);
   });
 });
 

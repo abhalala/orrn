@@ -324,6 +324,19 @@ describe("add a passkey (Settings)", () => {
     }
   });
 
+  test("a weak session in a strict plant reads in the plant's words (STRONG_SIGN_IN_NEEDED)", async () => {
+    for (const path of ["/passkey/generate-register-options", "/passkey/verify-registration"] as const) {
+      const refused = { error: { status: 403, code: "STRONG_SIGN_IN_NEEDED", message: "raw" } };
+      const { fetch } = fakeFetch(
+        path === "/passkey/generate-register-options"
+          ? { [path]: refused }
+          : { "/passkey/generate-register-options": { data: REGISTER_OPTIONS }, [path]: refused },
+      );
+      const failure = await failureOf(createNativePasskey({ module: fakeModule().module, fetch }).add("iPhone"));
+      expect({ path, key: failure.messageKey }).toEqual({ path, key: "auth.login.strongSignInNeededPlant" });
+    }
+  });
+
   test("a refused verify is a failed add, never the server's words", async () => {
     const { fetch } = fakeFetch({
       "/passkey/generate-register-options": { data: REGISTER_OPTIONS },

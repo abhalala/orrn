@@ -25,9 +25,15 @@ import { hasStrongMethod, plantRequiresStrongSignIn, signInMethodsFor } from "./
  * - `/link-social` (Google); the redirect flow's callback is checked again where the link is written
  *   (`google-guard.ts`, `assertEnrolmentAllowed`).
  * Tested in packages/server/test/strong-sign-in-enforcement.test.ts.
+ *
+ * Council round 3 (Claude M1): the same rule holds for REMOVING a strong method (passkey delete, Google
+ * unlink, authenticator off), so a phished password cannot strip the person's methods either. The
+ * removals call this from `signInRemovalBody` (sign-in-removal.ts) with `removing: true`, which only
+ * changes the server sentence. Tested in packages/server/test/auth-sign-in-methods.test.ts.
  */
 export const STRONG_SIGN_IN_NEEDED = "STRONG_SIGN_IN_NEEDED";
 const MESSAGE = "A plant you belong to needs a passkey, Google or your authenticator code. Sign in with one of them, then add this.";
+const REMOVE_MESSAGE = "A plant you belong to needs a passkey, Google or your authenticator code. Sign in with one of them, then remove this.";
 
 const ENROLMENT_PATHS = new Set([
   "/two-factor/enable",
@@ -42,12 +48,15 @@ const ENROLMENT_PATHS = new Set([
 type Db = ReturnType<typeof createDb>;
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 
-/** Refuses an enrolment from a weak session by a person who has a strong method, in a strict plant. */
-export async function assertEnrolmentAllowed(db: Db, input: { userId: string; signInMethod: unknown }): Promise<void> {
+/**
+ * Refuses an enrolment (or, with `removing`, the removal of a strong method) from a weak session by a
+ * person who has a strong method, in a strict plant.
+ */
+export async function assertEnrolmentAllowed(db: Db, input: { userId: string; signInMethod: unknown; removing?: boolean }): Promise<void> {
   if (isStrongSession(input.signInMethod)) return;
   if (!(await plantRequiresStrongSignIn(db, input.userId))) return;
   if (!hasStrongMethod(await signInMethodsFor(db, input.userId))) return;
-  throw new APIError("FORBIDDEN", { code: STRONG_SIGN_IN_NEEDED, message: MESSAGE });
+  throw new APIError("FORBIDDEN", { code: STRONG_SIGN_IN_NEEDED, message: input.removing ? REMOVE_MESSAGE : MESSAGE });
 }
 
 /** Better Auth `hooks.before`. No session: the endpoint answers (401, or the code after a password). */

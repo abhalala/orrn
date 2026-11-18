@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import { Miniflare } from "miniflare";
 
-import { account, auditLog, company, membership, passkey, user } from "@orrn/db/schema";
+import { account, auditLog, company, membership, passkey, session, user } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -311,6 +311,8 @@ describe("strong methods and the plant policy", () => {
     const strict = await makeUser();
     await env.addMembership(strict.id, await strictPlant(), "packer");
     const cookie = await signIn(strict.email);
+    // Council r3 M1: a password session may not remove a strong method in a strict plant; this tests the plant rule.
+    await env.db.update(session).set({ signInMethod: "passkey" }).where(eq(session.userId, strict.id));
     const key = await addPasskey(strict.id);
     const refused = await call("passkey/delete-passkey", { body: { id: key }, cookie });
     expect(refused.status).toBe(403);
@@ -327,6 +329,8 @@ describe("strong methods and the plant policy", () => {
     const u = await makeUser();
     await env.addMembership(u.id, await strictPlant(), "office");
     const cookie = await signIn(u.email);
+    // Council r3 M1: a password session may not remove a strong method in a strict plant; this tests the plant rule.
+    await env.db.update(session).set({ signInMethod: "passkey" }).where(eq(session.userId, u.id));
     await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, u.id));
     const res = await call("two-factor/disable", { body: { password: PASSWORD }, cookie });
     expect(res.status).toBe(403);

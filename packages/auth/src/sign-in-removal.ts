@@ -5,6 +5,8 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { expireCookie, setSessionCookie } from "better-auth/cookies";
 import { and, eq, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
 
+import { assertEnrolmentAllowed } from "./enrolment-guard";
+import { sessionOfRequest } from "./session-method";
 import {
   COMPANY_REQUIRES_STRONG_METHOD,
   LAST_SIGN_IN_METHOD,
@@ -39,6 +41,11 @@ import {
  *
  * The hook falls through to the endpoint only when the endpoint cannot remove anything: no session
  * (401), or a passkey that is not this person's (the endpoint's own not-found / unauthorized answer).
+ *
+ * Council round 3 (Claude M1): before removing a STRONG method (any passkey, Google, the authenticator),
+ * the session itself must be strong when the person has a strong method and a plant of theirs is strict:
+ * the enrolment guard's rule (`assertEnrolmentAllowed`, `STRONG_SIGN_IN_NEEDED`). A password unlink is
+ * not strong and is not checked. Tested in packages/server/test/auth-sign-in-methods.test.ts.
  */
 type Db = ReturnType<typeof createDb>;
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
@@ -115,7 +122,18 @@ function answer(ctx: Ctx, body: Record<string, unknown>): Response | Record<stri
 
 type Removal = Response | Record<string, unknown> | undefined;
 
-async function deletePasskey(db: Db, ctx: Ctx, userId: string): Promise<Removal> {
+/** How the request's session was made: the live row first (an upgrade writes it), else what Better Auth read. */
+type Caller = { userId: string; signInMethod: unknown };
+
+/** Council r3 M1: a weak session in a strict plant may not remove a strong method (see the top). */
+async function assertStrongRemovalAllowed(db: Db, ctx: Ctx, caller: Caller): Promise<void> {
+  const own = await sessionOfRequest(db, ctx);
+  const signInMethod = own && own.userId === caller.userId ? own.signInMethod : caller.signInMethod;
+  await assertEnrolmentAllowed(db, { userId: caller.userId, signInMethod, removing: true });
+}
+
+async function deletePasskey(db: Db, ctx: Ctx, caller: Caller): Promise<Removal> {
+  const userId = caller.userId;
   const id = (ctx.body as { id?: unknown } | undefined)?.id;
   if (typeof id !== "string") return undefined;
   const target = { wayIn: true, strong: true };
@@ -123,6 +141,7 @@ async function deletePasskey(db: Db, ctx: Ctx, userId: string): Promise<Removal>
     const row = await db.select({ userId: passkey.userId }).from(passkey).where(eq(passkey.id, id)).get();
     // Gone, or someone else's: the endpoint answers (not found / unauthorized) and can delete nothing of theirs.
     if (!row || row.userId !== userId) return undefined;
+    await assertStrongRemovalAllowed(db, ctx, caller);
     const deleted = await db
       .delete(passkey)
       .where(and(eq(passkey.id, id), eq(passkey.userId, userId), keepsRules(userId, target, { passkeyId: id })))
@@ -146,7 +165,8 @@ function assertFresh(ctx: Ctx, createdAt: Date | string | number): void {
   }
 }
 
-async function unlinkAccount(db: Db, ctx: Ctx, userId: string, createdAt: Date): Promise<Removal> {
+async function unlinkAccount(db: Db, ctx: Ctx, caller: Caller, createdAt: Date): Promise<Removal> {
+  const userId = caller.userId;
   const body = (ctx.body ?? {}) as { providerId?: unknown; accountId?: unknown };
   const providerId = body.providerId;
   if (providerId !== "credential" && providerId !== "google") return undefined;
@@ -161,6 +181,7 @@ async function unlinkAccount(db: Db, ctx: Ctx, userId: string, createdAt: Date):
     const row = rows.find((r) => (typeof body.accountId === "string" ? r.accountId === body.accountId : true));
     if (!row) throw new APIError("BAD_REQUEST", { code: "ACCOUNT_NOT_FOUND", message: "Account not found" });
     const target = { wayIn: providerId === "google" || Boolean(row.password), strong: providerId === "google" };
+    if (target.strong) await assertStrongRemovalAllowed(db, ctx, caller);
     const deleted = await db
       .delete(account)
       .where(and(eq(account.id, row.id), eq(account.userId, userId), keepsRules(userId, target, { accountId: row.id })))
@@ -177,7 +198,11 @@ async function unlinkAccount(db: Db, ctx: Ctx, userId: string, createdAt: Date):
 const TRUST_DEVICE_COOKIE_NAME = "trust_device";
 const TRUST_DEVICE_MAX_AGE = 30 * 24 * 60 * 60;
 
-async function disableTwoFactor(db: Db, ctx: Ctx, current: { session: Record<string, unknown> & { token: string }; user: { id: string } }): Promise<Removal> {
+async function disableTwoFactor(
+  db: Db,
+  ctx: Ctx,
+  current: { session: Record<string, unknown> & { token: string; signInMethod?: unknown }; user: { id: string } },
+): Promise<Removal> {
   const userId = current.user.id;
   // As the plugin: the password is required (`allowPasswordless` is off) and checked against the credential.
   const password = (ctx.body as { password?: unknown } | undefined)?.password;
@@ -185,6 +210,7 @@ async function disableTwoFactor(db: Db, ctx: Ctx, current: { session: Record<str
   if (typeof password !== "string" || !password) throw invalid();
   const credential = (await ctx.context.internalAdapter.findAccounts(userId))?.find((a) => a.providerId === "credential");
   if (!credential?.password || !(await ctx.context.password.verify({ hash: credential.password, password }))) throw invalid();
+  await assertStrongRemovalAllowed(db, ctx, { userId, signInMethod: current.session.signInMethod });
 
   const target = { wayIn: false, strong: true };
   const off = sql`coalesce(${user.twoFactorEnabled}, 0) = 0`;
@@ -227,7 +253,8 @@ export async function signInRemovalBody(db: Db, ctx: Ctx): Promise<Removal> {
   const current = await getSessionFromCtx(ctx).catch(() => null);
   // No session: the endpoint's own session check answers 401.
   if (!current?.user?.id || !current.session) return undefined;
-  if (ctx.path === PASSKEY_DELETE_PATH) return deletePasskey(db, ctx, current.user.id);
-  if (ctx.path === UNLINK_ACCOUNT_PATH) return unlinkAccount(db, ctx, current.user.id, current.session.createdAt);
+  const caller: Caller = { userId: current.user.id, signInMethod: (current.session as { signInMethod?: unknown }).signInMethod };
+  if (ctx.path === PASSKEY_DELETE_PATH) return deletePasskey(db, ctx, caller);
+  if (ctx.path === UNLINK_ACCOUNT_PATH) return unlinkAccount(db, ctx, caller, current.session.createdAt);
   return disableTwoFactor(db, ctx, current as never);
 }

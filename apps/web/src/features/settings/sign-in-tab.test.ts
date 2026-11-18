@@ -78,6 +78,11 @@ describe("signInChangeErrorKey: server refusals as words, never the server's tex
     expect(signInChangeErrorKey({ code: "COMPANY_REQUIRES_STRONG_METHOD", status: 403, message: "raw" })).toBe("settings.signIn.reasonPlant");
   });
 
+  test("a weak session in a strict plant (adding or, since council r3 M1, removing a strong method)", () => {
+    // Passkey delete, Google unlink and authenticator off all answer STRONG_SIGN_IN_NEEDED; the plant words, not the server's.
+    expect(signInChangeErrorKey({ code: "STRONG_SIGN_IN_NEEDED", status: 403, message: "raw" })).toBe("auth.login.strongSignInNeededPlant");
+  });
+
   test("a session older than a day asks them to sign in again", () => {
     expect(signInChangeErrorKey({ code: "SESSION_NOT_FRESH", status: 403 })).toBe("auth.errors.signInAgain");
   });

@@ -99,6 +99,8 @@ function serverFailure(error: AuthError, mode: Mode): PasskeyFailure {
   if (mode === "add") {
     // Adding one needs a session younger than a day (the plugin's fresh-session rule); phone sessions live longer.
     if (code === "SESSION_NOT_FRESH") return new PasskeyFailure("auth.errors.signInAgain");
+    // Council r2 N-C1 / r3 M1: a weak session in a strict plant may not add (or remove) a strong method; the web's words.
+    if (code === "STRONG_SIGN_IN_NEEDED") return new PasskeyFailure("auth.login.strongSignInNeededPlant");
     return new PasskeyFailure("auth.errors.passkeyAddFailed");
   }
   // An unknown or unverifiable passkey (status 401) must not read as a wrong password.

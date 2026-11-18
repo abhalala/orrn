@@ -247,6 +247,8 @@ describe("a removal paused at its write while another one runs (council round 2,
     await env.addMembership(u.id, companyId, "packer");
     const res = await call("sign-in/email", { body: { email: u.email, password: PASSWORD } });
     expect(res.status).toBe(200);
+    // Council r3 M1: a password session may not remove a strong method in a strict plant; this tests the plant rule.
+    await env.db.update(session).set({ signInMethod: "passkey" }).where(eq(session.userId, u.id));
     const pk = await addPasskey(u.id);
     if (opts.google) await addGoogle(u.id);
     if (opts.authenticator) {

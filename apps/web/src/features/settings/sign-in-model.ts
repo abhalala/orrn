@@ -66,7 +66,7 @@ export function signInChangeErrorKey(error: AuthClientError): MessageKey {
   // Council r1 A2: another removal of this person's methods is still in flight.
   if (code === "SIGN_IN_CHANGE_BUSY") return "settings.signIn.busy";
   if (code === "INVALID_PASSWORD") return "welcome.twoFactor.wrongPassword";
-  // Council round 2 (N-C1): adding a strong method from a weak session in a strict plant.
+  // Council round 2 (N-C1) and round 3 (M1): adding or removing a strong method from a weak session in a strict plant.
   if (code === "STRONG_SIGN_IN_NEEDED") return "auth.login.strongSignInNeededPlant";
   return "errors.generic";
 }
