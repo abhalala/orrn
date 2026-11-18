@@ -27,6 +27,12 @@ bun run --cwd apps/web dev:bare
 The web app reads `apps/web/.env.development.local` (gitignored); copy `apps/web/.env.example` if it is
 missing. Native uses `apps/native/.env.example` the same way.
 
+Passkeys (plan 2026-11-18) are pinned to the web dev origin. The relying party is its host (`localhost`) and the only
+origin that may answer a passkey challenge is `WEB_PUBLIC_URL`: `http://localhost:3002` here, or the worktree's own web
+port, which `dev:local` passes as a `--var` override. Open the web app at exactly that origin to add or use a passkey;
+`127.0.0.1` or another port fails the origin check. Google stays hidden locally unless `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are both set for the worker.
+
 ## Worktrees: one port pair each
 
 Up to ten worktrees can run dev servers and Playwright at once. Each gets its own ports from the environment:

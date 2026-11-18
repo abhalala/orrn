@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8186 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -267,7 +267,7 @@ Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (123)
+### auth (133)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -283,6 +283,10 @@ Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.showPassword` | Show password | पासवर्ड दिखाएं |
 | `login.showPasswordAgain` | Show repeated password | दोहराया पासवर्ड दिखाएं |
 | `login.forgot` | Forgot password? | पासवर्ड भूल गए? |
+| `login.or` | or | या |
+| `login.passkey` | Sign in with a passkey | पासकी से साइन इन करें |
+| `login.google` | Continue with Google | Google से जारी रखें |
+| `login.finishing` | Signing you in | साइन इन हो रहा है |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -306,6 +310,12 @@ Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 | `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
 | `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `errors.googleNotInvited` | This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way. | इस Google अकाउंट के लिए orrn का कोई इनवाइट नहीं है। अपने एडमिन से इस ईमेल को इनवाइट करने को कहें, या दूसरे तरीके से साइन इन करें। |
+| `errors.googleNotForStaff` | Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code. | Godseye स्टाफ अकाउंट Google से साइन इन नहीं कर सकते। पासकी से, या अपने पासवर्ड और कोड से साइन इन करें। |
+| `errors.googleEmailNotVerified` | Google hasn't verified this email address. Sign in another way. | Google ने इस ईमेल की पुष्टि नहीं की है। दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyCancelled` | Passkey sign-in was cancelled. Try again, or sign in another way. | पासकी से साइन इन रद्द हो गया। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyNotFound` | orrn doesn't know this passkey. Try another one, or sign in another way. | orrn इस पासकी को नहीं पहचानता। दूसरी पासकी आज़माएं, या दूसरे तरीके से साइन इन करें। |
+| `errors.signInFailed` | Sign-in didn't finish. Try again, or sign in another way. | साइन इन पूरा नहीं हुआ। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
 | `brand.headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
 | `brand.sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
@@ -354,8 +364,8 @@ Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 | `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
 | `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
 | `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
-| `continue.refusedTitle` | Sign in with your password | अपने पासवर्ड से साइन इन करें |
-| `continue.refusedBody` | This account already has a password and an authenticator code, so a sign-in link can't open it. Sign in with your password. If you forgot it, choose a new one. | इस अकाउंट में पासवर्ड और ऑथेंटिकेटर कोड है, इसलिए साइन इन लिंक से यह नहीं खुलेगा। पासवर्ड से साइन इन करें। भूल गए हों तो नया पासवर्ड चुनें। |
+| `continue.refusedTitle` | Sign in your usual way | अपने हमेशा वाले तरीके से साइन इन करें |
+| `continue.refusedBody` | This account already has its own way to sign in (a password, a passkey or Google), so a sign-in link can't open it. Go to sign in and use that. If you use a password and forgot it, choose a new one. | इस अकाउंट में साइन इन का अपना तरीका पहले से है (पासवर्ड, पासकी या Google), इसलिए साइन इन लिंक से यह नहीं खुलेगा। साइन इन पर जाएं और वही तरीका इस्तेमाल करें। अगर आप पासवर्ड इस्तेमाल करते हैं और भूल गए हैं, तो नया पासवर्ड चुनें। |
 | `continue.forgotLink` | Forgot password | पासवर्ड भूल गए |
 | `forgot.title` | Forgot your password? | पासवर्ड भूल गए? |
 | `forgot.body` | Enter your work email. If an account exists, we'll send a link to choose a new password. | अपना वर्क ईमेल लिखें। अकाउंट होगा तो नया पासवर्ड चुनने का लिंक भेज देंगे। |
@@ -3332,8 +3342,8 @@ Counts: 8176 screen strings in 50 groups, 45 guides with 866 strings.
 | `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
 | `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
 | `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
-| `requests.hasPassword` | This owner already signs in with a password. Ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
-| `requests.approvedHasPassword` | Approved. This owner already signs in with a password. Ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.hasPassword` | This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
 | `requests.approvedAskAdmin` | Approved. Your role can't send sign-in links. Ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
 | `requests.unverifiedAccount` | Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again. | मंज़ूर नहीं हुई। इस ईमेल पर पहले से एक अकाउंट है, पर उसने कभी साबित नहीं किया कि यह मेलबॉक्स उसका है। मांगने वाले से उसी पते से "पासवर्ड भूल गए" इस्तेमाल करने को कहें, फिर दोबारा मंज़ूर करें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |

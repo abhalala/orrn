@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { inviteAcceptOutcome, inviteSignUpRefusal, isExistingAccount, signInErrorKey, totpErrorKey } from "./auth-errors";
+import {
+  inviteAcceptOutcome,
+  inviteSignUpRefusal,
+  isExistingAccount,
+  loginErrorKey,
+  signInErrorKey,
+  totpErrorKey,
+} from "./auth-errors";
 
 describe("signInErrorKey", () => {
   test("wrong email or password reads as the inline credentials error", () => {
@@ -15,6 +22,49 @@ describe("signInErrorKey", () => {
     expect(signInErrorKey(new TypeError("Failed to fetch"))).toBe("errors.network");
     expect(signInErrorKey({ code: "SOMETHING_NEW", status: 500 })).toBe("errors.generic");
     expect(signInErrorKey(undefined)).toBe("errors.generic");
+  });
+});
+
+describe("signInErrorKey: passkey and Google (plan 2026-11-18)", () => {
+  test("Google refusals from the server get their own words", () => {
+    expect(signInErrorKey({ code: "GOOGLE_NOT_INVITED", status: 403 })).toBe("auth.errors.googleNotInvited");
+    expect(signInErrorKey({ code: "GOOGLE_NOT_FOR_STAFF", status: 403 })).toBe("auth.errors.googleNotForStaff");
+    expect(signInErrorKey({ code: "GOOGLE_EMAIL_NOT_VERIFIED", status: 403 })).toBe("auth.errors.googleEmailNotVerified");
+  });
+
+  test("a cancelled passkey sheet reads as cancelled, never as a wrong password", () => {
+    // The passkey client turns every browser failure into AUTH_CANCELLED.
+    expect(signInErrorKey({ code: "AUTH_CANCELLED", status: 400 })).toBe("auth.errors.passkeyCancelled");
+    expect(signInErrorKey(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError"))).toBe(
+      "auth.errors.passkeyCancelled",
+    );
+    const named = new Error("not allowed");
+    named.name = "NotAllowedError";
+    expect(signInErrorKey(named)).toBe("auth.errors.passkeyCancelled");
+  });
+
+  test("a passkey the server does not know (status 401) is not 'email or password is wrong'", () => {
+    expect(signInErrorKey({ code: "PASSKEY_NOT_FOUND", status: 401 })).toBe("auth.errors.passkeyNotFound");
+    expect(signInErrorKey({ code: "AUTHENTICATION_FAILED", status: 401 })).toBe("auth.errors.passkeyNotFound");
+  });
+});
+
+describe("loginErrorKey (the sign-in page's ?error=, from the Google callback and the API error page)", () => {
+  test("the server's Google refusal codes", () => {
+    expect(loginErrorKey("GOOGLE_NOT_INVITED")).toBe("auth.errors.googleNotInvited");
+    expect(loginErrorKey("GOOGLE_NOT_FOR_STAFF")).toBe("auth.errors.googleNotForStaff");
+    expect(loginErrorKey("GOOGLE_EMAIL_NOT_VERIFIED")).toBe("auth.errors.googleEmailNotVerified");
+  });
+
+  test("any other code (Better Auth's own lower-case ones, UNKNOWN, junk) is the generic message", () => {
+    for (const code of ["access_denied", "state_mismatch", "please_restart_the_process", "UNKNOWN", "<script>", "x".repeat(500)]) {
+      expect(loginErrorKey(code)).toBe("auth.errors.signInFailed");
+    }
+  });
+
+  test("no ?error= means no message", () => {
+    expect(loginErrorKey(undefined)).toBeNull();
+    expect(loginErrorKey("")).toBeNull();
   });
 });
 

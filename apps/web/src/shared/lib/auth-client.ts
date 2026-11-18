@@ -1,3 +1,4 @@
+import { passkeyClient } from "@better-auth/passkey/client";
 import { env } from "@orrn/env/web";
 import { createAuthClient } from "better-auth/react";
 import { twoFactorClient, magicLinkClient } from "better-auth/client/plugins";
@@ -9,6 +10,8 @@ export const authClient = createAuthClient({
   },
   plugins: [
     twoFactorClient(),
-    magicLinkClient()
+    magicLinkClient(),
+    // Passkey sign-in and the Settings list (plan 2026-11-18).
+    passkeyClient(),
   ]
 });

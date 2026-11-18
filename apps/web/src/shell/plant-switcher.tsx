@@ -15,6 +15,7 @@ import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { beginSessionChange, cancelSessionChange, warnLeaving } from "@/features/press/outbox-session";
+import { ME_STALE_MS } from "@/shared/lib/guards";
 import { needsWelcome } from "@/shared/lib/home";
 import { useMe, type Me } from "@/shared/lib/me";
 import { expectPlant } from "@/shared/lib/plant-sync";
@@ -54,8 +55,12 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
         // Today's guard ran on the old plant's cached `me`. The new plant may require secure sign-in or
         // still owe its setup (plan 2026-11-18, Task 9): read its `me` and send the person to /welcome then.
         // A failed read must not reach `onError` (that would unpause the outbox after a real switch); the
-        // frame already reloads the page when `me` cannot be read after a switch (tenant-fmt.tsx).
-        const fresh = (await queryClient.fetchQuery(trpc.auth.me.queryOptions()).catch(() => null)) as Me | null;
+        // frame already reloads the page when `me` cannot be read after a switch (tenant-fmt.tsx). The
+        // invalidate above has just refetched an active `me`: `staleTime` takes that answer instead of
+        // asking again (an inactive one was only marked stale, so it is fetched here).
+        const fresh = (await queryClient
+          .fetchQuery({ ...trpc.auth.me.queryOptions(), staleTime: ME_STALE_MS })
+          .catch(() => null)) as Me | null;
         if (fresh && needsWelcome(fresh)) await navigate({ to: "/welcome", replace: true });
       },
       onError: () => {

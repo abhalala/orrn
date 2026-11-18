@@ -1386,10 +1386,10 @@ test.describe("forgot password", () => {
     await expect(done.getByRole("link", { name: "Go to sign in" })).toHaveAttribute("href", "/login");
   });
 
-  test("a sign-in link the server refused lands on /continue with the password message and a Forgot password link", async ({ page }) => {
+  test("a sign-in link the server refused lands on /continue with the usual-way message and a Forgot password link", async ({ page }) => {
     await openPublic(page, "/continue?error=ACCOUNT_USES_PASSWORD", 375);
     const refused = page.getByTestId("continue-refused");
-    await expect(refused).toContainText("Sign in with your password");
+    await expect(refused).toContainText("Sign in your usual way");
     await expect(refused.getByRole("link", { name: "Go to sign in" })).toBeVisible();
     await expect(refused.getByRole("link", { name: "Forgot password" })).toHaveAttribute("href", "/forgot-password");
     expect(await blockingAxeViolations(page)).toEqual([]);

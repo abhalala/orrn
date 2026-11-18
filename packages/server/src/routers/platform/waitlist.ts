@@ -34,7 +34,7 @@ export type SignInRefusal =
   /** The caller's staff role does not hold `platform.waitlist.signInLink` (support). */
   | "not_allowed";
 
-export const HAS_PASSWORD_MESSAGE = "This owner already signs in with a password; ask them to use Forgot password.";
+export const HAS_WAY_IN_MESSAGE = "This owner can already sign in with a password, a passkey or Google; ask them to sign in that way.";
 
 /**
  * Security review 2026-11-04 (HIGH 3): an account already exists at the requester's address but has
@@ -60,8 +60,8 @@ async function ownerAccount(db: Db, email: string) {
     .from(user)
     .where(eq(user.email, email))
     .get();
-  if (!owner) return { owner: null, hasPassword: false };
-  return { owner, hasPassword: hasWayIn(await signInMethodsFor(db, owner.id)) };
+  if (!owner) return { owner: null, hasWayIn: false };
+  return { owner, hasWayIn: hasWayIn(await signInMethodsFor(db, owner.id)) };
 }
 
 function randomToken() {
@@ -82,7 +82,7 @@ type IssueCtx = {
  * approval on 23 Oct 2026).
  *
  * Callers must have checked `platform.waitlist.signInLink` and that the owner
- * has no password (C-1, review T27): a magic-link session skips the password
+ * has no way in (C-1, review T27): a magic-link session skips the password
  * and the second step, so it is only ever made for an owner who has neither.
  *
  * The token is written here, in the magic-link plugin's own row format (as
@@ -104,12 +104,12 @@ async function issueOwnerSignIn(
   if (!mayIssueSignInLink(ctx.platformRole)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Insufficient platform permissions" });
   }
-  const { owner, hasPassword } = await ownerAccount(ctx.db, request.requesterEmail);
+  const { owner, hasWayIn: signsIn } = await ownerAccount(ctx.db, request.requesterEmail);
   if (!owner) {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a sign-in link" });
   }
-  if (hasPassword) {
-    throw new TRPCError({ code: "CONFLICT", message: HAS_PASSWORD_MESSAGE });
+  if (signsIn) {
+    throw new TRPCError({ code: "CONFLICT", message: HAS_WAY_IN_MESSAGE });
   }
 
   const webBase = webBaseUrl();
@@ -308,7 +308,7 @@ export const waitlistProcedures = {
 
       await atomicBatch(ctx.db, batchStatements);
 
-      // No link for an owner who already has a password (it would skip the password and
+      // No link for an owner who already has a way in (it would skip the password and
       // 2FA), and none for a staffer whose role may not issue links (support): the owner
       // then waits under "Waiting to sign in" for someone who may.
       const refused = (signInRefused: SignInRefusal) => ({
@@ -317,7 +317,7 @@ export const waitlistProcedures = {
         signInError: null,
         signInRefused,
       });
-      if (existingUser && (await ownerAccount(ctx.db, request.requesterEmail)).hasPassword) {
+      if (existingUser && (await ownerAccount(ctx.db, request.requesterEmail)).hasWayIn) {
         return refused("has_password");
       }
       if (!mayIssueSignInLink(ctx.platformRole)) return refused("not_allowed");
@@ -381,7 +381,7 @@ export const waitlistProcedures = {
   /**
    * Issues a fresh sign-in link for an approved request, emails it, and returns it for copying.
    * Needs `platform.waitlist.signInLink` as well (FORBIDDEN for support), and refuses with
-   * CONFLICT when the owner already has a password. Every link is audited.
+   * CONFLICT when the owner already has a way in (password, passkey or Google). Every link is audited.
    */
   waitlistSignInDetails: platformGuard("platform.waitlist.review")
     .input(z.object({ id: z.string() }))

@@ -311,6 +311,10 @@ export const en = {
       showPassword: "Show password",
       showPasswordAgain: "Show repeated password",
       forgot: "Forgot password?",
+      or: "or",
+      passkey: "Sign in with a passkey",
+      google: "Continue with Google",
+      finishing: "Signing you in",
     },
     totp: {
       title: "Enter your code",
@@ -340,6 +344,12 @@ export const en = {
     errors: {
       tooMany: "Too many tries. Wait a minute, then try again.",
       twoFactorExpired: "That took too long. Sign in again with your password.",
+      googleNotInvited: "This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way.",
+      googleNotForStaff: "Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code.",
+      googleEmailNotVerified: "Google hasn't verified this email address. Sign in another way.",
+      passkeyCancelled: "Passkey sign-in was cancelled. Try again, or sign in another way.",
+      passkeyNotFound: "orrn doesn't know this passkey. Try another one, or sign in another way.",
+      signInFailed: "Sign-in didn't finish. Try again, or sign in another way.",
     },
     brand: {
       label: "How orrn works",
@@ -396,8 +406,8 @@ export const en = {
       brokenTitle: "This link no longer works",
       brokenBody: "It was already used or has expired. Ask the person who sent it for a new sign-in link.",
       goSignIn: "Go to sign in",
-      refusedTitle: "Sign in with your password",
-      refusedBody: "This account already has a password and an authenticator code, so a sign-in link can't open it. Sign in with your password. If you forgot it, choose a new one.",
+      refusedTitle: "Sign in your usual way",
+      refusedBody: "This account already has its own way to sign in (a password, a passkey or Google), so a sign-in link can't open it. Go to sign in and use that. If you use a password and forgot it, choose a new one.",
       forgotLink: "Forgot password",
     },
     forgot: {
@@ -3750,8 +3760,8 @@ export const en = {
       awaitingBody: "If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself.",
       awaitingLabel: "Approved owners without a password",
       getDetails: "Get sign-in details",
-      hasPassword: "This owner already signs in with a password. Ask them to use Forgot password.",
-      approvedHasPassword: "Approved. This owner already signs in with a password. Ask them to use Forgot password.",
+      hasPassword: "This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way.",
+      approvedHasPassword: "Approved. This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way.",
       approvedAskAdmin: "Approved. Your role can't send sign-in links. Ask an admin to get the sign-in details below.",
       unverifiedAccount: "Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again.",
       details: {

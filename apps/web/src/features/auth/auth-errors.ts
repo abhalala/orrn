@@ -13,15 +13,53 @@ function parts(error: AuthClientError): { code: string; status: number | undefin
   return { code: error.code ?? "", status: error.status, network: error.status === 0 };
 }
 
+/** The browser's "the person closed the passkey sheet, or it timed out" (a DOMException or a plain Error). */
+function isNotAllowed(error: AuthClientError): boolean {
+  return Boolean(error && typeof error === "object" && (error as { name?: unknown }).name === "NotAllowedError");
+}
+
+/**
+ * Codes a passkey or Google sign-in can end with, and what the sign-in page says. The Google codes come
+ * from `packages/auth/src/google-guard.ts`. The passkey client (`@better-auth/passkey/client`) turns
+ * every browser failure into `AUTH_CANCELLED`; the server answers an unknown or unverifiable passkey
+ * with `PASSKEY_NOT_FOUND` / `AUTHENTICATION_FAILED` at status 401, which must not read as a wrong
+ * password.
+ */
+const METHOD_ERRORS: Record<string, MessageKey> = {
+  GOOGLE_NOT_INVITED: "auth.errors.googleNotInvited",
+  GOOGLE_NOT_FOR_STAFF: "auth.errors.googleNotForStaff",
+  GOOGLE_EMAIL_NOT_VERIFIED: "auth.errors.googleEmailNotVerified",
+  AUTH_CANCELLED: "auth.errors.passkeyCancelled",
+  PASSKEY_NOT_FOUND: "auth.errors.passkeyNotFound",
+  AUTHENTICATION_FAILED: "auth.errors.passkeyNotFound",
+};
+
+/** Google refusals that can reach the sign-in page as `?error=CODE`. */
+const LOGIN_PAGE_ERRORS = new Set(["GOOGLE_NOT_INVITED", "GOOGLE_NOT_FOR_STAFF", "GOOGLE_EMAIL_NOT_VERIFIED"]);
+
+/**
+ * The sign-in page's `?error=`: Google refusals (the callback lands on `/login?error=CODE`) and
+ * anything Better Auth's own error page forwards (`/api/auth/error` redirects to `/login?error=` because
+ * `onAPIError.errorURL` is the web sign-in page), such as `access_denied` or `state_mismatch`. Known
+ * codes get their own words, every other code the generic one. The URL's text is never shown.
+ */
+export function loginErrorKey(code: string | undefined): MessageKey | null {
+  if (!code) return null;
+  return LOGIN_PAGE_ERRORS.has(code) ? METHOD_ERRORS[code]! : "auth.errors.signInFailed";
+}
+
 function isRateLimited(code: string, status: number | undefined) {
   return status === 429 || code.startsWith("TOO_MANY");
 }
 
-/** Message for a failed email + password sign-in. Shown inline under the form. */
+/** Message for a failed sign-in (email + password, passkey or Google). Shown inline, never a toast. */
 export function signInErrorKey(error: AuthClientError): MessageKey {
+  if (isNotAllowed(error)) return "auth.errors.passkeyCancelled";
   const { code, status, network } = parts(error);
   if (network) return "errors.network";
   if (isRateLimited(code, status)) return "auth.errors.tooMany";
+  const method = METHOD_ERRORS[code];
+  if (method) return method;
   if (code === "INVALID_EMAIL_OR_PASSWORD" || code === "INVALID_PASSWORD" || status === 401) {
     return "auth.login.wrongCredentials";
   }

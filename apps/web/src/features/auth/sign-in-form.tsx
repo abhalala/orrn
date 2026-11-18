@@ -1,14 +1,17 @@
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
+import { WebAuthnAbortService } from "@simplewebauthn/browser";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { authClient } from "@/shared/lib/auth-client";
 
+import { AltSignIn } from "./alt-sign-in";
 import { signInErrorKey, totpErrorKey } from "./auth-errors";
 import { CodeField } from "./code-field";
 import { FormAlert } from "./form-alert";
+import { passkeySupport } from "./passkey-support";
 import { PasswordField } from "./password-field";
 import { useFinishSignIn } from "./use-finish-sign-in";
 import { usePageTitle } from "./use-page-title";
@@ -17,6 +20,9 @@ import { usePageTitle } from "./use-page-title";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Mode = "password" | "totp" | "backup";
+
+/** Server answers to a passkey the person picked from the email field's autofill (`@better-auth/passkey`). */
+const AUTOFILL_PICK_FAILURES = new Set(["PASSKEY_NOT_FOUND", "AUTHENTICATION_FAILED", "CHALLENGE_NOT_FOUND", "UNABLE_TO_CREATE_SESSION"]);
 
 export type SignInFormProps = {
   /** Page to return to after sign-in (same-origin only, see `safeNext`). */
@@ -30,14 +36,33 @@ export type SignInFormProps = {
   submitLabel?: string;
   /** Shown under the password step (the "New to orrn?" line). */
   footer?: ReactNode;
+  /**
+   * Offer the passkey and Google buttons under the form, and saved passkeys in the email field's
+   * autofill (plan 2026-11-18). The sign-in page turns it on.
+   */
+  alternatives?: boolean;
+  /** A message to open with (the sign-in page's `?error=` after a refused Google sign-in). */
+  initialError?: MessageKey | null;
 };
 
 /**
  * Email + password, then the authenticator code when the account has
- * two-factor (or a backup code). Errors are inline and announced; nothing
- * here is a toast. Enter submits every step; the sixth digit submits the code.
+ * two-factor (or a backup code). With `alternatives`, a passkey and Google sit
+ * level with it under an "or", and the email field offers saved passkeys
+ * (conditional mediation). A passkey or Google sign-in never asks for the code.
+ * Errors are inline and announced; nothing here is a toast. Enter submits
+ * every step; the sixth digit submits the code.
  */
-export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true, submitLabel, footer }: SignInFormProps) {
+export function SignInForm({
+  next,
+  defaultEmail = "",
+  onSignedIn,
+  heading = true,
+  submitLabel,
+  footer,
+  alternatives = false,
+  initialError = null,
+}: SignInFormProps) {
   const { t } = useT();
   const finishSignIn = useFinishSignIn(next);
   const finish = onSignedIn ?? finishSignIn;
@@ -51,6 +76,12 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
   // Message keys, not text: errors already shown follow a language switch.
   const [fieldErrors, setFieldErrors] = useState<{ email?: MessageKey; password?: MessageKey; code?: MessageKey }>({});
   const [formError, setFormError] = useState<MessageKey | null>(null);
+  // Passkey and Google messages, shown under their buttons. The one the page opens with (a refused
+  // Google sign-in) sits above the form instead, where a phone shows it without scrolling.
+  const [altError, setAltError] = useState<MessageKey | null>(initialError);
+  const [altErrorOnTop, setAltErrorOnTop] = useState(initialError !== null);
+  // Bumped when a passkey button attempt fails, so the email field's autofill starts again.
+  const [autofillRound, setAutofillRound] = useState(0);
   const [pending, setPending] = useState(false);
 
   const emailRef = useRef<HTMLInputElement>(null);
@@ -69,6 +100,36 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
     else codeRef.current?.focus();
   }, [mode]);
 
+  // Saved passkeys in the email field's autofill (conditional mediation), while the email step shows.
+  // Aborted when the step changes or the page goes; a ceremony aborted that way, or by the passkey
+  // button (which takes over the browser's one WebAuthn request), ends AUTH_CANCELLED and says nothing.
+  useEffect(() => {
+    if (!alternatives || mode !== "password") return;
+    let live = true;
+    void passkeySupport().conditional.then(async (conditional) => {
+      if (!conditional || !live) return;
+      const { data, error } = await authClient.signIn.passkey({ autoFill: true });
+      if (!live) return;
+      if (error) {
+        // A passkey picked from the email field's list failed: say so up there, by the field. A failure
+        // before anything was picked (the challenge request: offline, rate limit) says nothing here.
+        if (AUTOFILL_PICK_FAILURES.has((error as { code?: string }).code ?? "")) {
+          setAltError(signInErrorKey(error));
+          setAltErrorOnTop(true);
+        }
+        return;
+      }
+      if (data) await finish();
+    });
+    return () => {
+      live = false;
+      WebAuthnAbortService.cancelCeremony();
+    };
+    // `finish` is read when a passkey is picked; restarting the browser request for a new closure would
+    // close the autofill under the person's finger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alternatives, mode, autofillRound]);
+
   const switchMode = (to: Mode) => {
     setMode(to);
     setFieldErrors({});
@@ -85,6 +146,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
     if (!password) errors.password = "auth.validation.password";
     setFieldErrors(errors);
     setFormError(null);
+    setAltError(null);
     if (errors.email) return emailRef.current?.focus();
     if (errors.password) return passwordRef.current?.focus();
 
@@ -177,6 +239,12 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
         </p>
       ) : null}
 
+      {altError && altErrorOnTop && mode === "password" ? (
+        <FormAlert>
+          <span data-testid="alt-sign-in-error">{t(altError)}</span>
+        </FormAlert>
+      ) : null}
+
       <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={pending || undefined}>
         {mode === "password" ? (
           <>
@@ -185,7 +253,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
                 ref={emailRef}
                 type="email"
                 name="email"
-                autoComplete="username"
+                autoComplete={alternatives ? "username webauthn" : "username"}
                 inputMode="email"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -290,6 +358,21 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
           </div>
         ) : null}
       </form>
+
+      {alternatives && mode === "password" ? (
+        <AltSignIn
+          next={next}
+          finish={finish}
+          error={altErrorOnTop ? null : altError}
+          onError={(key) => {
+            setAltError(key);
+            setAltErrorOnTop(false);
+            if (key === null) setFormError(null);
+          }}
+          onPasskeyEnded={() => setAutofillRound((n) => n + 1)}
+          disabled={pending}
+        />
+      ) : null}
 
       {mode === "password" ? footer : null}
     </div>
