@@ -1,12 +1,18 @@
-import { createAuth } from "@orrn/auth";
+import { configureAuthHooks, createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
 import type { Context as HonoContext } from "hono";
 
+import { acceptLiveInvitesFor } from "./lib/acceptInvite";
 import type { IngestSource } from "./lib/ingest/source";
 import { COMPANY_HEADER, IMPERSONATE_HEADER, resolveTenantContext } from "./lib/tenantContext";
 
 export type { ImpersonationInfo } from "./lib/tenantContext";
 export type { IngestSource } from "./lib/ingest/source";
+
+// Google sign-up accepts the person's live invites through the same step `invite.acceptByToken`
+// uses (plan 2026-11-18). `@orrn/auth` cannot import this package, so it is lent here, once, when
+// the module that serves every request loads. Tested in test/auth-google.test.ts.
+configureAuthHooks({ acceptLiveInvitesFor });
 
 export type CreateContextOptions = {
   context: HonoContext;

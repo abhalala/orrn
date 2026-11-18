@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
 import { passkeyConfigForEnv } from "./passkey-config";
+import { googleDatabaseHooks, googleProviderFor, webLoginUrl } from "./google-guard";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
@@ -17,6 +18,8 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
 import { sendTransactionalEmail, type EmailOptions, type EmailEnvironment } from "./email-delivery";
+
+export { configureAuthHooks, type AuthHooks } from "./google-guard";
 
 export function sendAuthEmail(options: EmailOptions, environment: EmailEnvironment = env) {
   return sendTransactionalEmail(environment, options, "Auth email");
@@ -131,6 +134,19 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         return magicLinkGuardBody(db, ctx);
       }),
     },
+    // Google (plan 2026-11-18): only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both set.
+    // An account is made only for an email with a live invite, and its invites are accepted then;
+    // staff never use Google; only verified Google emails count (google-guard.ts). Google is a
+    // trusted provider for linking because the guard has already refused unverified emails.
+    // Tested in packages/server/test/auth-google.test.ts.
+    socialProviders: googleProviderFor(db, environment),
+    account: {
+      accountLinking: { enabled: true, trustedProviders: ["google"] },
+    },
+    databaseHooks: googleDatabaseHooks(db),
+    // A refused or failed browser sign-in (Google redirect flow) lands on the web sign-in page with
+    // `?error=CODE`, unless the client named another trusted error URL.
+    ...(webLoginUrl(environment) ? { onAPIError: { errorURL: webLoginUrl(environment) } } : {}),
     emailAndPassword: {
       enabled: true,
       password: {

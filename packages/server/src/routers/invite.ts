@@ -4,11 +4,8 @@ import { TRPCError } from "@trpc/server";
 
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
-import { customerPortalUser } from "@orrn/db/schema/portal";
-import type { Context } from "../context";
-import type { OrrnDb } from "../lib/atomic";
+import { acceptInvite } from "../lib/acceptInvite";
 import { hasLivePortalRow } from "../lib/portal";
-import { nextCompanySeq } from "../lib/sequence";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
@@ -217,107 +214,6 @@ export const inviteRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "Invite email does not match logged in user" });
       }
 
-      if (targetInvite.kind === "portal") {
-        return acceptPortalInvite({ db: ctx.db, session: ctx.session, impersonation: ctx.impersonation }, targetInvite, userId);
-      }
-
-      // PF §9-12: a party login in this plant never also becomes staff here.
-      if (await hasLivePortalRow(ctx.db, targetInvite.companyId, { userId })) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This login is a party login in this plant. Ask for an invite on another email." });
-      }
-
-      const membershipId = crypto.randomUUID();
-
-      await atomicBatch(ctx.db, [
-        ctx.db.insert(membership).values({
-          id: membershipId,
-          userId,
-          companyId: targetInvite.companyId,
-          role: targetInvite.role,
-        }),
-        ctx.db
-          .update(invite)
-          .set({ acceptedAt: new Date() })
-          .where(eq(invite.id, targetInvite.id)),
-        auditInsert(
-          { ...ctx, companyId: targetInvite.companyId },
-          {
-            action: "member.invite.accept",
-            subjectType: "membership",
-            subjectId: membershipId,
-            meta: { inviteId: targetInvite.id, role: targetInvite.role },
-          },
-        ),
-      ]);
-
-      return { success: true };
+      return acceptInvite(ctx.db, { session: ctx.session, impersonation: ctx.impersonation }, targetInvite, userId);
     }),
 });
-
-/**
- * Accept a party invite (Wave 3 portal): the portal row turns `active` for this account. No
- * membership is ever created; an account that is staff in this plant is refused (PF §9-12).
- */
-async function acceptPortalInvite(
-  ctx: { db: OrrnDb; session: NonNullable<Context["session"]>; impersonation?: Context["impersonation"] },
-  target: typeof invite.$inferSelect,
-  userId: string,
-) {
-  const [member] = await ctx.db
-    .select({ id: membership.id })
-    .from(membership)
-    .where(and(eq(membership.userId, userId), eq(membership.companyId, target.companyId)))
-    .limit(1);
-  if (member) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "This login works in the plant here. A party needs its own email." });
-  }
-  const [row] = await ctx.db
-    .select()
-    .from(customerPortalUser)
-    .where(
-      and(
-        eq(customerPortalUser.companyId, target.companyId),
-        eq(customerPortalUser.inviteId, target.id),
-        eq(customerPortalUser.status, "invited"),
-      ),
-    )
-    .limit(1);
-  if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
-  const [other] = await ctx.db
-    .select({ id: customerPortalUser.id })
-    .from(customerPortalUser)
-    .where(and(eq(customerPortalUser.companyId, target.companyId), eq(customerPortalUser.userId, userId)))
-    .limit(1);
-  if (other && other.id !== row.id) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "This account already has a party login in this plant" });
-  }
-  const at = new Date();
-  const seq = await nextCompanySeq({ db: ctx.db }, target.companyId);
-  await atomicBatch(ctx.db, [
-    ctx.db
-      .update(customerPortalUser)
-      .set({ status: "active", userId, acceptedAt: at, serverSeq: seq, updatedAt: at })
-      .where(
-        and(
-          eq(customerPortalUser.id, row.id),
-          eq(customerPortalUser.companyId, target.companyId),
-          eq(customerPortalUser.status, "invited"),
-          eq(customerPortalUser.inviteId, target.id),
-        ),
-      ),
-    ctx.db
-      .update(invite)
-      .set({ acceptedAt: at })
-      .where(and(eq(invite.id, target.id), isNull(invite.acceptedAt), isNull(invite.revokedAt))),
-    auditInsert(
-      { ...ctx, companyId: target.companyId },
-      {
-        action: "portal.user.accept",
-        subjectType: "customer_portal_user",
-        subjectId: row.id,
-        meta: { inviteId: target.id, customerId: row.customerId },
-      },
-    ),
-  ]);
-  return { success: true, portal: true as const };
-}

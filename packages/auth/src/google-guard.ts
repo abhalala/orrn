@@ -1,0 +1,217 @@
+import type { createDb } from "@orrn/db";
+import { atomicBatch } from "@orrn/db/atomic";
+import { account, session, user } from "@orrn/db/schema/auth";
+import { invite, platformAdmin } from "@orrn/db/schema/tenant";
+import { APIError, getOAuthState } from "better-auth/api";
+import { google } from "better-auth/social-providers";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
+
+/**
+ * Google sign-in (plan 2026-11-18; spec Design §3-6). ORRN has no public sign-up (D14), so:
+ *
+ * - Google makes an account only for an email with a live invite (not accepted, not revoked, not
+ *   expired; any plant, member or portal kind), and then accepts every live invite for that email
+ *   through `@orrn/server`'s `acceptLiveInvitesFor` (registered with `configureAuthHooks`).
+ * - Godseye staff (a `platform_admin` row, the source `platformProcedure` reads) never sign in with
+ *   Google: those accounts reach every plant. They use a passkey or a password and code.
+ * - Only a Google email Google itself verified (`email_verified`) counts.
+ * - Google proves the mailbox. Linking it to an account whose email was never proven removes the
+ *   old password and ends every other session (closes "an admin set a password on someone else's
+ *   address"); an already-proven account is only linked.
+ *
+ * The checks run in the provider's `getUserInfo`, the one step both flows (`/sign-in/social` with an
+ * id token, and the browser's `/callback/google`) pass before Better Auth links or creates anything.
+ * The id-token flow answers 403 with the code; the redirect flow lands on the OAuth error URL
+ * (`<web>/login` unless the client named another trusted one) with `?error=CODE`. Database hooks
+ * back the create rule up. Tested in packages/server/test/auth-google.test.ts.
+ *
+ * Never log Google tokens, invite tokens or links, or the email: invite ids only.
+ */
+export const GOOGLE_NOT_INVITED = "GOOGLE_NOT_INVITED";
+export const GOOGLE_NOT_FOR_STAFF = "GOOGLE_NOT_FOR_STAFF";
+export const GOOGLE_EMAIL_NOT_VERIFIED = "GOOGLE_EMAIL_NOT_VERIFIED";
+
+const MESSAGES = {
+  [GOOGLE_NOT_INVITED]: "This Google account has no ORRN invite. Ask your admin to invite this email.",
+  [GOOGLE_NOT_FOR_STAFF]: "Godseye staff accounts sign in with a passkey or a password and code, not Google.",
+  [GOOGLE_EMAIL_NOT_VERIFIED]: "Google has not verified this email. Sign in another way.",
+} as const;
+type GoogleRefusal = keyof typeof MESSAGES;
+
+type Db = ReturnType<typeof createDb>;
+
+/** What `@orrn/server` lends the auth package (it cannot import `@orrn/server`). */
+export type AuthHooks = {
+  /** Accepts every live invite for the email; returns how many. Refusals are skipped, never thrown. */
+  acceptLiveInvitesFor?: (db: Db, userId: string, email: string) => Promise<number>;
+};
+
+// Module state on purpose: `resetAuthForTests` drops auth instances, never this registration.
+let registered: AuthHooks = {};
+
+/** Called once by `@orrn/server` when it loads (`context.ts`, next to `createAuth`). */
+export function configureAuthHooks(hooks: AuthHooks): void {
+  registered = { ...registered, ...hooks };
+}
+
+/** True when a live invite (any company, member or portal kind) exists for the email. */
+export async function googleCreateAllowed(db: Db, email: string, now: Date = new Date()): Promise<boolean> {
+  const address = email.trim().toLowerCase();
+  if (!address) return false;
+  const row = await db
+    .select({ id: invite.id })
+    .from(invite)
+    .where(and(sql`lower(${invite.email}) = ${address}`, isNull(invite.acceptedAt), isNull(invite.revokedAt), gt(invite.expiresAt, now)))
+    .get();
+  return Boolean(row);
+}
+
+/** True when the user is Godseye staff (has a `platform_admin` row, as `platformProcedure` requires). */
+export async function isPlatformStaff(db: Db, userId: string): Promise<boolean> {
+  const row = await db.select({ userId: platformAdmin.userId }).from(platformAdmin).where(eq(platformAdmin.userId, userId)).get();
+  return Boolean(row);
+}
+
+/**
+ * Refuses a Google sign-in. In the browser redirect flow (an OAuth state is in this request) the
+ * answer is a redirect to the flow's error URL with `?error=CODE`; otherwise a 403 with the code.
+ */
+async function refuse(code: GoogleRefusal): Promise<never> {
+  const state = await getOAuthState().catch(() => null);
+  if (state?.errorURL) {
+    const sep = state.errorURL.includes("?") ? "&" : "?";
+    throw new APIError("FOUND", undefined, new Headers({ location: `${state.errorURL}${sep}error=${code}` }));
+  }
+  throw new APIError("FORBIDDEN", { code, message: MESSAGES[code] });
+}
+
+type GoogleIdentity = { id: string | number; email?: string | null; emailVerified?: boolean | null };
+
+/**
+ * Decides a Google identity before Better Auth links or creates anything. The account is found the
+ * way Better Auth's `findOAuthUser` finds it: the linked Google account first, then the email.
+ */
+export async function guardGoogleIdentity(db: Db, identity: GoogleIdentity, now: Date = new Date()): Promise<void> {
+  if (identity.emailVerified !== true) await refuse(GOOGLE_EMAIL_NOT_VERIFIED);
+  const email = (identity.email ?? "").trim().toLowerCase();
+  const linked = await db
+    .select({ userId: account.userId })
+    .from(account)
+    .where(and(eq(account.providerId, "google"), eq(account.accountId, String(identity.id))))
+    .get();
+  const byEmail = linked || !email ? undefined : await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email}`).get();
+  const userId = linked?.userId ?? byEmail?.id;
+  if (userId) {
+    if (await isPlatformStaff(db, userId)) await refuse(GOOGLE_NOT_FOR_STAFF);
+    return;
+  }
+  if (!(await googleCreateAllowed(db, email, now))) await refuse(GOOGLE_NOT_INVITED);
+}
+
+type GoogleEnv = { GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string };
+
+/**
+ * `socialProviders` for the stage: Google only when both its id and secret are set (the same rule
+ * `auth.methods` reports), so an unconfigured stage simply has no Google.
+ */
+export function googleProviderFor(db: Db, environment: GoogleEnv) {
+  const clientId = environment.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = environment.GOOGLE_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return {};
+  // Better Auth's own id-token decoding, with the ORRN checks after it.
+  const base = google({ clientId, clientSecret });
+  return {
+    google: {
+      clientId,
+      clientSecret,
+      prompt: "select_account" as const,
+      getUserInfo: async (token: Parameters<typeof base.getUserInfo>[0]) => {
+        const info = await base.getUserInfo(token);
+        if (!info) return null;
+        await guardGoogleIdentity(db, info.user);
+        return info;
+      },
+    },
+  };
+}
+
+/** The web sign-in page, where a refused browser sign-in lands (`WEB_PUBLIC_URL`, else `CORS_ORIGIN`). */
+export function webLoginUrl(environment: { WEB_PUBLIC_URL?: string; CORS_ORIGIN?: string }): string | undefined {
+  const web = environment.WEB_PUBLIC_URL ?? environment.CORS_ORIGIN;
+  if (!web) return undefined;
+  try {
+    return new URL("/login", web).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+type HookCtx = { path?: string; context?: { session?: { session: { id: string; userId: string } } | null } } | null;
+
+/** Accounts are created over these paths only by a social provider, and Google is the only one. */
+const SOCIAL_PATHS = new Set(["/sign-in/social", "/callback/:id"]);
+const isSocialSignIn = (ctx: HookCtx) => Boolean(ctx?.path && SOCIAL_PATHS.has(ctx.path));
+
+async function acceptInvitesQuietly(db: Db, userId: string, email: string): Promise<void> {
+  const accept = registered.acceptLiveInvitesFor;
+  if (!accept) {
+    console.warn("Google sign-up: invite acceptance is not wired; the invites stay open for the invite page");
+    return;
+  }
+  try {
+    await accept(db, userId, email);
+  } catch (error) {
+    // The account exists already; the invite page can still accept. No message: it may carry the address.
+    console.error("Google sign-up: accepting invites failed", error instanceof Error ? error.name : "unknown");
+  }
+}
+
+/**
+ * When Google is linked to an account whose email was never proven, Google has just proven it: the
+ * old password goes (and with it any must-change flag), every other session ends, and the email is
+ * marked verified, in one batch BEFORE the link is written, so a failure leaves nothing linked.
+ */
+async function onGoogleLink(db: Db, userId: string, ctx: HookCtx): Promise<void> {
+  const row = await db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, userId)).get();
+  if (!row) return;
+  if (await isPlatformStaff(db, userId)) throw new APIError("FORBIDDEN", { code: GOOGLE_NOT_FOR_STAFF, message: MESSAGES[GOOGLE_NOT_FOR_STAFF] });
+  if (row.emailVerified) return;
+  const current = ctx?.context?.session?.session;
+  const keep = current && current.userId === userId ? current.id : null;
+  await atomicBatch(db, [
+    db.delete(account).where(and(eq(account.userId, userId), eq(account.providerId, "credential"))),
+    db.delete(session).where(keep ? and(eq(session.userId, userId), ne(session.id, keep)) : eq(session.userId, userId)),
+    db.update(user).set({ emailVerified: true, mustChangePassword: false }).where(eq(user.id, userId)),
+  ]);
+}
+
+/** Better Auth `databaseHooks` for Google: the create backstop, onboarding, and the link rules. */
+export function googleDatabaseHooks(db: Db) {
+  return {
+    user: {
+      create: {
+        before: async (data: { email: string } & Record<string, unknown>, ctx: HookCtx) => {
+          if (!isSocialSignIn(ctx)) return;
+          // Backstop for the getUserInfo check. Better Auth turns this into `?error=GOOGLE_NOT_INVITED`
+          // (redirect flow) or OAUTH_LINK_ERROR carrying that message (id-token flow).
+          if (!(await googleCreateAllowed(db, data.email ?? ""))) throw new APIError("FORBIDDEN", { code: GOOGLE_NOT_INVITED, message: GOOGLE_NOT_INVITED });
+          // Merged into the row by Better Auth: the guard accepted only a Google-verified email.
+          return { data: { emailVerified: true } };
+        },
+        // Runs after the user and its Google account are written. Never throws: the account exists.
+        after: async (created: { id: string; email: string }, ctx: HookCtx) => {
+          if (!isSocialSignIn(ctx)) return;
+          await acceptInvitesQuietly(db, created.id, created.email);
+        },
+      },
+    },
+    account: {
+      create: {
+        before: async (data: { providerId?: unknown; userId?: unknown }, ctx: HookCtx) => {
+          if (data.providerId !== "google" || typeof data.userId !== "string") return;
+          await onGoogleLink(db, data.userId, ctx);
+        },
+      },
+    },
+  };
+}

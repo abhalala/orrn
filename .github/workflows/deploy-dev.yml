@@ -23,6 +23,9 @@ jobs:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       MODEL_ACCESS_CLIENT_ID: ${{ secrets.MODEL_ACCESS_CLIENT_ID }}
       MODEL_ACCESS_CLIENT_SECRET: ${{ secrets.MODEL_ACCESS_CLIENT_SECRET }}
+      # Google sign-in. Optional: without both the sign-in screens hide Google. Set the pair together.
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

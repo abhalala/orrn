@@ -29,6 +29,9 @@ jobs:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       MODEL_ACCESS_CLIENT_ID: ${{ secrets.MODEL_ACCESS_CLIENT_ID }}
       MODEL_ACCESS_CLIENT_SECRET: ${{ secrets.MODEL_ACCESS_CLIENT_SECRET }}
+      # Google sign-in. Optional: without both the sign-in screens hide Google. Set the pair together.
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

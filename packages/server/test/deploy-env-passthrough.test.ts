@@ -47,4 +47,12 @@ describe("deploy env reaches alchemy through turbo", () => {
     const allowed = passThrough();
     for (const n of ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "MODEL_ACCESS_CLIENT_ID", "MODEL_ACCESS_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
   });
+
+  test("the Google sign-in pair passes through and both workflows set it", () => {
+    const allowed = passThrough();
+    for (const n of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
+      expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]));
+    }
+  });
 });

@@ -231,6 +231,19 @@ if (!anthropicApiKey && (anthropicBaseUrl || modelAccessClientId || modelAccessC
   console.warn("Imports   -> a base URL or Access value is set but ANTHROPIC_API_KEY is not; the helper stays off.");
 }
 
+/**
+ * Google sign-in (plan 2026-11-18). Optional: without it the sign-in screens hide Google. Both or
+ * neither: a half-set pair binds nothing and says so, so the Worker never sees a lone id or secret.
+ * The client id is not a secret; the client secret is an encrypted binding. Values are never printed.
+ */
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+const googleConfigured = Boolean(googleClientId && googleClientSecret);
+console.log(`Google    -> ${googleConfigured ? "configured" : "not configured"}`);
+if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
+  console.warn("Google    -> GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together; Google sign-in stays off until both are.");
+}
+
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
   async function legacySpoolReleasesBucket(id: string) {
@@ -300,6 +313,8 @@ export const server = await Worker("server", {
     ...(anthropicBaseUrl ? { ANTHROPIC_BASE_URL: anthropicBaseUrl } : {}),
     ...(modelAccessClientId ? { MODEL_ACCESS_CLIENT_ID: modelAccessClientId } : {}),
     ...(modelAccessClientSecret ? { MODEL_ACCESS_CLIENT_SECRET: alchemy.secret(modelAccessClientSecret) } : {}),
+    // Google sign-in: both or neither (see above). The secret is an encrypted binding.
+    ...(googleConfigured ? { GOOGLE_CLIENT_ID: googleClientId, GOOGLE_CLIENT_SECRET: alchemy.secret(googleClientSecret) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",
