@@ -29,6 +29,11 @@ export type AltSignInProps = {
   passkey?: boolean;
   /** Draw the "or" line above the buttons. Off where the buttons come first (the invite's no-password step). */
   divider?: boolean;
+  /**
+   * Told when a passkey or Google sign-in starts and ends (its sheet included, then `finish`). The invite's
+   * no-password step skips its on-focus status read meanwhile: the sheet takes the app out of focus too.
+   */
+  onBusyChange?: (busy: boolean) => void;
 };
 
 /**
@@ -88,11 +93,16 @@ function GoogleMark() {
  * cancelled sheet or a refused Google account is an inline, announced message; the form stays usable. This
  * component never adds a passkey: that is Settings only, after "Is this your own phone?".
  */
-export function AltSignIn({ finish, error, onError, disabled = false, passkey: offerPasskey = true, divider = true }: AltSignInProps) {
+export function AltSignIn({ finish, error, onError, disabled = false, passkey: offerPasskey = true, divider = true, onBusyChange }: AltSignInProps) {
   const { t } = useT();
   const onPrimary = useThemeColor("card");
   const { passkey, google } = useAltSignInButtons(offerPasskey);
-  const [busy, setBusy] = useState<"passkey" | "google" | null>(null);
+  const [busy, setBusyState] = useState<"passkey" | "google" | null>(null);
+  // Told at once, not from an effect: the sheet opens in this same tick.
+  const setBusy = (next: "passkey" | "google" | null) => {
+    setBusyState(next);
+    onBusyChange?.(next !== null);
+  };
 
   function fail(key: MessageKey, quiet = false) {
     onError(key);

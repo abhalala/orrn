@@ -50,13 +50,15 @@ function fakeModule(over: Partial<PasskeyModule> = {}) {
         clientExtensionResults: {},
       };
     },
+    // What react-native-passkey 3.6.2 returns for an iCloud Keychain passkey on iOS: no `transports`
+    // (ios/PasskeyDelegate.swift sets them only for a security key). Council r1, Gemini C1.
     create: async (request) => {
       seen.create = request;
       return {
         id: "cred-2",
         rawId: "cred-2",
         type: "public-key",
-        response: { clientDataJSON: "cd", attestationObject: "ao", transports: ["internal"] },
+        response: { clientDataJSON: "cd", attestationObject: "ao" },
         clientExtensionResults: {},
       };
     },
@@ -230,9 +232,47 @@ describe("add a passkey (Settings)", () => {
       query: undefined,
       body: {
         name: "iPhone",
-        response: { id: "cred-2", rawId: "cred-2", type: "public-key", response: { clientDataJSON: "cd", attestationObject: "ao", transports: ["internal"] } },
+        response: {
+          id: "cred-2",
+          rawId: "cred-2",
+          type: "public-key",
+          response: { clientDataJSON: "cd", attestationObject: "ao", transports: ["internal", "hybrid"] },
+        },
       },
     });
+  });
+
+  // Council r1, Gemini C1: `@better-auth/passkey` 1.6.9 runs `resp.response.transports.join(",")` after
+  // verifying, so an attestation without `transports` (every iOS platform passkey) was a 500 on every add.
+  // An empty list is filled too: the plugin reads `"".split(",")` back as `[""]`.
+  test("an iOS attestation without transports, or with an empty list, is posted with this phone's transports", async () => {
+    for (const response of [
+      { clientDataJSON: "cd", attestationObject: "ao" },
+      { clientDataJSON: "cd", attestationObject: "ao", transports: [] },
+      { clientDataJSON: "cd", attestationObject: "ao", transports: null },
+    ]) {
+      const { fetch, calls } = fakeFetch({
+        "/passkey/generate-register-options": { data: REGISTER_OPTIONS },
+        "/passkey/verify-registration": { data: { id: "pk-1" } },
+      });
+      const { module } = fakeModule({ create: async () => ({ id: "cred-3", rawId: "cred-3", type: "public-key", response }) });
+      await createNativePasskey({ module, fetch }).add("iPhone");
+      const posted = (calls[1]!.body as { response: { response: { transports?: unknown } } }).response.response;
+      expect(posted.transports).toEqual(["internal", "hybrid"]);
+    }
+  });
+
+  test("transports the phone did report are posted as they are", async () => {
+    const { fetch, calls } = fakeFetch({
+      "/passkey/generate-register-options": { data: REGISTER_OPTIONS },
+      "/passkey/verify-registration": { data: { id: "pk-1" } },
+    });
+    const { module } = fakeModule({
+      create: async () => ({ id: "cred-4", rawId: "cred-4", type: "public-key", response: { clientDataJSON: "cd", attestationObject: "ao", transports: ["usb", "nfc"] } }),
+    });
+    await createNativePasskey({ module, fetch }).add("Key");
+    const posted = (calls[1]!.body as { response: { response: { transports?: unknown } } }).response.response;
+    expect(posted.transports).toEqual(["usb", "nfc"]);
   });
 
   test("an old phone session asks to sign in again before any OS sheet opens", async () => {

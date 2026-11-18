@@ -1,7 +1,7 @@
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
-import { WebAuthnAbortService } from "@simplewebauthn/browser";
+import { startAuthentication, WebAuthnAbortService } from "@simplewebauthn/browser";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
@@ -11,6 +11,7 @@ import { AltSignIn } from "./alt-sign-in";
 import { offersPasswordLink, signInErrorKey, totpErrorKey } from "./auth-errors";
 import { CodeField } from "./code-field";
 import { FormAlert } from "./form-alert";
+import { startPasskeyAutofill } from "./passkey-autofill";
 import { passkeySupport } from "./passkey-support";
 import { PasswordField } from "./password-field";
 import { resetRedirectUrl } from "./password-reset";
@@ -105,29 +106,30 @@ export function SignInForm({
 
   // Saved passkeys in the email field's autofill (conditional mediation), while the email step shows.
   // Aborted when the step changes or the page goes; a ceremony aborted that way, or by the passkey
-  // button (which takes over the browser's one WebAuthn request), ends AUTH_CANCELLED and says nothing.
+  // button (which takes over the browser's one WebAuthn request), says nothing. `startPasskeyAutofill`
+  // checks after the challenge request that the effect is still live, so a cleanup during that request
+  // never leaves a browser request behind (council r1, B5).
   useEffect(() => {
     if (!alternatives || mode !== "password") return;
-    let live = true;
-    void passkeySupport().conditional.then(async (conditional) => {
-      if (!conditional || !live) return;
-      const { data, error } = await authClient.signIn.passkey({ autoFill: true });
-      if (!live) return;
-      if (error) {
+    return startPasskeyAutofill(
+      {
+        conditional: passkeySupport().conditional,
+        fetchOptions: () => authClient.$fetch("/passkey/generate-authenticate-options", { method: "GET", throw: false }),
+        start: (optionsJSON) => startAuthentication({ optionsJSON, useBrowserAutofill: true }),
+        verify: (response) => authClient.$fetch("/passkey/verify-authentication", { method: "POST", body: { response }, throw: false }),
+        signedIn: () => authClient.$store.notify("$sessionSignal"),
+        cancel: () => WebAuthnAbortService.cancelCeremony(),
+      },
+      (result) => {
+        if (result.kind === "signedIn") return void finish();
         // A passkey picked from the email field's list failed: say so up there, by the field. A failure
         // before anything was picked (the challenge request: offline, rate limit) says nothing here.
-        if (AUTOFILL_PICK_FAILURES.has((error as { code?: string }).code ?? "")) {
-          setAltError(signInErrorKey(error));
+        if (AUTOFILL_PICK_FAILURES.has(result.error.code ?? "")) {
+          setAltError(signInErrorKey(result.error));
           setAltErrorOnTop(true);
         }
-        return;
-      }
-      if (data) await finish();
-    });
-    return () => {
-      live = false;
-      WebAuthnAbortService.cancelCeremony();
-    };
+      },
+    );
     // `finish` is read when a passkey is picked; restarting the browser request for a new closure would
     // close the autofill under the person's finger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
