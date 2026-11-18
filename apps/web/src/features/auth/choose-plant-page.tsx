@@ -54,13 +54,21 @@ export function ChoosePlantPage({ me, next }: { me: Me; next?: string }) {
     }
     try {
       await sw.mutateAsync({ companyId: plant.companyId });
+    } catch {
+      // Only a switch that did not happen unpauses the outbox: once the server has switched, the old
+      // plant's press changes must stay held, whatever fails next.
+      if (changing) cancelSessionChange();
+      setFailed(true);
+      setPicking(null);
+      return;
+    }
+    try {
       if (changing) dropTenantQueries(queryClient);
       await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
       const fresh = (await queryClient.fetchQuery(trpc.auth.me.queryOptions())) as Me;
       markPlantChosen();
       await navigate({ href: destinationAfterPick(fresh, next), replace: true });
     } catch {
-      if (changing) cancelSessionChange();
       setFailed(true);
       setPicking(null);
     }

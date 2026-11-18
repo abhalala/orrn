@@ -1,4 +1,4 @@
-import type { Me } from "@orrn/server/lib/permissions";
+import { hasStrongMethod, type Me } from "@orrn/server/lib/permissions";
 
 import { isUnauthorized } from "./session";
 
@@ -10,10 +10,8 @@ import { isUnauthorized } from "./session";
 export type GateRoute = "/(auth)/sign-in" | "/(tabs)/today" | "/no-access" | "/choose-plant";
 export type GateState = GateRoute | "loading" | "offline";
 
-/** A passkey, Google or the authenticator app (the web's `hasStrongMethod`, plan 2026-11-18). */
-export function hasStrongMethod(me: Me): boolean {
-  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
-}
+/** A passkey, Google or the authenticator app: the shared rule next to `Me` (plan 2026-11-18). */
+export { hasStrongMethod };
 
 /** True when the person has more than one plant and owes a pick since the last sign-in (`lib/plant-choice.ts`). */
 export function needsPlantChoice(me: Me, pickPending: boolean): boolean {
@@ -27,11 +25,20 @@ export function needsPlantChoice(me: Me, pickPending: boolean): boolean {
  * - `finish-on-web`: the plant's setup is open for an owner or admin (company details). A floor role's
  *   open setup is only the closing screen, so it never blocks the phone (ruling T28-1).
  */
+/**
+ * Whether the phone shows "Setup pending" for a plant: only when that setup is an owner's or admin's to
+ * finish (company details, on the web). A floor role's open setup never blocks the phone and nothing on
+ * the phone closes it, so the chip would never go away (T28-1).
+ */
+export function phoneSetupPending(m: { role: string; setupPending?: boolean }): boolean {
+  return m.setupPending === true && (m.role === "owner" || m.role === "admin");
+}
+
 export function plantBlock(me: Me): "secure-on-web" | "finish-on-web" | null {
   const plant = me.company;
   if (!plant || me.impersonation) return null;
   if (plant.requireStrongSignIn === true && !hasStrongMethod(me)) return "secure-on-web";
-  if (plant.setupPending === true && (plant.role === "owner" || plant.role === "admin")) return "finish-on-web";
+  if (phoneSetupPending(plant)) return "finish-on-web";
   return null;
 }
 

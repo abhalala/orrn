@@ -391,12 +391,15 @@ export const companyRouter = router({
         patch.shifts = await checkedShifts(ctx.db, ctx.companyId, input.shifts, readFloorSettings(row.settings).shifts);
       }
       const wasStrict = row.settings?.requireStrongSignIn === true;
-      const security = input.requireStrongSignIn !== undefined ? { from: wasStrict, to: input.requireStrongSignIn } : null;
+      const strict = input.requireStrongSignIn;
+      const securitySent = strict !== undefined;
+      // The value it already has changes nothing: no write of the key and no security row.
+      const security = strict !== undefined && strict !== wasStrict ? { from: wasStrict, to: strict } : null;
       const settings = { ...(row.settings ?? {}), ...patch };
       if (security) (settings as Record<string, unknown>).requireStrongSignIn = security.to;
       // The general row is written for every other call (an empty one included, as before); a call that
-      // only sets the security policy writes the security row alone.
-      const generalRow = Object.keys(patch).length > 0 || !security;
+      // only sends the security policy writes the security row alone, or nothing when it is unchanged.
+      const generalRow = Object.keys(patch).length > 0 || !securitySent;
 
       await atomicBatch(ctx.db, [
         ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),

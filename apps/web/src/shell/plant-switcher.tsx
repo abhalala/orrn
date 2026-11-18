@@ -15,7 +15,8 @@ import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { beginSessionChange, cancelSessionChange, warnLeaving } from "@/features/press/outbox-session";
-import { useMe } from "@/shared/lib/me";
+import { needsWelcome } from "@/shared/lib/home";
+import { useMe, type Me } from "@/shared/lib/me";
 import { expectPlant } from "@/shared/lib/plant-sync";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
@@ -25,7 +26,8 @@ import { switcherPlants } from "./plant-switcher-model";
 /**
  * FP-PF-17: the plant switcher in the header. Shown only with more than one plant and never while
  * impersonating (`switcherPlants`). Picking a plant calls `company.switch`, drops the old plant's
- * cached queries, reloads `auth.me` and lands on Today (it leaves the old page first, so nothing of the old plant is fetched under the new one). Each plant keeps its own role.
+ * cached queries, reloads `auth.me` and lands on Today (it leaves the old page first, so nothing of the old plant is fetched under the new one),
+ * or on /welcome when the new plant's `me` says its setup or secure sign-in is still owed (`needsWelcome`). Each plant keeps its own role.
  *
  * `variant`: `header` (phone top bar: the plant name is the trigger), `rail` (side nav: name at
  * 1024px and up, a plant icon in the narrow rail).
@@ -49,6 +51,12 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
         await navigate({ to: "/today" as never });
         dropTenantQueries(queryClient);
         await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+        // Today's guard ran on the old plant's cached `me`. The new plant may require secure sign-in or
+        // still owe its setup (plan 2026-11-18, Task 9): read its `me` and send the person to /welcome then.
+        // A failed read must not reach `onError` (that would unpause the outbox after a real switch); the
+        // frame already reloads the page when `me` cannot be read after a switch (tenant-fmt.tsx).
+        const fresh = (await queryClient.fetchQuery(trpc.auth.me.queryOptions()).catch(() => null)) as Me | null;
+        if (fresh && needsWelcome(fresh)) await navigate({ to: "/welcome", replace: true });
       },
       onError: () => {
         cancelSessionChange();

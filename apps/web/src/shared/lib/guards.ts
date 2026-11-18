@@ -76,9 +76,10 @@ export async function requireSignedIn({ context, location }: GuardArgs) {
 
 /**
  * Tenant app: session + company membership; unauthenticated → login with `next`. Entering a plant
- * (sign-in, plant pick, plant switch, any tenant URL) whose setup is open for the person, or which
- * requires secure sign-in while they have no strong method, sends them to /welcome first
- * (`needsWelcome`; never while impersonating).
+ * (sign-in, plant pick, any tenant URL) whose setup is open for the person, or which requires secure
+ * sign-in while they have no strong method, sends them to /welcome first (`needsWelcome`; never while
+ * impersonating). This guard reads the cached `me`, so the header plant switch applies the same rule
+ * itself once it has read the new plant's `me` (shell/plant-switcher.tsx).
  */
 export async function requireCompanyMe({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);

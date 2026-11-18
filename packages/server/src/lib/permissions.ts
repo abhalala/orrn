@@ -464,6 +464,15 @@ export type Me = {
 };
 
 /**
+ * A strong method: the authenticator app, a passkey or a linked Google account (plan 2026-11-18). A
+ * plant that requires secure sign-in asks for one; the server refuses to remove the last one while such
+ * a plant holds the person (`COMPANY_REQUIRES_STRONG_METHOD`). The one rule for web and native over `Me`.
+ */
+export function hasStrongMethod(me: Pick<Me, "user">): boolean {
+  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
+}
+
+/**
  * Check if a given me-shaped object is allowed to perform an action.
  *
  * Platform-scoped actions require a platform staff role with the action in its set.

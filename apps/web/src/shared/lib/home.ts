@@ -1,5 +1,10 @@
+import { hasStrongMethod } from "@orrn/server/lib/permissions";
+
 import type { Me } from "./me";
 import { readPlantChosen } from "./plant-chosen";
+
+/** A passkey, Google or the authenticator app: the shared rule next to `Me`. */
+export { hasStrongMethod };
 
 export type HomePath = "/admin" | "/today" | "/welcome" | "/no-access" | "/choose-plant";
 
@@ -14,15 +19,6 @@ export type HomePath = "/admin" | "/today" | "/welcome" | "/no-access" | "/choos
 export function needsPassword(me: Me): boolean {
   if (me.user.mustChangePassword === true) return true;
   return me.user.hasPassword === false && me.user.hasPasskey !== true && me.user.hasGoogle !== true;
-}
-
-/**
- * A strong method: the authenticator app, a passkey or a linked Google account (plan 2026-11-18). A
- * plant that requires secure sign-in asks for one; the server refuses to remove the last one while such
- * a plant holds the person (`COMPANY_REQUIRES_STRONG_METHOD`).
- */
-export function hasStrongMethod(me: Me): boolean {
-  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
 }
 
 /**

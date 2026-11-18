@@ -148,6 +148,28 @@ describe("company.updateSettings requireStrongSignIn", () => {
     expect((await env.caller({ role: "owner", companyId }).auth.me()).company?.requireStrongSignIn).toBe(false);
   });
 
+  test("sending the value it already has writes no audit row and leaves the settings alone", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const auditRows = async () =>
+      (await env.db.select({ action: auditLog.action }).from(auditLog).where(eq(auditLog.companyId, companyId)).all()).map((r) => r.action);
+
+    // Never set: false is already the value.
+    await owner.company.updateSettings({ requireStrongSignIn: false });
+    expect(await auditRows()).toEqual([]);
+    const untouched = await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).get();
+    expect(untouched?.settings?.requireStrongSignIn).toBeUndefined();
+
+    await owner.company.updateSettings({ requireStrongSignIn: true });
+    await owner.company.updateSettings({ requireStrongSignIn: true });
+    expect(await auditRows()).toEqual(["company.security.update"]);
+    expect((await owner.auth.me()).company?.requireStrongSignIn).toBe(true);
+
+    // With another key, only the general row is written.
+    await owner.company.updateSettings({ requireStrongSignIn: true, orderLeadDays: 9 });
+    expect((await auditRows()).sort()).toEqual(["company.security.update", "company.settings.update"]);
+  });
+
   test("other settings sent with it still write the general row", async () => {
     const { companyId } = await env.seedCompany();
     await env.caller({ role: "owner", companyId }).company.updateSettings({ requireStrongSignIn: true, orderLeadDays: 9 });

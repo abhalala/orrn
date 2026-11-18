@@ -111,7 +111,7 @@ test.describe("plant picker after sign-in", () => {
     await expect(page).toHaveURL(/\/today$/);
   });
 
-  test("a set-up plant opens Today; the picker comes back after the next sign-in only", async ({ page }) => {
+  test("a set-up plant opens Today; the header switch into a pending plant opens its setup; the picker comes back after the next sign-in only", async ({ page }) => {
     const who = await personInTwoPlants();
     await page.setViewportSize({ width: 375, height: 800 });
     await signInWithForm(page, who);
@@ -122,6 +122,15 @@ test.describe("plant picker after sign-in", () => {
     // Picked in this tab: a home redirect does not ask again.
     await page.goto("/");
     await expect(page).toHaveURL(/\/today$/);
+
+    // Switching through the header into the plant whose setup is still open goes to its company step,
+    // not to its Today (the guard ran on the old plant's `me`; the switcher re-checks the new one).
+    const trigger = page.getByTestId("plant-switcher").filter({ visible: true }).first();
+    await expect(trigger).toContainText(who.setUp);
+    await trigger.click();
+    await page.getByRole("menuitemradio", { name: new RegExp(who.fresh) }).click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, "Company details")).toBeVisible();
 
     // The session ends (no sign-out in this tab) and they sign in again: asked again, since every
     // sign-in forgets the earlier pick.

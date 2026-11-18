@@ -6,7 +6,7 @@ import { en } from "@orrn/i18n/en";
 import { hi } from "@orrn/i18n/hi";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { noAccessReason, offlineKind, resolveGate, routeForMe } from "../lib/gate";
+import { noAccessReason, offlineKind, phoneSetupPending, resolveGate, routeForMe } from "../lib/gate";
 import { RequestTimeoutError } from "../lib/request-timeout";
 
 function makeMe(overrides: Omit<Partial<Me>, "user"> & { user?: Partial<Me["user"]> } = {}): Me {
@@ -156,6 +156,22 @@ describe("plants on the phone (plan 2026-11-18, Task 9)", () => {
     expect(routeForMe(makeMe(two), false)).toBe("/(tabs)/today");
     expect(routeForMe(makeMe(two))).toBe("/(tabs)/today");
     expect(resolveGate({ hasSession: true, me: makeMe(two), error: null, isPending: false, plantChoicePending: true })).toBe("/choose-plant");
+  });
+
+  test("the picker shows Setup pending only where an owner or admin owes the setup (floor roles never)", () => {
+    expect(phoneSetupPending({ role: "owner", setupPending: true })).toBe(true);
+    expect(phoneSetupPending({ role: "admin", setupPending: true })).toBe(true);
+    for (const role of ["packer", "operator", "supervisor", "dispatcher", "viewer"]) {
+      expect(phoneSetupPending({ role, setupPending: true })).toBe(false);
+    }
+    expect(phoneSetupPending({ role: "owner", setupPending: false })).toBe(false);
+    expect(phoneSetupPending({ role: "owner" })).toBe(false);
+  });
+
+  test("the native picker screen uses the floor-role rule for its chip", () => {
+    const src = readFileSync(join(import.meta.dir, "../app/choose-plant.tsx"), "utf8");
+    expect(src).toContain("phoneSetupPending(plant)");
+    expect(src).not.toContain("plant.setupPending === true");
   });
 
   test("one plant never opens the picker; a temp password comes first", () => {
