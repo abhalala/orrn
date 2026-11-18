@@ -145,7 +145,10 @@ no Android certificate means none in the Android app. Passkeys on the website ne
 ### Google sign-in
 
 Google never makes an account by itself. It only signs in someone who already has an account, or who has a live invite
-for that email address. Godseye staff accounts cannot use Google at all.
+for that email address. Godseye staff accounts cannot use Google at all. An account that already has a passkey or an authenticator app
+cannot start using Google from the sign-in page: the person signs in the usual way, then links Google in
+Settings > Sign-in. When a plant turns on "Require secure sign-in", a person who signed in with a password alone is
+signed out and asked to sign in with a passkey, Google or their authenticator code (the owner too).
 
 1. Open [Google Cloud console](https://console.cloud.google.com/), make or pick a project for ORRN.
 2. **Consent screen** (Google Auth Platform, Branding and Audience). User type External. App name ORRN, a support email

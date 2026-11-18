@@ -201,6 +201,23 @@ can switch later; a plant whose onboarding is still pending sends them into that
 6. Native follows the same rules: picker after sign-in, setup-pending plants open the native welcome steps where
    they exist, otherwise the "finish on the web" screen the app already uses.
 
+## Amendment 2: enforcement (council round 1, 2026-11-18)
+
+The first amendment checked that a member *has* a strong method, not that they *signed in* with one, so a
+password alone still opened a plant that requires secure sign-in. Council round 1 (fix list A4) closes that:
+
+1. Every session records how it was made (`session.sign_in_method`, migration 0052): `passkey`, `google`, `totp`
+   (the authenticator code or a backup code; a device the person trusted after typing the code), `password`,
+   `magicLink` or `other`. Adding a passkey or linking Google in a session upgrades that session.
+2. In a plant with the policy on, every tenant call from a session not made with a passkey, Google or the code is
+   refused. A person who has a strong method is signed out and told "<Plant> needs a passkey, Google or your
+   authenticator code. Sign in with one of them." A person with none goes to "Secure your sign-in"; adding one
+   there upgrades the session and lets them in. `auth.*` stays open; impersonation is never refused.
+3. The owner is not special: an owner who turns the policy on from a password session is refused on the next call
+   too and signs in again with a strong method.
+4. Google never links itself at sign-in to an account that has a passkey or the authenticator app on (link it from
+   Settings > Sign-in instead), so Google cannot be used to skip the code (A6).
+
 ## Owner inputs needed (not blockers for the code)
 
 1. A Google Cloud OAuth client (Web), redirect URIs `https://api.orrn.in/api/auth/callback/google` and the dev API
