@@ -20,6 +20,7 @@ export function GoogleLinkButton({
   size,
   className,
   describedBy,
+  disabled = false,
   onError,
 }: {
   path: string;
@@ -29,6 +30,8 @@ export function GoogleLinkButton({
   size?: "md" | "lg";
   className?: string;
   describedBy?: string;
+  /** Another choice is working (a passkey being added). */
+  disabled?: boolean;
   onError(key: MessageKey | null): void;
 }) {
   const { t } = useT();
@@ -64,7 +67,7 @@ export function GoogleLinkButton({
         size={size}
         className={className}
         loading={busy}
-        disabled={emailVerified === undefined}
+        disabled={disabled || emailVerified === undefined}
         aria-describedby={describedBy}
         data-testid="link-google"
         onClick={() => (emailVerified === false ? setAsking(true) : void go())}

@@ -329,6 +329,31 @@ describe("removing a sign-in method", () => {
     expect(left.map((a) => a.providerId)).toEqual(["credential"]);
   });
 
+  test("Google + a passkey, no password: Google may be unlinked (a passkey is a way in, though it is no account row)", async () => {
+    const u = await makeUser();
+    const cookie = await signIn(u.email);
+    await addGoogle(u.id);
+    await addPasskey(u.id);
+    // Now Google is the account's only `account` row; the passkey stays a way in.
+    await env.db.delete(account).where(and(eq(account.userId, u.id), eq(account.providerId, "credential")));
+    const res = await call("unlink-account", { body: { providerId: "google" }, cookie });
+    expect(res.status).toBe(200);
+    expect(await env.db.select().from(account).where(eq(account.userId, u.id)).all()).toHaveLength(0);
+    expect(await passkeysOf(u.id)).toHaveLength(1);
+  });
+
+  test("Google as the only way in: unlink refused with LAST_SIGN_IN_METHOD, Google kept", async () => {
+    const u = await makeUser();
+    const cookie = await signIn(u.email);
+    await addGoogle(u.id);
+    await env.db.delete(account).where(and(eq(account.userId, u.id), eq(account.providerId, "credential")));
+    const res = await call("unlink-account", { body: { providerId: "google" }, cookie });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("LAST_SIGN_IN_METHOD");
+    const left = await env.db.select().from(account).where(eq(account.userId, u.id)).all();
+    expect(left.map((a) => a.providerId)).toEqual(["google"]);
+  });
+
   test("unlinking the password of a google + passkey member is allowed under the policy (strong methods stay)", async () => {
     const u = await makeUser();
     await makeStrictMember(u.id);

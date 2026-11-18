@@ -153,7 +153,9 @@ export function SecureSignInStep({
                   size="lg"
                   variant={variant}
                   className="w-full"
-                  emailVerified={own.data?.emailVerified}
+                  // A failed read asks first, with the warning, rather than leave the button off for good.
+                  emailVerified={own.isError ? false : own.data?.emailVerified}
+                  disabled={adding}
                   describedBy={hintIds.google}
                   onError={setError}
                 />

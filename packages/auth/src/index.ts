@@ -150,8 +150,12 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // trusted provider for linking because the guard has already refused unverified emails.
     // Tested in packages/server/test/auth-google.test.ts.
     socialProviders: googleProviderFor(db, environment),
+    // `allowUnlinkingAll`: Better Auth's own rule refuses to unlink the last `account` row, but a passkey
+    // is a way in without one (Google + passkey, no password). The real last-way-in rule is ours
+    // (`signInMethodGuardBody`, LAST_SIGN_IN_METHOD), which counts passkeys. Tested in
+    // auth-sign-in-methods.test.ts.
     account: {
-      accountLinking: { enabled: true, trustedProviders: ["google"] },
+      accountLinking: { enabled: true, trustedProviders: ["google"], allowUnlinkingAll: true },
     },
     databaseHooks: googleDatabaseHooks(db),
     // A refused or failed browser sign-in (Google redirect flow) lands on the web sign-in page with
