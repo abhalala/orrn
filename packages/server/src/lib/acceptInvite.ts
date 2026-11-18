@@ -1,0 +1,258 @@
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+
+import { invite, membership } from "@orrn/db/schema/tenant";
+import { customerPortalUser } from "@orrn/db/schema/portal";
+import type { Context } from "../context";
+import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { auditInsert } from "./audit";
+import { hasLivePortalRow } from "./portal";
+import { nextCompanySeq } from "./sequence";
+
+export type InviteRow = typeof invite.$inferSelect;
+
+/** Who accepts: the signed-in account (its id is the audit actor) and any impersonation in force. */
+export type InviteActor = {
+  session: NonNullable<Context["session"]>;
+  impersonation?: Context["impersonation"];
+};
+
+/**
+ * Accepts one invite for `userId`, the shared step of `invite.acceptByToken` and Google sign-up
+ * (plan 2026-11-18). The caller has already checked the invite is live and is for this account's
+ * email; the write checks it again (`claimedBatch`), so a revoke or resend that lands in between wins. A party (portal) invite turns its portal row active; a member invite makes the membership.
+ * A party login is never also staff in the same plant, either way round (PF §9-12).
+ */
+export async function acceptInvite(
+  db: OrrnDb,
+  actor: InviteActor,
+  target: InviteRow,
+  userId: string,
+): Promise<{ success: true; portal?: true }> {
+  if (target.kind === "portal") {
+    return acceptPortalInvite({ db, session: actor.session, impersonation: actor.impersonation }, target, userId);
+  }
+
+  // PF §9-12: a party login in this plant never also becomes staff here.
+  if (await hasLivePortalRow(db, target.companyId, { userId })) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This login is a party login in this plant. Ask for an invite on another email." });
+  }
+
+  const membershipId = crypto.randomUUID();
+  const at = new Date();
+
+  await claimedBatch(db, target, userId, at, [
+    db.insert(membership).values({
+      id: membershipId,
+      userId,
+      companyId: target.companyId,
+      role: target.role,
+    }),
+    auditInsert(
+      { db, session: actor.session, impersonation: actor.impersonation, companyId: target.companyId },
+      {
+        action: "member.invite.accept",
+        subjectType: "membership",
+        subjectId: membershipId,
+        meta: { inviteId: target.id, role: target.role },
+      },
+    ),
+  ]);
+
+  return { success: true };
+}
+
+/**
+ * Council round 1, A1: the claim is the batch's first write and is conditional on the invite as it
+ * is NOW (the token hash read, not accepted, not revoked, not expired), and the batch fails as a whole
+ * when the claim changed nothing. So a revoke, a resend (new token) or an expiry that lands after the
+ * caller's reads leaves no membership, no active portal row and no audit row. When the claim lost
+ * because the same account accepted it a moment earlier (a double tap, Google sign-up and the invite
+ * page), the answer is still success: `inviteHeldBy`.
+ */
+async function claimedBatch(db: OrrnDb, target: InviteRow, userId: string, at: Date, rest: readonly SqliteBatchItem[]): Promise<void> {
+  try {
+    await atomicBatch(db, [
+      db
+        .update(invite)
+        .set({ acceptedAt: at })
+        .where(
+          and(
+            eq(invite.id, target.id),
+            eq(invite.tokenHash, target.tokenHash),
+            isNull(invite.acceptedAt),
+            isNull(invite.revokedAt),
+            gt(invite.expiresAt, at),
+          ),
+        ),
+      abortBatchUnlessChanged(db),
+      ...rest,
+    ]);
+  } catch (error) {
+    // Council round 2 (Claude N-M3): the abort is told by its text, which live D1 may wrap differently.
+    // Whatever the text, a batch that failed while the claim can no longer land lost the race; one whose
+    // claim could still land failed for another reason and is thrown as it is.
+    if (!isBatchAbort(error) && !(await claimLost(db, target, at))) throw error;
+    if (await inviteHeldBy(db, target, userId)) return;
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
+  }
+}
+
+/**
+ * True when the claim (or, for a party login, its portal row) can no longer land: the invite was
+ * accepted, revoked, re-sent (another token) or has expired, or its portal row is no longer waiting.
+ * Read after a failed batch, which D1 rolled back whole.
+ */
+async function claimLost(db: OrrnDb, target: InviteRow, at: Date): Promise<boolean> {
+  const [open] = await db
+    .select({ id: invite.id })
+    .from(invite)
+    .where(
+      and(
+        eq(invite.id, target.id),
+        eq(invite.tokenHash, target.tokenHash),
+        isNull(invite.acceptedAt),
+        isNull(invite.revokedAt),
+        gt(invite.expiresAt, at),
+      ),
+    )
+    .limit(1);
+  if (!open) return true;
+  if (target.kind !== "portal") return false;
+  const [waiting] = await db
+    .select({ id: customerPortalUser.id })
+    .from(customerPortalUser)
+    .where(
+      and(
+        eq(customerPortalUser.companyId, target.companyId),
+        eq(customerPortalUser.inviteId, target.id),
+        eq(customerPortalUser.status, "invited"),
+      ),
+    )
+    .limit(1);
+  return !waiting;
+}
+
+/**
+ * True when `userId` already holds what the invite gives: the membership in its company (member
+ * kind) or its portal row, active for this account (portal kind). Lets the invite page's
+ * `acceptByToken` answer success after Google sign-up has already accepted the invite.
+ */
+export async function inviteHeldBy(db: OrrnDb, target: InviteRow, userId: string): Promise<boolean> {
+  if (target.kind === "portal") {
+    const [row] = await db
+      .select({ id: customerPortalUser.id })
+      .from(customerPortalUser)
+      .where(
+        and(
+          eq(customerPortalUser.companyId, target.companyId),
+          eq(customerPortalUser.inviteId, target.id),
+          eq(customerPortalUser.userId, userId),
+          eq(customerPortalUser.status, "active"),
+        ),
+      )
+      .limit(1);
+    return Boolean(row);
+  }
+  const [member] = await db
+    .select({ id: membership.id })
+    .from(membership)
+    .where(and(eq(membership.userId, userId), eq(membership.companyId, target.companyId)))
+    .limit(1);
+  return Boolean(member);
+}
+
+/**
+ * Google sign-up (plan 2026-11-18): accepts every live invite for the email, each through
+ * `acceptInvite`, so the person lands in every plant that invited them. An invite `acceptInvite`
+ * refuses (party/staff conflict, a portal row gone) is skipped and logged by invite id only.
+ * Registered with the auth package in `context.ts` (`configureAuthHooks`).
+ */
+export async function acceptLiveInvitesFor(db: OrrnDb, userId: string, email: string, now: Date = new Date()): Promise<number> {
+  const address = email.trim().toLowerCase();
+  if (!address) return 0;
+  const live = await db
+    .select()
+    .from(invite)
+    .where(and(sql`lower(${invite.email}) = ${address}`, isNull(invite.acceptedAt), isNull(invite.revokedAt), gt(invite.expiresAt, now)))
+    .all();
+  // Only `session.user.id` is read (the audit actor): the new account accepts its own invites.
+  const actor: InviteActor = { session: { user: { id: userId } } as NonNullable<Context["session"]>, impersonation: null };
+  let accepted = 0;
+  for (const target of live) {
+    try {
+      await acceptInvite(db, actor, target, userId);
+      accepted += 1;
+    } catch (error) {
+      const reason = error instanceof TRPCError ? error.code : error instanceof Error ? error.name : "unknown";
+      console.warn(`Google sign-up: invite ${target.id} not accepted (${reason})`);
+    }
+  }
+  return accepted;
+}
+
+/**
+ * Accept a party invite (Wave 3 portal): the portal row turns `active` for this account. No
+ * membership is ever created; an account that is staff in this plant is refused (PF §9-12).
+ */
+async function acceptPortalInvite(
+  ctx: { db: OrrnDb; session: NonNullable<Context["session"]>; impersonation?: Context["impersonation"] },
+  target: InviteRow,
+  userId: string,
+) {
+  const [member] = await ctx.db
+    .select({ id: membership.id })
+    .from(membership)
+    .where(and(eq(membership.userId, userId), eq(membership.companyId, target.companyId)))
+    .limit(1);
+  if (member) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This login works in the plant here. A party needs its own email." });
+  }
+  const [row] = await ctx.db
+    .select()
+    .from(customerPortalUser)
+    .where(
+      and(
+        eq(customerPortalUser.companyId, target.companyId),
+        eq(customerPortalUser.inviteId, target.id),
+        eq(customerPortalUser.status, "invited"),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
+  const [other] = await ctx.db
+    .select({ id: customerPortalUser.id })
+    .from(customerPortalUser)
+    .where(and(eq(customerPortalUser.companyId, target.companyId), eq(customerPortalUser.userId, userId)))
+    .limit(1);
+  if (other && other.id !== row.id) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This account already has a party login in this plant" });
+  }
+  const at = new Date();
+  const seq = await nextCompanySeq({ db: ctx.db }, target.companyId);
+  await claimedBatch(ctx.db, target, userId, at, [
+    ctx.db
+      .update(customerPortalUser)
+      .set({ status: "active", userId, acceptedAt: at, serverSeq: seq, updatedAt: at })
+      .where(
+        and(
+          eq(customerPortalUser.id, row.id),
+          eq(customerPortalUser.companyId, target.companyId),
+          eq(customerPortalUser.status, "invited"),
+          eq(customerPortalUser.inviteId, target.id),
+        ),
+      ),
+    // The portal row may have been revoked or re-granted since it was read: then nothing lands.
+    abortBatchUnlessChanged(ctx.db),
+    auditInsert(
+      { ...ctx, companyId: target.companyId },
+      {
+        action: "portal.user.accept",
+        subjectType: "customer_portal_user",
+        subjectId: row.id,
+        meta: { inviteId: target.id, customerId: row.customerId },
+      },
+    ),
+  ]);
+  return { success: true as const, portal: true as const };
+}

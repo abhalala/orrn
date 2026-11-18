@@ -23,6 +23,8 @@ export const moreEn = {
     failed: "orrn didn't answer. Check the connection and try again.",
     twoFactor: "This account asks for a code at sign in. Sign in first, then open the invite link again.",
     goSignIn: "Go to sign in",
+    afterSetPassword: "Open the link in the email and set a password. Then come back here and sign in with it.",
+    signInNow: "Sign in with my new password",
     signedInTitle: "Join as {email}",
     signedInBody: "You are signed in. Accept the invite to join this team with this account.",
     accept: "Join the team",

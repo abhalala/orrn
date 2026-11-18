@@ -36,3 +36,22 @@ describe("finishesOnboardingHere: the closing screen's 'Go to Today' closes onbo
     expect(finishesOnboardingHere(me(null, false))).toBe(true);
   });
 });
+
+describe("per-plant onboarding (plan 2026-11-18, Task 9)", () => {
+  const withPlant = (role: NonNullable<Me["company"]>["role"], setupPending: boolean, onboardingCompleted: boolean): Me => {
+    const base = me(role, onboardingCompleted);
+    return { ...base, company: { ...base.company!, setupPending } };
+  };
+
+  test("the active plant's setup decides, not the user flag", () => {
+    // Set up in another plant (flag on), new here: the closing screen marks this plant.
+    expect(finishesOnboardingHere(withPlant("packer", true, true))).toBe(true);
+    // This plant done, the old flag still off: nothing to close.
+    expect(finishesOnboardingHere(withPlant("packer", false, false))).toBe(false);
+  });
+
+  test("never while impersonating", () => {
+    const grant = { actorUserId: "u1", companyId: "c1", grantId: "g1", expiresAt: "2099-01-01T00:00:00.000Z" };
+    expect(finishesOnboardingHere({ ...withPlant("viewer", true, false), impersonation: grant })).toBe(false);
+  });
+});

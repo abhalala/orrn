@@ -437,7 +437,7 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
 
     await expect(staff.platform.waitlistSignInDetails({ id: requestId })).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "This owner already signs in with a password; ask them to use Forgot password.",
+      message: "This owner can already sign in with a password, a passkey or Google; ask them to sign in that way.",
     });
     expect(await linkRows(request.requesterEmail)).toEqual(before);
     expect(await linkAudits(owner.id)).toHaveLength(1); // the approval's link only

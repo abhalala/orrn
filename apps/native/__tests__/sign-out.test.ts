@@ -195,3 +195,28 @@ describe("afterSignIn order: drop the previous person's rows, load auth.me, then
     unsubscribe();
   });
 });
+
+
+describe("the owed plant pick (plan 2026-11-18, Task 9)", () => {
+  test("a sign-in owes a pick before the gate is told; a sign-out clears it", async () => {
+    const log: string[] = [];
+    let pending = false;
+    const plantChoice = { set: (v: boolean) => { pending = v; log.push(`pick:${v}`); } };
+    const qc = seeded();
+    await afterSignInWith({
+      queryClient: qc,
+      fetchMe: async () => ({}),
+      presence: { changed: () => log.push(`gate:pending-${pending}`) },
+      plantChoice,
+    });
+    expect(log).toEqual(["pick:true", "gate:pending-true"]);
+    log.length = 0;
+    await signOutWith({ authSignOut: async () => ({}), presence: { changed: () => log.push(`gate:pending-${pending}`) }, queryClient: qc, waitMs: 10, plantChoice });
+    expect(log).toEqual(["pick:false", "gate:pending-false"]);
+  });
+
+  test("the real sign-in and sign-out pass the store", () => {
+    const src = readFileSync(join(ROOT, "lib/sign-out.ts"), "utf8");
+    expect(src.match(/plantChoice,/g)?.length).toBe(2);
+  });
+});

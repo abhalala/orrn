@@ -15,6 +15,7 @@ import {
 } from "../lib/session-errors";
 import { hasInlineError } from "../lib/query-errors";
 import { isAuthMeQueryKey } from "../lib/tenant-cache";
+import { strongSignInRefusal, type StrongSignInReason } from "../lib/strong-sign-in";
 
 function shouldToastQueryError(
   error: unknown,
@@ -30,6 +31,10 @@ function shouldToastQueryError(
   if (isUnauthorized(error) || isImpersonationForbidden(error)) {
     return false;
   }
+  // The plant requires secure sign-in: the handler below signs out or opens the secure step instead.
+  if (strongSignInRefusal(error)) {
+    return false;
+  }
   return true;
 }
 
@@ -42,13 +47,26 @@ export function registerSessionEndedHandler(handler: (() => void) | null) {
   onSessionEnded = handler;
 }
 
+/** Registered by main.tsx too (council round 1, A4; `shared/lib/strong-sign-in.ts`). */
+let onStrongSignIn: ((refusal: { reason: StrongSignInReason; plant: string | null }) => void) | null = null;
+export function registerStrongSignInHandler(handler: typeof onStrongSignIn) {
+  onStrongSignIn = handler;
+}
+
 /**
  * Global session recovery for every query and mutation (W2, W11):
  * - UNAUTHORIZED: the session expired mid-use → /login?next=<current page>.
  * - FORBIDDEN impersonation message: the grant expired or was revoked → drop
  *   it and reload as the plain user.
+ * - FORBIDDEN `STRONG_SIGN_IN_NEEDED` / `STRONG_METHOD_NEEDED`: the plant requires secure sign-in →
+ *   sign out and ask for a passkey, Google or the code, or open the secure step.
  */
 function handleSessionError(error: unknown) {
+  const strong = strongSignInRefusal(error);
+  if (strong) {
+    onStrongSignIn?.(strong);
+    return;
+  }
   if (isImpersonationForbidden(error)) {
     if (hasStoredImpersonation()) {
       clearImpersonation();

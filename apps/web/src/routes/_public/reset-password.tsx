@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
-import { newPasswordError, parseResetSearch, resetLinkBroken, type ResetSearch } from "@/features/auth/password-reset";
+import { afterResetLink, newPasswordError, parseResetSearch, resetLinkBroken, type ResetSearch } from "@/features/auth/password-reset";
 import { PasswordField } from "@/features/auth/password-field";
 import { usePageTitle } from "@/features/auth/use-page-title";
 import { authClient } from "@/shared/lib/auth-client";
@@ -21,7 +21,8 @@ type Phase = "form" | "done" | "refused";
 /**
  * Landing page of the reset email: Better Auth has checked the token and sent the person here with
  * `?token=` (or `?error=INVALID_TOKEN`). They choose a new password; every session of that account
- * is signed out, and the authenticator code is still asked for at the next sign-in.
+ * is signed out, and the authenticator code is still asked for at the next sign-in. A `next` page
+ * (the invite they came from) is where "done" sends them.
  */
 function ResetPasswordPage() {
   const { t } = useT();
@@ -67,6 +68,8 @@ function ResetPasswordPage() {
   }
 
   if (phase === "done") {
+    // Back to the invite they came from (plan 2026-11-18, Task 8), where they sign in and join.
+    const after = afterResetLink(search.next);
     return (
       <AuthFrame brand>
         <div className="flex flex-col gap-6" data-testid="reset-done">
@@ -79,7 +82,9 @@ function ResetPasswordPage() {
             </p>
           </div>
           <Button asChild size="lg" className="w-full">
-            <Link to="/login">{t("auth.reset.goSignIn")}</Link>
+            <a href={after.href} data-testid="reset-continue">
+              {t(after.label)}
+            </a>
           </Button>
         </div>
       </AuthFrame>
@@ -97,7 +102,9 @@ function ResetPasswordPage() {
             <p className="m-0 text-[15px] leading-6 text-muted-foreground">{t("auth.reset.badBody")}</p>
           </div>
           <Button asChild size="lg" className="w-full">
-            <Link to="/forgot-password">{t("auth.reset.askAgain")}</Link>
+            <Link to="/forgot-password" search={search.next ? { next: search.next } : {}}>
+              {t("auth.reset.askAgain")}
+            </Link>
           </Button>
         </div>
       </AuthFrame>

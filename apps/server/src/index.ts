@@ -6,7 +6,7 @@ import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { requestLogger } from "@orrn/server/lib/requestLog";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
@@ -16,7 +16,7 @@ import { handleIngestUpload } from "@orrn/server/lib/ingest/vault";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
-import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
+import { clearDevInviteThrottle, createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput, devResetTokenInput, readDevResetToken } from "./dev-front-door";
 import { devIngestBotInput, runDevIngestBot } from "./dev-ingest-bot";
 import { devSpectroInput, runDevSpectro } from "./dev-spectro";
 import { seedDevData } from "./dev-seed";
@@ -28,7 +28,8 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Fail closed: production never serves with a missing or all-zero ORRN_MASTER_KEY (lib/masterKeyGate.ts).
 app.use(masterKeyGate(() => env));
-app.use(logger());
+// Path only, never the query string: tRPC inputs, callbackURLs and magic-link tokens stay out of Workers Logs.
+app.use(requestLogger());
 
 // Production only: upgrade plain-HTTP requests to HTTPS and send HSTS.
 // Local dev runs on http://localhost and must keep working.
@@ -105,6 +106,20 @@ if (env.NODE_ENV === "development") {
     const input = devIngestBotInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(runDevIngestBot(input.data));
+  });
+
+  // Invite onboarding e2e (plan 2026-11-18, Task 8): the token of the reset link an invitee was emailed.
+  app.post("/dev/reset-token", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devResetTokenInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await readDevResetToken(createDb(), input.data));
+  });
+
+  // Invite e2e: every local request has one IP, so clear the invite throttle rows between tests.
+  app.post("/dev/invite-throttle", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    return c.json(await clearDevInviteThrottle(createDb()));
   });
 
   app.post("/dev/magic-link", async (c) => {

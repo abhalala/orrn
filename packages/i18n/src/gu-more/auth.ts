@@ -17,6 +17,20 @@ export const guAuth = {
       showPassword: "પાસવર્ડ બતાવો",
       showPasswordAgain: "ફરી લખેલો પાસવર્ડ બતાવો",
       forgot: "પાસવર્ડ ભૂલી ગયા?",
+      or: "અથવા",
+      passkey: "પાસકીથી સાઇન ઇન કરો",
+      google: "Google થી આગળ વધો",
+      finishing: "સાઇન ઇન થાય છે",
+      passwordLink: "પાસવર્ડ બનાવવાની લિંક ઇમેઇલ કરો",
+      passwordLinkSending: "મોકલીએ છીએ",
+      passwordLinkSent: "જો {email} નું orrn અકાઉન્ટ હોય, તો પાસવર્ડ બનાવવાની લિંક આવી રહી છે. તે એક કલાક સુધી ચાલશે.",
+      // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
+      strongSignInNeeded: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
+      strongSignInNeededPlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
+      // Council r2 (2026-11-18): the phone may offer no passkey or Google; then say where to get the code
+      // (from a strong web session: a password session may not add a second strong method, N-C1).
+      strongSignInNeededPhone: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર તમારી પાસકી કે Googleથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
+      strongSignInNeededPhonePlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર તમારી પાસકી કે Googleથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
     },
     totp: {
       title: "તમારો કોડ લખો",
@@ -46,6 +60,22 @@ export const guAuth = {
     errors: {
       tooMany: "ઘણી વાર પ્રયત્ન થઈ ગયો. એક મિનિટ રાહ જુઓ, પછી ફરી પ્રયત્ન કરો.",
       twoFactorExpired: "બહુ વાર લાગી. તમારા પાસવર્ડથી ફરી સાઇન ઇન કરો.",
+      googleNotInvited: "આ Google અકાઉન્ટ માટે orrn નું કોઈ ઇનવાઇટ નથી. તમારા એડમિનને આ ઇમેઇલને ઇનવાઇટ કરવા કહો, અથવા બીજી રીતે સાઇન ઇન કરો.",
+      googleNotForStaff: "Godseye સ્ટાફ અકાઉન્ટ Google થી સાઇન ઇન કરી શકતા નથી. પાસકીથી, અથવા તમારા પાસવર્ડ અને કોડથી સાઇન ઇન કરો.",
+      googleEmailNotVerified: "Google એ આ ઇમેઇલની ખાતરી કરી નથી. બીજી રીતે સાઇન ઇન કરો.",
+      // Council r1 Lane A (2026-11-18): Google never links itself at sign-in to an account with a passkey or code.
+      googleLinkFromSettings: "આ અકાઉન્ટમાં પહેલેથી પાસકી અથવા ઓથેન્ટિકેટર ઍપ છે. તેનાથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં Google જોડો.",
+      passkeyCancelled: "પાસકીથી સાઇન ઇન રદ થયું. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",
+      passkeyNotFound: "orrn આ પાસકી ઓળખતું નથી. બીજી પાસકી અજમાવો, અથવા બીજી રીતે સાઇન ઇન કરો.",
+      signInFailed: "સાઇન ઇન પૂરું થયું નહીં. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",
+      passkeyAddCancelled: "પાસકી ઉમેરવાનું રદ થયું. તૈયાર હો ત્યારે ફરી પ્રયત્ન કરો.",
+      passkeyExists: "આ ડિવાઇસ પર તમારા અકાઉન્ટની પાસકી પહેલેથી છે.",
+      passkeyAddFailed: "પાસકી ઉમેરાઈ નહીં. ફરી પ્રયત્ન કરો.",
+      signInAgain: "તમારી સુરક્ષા માટે આ માટે હાલનું સાઇન ઇન જોઈએ. ફરી સાઇન ઇન કરો, પછી એક વાર ફરી પ્રયત્ન કરો.",
+      googleLinkOtherEmail: "તે Google અકાઉન્ટનો ઇમેલ જુદો છે. જેનો ઇમેલ આ અકાઉન્ટ જેવો જ હોય તે Google અકાઉન્ટ જોડો.",
+      googleLinkTaken: "તે Google અકાઉન્ટ પહેલેથી બીજા orrn અકાઉન્ટમાં સાઇન ઇન કરે છે.",
+      googleLinkFailed: "Google જોડાયું નહીં. ફરી પ્રયત્ન કરો.",
+      noPasswordYet: "આ અકાઉન્ટનો હજુ કોઈ પાસવર્ડ નથી. પાસવર્ડ બનાવવાની લિંક ઇમેઇલ પર મંગાવો, અથવા બીજી રીતે સાઇન ઇન કરો.",
     },
     invite: {
       genericTitle: "orrn પર તમારી ટીમમાં જોડાઓ",
@@ -67,6 +97,16 @@ export const guAuth = {
       wrongEmailTitle: "આ ઇનવાઇટ બીજા ઇમેઇલ માટે છે",
       wrongEmail: "સાઇન આઉટ કરો, પછી લિંક ફરી ખોલો અને જે ઇમેઇલ પર ઇનવાઇટ આવ્યું હતું તે લખો.",
       goSignIn: "સાઇન ઇન પર જાઓ",
+      noPasswordTitle: "તમારા અકાઉન્ટનો હજુ કોઈ પાસવર્ડ નથી.",
+      noPasswordBody: "જે રીતે તમે સાઇન ઇન કરો છો તે રીતે સાઇન ઇન કરો, અથવા ઇમેઇલથી પાસવર્ડ બનાવો. પછી તમે જોડાઈ જશો.",
+      setPasswordLead: "ઇમેઇલથી પાસવર્ડ બનાવો",
+      setPasswordHint: "જે ઇમેઇલ પર આ ઇનવાઇટ આવ્યું હતું તે જ લખો. લિંક તમને જોડાવા માટે અહીં પાછા લાવશે.",
+      setPasswordSubmit: "પાસવર્ડ બનાવવાની લિંક ઇમેઇલ કરો",
+      setPasswordSending: "મોકલીએ છીએ",
+      setPasswordSent: "જો આ એ જ ઇમેઇલ હોય જેના પર ઇનવાઇટ આવ્યું હતું, તો લિંક આવી રહી છે. તે ખોલો, પાસવર્ડ પસંદ કરો, અને તે તમને જોડાવા માટે અહીં પાછા લાવશે. તે એક કલાક સુધી ચાલશે.",
+    },
+    reset: {
+      backToInvite: "તમારા ઇનવાઇટ પર પાછા જાઓ",
     },
     noAccess: {
       title: "તમારું અકાઉન્ટ હજી કોઈ કંપનીમાં નથી",
@@ -77,7 +117,53 @@ export const guAuth = {
       switchAccount: "સાઇન આઉટ કરીને બીજું અકાઉન્ટ વાપરો",
       ownPlant: "તમારા પોતાના પ્લાન્ટ માટે orrn શરૂ કરવું છે?",
     },
+    choosePlant: {
+      title: "પ્લાન્ટ પસંદ કરો",
+      body: "તમે એકથી વધુ પ્લાન્ટમાં કામ કરો છો. જે ખોલવો હોય તે પસંદ કરો. પછીથી મેનુમાંથી બદલી શકો છો.",
+      setupPending: "સેટઅપ બાકી",
+      opening: "{name} ખૂલે છે",
+      failed: "તે પ્લાન્ટ ખૂલ્યો નહીં. ફરી પ્રયત્ન કરો.",
+      another: "બીજો પ્લાન્ટ પસંદ કરો",
+    },
     sessionExpired: "તમારું સેશન પૂરું થઈ ગયું. ફરી સાઇન ઇન કરો.",
     signOut: "સાઇન આઉટ",
+  },
+  // Plan 2026-11-18, Tasks 9 and 5: "Secure your sign-in" and the closing screen's passkey offer (the rest of welcome falls back to English).
+  welcome: {
+    steps: {
+      secureSignIn: "સુરક્ષિત સાઇન-ઇન",
+    },
+    secure: {
+      title: "તમારું સાઇન-ઇન સુરક્ષિત કરો",
+      required: "{company} માં સાઇન ઇન માટે પાસકી, Google કે authenticator કોડ જોઈએ. ફક્ત પાસવર્ડથી તે હવે ખૂલતું નથી.",
+      choose: "આગળ વધવા એક રીત પસંદ કરો. પછીથી સેટિંગમાં વધુ ઉમેરી શકો છો.",
+      passkey: "પાસકી ઉમેરો",
+      passkeyHint: "તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. કંઈ ટાઇપ કરવાનું નથી.",
+      authenticator: "authenticator ઍપ વાપરો",
+      authenticatorHint: "પાસવર્ડ પછી તમારા ફોનની ઍપનો 6 અંકનો કોડ ટાઇપ કરો.",
+      googleHint: "{email} વાળા Google અકાઉન્ટથી સાઇન ઇન કરો.",
+      otherWay: "બીજી રીત પસંદ કરો",
+    },
+    // Council r1 Lane A (2026-11-18): Settings > Sign-in reuses these two (turning the authenticator app on or off).
+    twoFactor: {
+      confirmPassword: "તમારો પાસવર્ડ",
+      wrongPassword: "આ પાસવર્ડ ખોટો છે. જે પાસવર્ડથી સાઇન ઇન કરો છો તે લખો.",
+    },
+    done: {
+      passkeyTitle: "આગલી વખતે ઝડપથી સાઇન ઇન કરો",
+      passkeyBody: "પાસકી ઉમેરો અને તમારી આંગળી, ચહેરા કે સ્ક્રીન લૉકથી સાઇન ઇન કરો. ઇચ્છો તો આ છોડી શકો છો.",
+      passkeyAdd: "પાસકી ઉમેરો",
+      passkeyAdded: "પાસકી ઉમેરાઈ. આગલી વખતે તેનાથી સાઇન ઇન કરો.",
+    },
+  },
+  // Plan 2026-11-18: the audit words for sign-in changes (the rest of audit falls back to English).
+  audit: {
+    actions: {
+      company__security__update: "સુરક્ષિત સાઇન-ઇન બદલ્યું",
+      auth__google__link: "Google સાઇન-ઇન જોડ્યું",
+      auth__passkey__add: "પાસકી ઉમેરી",
+      auth__passkey__remove: "પાસકી કાઢી",
+      member__invite__resend: "ઇનવાઇટ ફરી મોકલ્યું",
+    },
   },
 } as const satisfies DeepPartial<Messages>;

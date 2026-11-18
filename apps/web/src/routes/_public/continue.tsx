@@ -7,7 +7,7 @@ import { useState } from "react";
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { usePageTitle } from "@/features/auth/use-page-title";
 
-/** `?error=` the API sends back when it refuses a link for an account that signs in with a password (packages/auth magic-link-guard). */
+/** `?error=` the API sends back when it refuses a link for an account that already has a way in: a password, a passkey, Google or an authenticator (packages/auth magic-link-guard). */
 const REFUSED_ERROR = "ACCOUNT_USES_PASSWORD";
 
 export const Route = createFileRoute("/_public/continue")({
@@ -30,8 +30,8 @@ function ContinuePage() {
   const { t } = useT();
   const { token, error } = Route.useSearch();
   const [leaving, setLeaving] = useState(false);
-  // The server sends a refused link back here with this reason: the account has a password and an
-  // authenticator code, so a link can never sign it in (FP-PF-08).
+  // The server sends a refused link back here with this reason: the account already signs in its own
+  // way (password, passkey or Google), so a link can never sign it in (FP-PF-08, plan 2026-11-18).
   const refused = error === REFUSED_ERROR;
   const broken = Boolean(error) || !token;
   usePageTitle(refused ? t("auth.continue.refusedTitle") : broken ? t("auth.continue.brokenTitle") : t("auth.continue.title"));

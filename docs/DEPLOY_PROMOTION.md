@@ -413,7 +413,8 @@ Official references retrieved for this implementation:
 Device bring-up comes after the web is complete and dev is deployed; no agent time goes into SDKs or device builds. What is
 needed when it starts: the phone app gained native modules in the FP passes: `expo-application` (build number for the release
 gate), `expo-crypto` (replay ids and the install id) and `expo-speech` (spoken refusals), on top of `expo-camera` and
-`expo-haptics`. An over-the-air update cannot add them, and Expo Go does not carry them. Before the plant uses the phone app:
+`expo-haptics`; passkeys and Google sign-in (plan 2026-11-18) added `react-native-passkey` and `expo-web-browser`
+(`ORRN_PASSKEY_RP_ID=dev.orrn.app` at prebuild for a dev-site build; `docs/OWNER_HANDOVER.md` section 11). An over-the-air update cannot add them, and Expo Go does not carry them. Before the plant uses the phone app:
 
 ```bash
 cd /Users/abhalala/Documents/business/fc/orrn/apps/native

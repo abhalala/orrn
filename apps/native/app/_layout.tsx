@@ -21,9 +21,11 @@ import { appStateFocus } from "@/lib/app-focus";
 import { fontAssets } from "@/lib/fonts";
 import { NESTED_STACKS, offlineKind, resolveGate, ROOT_ROUTES, type GateState } from "@/lib/gate";
 import { GateContext } from "@/lib/gate-context";
+import { plantChoice } from "@/lib/plant-choice";
 import { readInitialLocale, storeLocale } from "@/lib/locale-store";
 import { useStackOptions } from "@/lib/screen-options";
-import { gateQueryRetry } from "@/lib/session";
+import { gateQueryRetry, registerStrongSignInHandler } from "@/lib/session";
+import { createStrongSignInSignOut } from "@/lib/sign-in-notice";
 import { sessionPresence } from "@/lib/session-presence";
 import { signOut } from "@/lib/sign-out";
 import { useThemeColor } from "@/lib/theme";
@@ -41,6 +43,9 @@ void SplashScreen.preventAutoHideAsync();
 colorScheme.set(readThemePref());
 // Coming back to the foreground refetches stale queries (auth.me included), as window focus does on web.
 focusManager.setEventListener(appStateFocus(AppState));
+// A plant that requires secure sign-in refused a password-only session (council round 1, A4): sign out,
+// and the sign-in screen says which plant and what works.
+registerStrongSignInHandler(createStrongSignInSignOut(signOut));
 
 /** The native splash never stays longer than this; a slow first auth.me shows a spinner instead. */
 const SPLASH_MAX_MS = 2_000;
@@ -119,6 +124,8 @@ function OfflineScreen({
  */
 function RootNavigator() {
   const hasSession = useSyncExternalStore(sessionPresence.subscribe, sessionPresence.get);
+  // A plant pick owed since the last sign-in (plan 2026-11-18, Task 9).
+  const pickPending = useSyncExternalStore(plantChoice.subscribe, plantChoice.get);
   // One retry, not three, and none after a timeout: every request gives up after
   // 10 s (lib/request-timeout.ts), so a dead uplink reaches the offline screen in
   // about 10 s instead of hanging on the splash until the OS gives up.
@@ -129,7 +136,13 @@ function RootNavigator() {
     error: me.error,
     isPending: me.isPending,
     failedFetches: me.errorUpdateCount,
+    plantChoicePending: pickPending,
   });
+  // One plant: nothing to pick, so a later second plant does not open the picker mid-session.
+  const plantCount = (me.data as Me | undefined)?.memberships?.length;
+  useEffect(() => {
+    if (pickPending && plantCount !== undefined && plantCount <= 1) plantChoice.set(false);
+  }, [pickPending, plantCount]);
   const stackOptions = useStackOptions();
   const { t } = useT();
   // A retry clears `me.error` while it runs; keep the last one so the offline
@@ -193,6 +206,11 @@ function RootNavigator() {
           </Stack.Protected>
           <Stack.Protected guard={state === "/no-access"}>
             {ROOT_ROUTES.noAccess.map((name) => (
+              <Stack.Screen key={name} name={name} options={gateSwap} />
+            ))}
+          </Stack.Protected>
+          <Stack.Protected guard={state === "/choose-plant"}>
+            {ROOT_ROUTES.choosePlant.map((name) => (
               <Stack.Screen key={name} name={name} options={gateSwap} />
             ))}
           </Stack.Protected>

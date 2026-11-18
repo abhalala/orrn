@@ -1,19 +1,24 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
-import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
+import { account, passkey, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
+import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
+import { isStrongSession } from "@orrn/auth/session-method";
+import { hasStrongMethod, plantRequiresStrongSignIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { env } from "@orrn/env/server";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { settingsPatchSql } from "../lib/companySettings";
 import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
-import { authedProcedure, companyProcedure, router } from "../index";
+import { authedProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 const navOrderInput = z
   .strictObject({
@@ -29,6 +34,9 @@ const navOrderInput = z
       ctx.addIssue({ code: "custom", message: "The More divider must name a menu item", path: ["moreFrom"] });
     }
   });
+
+/** A person has a handful of passkeys; the settings list stays bounded all the same. */
+const PASSKEY_LIST_LIMIT = 50;
 
 function readPreferences(value: unknown): Record<string, unknown> {
   try {
@@ -67,7 +75,30 @@ function readNavOrder(preferences: unknown): MemberNavOrder | null {
  * and read role + company + platform flag from the returned shape rather than
  * piecing it together from `authClient.useSession()`.
  */
+/** See `completeOnboarding`: may this session write the plant's onboarding keys (council round 2, N-M1)? */
+async function companyKeysAllowed(
+  ctx: { db: Parameters<typeof signInMethodsFor>[0]; impersonation?: unknown; membership?: { requireStrongSignIn?: boolean } | null; session: { session: unknown } },
+  userId: string,
+): Promise<boolean> {
+  if (ctx.impersonation || ctx.membership?.requireStrongSignIn !== true) return true;
+  if (isStrongSession((ctx.session.session as { signInMethod?: unknown }).signInMethod)) return true;
+  return !hasStrongMethod(await signInMethodsFor(ctx.db, userId));
+}
+
 export const authRouter = router({
+  /**
+   * Public: which sign-in methods the sign-in screen may offer on this stage. Google only when both
+   * of its secrets are set; the passkey relying party is the web host (`passkey-config.ts`, the same
+   * value the auth plugin uses). `native`: whether each phone app's passkey association is set up
+   * on this stage (the iOS Team ID is bound; the Android key hash is an allowed origin); the phone
+   * hides its passkey button otherwise. Never add a secret or a per-user fact here: anyone can call it.
+   */
+  methods: publicProcedure.query(() => ({
+    google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    passkey: { rpID: passkeyConfigForEnv(env).rpID },
+    native: { ios: Boolean(env.ORRN_APPLE_TEAM_ID?.trim()), android: Boolean(env.ANDROID_APK_KEY_HASH?.trim()) },
+  })),
+
   me: authedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 
@@ -82,13 +113,10 @@ export const authRouter = router({
       .get();
 
     // A magic-link account (waitlist approval) has no credential password until
-    // the welcome stepper sets one; /login takes only email + password, so the
-    // stepper keeps asking until it exists (Task 17 fix round 1).
-    const credential = await ctx.db
-      .select({ id: account.id })
-      .from(account)
-      .where(and(eq(account.userId, userId), eq(account.providerId, "credential"), isNotNull(account.password)))
-      .get();
+    // the welcome stepper sets one (Task 17 fix round 1). A passkey or Google is a
+    // way in too (plan 2026-11-18): the stepper asks for a password only when the
+    // account has none of the three (`needsPassword` on the web).
+    const methods = await signInMethodsFor(ctx.db, userId);
 
     const companyRow =
       ctx.membership && ctx.companyId
@@ -118,11 +146,19 @@ export const authRouter = router({
             .get()
         : null;
 
+    // `setupPending`: this plant's onboarding is still open for the person (`membership.onboarded_at`
+    // is null; plan 2026-11-18, Task 9). The plant picker marks such a plant "Setup pending".
     const memberships = (await listActiveMemberships(ctx.db, userId)).map((m) => ({
       companyId: m.companyId,
       name: m.name,
       role: m.role,
+      setupPending: m.onboardedAt == null,
     }));
+    // The active plant's own membership. An impersonating admin has none in the plant: nothing is
+    // pending for them there.
+    const activeSetupPending = ctx.impersonation
+      ? false
+      : (memberships.find((m) => m.companyId === ctx.companyId)?.setupPending ?? false);
 
     return {
       user: {
@@ -133,7 +169,9 @@ export const authRouter = router({
         onboardingCompleted: userRow?.onboardingCompleted ?? false,
         twoFactorEnabled: userRow?.twoFactorEnabled ?? false,
         mustChangePassword: userRow?.mustChangePassword ?? false,
-        hasPassword: Boolean(credential),
+        hasPassword: methods.password,
+        hasPasskey: methods.passkeys > 0,
+        hasGoogle: methods.google,
       },
       company:
         companyRow && ctx.role
@@ -149,6 +187,10 @@ export const authRouter = router({
               /** Units and formats every screen of this plant uses (default, then the plant's choice). */
               units: screenPrefs(readUnitSettings(companyRow.settings)),
               navOrder: readNavOrder(ownMembership?.preferences),
+              /** The plant requires a strong method of every member (Settings > Security, spec Amendment item 3). */
+              requireStrongSignIn: (companyRow.settings as Record<string, unknown> | null)?.requireStrongSignIn === true,
+              /** This plant's onboarding is still open for the person (their membership's `onboarded_at` is null). */
+              setupPending: activeSetupPending,
             }
           : null,
       /** Every active company this user belongs to, most recent first (spec P10). */
@@ -163,6 +205,44 @@ export const authRouter = router({
             expiresAt: ctx.impersonation.expiresAt.toISOString(),
           }
         : null,
+    };
+  }),
+
+  /**
+   * The signed-in person's own sign-in methods, for Settings > Sign-in (plan 2026-11-18). Passkeys
+   * are listed by row id, name and dates only: never the credential id or the public key. The
+   * plugin's table keeps no last-use time, so `lastUsedAt` is null until it does.
+   * `requiredByPlant`: an active plant of theirs requires secure sign-in, so the last strong method
+   * cannot be removed (COMPANY_REQUIRES_STRONG_METHOD, sign-in-methods.ts). `emailVerified`: whether
+   * linking Google would clear the other methods first (it does for an unconfirmed email).
+   */
+  signInMethods: authedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+    const [methods, passkeys, requiredByPlant, userRow] = await Promise.all([
+      signInMethodsFor(ctx.db, userId),
+      ctx.db
+        .select({ id: passkey.id, name: passkey.name, createdAt: passkey.createdAt })
+        .from(passkey)
+        .where(eq(passkey.userId, userId))
+        .orderBy(asc(passkey.createdAt), asc(passkey.id))
+        .limit(PASSKEY_LIST_LIMIT)
+        .all(),
+      plantRequiresStrongSignIn(ctx.db, userId),
+      ctx.db.select({ emailVerified: user.emailVerified }).from(user).where(eq(user.id, userId)).get(),
+    ]);
+    return {
+      password: methods.password,
+      authenticator: methods.authenticator,
+      google: methods.google,
+      passkeys: passkeys.map((p) => ({
+        id: p.id,
+        name: p.name ?? null,
+        createdAt: p.createdAt ?? new Date(0),
+        lastUsedAt: null as Date | null,
+      })),
+      requiredByPlant,
+      /** Linking Google to an unconfirmed email removes the other methods (google-guard.ts), so Settings warns first. */
+      emailVerified: userRow?.emailVerified === true,
     };
   }),
 
@@ -334,10 +414,16 @@ export const authRouter = router({
       // must send them. Everyone else just marks their own onboarding done and
       // may send nothing (the welcome stepper's last step); company inputs are
       // ignored for them.
-      const canWriteCompany = Boolean(
+      const mayUpdateSettings = Boolean(
         ctx.companyId &&
           can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
       );
+      // Council round 2 (Claude N-M1): this is an `auth.*` procedure, open to a weak session so the secure
+      // step can finish; the company keys are written only when the session could write settings anyway:
+      // a strong session, a plant that does not require secure sign-in, a person with no strong method
+      // yet (the welcome case: the secure step comes first), or an impersonating admin. Otherwise only
+      // the onboarding is marked done.
+      const canWriteCompany = mayUpdateSettings && (await companyKeysAllowed(ctx, userId));
       if (canWriteCompany && (!input.facilityLocation || !input.primaryContact || !input.timezone)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -345,43 +431,51 @@ export const authRouter = router({
         });
       }
 
+      // Onboarding is per plant (plan 2026-11-18, Task 9): only the active plant's membership is marked,
+      // keyed on (this user, the active plant) so an impersonation grant (no membership of the actor in
+      // the plant) marks nothing; the first time is kept. The user flag is still written for older
+      // clients that read it.
       const statements: SqliteBatchItem[] = [
         ctx.db
           .update(user)
           .set({ onboardingCompleted: true })
           .where(eq(user.id, userId)),
       ];
+      if (ctx.companyId && !ctx.impersonation) {
+        statements.push(
+          ctx.db
+            .update(membership)
+            .set({ onboardedAt: new Date() })
+            .where(and(eq(membership.userId, userId), eq(membership.companyId, ctx.companyId), isNull(membership.onboardedAt))),
+        );
+      }
 
       if (canWriteCompany && ctx.companyId) {
-        const currentCompany = await ctx.db
-          .select()
-          .from(company)
-          .where(eq(company.id, ctx.companyId))
-          .get();
-
-        if (currentCompany) {
-          const currentSettings = currentCompany.settings ?? {};
-          statements.push(
-            ctx.db
-              .update(company)
-              .set({
-                settings: {
-                  ...currentSettings,
-                  facilityLocation: input.facilityLocation,
-                  primaryContact: input.primaryContact,
-                  timezone: input.timezone,
-                  pressCount: input.pressCount,
-                },
-              })
-              .where(eq(company.id, ctx.companyId)),
-            auditInsert(ctx, {
+        // Council round 1, A3: only these four keys, against the row's value when the write runs, so a
+        // policy the owner changed meanwhile is never turned back by a stale copy.
+        statements.push(
+          ctx.db
+            .update(company)
+            .set({
+              settings: settingsPatchSql({
+                facilityLocation: input.facilityLocation,
+                primaryContact: input.primaryContact,
+                timezone: input.timezone,
+                pressCount: input.pressCount,
+              }),
+            })
+            .where(eq(company.id, ctx.companyId)),
+          auditInsertGuarded(
+            ctx,
+            {
               action: "settings.update",
               subjectType: "company",
               subjectId: ctx.companyId,
               meta: { via: "onboarding" },
-            }),
-          );
-        }
+            },
+            { from: company, where: eq(company.id, ctx.companyId) },
+          ),
+        );
       }
 
       await atomicBatch(ctx.db, statements);

@@ -6,12 +6,18 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
-import { resetRedirectUrl } from "@/features/auth/password-reset";
+import { parseResetSearch, resetRedirectUrl } from "@/features/auth/password-reset";
 import { usePageTitle } from "@/features/auth/use-page-title";
 import { authClient } from "@/shared/lib/auth-client";
 
 export const Route = createFileRoute("/_public/forgot-password")({
   component: ForgotPasswordPage,
+  // `next`: a same-origin page the reset link returns to (an invite, plan 2026-11-18 Task 8). Plain
+  // check (no zod): route options sit in the entry chunk.
+  validateSearch: (search: Record<string, unknown>): { next?: string } => {
+    const { next } = parseResetSearch({ next: search.next });
+    return next ? { next } : {};
+  },
 });
 
 /** Loose shape check only; the server is the judge. */
@@ -24,6 +30,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 function ForgotPasswordPage() {
   const { t } = useT();
+  const { next } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<"invalid" | "failed" | null>(null);
   const [pending, setPending] = useState(false);
@@ -48,7 +55,7 @@ function ForgotPasswordPage() {
     try {
       const { error: failure } = await authClient.requestPasswordReset({
         email: trimmed,
-        redirectTo: resetRedirectUrl(window.location.origin),
+        redirectTo: resetRedirectUrl(window.location.origin, next),
       });
       if (failure) {
         // A rate limit or a network failure is all the person can act on; an unknown address never errors.

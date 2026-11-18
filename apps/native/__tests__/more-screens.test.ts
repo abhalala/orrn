@@ -6,7 +6,7 @@ import { listGuides } from "@orrn/i18n/guides";
 import { addressLines, cadenceDays, cityOf, companyTimeZone, customerFactsLine, lastDispatchPhrase, periodRange, todayIn, ymdToDate } from "../features/customers/customer-view";
 import { dieCode, dieMeasurements, geometryText, kgText, measurementText } from "../features/dies/die-display";
 import { guidesFor } from "../features/guides/guides";
-import { inviteAcceptOutcome, inviteProbeResult, isExistingAccount } from "../features/invite/invite-flow";
+import { inviteAcceptOutcome, inviteScreen, isExistingAccount } from "../features/invite/invite-flow";
 import { moreRows } from "../features/more/more-rows";
 import { isNotFound } from "../features/more/query-errors";
 import { sortMembers } from "../features/settings/team";
@@ -47,11 +47,21 @@ describe("Guides by role", () => {
 });
 
 describe("Invite", () => {
-  test("a live link answers UNAUTHORIZED while signed out; dead links say so", () => {
-    expect(inviteProbeResult({ data: { code: "UNAUTHORIZED" } })).toBe("valid");
-    expect(inviteProbeResult({ data: { code: "NOT_FOUND" } })).toBe("expired");
-    expect(inviteProbeResult({ data: { code: "BAD_REQUEST" } })).toBe("expired");
-    expect(inviteProbeResult(new Error("Network request failed"))).toBe("failed");
+  // Plan 2026-11-18, Task 8: invite.status picks the screen (the old accept-as-probe is gone).
+  const live = (account: "none" | "password" | "noPassword") => ({ live: true as const, kind: "member" as const, account, google: true });
+
+  test("checking until invite.status answers; a failed read offers a retry; a dead link says so either way", () => {
+    expect(inviteScreen(false, "pending")).toBe("checking");
+    expect(inviteScreen(true, "failed")).toBe("failed");
+    expect(inviteScreen(false, { live: false })).toBe("expired");
+    expect(inviteScreen(true, { live: false })).toBe("expired");
+  });
+
+  test("signed in: join; signed out: create, sign in or the no-password screen from the invited email's account", () => {
+    expect(inviteScreen(true, live("noPassword"))).toBe("join");
+    expect(inviteScreen(false, live("none"))).toBe("create");
+    expect(inviteScreen(false, live("password"))).toBe("signIn");
+    expect(inviteScreen(false, live("noPassword"))).toBe("noPassword");
   });
 
   test("an error without a code is not an existing account", () => {

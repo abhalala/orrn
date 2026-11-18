@@ -72,6 +72,24 @@ describe("Gujarati: partial, floor namespaces complete", () => {
     expect(all.filter((s) => (s.match(/·/g) ?? []).length > 1)).toEqual([]);
   });
 
+  // Council round 1, A9: Settings > Sign-in reuses these welcome keys; they read Gujarati there too.
+  test("the welcome.twoFactor keys Settings > Sign-in reuses, and the Google link warning, are in gu", () => {
+    const keys = [
+      "welcome.twoFactor.confirmPassword",
+      "welcome.twoFactor.wrongPassword",
+      "settings.signIn.linkWipesIntro",
+      "settings.signIn.linkWipesPassword",
+      "settings.signIn.linkWipesPasskeys",
+      "settings.signIn.linkWipesAuthenticator",
+      "settings.signIn.linkWipesDevices",
+      "settings.signIn.linkWipesAfter",
+    ];
+    for (const key of keys) {
+      expect({ key, en: enFlat.has(key), gu: guFlat.has(key) }).toEqual({ key, en: true, gu: true });
+      expect({ key, same: guFlat.get(key) === enFlat.get(key) }).toEqual({ key, same: false });
+    }
+  });
+
   test("BACKLOG 54: Today's press tile (press, supervisor, manager) reads Gujarati, not the English fallback", () => {
     const tile = ["title", "open", "pressed", "runs", "trials", "recovery", "recoveryMeta", "downtime", "stops", "late", "lateShare"].map((k) => `today.press.${k}`);
     for (const key of tile) {

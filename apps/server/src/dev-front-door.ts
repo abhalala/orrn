@@ -1,9 +1,9 @@
 import { createAuth } from "@orrn/auth";
 import { atomicBatch, type createDb } from "@orrn/db";
-import { user } from "@orrn/db/schema/auth";
+import { authThrottle, user, verification } from "@orrn/db/schema/auth";
 import { company, companyRoles, invite } from "@orrn/db/schema/tenant";
 import { webBaseUrl } from "@orrn/server/lib/webUrl";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { DEV_ACCOUNTS } from "./dev-accounts";
@@ -100,4 +100,35 @@ export async function createDevMagicLink(input: z.infer<typeof devMagicLinkInput
   url.searchParams.set("token", token);
   url.searchParams.set("callbackURL", `${webBaseUrl()}/setup-credentials`);
   return { url: url.toString() };
+}
+
+export const devResetTokenInput = z.object({ email: z.string().trim().max(320).email() });
+
+/**
+ * The newest live reset-password token of the account with this email (plan 2026-11-18, Task 8), the
+ * one the emailed link carries, or null. Only the token is stored, not the link's return page: the
+ * invite e2e builds the link around it (`/api/auth/reset-password/<token>?callbackURL=...`), and the
+ * server test pins the real emailed link (`invite-onboarding.test.ts`).
+ */
+export async function readDevResetToken(db: Db, input: z.infer<typeof devResetTokenInput>) {
+  const account = await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${input.email.toLowerCase()}`).get();
+  if (!account) return { token: null };
+  const row = await db
+    .select({ identifier: verification.identifier })
+    .from(verification)
+    .where(and(like(verification.identifier, "reset-password:%"), eq(verification.value, account.id), gt(verification.expiresAt, new Date())))
+    .orderBy(desc(verification.createdAt))
+    .limit(1)
+    .get();
+  return { token: row ? row.identifier.slice("reset-password:".length) : null };
+}
+
+/**
+ * Clears the invite page's throttle rows (`invite:%`, plan 2026-11-18 Task 8). Locally every e2e
+ * request comes from one IP, so the status limit (30 per 10 minutes per IP) would refuse a rerun or a
+ * full group inside the window. The forgot-password throttle has the same answer: the dev seed clears it.
+ */
+export async function clearDevInviteThrottle(db: Db) {
+  await db.delete(authThrottle).where(like(authThrottle.key, "invite:%"));
+  return { ok: true as const };
 }

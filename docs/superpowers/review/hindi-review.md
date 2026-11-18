@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -285,7 +285,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (117)
+### auth (157)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -301,6 +301,17 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.showPassword` | Show password | पासवर्ड दिखाएं |
 | `login.showPasswordAgain` | Show repeated password | दोहराया पासवर्ड दिखाएं |
 | `login.forgot` | Forgot password? | पासवर्ड भूल गए? |
+| `login.or` | or | या |
+| `login.passkey` | Sign in with a passkey | पासकी से साइन इन करें |
+| `login.google` | Continue with Google | Google से जारी रखें |
+| `login.finishing` | Signing you in | साइन इन हो रहा है |
+| `login.passwordLink` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `login.passwordLinkSending` | Sending | भेज रहे हैं |
+| `login.passwordLinkSent` | If {email} has an orrn account, a link to set a password is on its way. It works for one hour. | अगर {email} का orrn अकाउंट है, तो पासवर्ड बनाने का लिंक आ रहा है। यह एक घंटे तक चलेगा। |
+| `login.strongSignInNeeded` | {plant} needs a passkey, Google or your authenticator code. Sign in with one of them. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPlant` | This plant needs a passkey, Google or your authenticator code. Sign in with one of them. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPhone` | {plant} needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web with your passkey or Google, then turn on the authenticator app in Settings > Sign-in. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर अपनी पासकी या Google से साइन इन करें, फिर सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
+| `login.strongSignInNeededPhonePlant` | This plant needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web with your passkey or Google, then turn on the authenticator app in Settings > Sign-in. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर अपनी पासकी या Google से साइन इन करें, फिर सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -324,6 +335,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
 | `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `errors.googleNotInvited` | This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way. | इस Google अकाउंट के लिए orrn का कोई इनवाइट नहीं है। अपने एडमिन से इस ईमेल को इनवाइट करने को कहें, या दूसरे तरीके से साइन इन करें। |
+| `errors.googleNotForStaff` | Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code. | Godseye स्टाफ अकाउंट Google से साइन इन नहीं कर सकते। पासकी से, या अपने पासवर्ड और कोड से साइन इन करें। |
+| `errors.googleEmailNotVerified` | Google hasn't verified this email address. Sign in another way. | Google ने इस ईमेल की पुष्टि नहीं की है। दूसरे तरीके से साइन इन करें। |
+| `errors.googleLinkFromSettings` | This account already has a passkey or authenticator app. Sign in with it, then link Google in Settings > Sign-in. | इस अकाउंट में पहले से पासकी या ऑथेंटिकेटर ऐप है। उससे साइन इन करें, फिर सेटिंग्स > साइन इन में Google जोड़ें। |
+| `errors.passkeyCancelled` | Passkey sign-in was cancelled. Try again, or sign in another way. | पासकी से साइन इन रद्द हो गया। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyNotFound` | orrn doesn't know this passkey. Try another one, or sign in another way. | orrn इस पासकी को नहीं पहचानता। दूसरी पासकी आज़माएं, या दूसरे तरीके से साइन इन करें। |
+| `errors.signInFailed` | Sign-in didn't finish. Try again, or sign in another way. | साइन इन पूरा नहीं हुआ। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyAddCancelled` | Adding the passkey was cancelled. Try again when you're ready. | पासकी जोड़ना रद्द हो गया। जब तैयार हों, फिर से कोशिश करें। |
+| `errors.passkeyExists` | This device already has a passkey for your account. | इस डिवाइस पर आपके अकाउंट की पासकी पहले से है। |
+| `errors.passkeyAddFailed` | Couldn't add the passkey. Try again. | पासकी नहीं जुड़ी। फिर से कोशिश करें। |
+| `errors.signInAgain` | For your safety, this needs a recent sign-in. Sign in again, then try once more. | आपकी सुरक्षा के लिए इसके लिए हाल का साइन इन चाहिए। फिर से साइन इन करें, फिर एक बार और कोशिश करें। |
+| `errors.googleLinkOtherEmail` | That Google account has another email. Link the Google account that uses this account's email. | उस Google अकाउंट का ईमेल अलग है। वह Google अकाउंट जोड़ें जिसका ईमेल इस अकाउंट वाला ही है। |
+| `errors.googleLinkTaken` | That Google account already signs in to another orrn account. | वह Google अकाउंट पहले से किसी दूसरे orrn अकाउंट में साइन इन करता है। |
+| `errors.googleLinkFailed` | Google wasn't linked. Try again. | Google नहीं जुड़ा। फिर से कोशिश करें। |
+| `errors.noPasswordYet` | This account doesn't have a password yet. Email yourself a link to set one, or sign in another way. | इस अकाउंट का अभी कोई पासवर्ड नहीं है। पासवर्ड बनाने का लिंक ईमेल पर मंगाएं, या दूसरे तरीके से साइन इन करें। |
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
 | `brand.headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
 | `brand.sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
@@ -366,14 +392,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
 | `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.noPasswordTitle` | Your account doesn't have a password yet. | आपके अकाउंट का अभी कोई पासवर्ड नहीं है। |
+| `invite.noPasswordBody` | Sign in a way you already use, or set a password by email. Then you join. | जिस तरीके से आप साइन इन करते हैं उससे साइन इन करें, या ईमेल से पासवर्ड बनाएं। फिर आप जुड़ जाएंगे। |
+| `invite.setPasswordLead` | Set a password by email | ईमेल से पासवर्ड बनाएं |
+| `invite.setPasswordHint` | Type the email this invite was sent to. The link brings you back here to join. | वही ईमेल लिखें जिस पर यह इनवाइट आया था। लिंक आपको जुड़ने के लिए यहीं वापस लाएगा। |
+| `invite.setPasswordSubmit` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `invite.setPasswordSending` | Sending | भेज रहे हैं |
+| `invite.setPasswordSent` | If that's the email this invite was sent to, a link is on its way. Open it, choose a password, and it brings you back here to join. It works for one hour. | अगर यह वही ईमेल है जिस पर इनवाइट आया था, तो लिंक आ रहा है। उसे खोलें, पासवर्ड चुनें, और वह आपको जुड़ने के लिए यहीं वापस लाएगा। यह एक घंटे तक चलेगा। |
 | `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
 | `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
 | `continue.button` | Continue | आगे बढ़ें |
 | `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
 | `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
 | `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
-| `continue.refusedTitle` | Sign in with your password | अपने पासवर्ड से साइन इन करें |
-| `continue.refusedBody` | This account already has a password and an authenticator code, so a sign-in link can't open it. Sign in with your password. If you forgot it, choose a new one. | इस अकाउंट में पासवर्ड और ऑथेंटिकेटर कोड है, इसलिए साइन इन लिंक से यह नहीं खुलेगा। पासवर्ड से साइन इन करें। भूल गए हों तो नया पासवर्ड चुनें। |
+| `continue.refusedTitle` | Sign in your usual way | अपने हमेशा वाले तरीके से साइन इन करें |
+| `continue.refusedBody` | This account already has its own way to sign in (a password, a passkey or Google), so a sign-in link can't open it. Go to sign in and use that. If you use a password and forgot it, choose a new one. | इस अकाउंट में साइन इन का अपना तरीका पहले से है (पासवर्ड, पासकी या Google), इसलिए साइन इन लिंक से यह नहीं खुलेगा। साइन इन पर जाएं और वही तरीका इस्तेमाल करें। अगर आप पासवर्ड इस्तेमाल करते हैं और भूल गए हैं, तो नया पासवर्ड चुनें। |
 | `continue.forgotLink` | Forgot password | पासवर्ड भूल गए |
 | `forgot.title` | Forgot your password? | पासवर्ड भूल गए? |
 | `forgot.body` | Enter your work email. If an account exists, we'll send a link to choose a new password. | अपना वर्क ईमेल लिखें। अकाउंट होगा तो नया पासवर्ड चुनने का लिंक भेज देंगे। |
@@ -397,6 +430,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `reset.askAgain` | Send a new link | नया लिंक भेजें |
 | `reset.failed` | The password didn't change. Try again, or ask for a new link. | पासवर्ड नहीं बदला। फिर कोशिश करें या नया लिंक मांगें। |
 | `reset.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `reset.backToInvite` | Back to your invite | अपने इनवाइट पर वापस जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
 | `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
@@ -404,15 +438,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
 | `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
+| `choosePlant.title` | Choose a plant | प्लांट चुनें |
+| `choosePlant.body` | You work in more than one plant. Pick the one to open. You can switch later from the menu. | आप एक से ज़्यादा प्लांट में काम करते हैं। जो खोलना है उसे चुनें। बाद में मेन्यू से बदल सकते हैं। |
+| `choosePlant.setupPending` | Setup pending | सेटअप बाकी |
+| `choosePlant.opening` | Opening {name} | {name} खुल रहा है |
+| `choosePlant.failed` | Couldn't open that plant. Try again. | वह प्लांट नहीं खुला। फिर कोशिश करें। |
+| `choosePlant.another` | Choose another plant | दूसरा प्लांट चुनें |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (58)
+### welcome (71)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `steps.password` | Password | पासवर्ड |
-| `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
+| `steps.secureSignIn` | Secure sign-in | सुरक्षित साइन-इन |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
@@ -425,6 +465,15 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `password.submit` | Save password | पासवर्ड सेव करें |
 | `password.submitting` | Saving | सेव हो रहा है |
 | `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
+| `secure.title` | Secure your sign-in | अपना साइन-इन सुरक्षित करें |
+| `secure.required` | {company} needs a passkey, Google or an authenticator code to sign in. A password alone no longer opens it. | {company} में साइन इन के लिए पासकी, Google या authenticator कोड चाहिए। सिर्फ़ पासवर्ड से यह अब नहीं खुलता। |
+| `secure.choose` | Choose one way to continue. You can add more later in Settings. | आगे बढ़ने के लिए एक तरीका चुनें। बाद में सेटिंग में और जोड़ सकते हैं। |
+| `secure.passkey` | Add a passkey | पासकी जोड़ें |
+| `secure.passkeyHint` | Sign in with your fingerprint, face or screen lock. Nothing to type. | अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। कुछ टाइप नहीं करना। |
+| `secure.authenticator` | Use an authenticator app | authenticator ऐप इस्तेमाल करें |
+| `secure.authenticatorHint` | Type a 6-digit code from an app on your phone after your password. | पासवर्ड के बाद अपने फ़ोन के ऐप का 6 अंकों का कोड टाइप करें। |
+| `secure.googleHint` | Sign in with the Google account for {email}. | {email} वाले Google अकाउंट से साइन इन करें। |
+| `secure.otherWay` | Choose another way | दूसरा तरीका चुनें |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
 | `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
@@ -469,6 +518,10 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `done.goAdmin` | Open Godseye | Godseye खोलें |
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
+| `done.passkeyTitle` | Sign in faster next time | अगली बार जल्दी साइन इन करें |
+| `done.passkeyBody` | Add a passkey and sign in with your fingerprint, face or screen lock. You can skip this. | पासकी जोड़ें और अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। चाहें तो इसे छोड़ दें। |
+| `done.passkeyAdd` | Add a passkey | पासकी जोड़ें |
+| `done.passkeyAdded` | Passkey added. Next time, sign in with it. | पासकी जुड़ गई। अगली बार इसी से साइन इन करें। |
 
 ### today (136)
 
@@ -2215,7 +2268,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (276)
+### settings (348)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2243,6 +2296,73 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `tabs.printing` | Printing | प्रिंटिंग |
 | `tabs.data` | Data | डेटा |
 | `tabs.units` | Units | इकाइयाँ |
+| `tabs.security` | Security | सुरक्षा |
+| `tabs.signIn` | Sign-in | साइन-इन |
+| `security.title` | Sign-in | साइन-इन |
+| `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
+| `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
+| `security.requireHint` | Everyone signs in to this plant with a passkey, Google or their authenticator code. A password alone no longer opens it: a person who signs in that way is signed out and asked for one of them. Anyone who has none is asked to add one the next time they open this plant. | इस प्लांट में हर कोई पासकी, Google या अपने authenticator कोड से साइन इन करता है। सिर्फ़ पासवर्ड से यह प्लांट अब नहीं खुलता: जो ऐसे साइन इन करता है, उसे साइन आउट करके इनमें से एक माँगा जाता है। जिसके पास इनमें से कोई नहीं है, उसे अगली बार यह प्लांट खोलने पर एक जोड़ने को कहा जाएगा। |
+| `security.ownerOnly` | Only an owner can change this. | इसे सिर्फ़ मालिक बदल सकता है। |
+| `security.saved` | Secure sign-in saved. | सुरक्षित साइन-इन सेव हुआ। |
+| `security.saveFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |
+| `signIn.title` | Your sign-in | आपका साइन-इन |
+| `signIn.body` | How you sign in to orrn. This is your own account, the same in every plant. | आप orrn में कैसे साइन इन करते हैं। यह आपका अपना अकाउंट है, हर प्लांट में एक जैसा। |
+| `signIn.loadFailed` | Couldn't load your sign-in methods. Check your connection and try again. | आपके साइन-इन के तरीके लोड नहीं हुए। कनेक्शन देखें और फिर कोशिश करें। |
+| `signIn.passkeys` | Passkeys | पासकी |
+| `signIn.passkeysHint` | Sign in with your fingerprint, face or screen lock. | अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। |
+| `signIn.noPasskeys` | No passkeys yet. | अभी कोई पासकी नहीं है। |
+| `signIn.passkeyUnnamed` | Passkey | पासकी |
+| `signIn.added` | Added {date} | {date} को जोड़ी |
+| `signIn.addPasskey` | Add a passkey | पासकी जोड़ें |
+| `signIn.noPasskeySupport` | This browser can't make passkeys. Use another browser or device to add one. | यह ब्राउज़र पासकी नहीं बना सकता। पासकी जोड़ने के लिए दूसरा ब्राउज़र या डिवाइस इस्तेमाल करें। |
+| `signIn.passkeyAdded` | Passkey added. | पासकी जुड़ गई। |
+| `signIn.rename` | Rename | नाम बदलें |
+| `signIn.renameTitle` | Rename passkey | पासकी का नाम बदलें |
+| `signIn.nameLabel` | Name | नाम |
+| `signIn.nameHint` | Like Office laptop or My phone. | जैसे ऑफ़िस लैपटॉप या मेरा फ़ोन। |
+| `signIn.nameRequired` | Type a name. | नाम टाइप करें। |
+| `signIn.renamed` | Passkey renamed. | पासकी का नाम बदल गया। |
+| `signIn.removeTitle` | Remove this passkey? | यह पासकी हटाएं? |
+| `signIn.removeBody` | {name} won't sign you in any more. | {name} से अब आप साइन इन नहीं कर पाएंगे। |
+| `signIn.removed` | Passkey removed. | पासकी हट गई। |
+| `signIn.google` | Google | Google |
+| `signIn.googleHint` | Sign in with the Google account for {email}. | {email} वाले Google अकाउंट से साइन इन करें। |
+| `signIn.linked` | Linked | जुड़ा है |
+| `signIn.notLinked` | Not linked | नहीं जुड़ा |
+| `signIn.linkGoogle` | Link Google | Google जोड़ें |
+| `signIn.unlink` | Unlink | हटाएं |
+| `signIn.unlinkTitle` | Unlink Google? | Google हटाएं? |
+| `signIn.unlinkBody` | You won't be able to sign in with Google any more. | आप अब Google से साइन इन नहीं कर पाएंगे। |
+| `signIn.unlinked` | Google unlinked. | Google हट गया। |
+| `signIn.linkTitle` | Link Google? | Google जोड़ें? |
+| `signIn.password` | Password | पासवर्ड |
+| `signIn.passwordHint` | Sign in with your email and a password. | अपने ईमेल और पासवर्ड से साइन इन करें। |
+| `signIn.passwordSet` | Set | सेट है |
+| `signIn.passwordNotSet` | Not set | सेट नहीं |
+| `signIn.setPassword` | Set a password | पासवर्ड सेट करें |
+| `signIn.changePassword` | Change password | पासवर्ड बदलें |
+| `signIn.passwordLinkBody` | We email you a link to choose the password. Choosing it signs you out everywhere, then you sign in with it. | हम आपको पासवर्ड चुनने का लिंक ईमेल करेंगे। पासवर्ड चुनते ही आप हर जगह से साइन आउट हो जाएंगे, फिर उसी से साइन इन करें। |
+| `signIn.sendLink` | Email me the link | मुझे लिंक ईमेल करें |
+| `signIn.linkSent` | We sent a link to {email}. It works once, for an hour. | हमने {email} पर लिंक भेजा है। यह एक बार, एक घंटे तक चलेगा। |
+| `signIn.linkFailed` | Couldn't send the link. Try again in a few minutes. | लिंक नहीं भेजा जा सका। कुछ मिनट बाद फिर कोशिश करें। |
+| `signIn.authenticator` | Authenticator app | authenticator ऐप |
+| `signIn.authenticatorHint` | A 6-digit code from an app on your phone, asked after your password. | आपके फ़ोन के ऐप का 6 अंकों का कोड, पासवर्ड के बाद पूछा जाता है। |
+| `signIn.turnOn` | Turn on | चालू करें |
+| `signIn.turnOff` | Turn off | बंद करें |
+| `signIn.needsPassword` | Set a password first. The code is asked after your password. | पहले पासवर्ड सेट करें। कोड पासवर्ड के बाद पूछा जाता है। |
+| `signIn.turnOffBody` | Type your password to turn off the authenticator app. | authenticator ऐप बंद करने के लिए अपना पासवर्ड टाइप करें। |
+| `signIn.turnedOn` | Authenticator app turned on. | authenticator ऐप चालू हो गया। |
+| `signIn.turnedOff` | Authenticator app turned off. | authenticator ऐप बंद हो गया। |
+| `signIn.reasonLast` | This is your last way to sign in. Add another one first. | यह साइन इन करने का आपका आखिरी तरीका है। पहले दूसरा तरीका जोड़ें। |
+| `signIn.reasonPlant` | A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first. | आपका एक प्लांट सुरक्षित साइन-इन ज़रूरी रखता है। पासकी, Google या authenticator ऐप रखें, या पहले कोई दूसरा जोड़ें। |
+| `signIn.signInAgain` | Sign in again | फिर से साइन इन करें |
+| `signIn.busy` | Another change to your sign-in is still saving. Try again in a moment. | आपके साइन-इन का एक और बदलाव अभी सेव हो रहा है। थोड़ी देर में फिर कोशिश करें। |
+| `signIn.linkWipesIntro` | Your email isn't confirmed yet. Linking Google confirms it, and then: | आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा, और फिर: |
+| `signIn.linkWipesPassword` | Your password is removed. | आपका पासवर्ड हट जाएगा। |
+| `signIn.linkWipesPasskeys` | Your {count:passkey is\|passkeys are} removed. | आपकी {count:पासकी हट जाएगी\|सभी पासकी हट जाएंगी}। |
+| `signIn.linkWipesAuthenticator` | Your authenticator app is turned off. | आपका authenticator ऐप बंद हो जाएगा। |
+| `signIn.linkWipesDevices` | You're signed out on your other devices. | आप अपने दूसरे डिवाइस पर साइन आउट हो जाएंगे। |
+| `signIn.linkWipesAfter` | After that you sign in with Google. | उसके बाद आप Google से साइन इन करेंगे। |
 | `units.title` | Units and formats | इकाइयाँ और रूप |
 | `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
 | `units.weight` | Weight | वज़न |
@@ -2323,10 +2443,15 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `team.inviteLink.copied` | Link copied | लिंक कॉपी हो गया |
 | `team.inviteLink.expires` | It works once and expires on {date}. | यह एक बार चलेगा और {date} को खत्म होगा। |
 | `team.inviteLink.show` | Show link | लिंक दिखाएं |
+| `team.inviteLink.resentTitle` | New invite link for {email} | {email} के लिए नया इनवाइट लिंक |
+| `team.inviteLink.oldLinkDead` | The old link no longer works. | पुराना लिंक अब नहीं चलेगा। |
+| `team.inviteLink.previews` | Sending the link on WhatsApp is safe: the preview doesn't use the invite. They join only when they open the link and tap Join. | WhatsApp पर लिंक भेजना ठीक है: उसका प्रीव्यू इनवाइट इस्तेमाल नहीं करता। वे तभी जुड़ेंगे जब लिंक खोलकर जुड़ने का बटन दबाएंगे। |
 | `team.pending` | Pending invites | बाकी इनवाइट |
 | `team.expires` | Link works until {date} | लिंक {date} तक चलेगा |
 | `team.revoke` | Cancel invite | इनवाइट कैंसल करें |
 | `team.revoked` | Invite cancelled | इनवाइट कैंसल हो गया |
+| `team.resend` | Resend | फिर से भेजें |
+| `team.resendFailed` | Couldn't make a new link. Try again. | नया लिंक नहीं बन सका। फिर से कोशिश करें। |
 | `team.changeRole` | Change role | रोल बदलें |
 | `team.roleChanged` | Role changed | रोल बदल गया |
 | `team.remove` | Remove from team | टीम से हटाएं |
@@ -3334,8 +3459,8 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
 | `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
 | `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
-| `requests.hasPassword` | This owner already signs in with a password. Ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
-| `requests.approvedHasPassword` | Approved. This owner already signs in with a password. Ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.hasPassword` | This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
 | `requests.approvedAskAdmin` | Approved. Your role can't send sign-in links. Ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
 | `requests.unverifiedAccount` | Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again. | मंज़ूर नहीं हुई। इस ईमेल पर पहले से एक अकाउंट है, पर उसने कभी साबित नहीं किया कि यह मेलबॉक्स उसका है। मांगने वाले से उसी पते से "पासवर्ड भूल गए" इस्तेमाल करने को कहें, फिर दोबारा मंज़ूर करें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
@@ -3740,7 +3865,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (259)
+### native (269)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3751,6 +3876,9 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer. Sign in, set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
 | `staffTitle` | Godseye is on the web | Godseye वेब पर है |
 | `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
+| `finishOnWebTitle` | Finish setting up on the web | सेटअप वेब पर पूरा करें |
+| `finishOnWebBody` | {company} needs a few setup steps first. Open orrn.in in your phone's browser or on a computer, sign in and finish them, then come back here. | {company} में पहले कुछ सेटअप बाकी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे पूरा करें, फिर यहाँ वापस आएं। |
+| `secureOnWebBody` | {company} requires secure sign-in. Open orrn.in in your phone's browser or on a computer, sign in and set it up, then come back here. | {company} में सुरक्षित साइन-इन ज़रूरी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे सेट करें, फिर यहाँ वापस आएं। |
 | `checkAgain` | Check again | फिर से जांचें |
 | `tooManyTries` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `codeTimedOut` | That took too long. Sign in again. | बहुत देर हो गई। फिर से साइन इन करें। |
@@ -3763,6 +3891,11 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
 | `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 | `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
+| `passkey.ownPhoneTitle` | Is this your own phone? | क्या यह आपका अपना फ़ोन है? |
+| `passkey.ownPhoneBody` | Anyone who can unlock this phone could sign in as you with its passkey. Add one only on a phone nobody else uses, never on a shared floor phone. | जो भी इस फ़ोन को अनलॉक कर सकता है, वह इसकी पासकी से आपके नाम से साइन इन कर सकता है। पासकी सिर्फ़ उसी फ़ोन पर जोड़ें जिसे कोई और इस्तेमाल नहीं करता, फ़्लोर के साझा फ़ोन पर कभी नहीं। |
+| `passkey.ownPhoneConfirm` | Yes, add a passkey | हां, पासकी जोड़ें |
+| `passkey.unavailable` | This phone can't use passkeys yet. | यह फ़ोन अभी पासकी इस्तेमाल नहीं कर सकता। |
+| `passkey.manageOnWeb` | To rename or remove a passkey, open Settings on orrn.in. | पासकी का नाम बदलने या उसे हटाने के लिए orrn.in पर Settings खोलें। |
 | `pack.openSession` | Open session {code} | सेशन {code} खोलें |
 | `pack.sessionLine` | {bundles} {bundles:bundle\|bundles}, {kg} kg | {bundles} bundle, {kg} kg |
 | `pack.showMore` | Show more sessions | और सेशन दिखाएं |
@@ -3884,6 +4017,8 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.failed` | orrn didn't answer. Check the connection and try again. | orrn से जवाब नहीं आया। कनेक्शन देखें और फिर कोशिश करें। |
 | `invite.twoFactor` | This account asks for a code at sign in. Sign in first, then open the invite link again. | इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.afterSetPassword` | Open the link in the email and set a password. Then come back here and sign in with it. | ईमेल में आया लिंक खोलें और पासवर्ड बनाएं। फिर यहाँ वापस आकर उससे साइन इन करें। |
+| `invite.signInNow` | Sign in with my new password | नए पासवर्ड से साइन इन करें |
 | `invite.signedInTitle` | Join as {email} | {email} से जुड़ें |
 | `invite.signedInBody` | You are signed in. Accept the invite to join this team with this account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
 | `invite.accept` | Join the team | टीम से जुड़ें |
@@ -7770,7 +7905,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (311)
+### audit (316)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7872,6 +8007,9 @@ Please check, Lalubhai:
 | `actions.app_release__update` | App build changed | ऐप बिल्ड बदला |
 | `actions.approval__approved` | Request approved | रिक्वेस्ट मंज़ूर की |
 | `actions.approval__rejected` | Request rejected | रिक्वेस्ट नामंज़ूर की |
+| `actions.auth__google__link` | Google sign-in linked | Google साइन-इन जोड़ा |
+| `actions.auth__passkey__add` | Passkey added | पासकी जोड़ी |
+| `actions.auth__passkey__remove` | Passkey removed | पासकी हटाई |
 | `actions.auth__password_force_change` | Password change asked for | पासवर्ड बदलने को कहा |
 | `actions.auth__password_set` | Password set | पासवर्ड सेट किया |
 | `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |
@@ -7885,6 +8023,7 @@ Please check, Lalubhai:
 | `actions.cast__close_request` | Cast close sent for approval | कास्ट बंद करने की मंज़ूरी मांगी |
 | `actions.cast__open` | Cast opened | कास्ट खोला |
 | `actions.company__settings__update` | Plant settings changed | प्लांट की सेटिंग्स बदलीं |
+| `actions.company__security__update` | Secure sign-in changed | सुरक्षित साइन-इन बदला |
 | `actions.company__switch` | Switched plant | प्लांट बदला |
 | `actions.count__cancel` | Stock count cancelled | स्टॉक गिनती रद्द की |
 | `actions.count__close` | Stock count closed | स्टॉक गिनती बंद की |
@@ -7988,6 +8127,7 @@ Please check, Lalubhai:
 | `actions.member__invite` | Team member invited | टीम मेंबर को इनवाइट किया |
 | `actions.member__invite__accept` | Invite accepted | इनवाइट स्वीकार किया |
 | `actions.member__invite__revoke` | Invite cancelled | इनवाइट रद्द किया |
+| `actions.member__invite__resend` | Invite sent again | इनवाइट फिर से भेजा |
 | `actions.member__remove` | Team member removed | टीम मेंबर हटाया |
 | `actions.member__updateRole` | Team member's role changed | टीम मेंबर का रोल बदला |
 | `actions.nitriding__add` | Nitriding logged | नाइट्राइडिंग दर्ज की |

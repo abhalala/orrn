@@ -71,6 +71,11 @@ export const membership = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     /** Set by `company.switch`; the active company without a header is the latest of these. */
     lastActiveAt: integer("last_active_at", { mode: "timestamp_ms" }),
+    /**
+     * When this person finished onboarding in this plant (plan 2026-11-18, Task 9). Null: the plant's
+     * welcome steps are still open for them ("Setup pending" in the plant picker).
+     */
+    onboardedAt: integer("onboarded_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     // Many plants per person (spec P10, ruling RP1): one membership per (user, company).

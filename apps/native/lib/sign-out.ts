@@ -2,6 +2,7 @@ import { meQueryOptions } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
 import { authClient } from "./auth-client";
+import { plantChoice } from "./plant-choice";
 import { sessionPresence } from "./session-presence";
 import { afterSignInWith, signOutWith } from "./sign-out-flow";
 
@@ -14,6 +15,7 @@ export function signOut(): Promise<void> {
     authSignOut: () => authClient.signOut(),
     presence: sessionPresence,
     queryClient,
+    plantChoice,
   });
 }
 
@@ -23,5 +25,6 @@ export function afterSignIn(): Promise<void> {
     queryClient,
     fetchMe: () => queryClient.fetchQuery({ ...meQueryOptions(), staleTime: 0, retry: false }),
     presence: sessionPresence,
+    plantChoice,
   });
 }

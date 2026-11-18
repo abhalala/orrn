@@ -1901,6 +1901,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
         userId: users[key].id,
         companyId: COMPANY_ID,
         role: DEV_MEMBER_ROLES[key],
+        // Every seed account is onboarded (the user flag above); onboarding is per plant now (Task 9).
+        onboardedAt: new Date(pastAt(10, 9)),
       })),
     ),
     db

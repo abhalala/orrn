@@ -1,12 +1,21 @@
 import { expo } from "@better-auth/expo";
+import { passkey } from "@better-auth/passkey";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
+import { passkeyConfigForEnv } from "./passkey-config";
+import { expoProxyGuard } from "./expo-proxy-guard";
+import { limitPasskeyOptions } from "./passkey-throttle";
+import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoogleLinkToken, webLoginUrl } from "./google-guard";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
+import { enrolmentGuardBody } from "./enrolment-guard";
+import { signInAuditAfter } from "./sign-in-methods";
+import { signInRemovalBody } from "./sign-in-removal";
+import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { writeAuthLog } from "./logger";
 import { betterAuth } from "better-auth";
@@ -15,6 +24,8 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
 import { sendTransactionalEmail, type EmailOptions, type EmailEnvironment } from "./email-delivery";
+
+export { configureAuthHooks, type AuthHooks } from "./google-guard";
 
 export function sendAuthEmail(options: EmailOptions, environment: EmailEnvironment = env) {
   return sendTransactionalEmail(environment, options, "Auth email");
@@ -120,15 +131,71 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // Security review 2026-11-04 (HIGH 3): no public sign-up. An HTTP `/sign-up/email` needs a live
     // invite for that email (sign-up-guard.ts); server code still creates accounts in-process.
     // Tested in packages/server/test/auth-signup-invite.test.ts.
+    // Plan 2026-11-18: removing a passkey, turning two-factor off or unlinking an account may not leave
+    // the account with no way in (LAST_SIGN_IN_METHOD), nor a member of a plant that requires secure
+    // sign-in with no strong method (COMPANY_REQUIRES_STRONG_METHOD); a passkey added or removed is
+    // audited (sign-in-methods.ts, sign-in-removal.ts). Tested in packages/server/test/auth-sign-in-methods.test.ts and
+    // auth-plant-policy.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // Council round 1, A5: the Expo proxy follows only Google's authorization URL (expo-proxy-guard.ts).
+        expoProxyGuard(ctx);
         await signUpGuardBody(db, ctx);
+        // Council round 2 (Claude N-C1): a weak session in a strict plant may not enrol a strong method
+        // when the person already has one (enrolment-guard.ts).
+        await enrolmentGuardBody(db, ctx);
+        await noteGoogleLinkToken(db, ctx);
+        // Council round 2 (GPT I1): removals are done here, each as one conditional write that holds
+        // LAST_SIGN_IN_METHOD and COMPANY_REQUIRES_STRONG_METHOD; the answer ends the request
+        // (sign-in-removal.ts).
+        const removed = await signInRemovalBody(db, ctx);
+        if (removed) return removed;
+        // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
+        await limitPasskeyOptions(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
         return magicLinkGuardBody(db, ctx);
       }),
+      after: createAuthMiddleware(async (ctx) => {
+        await signInAuditAfter(db, ctx);
+        await sessionMethodAfter(db, ctx, () => sessionOfRequest(db, ctx));
+        forgetGoogleLinkToken(ctx);
+      }),
     },
+    // Google (plan 2026-11-18): only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both set.
+    // An account is made only for an email with a live invite, and its invites are accepted then;
+    // staff never use Google; only verified Google emails count (google-guard.ts). Google is a
+    // trusted provider for linking because the guard has already refused unverified emails.
+    // Tested in packages/server/test/auth-google.test.ts.
+    socialProviders: googleProviderFor(db, environment),
+    // `allowUnlinkingAll`: Better Auth's own rule refuses to unlink the last `account` row, but a passkey
+    // is a way in without one (Google + passkey, no password). The real last-way-in rule is ours
+    // (`signInRemovalBody`, LAST_SIGN_IN_METHOD), which counts passkeys. Tested in
+    // auth-sign-in-methods.test.ts.
+    account: {
+      accountLinking: { enabled: true, trustedProviders: ["google"], allowUnlinkingAll: true },
+    },
+    // Council round 1, A4: every session records how it was made (`session.sign_in_method`,
+    // session-method.ts); a plant that requires secure sign-in accepts only passkey, Google and the
+    // authenticator code (`companyProcedure` in @orrn/server). No `defaultValue`: Better Auth carries
+    // the old session's value into a session it remakes, and a default would overwrite it.
+    session: {
+      additionalFields: {
+        signInMethod: { type: "string", required: false, input: false },
+      },
+    },
+    databaseHooks: {
+      ...googleDatabaseHooks(db),
+      session: {
+        create: {
+          before: async (data: Record<string, unknown>, ctx: { path?: string } | null) => stampSignInMethod(data, ctx),
+        },
+      },
+    },
+    // A refused or failed browser sign-in (Google redirect flow) lands on the web sign-in page with
+    // `?error=CODE`, unless the client named another trusted error URL.
+    ...(webLoginUrl(environment) ? { onAPIError: { errorURL: webLoginUrl(environment) } } : {}),
     emailAndPassword: {
       enabled: true,
       password: {
@@ -202,6 +269,15 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     plugins: [
       expo(),
       twoFactor(),
+      // Passkeys (plan 2026-11-18). The relying party is the web app's host, not the API's, and only
+      // the web origin (plus the Android app's key hash when set) may answer; see passkey-config.ts.
+      // A passkey must live on the device (resident key) so sign-in needs no email first.
+      // Registering one needs a fresh session (the plugin's freshSessionMiddleware).
+      // Tested in packages/server/test/auth-passkey.test.ts.
+      passkey({
+        ...passkeyConfigForEnv(environment),
+        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+      }),
       magicLink({
         // Every link requested here (the public endpoint) goes to the address by email and
         // nowhere else. Godseye's owner links are written server-side (platform/waitlist.ts).

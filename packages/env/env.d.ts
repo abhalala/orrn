@@ -56,6 +56,25 @@ export interface CloudflareEnv {
   /** Optional Cloudflare Access service token for the proxy. Both or neither. */
   MODEL_ACCESS_CLIENT_ID?: string;
   MODEL_ACCESS_CLIENT_SECRET?: string;
+  /**
+   * Google sign-in (plan 2026-11-18). Optional: unless both are set, Google is not offered
+   * (`auth.methods.google` is false).
+   */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * The Android app's signing key hash, allowed as a passkey origin (`android:apk-key-hash:<hash>`).
+   * Optional: unset = only the web origin answers a passkey challenge, and the Android app hides its
+   * passkey button (`auth.methods.native.android`). The deploy derives it from `ORRN_ANDROID_CERT_SHA256`
+   * when it is not given itself.
+   */
+  ANDROID_APK_KEY_HASH?: string;
+  /**
+   * The Apple Developer Team ID. Bound when the web serves the iOS app's passkey association
+   * (`apple-app-site-association`); `auth.methods.native.ios` reports it. Optional: unset = the iOS
+   * app hides its passkey button.
+   */
+  ORRN_APPLE_TEAM_ID?: string;
 }
 
 declare global {

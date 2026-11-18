@@ -35,6 +35,7 @@ import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedNoAccessRouteImport } from './routes/_authed/no-access'
+import { Route as AuthedChoosePlantRouteImport } from './routes/_authed/choose-plant'
 import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/change-password'
 import { Route as TenantVendorsIndexRouteImport } from './routes/_tenant/vendors.index'
 import { Route as TenantStoreIndexRouteImport } from './routes/_tenant/store.index'
@@ -300,6 +301,11 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
 const AuthedNoAccessRoute = AuthedNoAccessRouteImport.update({
   id: '/no-access',
   path: '/no-access',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedChoosePlantRoute = AuthedChoosePlantRouteImport.update({
+  id: '/choose-plant',
+  path: '/choose-plant',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedChangePasswordRoute = AuthedChangePasswordRouteImport.update({
@@ -1042,6 +1048,7 @@ export interface FileRoutesByFullPath {
   '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
+  '/choose-plant': typeof AuthedChoosePlantRoute
   '/no-access': typeof AuthedNoAccessRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
@@ -1206,6 +1213,7 @@ export interface FileRoutesByTo {
   '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
+  '/choose-plant': typeof AuthedChoosePlantRoute
   '/no-access': typeof AuthedNoAccessRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
@@ -1375,6 +1383,7 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteWithChildren
   '/_tenant': typeof TenantRouteWithChildren
   '/_authed/change-password': typeof AuthedChangePasswordRoute
+  '/_authed/choose-plant': typeof AuthedChoosePlantRoute
   '/_authed/no-access': typeof AuthedNoAccessRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
@@ -1542,6 +1551,7 @@ export interface FileRouteTypes {
     | '/__ui'
     | '/'
     | '/change-password'
+    | '/choose-plant'
     | '/no-access'
     | '/onboarding'
     | '/setup-credentials'
@@ -1706,6 +1716,7 @@ export interface FileRouteTypes {
     | '/__ui'
     | '/'
     | '/change-password'
+    | '/choose-plant'
     | '/no-access'
     | '/onboarding'
     | '/setup-credentials'
@@ -1874,6 +1885,7 @@ export interface FileRouteTypes {
     | '/_public'
     | '/_tenant'
     | '/_authed/change-password'
+    | '/_authed/choose-plant'
     | '/_authed/no-access'
     | '/_authed/onboarding'
     | '/_authed/setup-credentials'
@@ -2229,6 +2241,13 @@ declare module '@tanstack/react-router' {
       path: '/no-access'
       fullPath: '/no-access'
       preLoaderRoute: typeof AuthedNoAccessRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/choose-plant': {
+      id: '/_authed/choose-plant'
+      path: '/choose-plant'
+      fullPath: '/choose-plant'
+      preLoaderRoute: typeof AuthedChoosePlantRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/change-password': {
@@ -3223,6 +3242,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedChangePasswordRoute: typeof AuthedChangePasswordRoute
+  AuthedChoosePlantRoute: typeof AuthedChoosePlantRoute
   AuthedNoAccessRoute: typeof AuthedNoAccessRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedSetupCredentialsRoute: typeof AuthedSetupCredentialsRoute
@@ -3231,6 +3251,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedChangePasswordRoute: AuthedChangePasswordRoute,
+  AuthedChoosePlantRoute: AuthedChoosePlantRoute,
   AuthedNoAccessRoute: AuthedNoAccessRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedSetupCredentialsRoute: AuthedSetupCredentialsRoute,

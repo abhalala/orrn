@@ -7,6 +7,7 @@ import { defineConfig, type Plugin, type ServerOptions, type UserConfig } from "
 
 // Relative TypeScript is bundled into the config by Vite (unlike workspace packages, see below).
 import { manualChunk } from "./scripts/manual-chunks";
+import { wellKnownPlugin } from "./scripts/well-known";
 
 /**
  * The port resolver is TypeScript in @orrn/server, and Vite leaves workspace packages for Node to
@@ -101,5 +102,7 @@ export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> 
       autoCodeSplitting: true,
     }),
     react(),
+    // Passkey domain association files, only when the deploy sets their values (scripts/well-known.ts).
+    wellKnownPlugin(),
   ],
 }));

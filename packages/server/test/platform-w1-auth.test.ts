@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { account, session, user, verification } from "@orrn/db/schema";
+import { account, passkey, session, user, verification } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -32,12 +32,21 @@ afterAll(async () => {
   await env.dispose();
 });
 
-async function makeUser(opts: { password: boolean; twoFactor: boolean }) {
+async function makeUser(opts: { password: boolean; twoFactor: boolean; passkey?: boolean; google?: boolean }) {
   const id = crypto.randomUUID();
   const email = `link.${id.slice(0, 8)}@test.orrn`;
   await env.db.insert(user).values({ id, name: "Link test", email, emailVerified: true, twoFactorEnabled: opts.twoFactor } as never);
   if (opts.password) {
     await env.db.insert(account).values({ id: crypto.randomUUID(), accountId: id, providerId: "credential", userId: id, password: "hashed" } as never);
+  }
+  if (opts.google) {
+    await env.db.insert(account).values({ id: crypto.randomUUID(), accountId: `g-${id}`, providerId: "google", userId: id } as never);
+  }
+  if (opts.passkey) {
+    await env.db.insert(passkey).values({
+      id: crypto.randomUUID(), name: "Phone", publicKey: "pk", userId: id, credentialID: `cred-${id}`,
+      counter: 0, deviceType: "multiDevice", backedUp: true, transports: "internal",
+    } as never);
   }
   return { id, email };
 }
@@ -83,13 +92,16 @@ describe("magic links cannot stand in for the second factor (FP-PF-08)", () => {
     { label: "password + authenticator", password: true, twoFactor: true },
     { label: "password only", password: true, twoFactor: false },
     { label: "authenticator only", password: false, twoFactor: true },
+    // Council round 1, A7: the words are true for these accounts too.
+    { label: "passkey only", password: false, twoFactor: false, passkey: true },
+    { label: "Google only", password: false, twoFactor: false, google: true },
   ]) {
     test(`${kind.label}: a link is refused at verify, no session, token gone`, async () => {
       const u = await makeUser(kind);
       const { token, identifier } = await issueLink(u.email);
       const res = await verify(token);
       expect(res.status).toBe(403);
-      expect(await res.text()).toContain("password and authenticator code");
+      expect(await res.text()).toContain("a password, a passkey or Google");
       expect(await sessionsOf(u.id)).toBe(0);
       expect(await verificationRows(identifier)).toBe(0);
     });
@@ -186,6 +198,7 @@ describe("magic links cannot stand in for the second factor (FP-PF-08)", () => {
         log.mockRestore();
       }
       expect(res.status).toBe(403);
+      expect(await res.text()).toContain("Sign in with your password, a passkey or Google");
       const rows = (await env.db.select().from(verification)).filter((r) => r.value.includes(email));
       expect(rows).toHaveLength(0);
       expect(await env.db.select().from(user).where(eq(user.email, email))).toHaveLength(email.startsWith("nobody.") ? 0 : 1);
@@ -204,7 +217,7 @@ describe("magic links cannot stand in for the second factor (FP-PF-08)", () => {
       expect(identifier).not.toBe(token);
       const res = await verify(token, hashedAuth);
       expect(res.status).toBe(403);
-      expect(await res.text()).toContain("password and authenticator code");
+      expect(await res.text()).toContain("a password, a passkey or Google");
       expect(await sessionsOf(u.id)).toBe(0);
       expect(await verificationRows(identifier)).toBe(0);
     });
