@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@orrn/ui/components/dropdown-menu";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useIsMutating, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -22,18 +22,15 @@ import { expectPlant } from "@/shared/lib/plant-sync";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
-import { switcherPlants } from "./plant-switcher-model";
+import { canStartSwitch, switcherPlants } from "./plant-switcher-model";
 
 /**
- * FP-PF-17: the plant switcher in the header. Shown only with more than one plant and never while
- * impersonating (`switcherPlants`). Picking a plant calls `company.switch`, drops the old plant's
- * cached queries, reloads `auth.me` and lands on Today (it leaves the old page first, so nothing of the old plant is fetched under the new one),
- * or on /welcome when the new plant's `me` says its setup or secure sign-in is still owed (`needsWelcome`). Each plant keeps its own role.
- *
- * `variant`: `header` (phone top bar: the plant name is the trigger), `rail` (side nav: name at
- * 1024px and up, a plant icon in the narrow rail).
+ * Switching plants, shared by the header control and the command palette: `plants` is null when there is nothing to
+ * switch to (one plant, or impersonating). `pick` calls `company.switch` and, on success, leaves the old plant's page,
+ * drops its cached queries and reloads `auth.me`, then goes on to /welcome when the new plant's `me` says its setup
+ * or secure sign-in is still owed (`needsWelcome`).
  */
-export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
+export function usePlantSwitch() {
   const { t } = useT();
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -70,10 +67,13 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
     }),
   );
 
-  if (!plants || !current) return null;
+  // Every `company.switch` in the app, not only this hook's: the header and the palette must not race.
+  const switchKey = trpc.company.switch.mutationKey();
+  const switching = useIsMutating({ mutationKey: switchKey }) > 0;
 
-  const onPick = (companyId: string) => {
-    if (companyId === current.companyId || sw.isPending) return;
+  const pick = (companyId: string) => {
+    // Read the live count, not the last render's: a click can land before the other surface re-renders.
+    if (!plants || !canStartSwitch(plants, companyId, queryClient.isMutating({ mutationKey: switchKey }))) return;
     const target = plants.find((p) => p.companyId === companyId);
     if (target) toast.message(t("nav.plantSwitch.switching", { name: target.name }));
     // Press changes waiting for this plant stay saved under it; they are not sent in the other plant.
@@ -82,6 +82,23 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
     sw.mutate({ companyId });
   };
 
+  return { plants, current, pick, pending: switching || sw.isPending };
+}
+
+/**
+ * FP-PF-17: the plant switcher in the header. Shown only with more than one plant and never while
+ * impersonating (`switcherPlants`). Picking a plant calls `company.switch`, drops the old plant's
+ * cached queries, reloads `auth.me` and lands on Today (it leaves the old page first, so nothing of the old plant is fetched under the new one). Each plant keeps its own role.
+ *
+ * `variant`: `header` (phone top bar: the plant name is the trigger), `rail` (side nav: name at
+ * 1024px and up, a plant icon in the narrow rail).
+ */
+export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
+  const { t } = useT();
+  const { plants, current, pick: onPick, pending } = usePlantSwitch();
+
+  if (!plants || !current) return null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -89,7 +106,7 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
           type="button"
           data-testid="plant-switcher"
           aria-label={`${t("nav.plantSwitch.label")}. ${t("nav.plantSwitch.current", { name: current.name })}`}
-          disabled={sw.isPending}
+          disabled={pending}
           className={cn(
             "flex min-h-11 min-w-11 items-center gap-1.5 rounded-full text-left transition-colors duration-[var(--dur-fast)] disabled:opacity-60",
             variant === "header" && "-ml-1 min-w-0 flex-1 px-1",

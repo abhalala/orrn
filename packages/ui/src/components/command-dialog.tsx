@@ -13,6 +13,11 @@ export type CommandDialogProps = {
   label: string;
   children: ReactNode;
   className?: string;
+  /**
+   * Runs once the panel has closed and focus is back on its opener (after the exit animation). Use it to open the
+   * next sheet or dialog, so that sheet's own focus lands last and stays.
+   */
+  onClosed?: () => void;
 };
 
 /**
@@ -21,8 +26,12 @@ export type CommandDialogProps = {
  * Radix Dialog (focus trap, Escape, scroll lock, focus back to the opener).
  * The caller renders the combobox input and the result list inside.
  */
-export function CommandDialog({ open, onOpenChange, label, children, className }: CommandDialogProps) {
+export function CommandDialog({ open, onOpenChange, label, children, className, onClosed }: CommandDialogProps) {
   const returnFocus = useReturnFocus(open);
+  const onCloseAutoFocus = (event: Event) => {
+    returnFocus.onCloseAutoFocus(event);
+    onClosed?.();
+  };
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -34,6 +43,7 @@ export function CommandDialog({ open, onOpenChange, label, children, className }
           data-slot="command-dialog"
           aria-describedby={undefined}
           {...returnFocus}
+          onCloseAutoFocus={onCloseAutoFocus}
           className={cn(
             "fixed top-2 left-1/2 z-50 flex max-h-[min(600px,calc(100dvh-1rem))] w-[calc(100%-1rem)] -translate-x-1/2 flex-col overflow-hidden rounded-card border border-border bg-popover text-popover-foreground shadow-lg outline-none",
             "sm:top-[max(1rem,12dvh)] sm:max-h-[min(600px,calc(100dvh-2rem))] sm:w-[calc(100%-2rem)] sm:max-w-[640px]",

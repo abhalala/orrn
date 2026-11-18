@@ -22,6 +22,7 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { bundleDetailPath } from "@/shared/lib/paths";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useRecordBundleVisit } from "@/shell/palette/record-bundle";
 import { TenantFrame } from "@/shell/tenant-frame";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
@@ -154,6 +155,8 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
   const { t } = useT();
   const lu = useLengthUnit();
   const when = useCompanyWhen();
+  // Found in this plant: now it may count as recent in the palette (never for a "Not found" serial).
+  useRecordBundleVisit(serial);
   const query = useQuery({
     ...trpc.bundle.getBySerial.queryOptions({ serial }),
     initialData: initial,

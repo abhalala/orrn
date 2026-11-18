@@ -21,3 +21,15 @@ export function switcherPlants(me: SwitcherMe): SwitcherPlant[] | null {
   const rows = list.map((m) => ({ companyId: m.companyId, name: m.name, role: m.role, current: m.companyId === currentId }));
   return [...rows.filter((r) => r.current), ...rows.filter((r) => !r.current)];
 }
+
+/**
+ * Whether a plant switch may start now. `inFlight` counts `company.switch` calls running anywhere in the app (the
+ * header and the command palette each have their own hook), so a second switch never starts while one is running:
+ * the server keeps the last switch it handles, and two racing switches can leave the frame waiting for a plant `me`
+ * never reports.
+ */
+export function canStartSwitch(plants: readonly SwitcherPlant[] | null, companyId: string, inFlight: number): boolean {
+  if (inFlight > 0 || !plants) return false;
+  const current = plants.find((p) => p.current);
+  return !!current && companyId !== current.companyId && plants.some((p) => p.companyId === companyId);
+}
