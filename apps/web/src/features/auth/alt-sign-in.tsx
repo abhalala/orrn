@@ -25,6 +25,10 @@ export type AltSignInProps = {
   onPasskeyEnded?: () => void;
   /** The password step is working: these wait. */
   disabled?: boolean;
+  /** Offer a passkey. Off where no account exists yet (the invite page's create view). Default on. */
+  passkey?: boolean;
+  /** Draw the "or" line above the buttons. Off where the buttons come first (the invite's no-password view). */
+  divider?: boolean;
 };
 
 /** Google's "G", the mark its sign-in guidelines ask for, on a white disc so it reads on any pill. */
@@ -48,12 +52,32 @@ export function GoogleMark() {
  * has it configured (`auth.methods`). A cancelled passkey sheet or a refused Google account is an inline,
  * announced message; the form stays usable. Nothing here is a toast.
  */
-export function AltSignIn({ next, finish, error, onError, onPasskeyEnded, disabled = false }: AltSignInProps) {
-  const { t } = useT();
-  const [passkeyAvailable] = useState(() => passkeySupport().available);
-  // A failed read only hides Google (the other ways in still work): no global error toast on sign-in.
+/**
+ * Which of the two buttons can show here: a passkey where the browser has WebAuthn (and `passkey` is
+ * wanted), Google where the stage has it (`auth.methods`). A failed read only hides Google (the other
+ * ways in still work): no global error toast on sign-in.
+ */
+export function useAltSignInButtons(passkey = true): { passkey: boolean; google: boolean } {
+  const [passkeyAvailable] = useState(() => passkey && passkeySupport().available);
   const methods = useQuery({ ...trpc.auth.methods.queryOptions(), staleTime: Infinity, retry: false, meta: INLINE_ERROR_META });
-  const google = methods.data?.google === true;
+  return { passkey: passkeyAvailable, google: methods.data?.google === true };
+}
+
+/** The "or" line between ways in. */
+export function OrLine() {
+  const { t } = useT();
+  return (
+    <div className="flex items-center gap-3 text-[14px] text-muted-foreground" aria-hidden="true">
+      <span className="h-px flex-1 bg-border" />
+      {t("auth.login.or")}
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+export function AltSignIn({ next, finish, error, onError, onPasskeyEnded, disabled = false, passkey = true, divider = true }: AltSignInProps) {
+  const { t } = useT();
+  const { passkey: passkeyAvailable, google } = useAltSignInButtons(passkey);
   const [busy, setBusy] = useState<"passkey" | "google" | null>(null);
 
   // Back from Google's page, the browser may show this page from its cache with the button still busy.
@@ -103,13 +127,7 @@ export function AltSignIn({ next, finish, error, onError, onPasskeyEnded, disabl
 
   return (
     <div data-slot="alt-sign-in" className="flex flex-col gap-4">
-      {anyButton ? (
-        <div className="flex items-center gap-3 text-[14px] text-muted-foreground" aria-hidden="true">
-          <span className="h-px flex-1 bg-border" />
-          {t("auth.login.or")}
-          <span className="h-px flex-1 bg-border" />
-        </div>
-      ) : null}
+      {anyButton && divider ? <OrLine /> : null}
       {passkeyAvailable ? (
         <Button
           type="button"

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8280 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -267,7 +267,7 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (140)
+### auth (152)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -287,6 +287,9 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.passkey` | Sign in with a passkey | पासकी से साइन इन करें |
 | `login.google` | Continue with Google | Google से जारी रखें |
 | `login.finishing` | Signing you in | साइन इन हो रहा है |
+| `login.passwordLink` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `login.passwordLinkSending` | Sending | भेज रहे हैं |
+| `login.passwordLinkSent` | If {email} has an orrn account, a link to set a password is on its way. It works for one hour. | अगर {email} का orrn अकाउंट है, तो पासवर्ड बनाने का लिंक आ रहा है। यह एक घंटे तक चलेगा। |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -323,6 +326,7 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `errors.googleLinkOtherEmail` | That Google account has another email. Link the Google account that uses this account's email. | उस Google अकाउंट का ईमेल अलग है। वह Google अकाउंट जोड़ें जिसका ईमेल इस अकाउंट वाला ही है। |
 | `errors.googleLinkTaken` | That Google account already signs in to another orrn account. | वह Google अकाउंट पहले से किसी दूसरे orrn अकाउंट में साइन इन करता है। |
 | `errors.googleLinkFailed` | Google wasn't linked. Try again. | Google नहीं जुड़ा। फिर से कोशिश करें। |
+| `errors.noPasswordYet` | This account doesn't have a password yet. Email yourself a link to set one, or sign in another way. | इस अकाउंट का अभी कोई पासवर्ड नहीं है। पासवर्ड बनाने का लिंक ईमेल पर मंगाएं, या दूसरे तरीके से साइन इन करें। |
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
 | `brand.headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
 | `brand.sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
@@ -365,6 +369,13 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
 | `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.noPasswordTitle` | Your account doesn't have a password yet. | आपके अकाउंट का अभी कोई पासवर्ड नहीं है। |
+| `invite.noPasswordBody` | Sign in a way you already use, or set a password by email. Then you join. | जिस तरीके से आप साइन इन करते हैं उससे साइन इन करें, या ईमेल से पासवर्ड बनाएं। फिर आप जुड़ जाएंगे। |
+| `invite.setPasswordLead` | Set a password by email | ईमेल से पासवर्ड बनाएं |
+| `invite.setPasswordHint` | Type the email this invite was sent to. The link brings you back here to join. | वही ईमेल लिखें जिस पर यह इनवाइट आया था। लिंक आपको जुड़ने के लिए यहीं वापस लाएगा। |
+| `invite.setPasswordSubmit` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `invite.setPasswordSending` | Sending | भेज रहे हैं |
+| `invite.setPasswordSent` | If that's the email this invite was sent to, a link is on its way. Open it, choose a password, and it brings you back here to join. It works for one hour. | अगर यह वही ईमेल है जिस पर इनवाइट आया था, तो लिंक आ रहा है। उसे खोलें, पासवर्ड चुनें, और वह आपको जुड़ने के लिए यहीं वापस लाएगा। यह एक घंटे तक चलेगा। |
 | `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
 | `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
 | `continue.button` | Continue | आगे बढ़ें |
@@ -396,6 +407,7 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `reset.askAgain` | Send a new link | नया लिंक भेजें |
 | `reset.failed` | The password didn't change. Try again, or ask for a new link. | पासवर्ड नहीं बदला। फिर कोशिश करें या नया लिंक मांगें। |
 | `reset.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `reset.backToInvite` | Back to your invite | अपने इनवाइट पर वापस जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
 | `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
@@ -2233,7 +2245,7 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (337)
+### settings (342)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2402,10 +2414,15 @@ Counts: 8262 screen strings in 50 groups, 45 guides with 866 strings.
 | `team.inviteLink.copied` | Link copied | लिंक कॉपी हो गया |
 | `team.inviteLink.expires` | It works once and expires on {date}. | यह एक बार चलेगा और {date} को खत्म होगा। |
 | `team.inviteLink.show` | Show link | लिंक दिखाएं |
+| `team.inviteLink.resentTitle` | New invite link for {email} | {email} के लिए नया इनवाइट लिंक |
+| `team.inviteLink.oldLinkDead` | The old link no longer works. | पुराना लिंक अब नहीं चलेगा। |
+| `team.inviteLink.previews` | Sending the link on WhatsApp is safe: the preview doesn't use the invite. They join only when they open the link and tap Join. | WhatsApp पर लिंक भेजना ठीक है: उसका प्रीव्यू इनवाइट इस्तेमाल नहीं करता। वे तभी जुड़ेंगे जब लिंक खोलकर जुड़ने का बटन दबाएंगे। |
 | `team.pending` | Pending invites | बाकी इनवाइट |
 | `team.expires` | Link works until {date} | लिंक {date} तक चलेगा |
 | `team.revoke` | Cancel invite | इनवाइट कैंसल करें |
 | `team.revoked` | Invite cancelled | इनवाइट कैंसल हो गया |
+| `team.resend` | Resend | फिर से भेजें |
+| `team.resendFailed` | Couldn't make a new link. Try again. | नया लिंक नहीं बन सका। फिर से कोशिश करें। |
 | `team.changeRole` | Change role | रोल बदलें |
 | `team.roleChanged` | Role changed | रोल बदल गया |
 | `team.remove` | Remove from team | टीम से हटाएं |
@@ -7857,7 +7874,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (315)
+### audit (316)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8079,6 +8096,7 @@ Please check, Lalubhai:
 | `actions.member__invite` | Team member invited | टीम मेंबर को इनवाइट किया |
 | `actions.member__invite__accept` | Invite accepted | इनवाइट स्वीकार किया |
 | `actions.member__invite__revoke` | Invite cancelled | इनवाइट रद्द किया |
+| `actions.member__invite__resend` | Invite sent again | इनवाइट फिर से भेजा |
 | `actions.member__remove` | Team member removed | टीम मेंबर हटाया |
 | `actions.member__updateRole` | Team member's role changed | टीम मेंबर का रोल बदला |
 | `actions.nitriding__add` | Nitriding logged | नाइट्राइडिंग दर्ज की |

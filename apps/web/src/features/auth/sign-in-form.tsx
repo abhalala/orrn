@@ -8,11 +8,12 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { authClient } from "@/shared/lib/auth-client";
 
 import { AltSignIn } from "./alt-sign-in";
-import { signInErrorKey, totpErrorKey } from "./auth-errors";
+import { offersPasswordLink, signInErrorKey, totpErrorKey } from "./auth-errors";
 import { CodeField } from "./code-field";
 import { FormAlert } from "./form-alert";
 import { passkeySupport } from "./passkey-support";
 import { PasswordField } from "./password-field";
+import { resetRedirectUrl } from "./password-reset";
 import { useFinishSignIn } from "./use-finish-sign-in";
 import { usePageTitle } from "./use-page-title";
 
@@ -83,6 +84,8 @@ export function SignInForm({
   // Bumped when a passkey button attempt fails, so the email field's autofill starts again.
   const [autofillRound, setAutofillRound] = useState(0);
   const [pending, setPending] = useState(false);
+  // "Email me a link to set a password" under a failed password sign-in (plan 2026-11-18, Task 8).
+  const [linkState, setLinkState] = useState<{ sentTo: string } | { error: MessageKey } | "sending" | null>(null);
 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -130,6 +133,31 @@ export function SignInForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alternatives, mode, autofillRound]);
 
+  /**
+   * An account made by a magic-link approval (or Google or a passkey only) has no password, and Better
+   * Auth answers it exactly like a wrong password. The emailed reset link sets one; the answer is the
+   * same neutral one as Forgot password, so it never says whether the email has an account. The link
+   * brings the person back to `next` (the invite page) after the reset.
+   */
+  async function emailPasswordLink() {
+    const trimmed = email.trim();
+    if (!EMAIL.test(trimmed)) {
+      setFieldErrors({ email: trimmed ? "errors.invalidEmail" : "auth.validation.email" });
+      return emailRef.current?.focus();
+    }
+    setLinkState("sending");
+    try {
+      const { error } = await authClient.requestPasswordReset({ email: trimmed, redirectTo: resetRedirectUrl(window.location.origin, next) });
+      if (error) {
+        setLinkState({ error: error.status === 429 ? "auth.errors.tooMany" : "auth.forgot.failed" });
+        return;
+      }
+      setLinkState({ sentTo: trimmed });
+    } catch {
+      setLinkState({ error: "auth.forgot.failed" });
+    }
+  }
+
   const switchMode = (to: Mode) => {
     setMode(to);
     setFieldErrors({});
@@ -147,6 +175,7 @@ export function SignInForm({
     setFieldErrors(errors);
     setFormError(null);
     setAltError(null);
+    setLinkState(null);
     if (errors.email) return emailRef.current?.focus();
     if (errors.password) return passwordRef.current?.focus();
 
@@ -278,6 +307,7 @@ export function SignInForm({
             />
             <Link
               to="/forgot-password"
+              search={next ? { next } : {}}
               data-testid="forgot-link"
               className="-mt-3 inline-flex min-h-11 w-fit items-center text-[15px] font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
             >
@@ -323,6 +353,27 @@ export function SignInForm({
         ) : null}
 
         {formError ? <FormAlert id={alertId}>{t(formError)}</FormAlert> : null}
+        {mode === "password" && offersPasswordLink(formError) ? (
+          <div className="-mt-2 flex flex-col gap-2">
+            {linkState && typeof linkState === "object" && "sentTo" in linkState ? (
+              <p role="status" data-testid="password-link-sent" className="m-0 text-[15px] leading-6 text-muted-foreground">
+                {t("auth.login.passwordLinkSent", { email: linkState.sentTo })}
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto min-h-11 w-full whitespace-normal py-2 text-center"
+                loading={linkState === "sending"}
+                data-testid="password-link"
+                onClick={() => void emailPasswordLink()}
+              >
+                {linkState === "sending" ? t("auth.login.passwordLinkSending") : t("auth.login.passwordLink")}
+              </Button>
+            )}
+            {linkState && typeof linkState === "object" && "error" in linkState ? <FormAlert>{t(linkState.error)}</FormAlert> : null}
+          </div>
+        ) : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {mode === "password"

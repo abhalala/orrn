@@ -31,8 +31,8 @@ type Member = Outputs["company"]["membersList"][number];
 type Invite = Outputs["invite"]["list"][number];
 
 /**
- * Team: members with their role, pending invites, the invite sheet
- * (`invite.create`, `member.invite`), and per member a role change
+ * Team: members with their role, pending invites (Resend makes a new link and sends it again,
+ * `invite.resend`), the invite sheet (`invite.create`, `member.invite`), and per member a role change
  * (`member.updateRole`) and removal (`member.remove`). Only an owner may touch an owner row, and
  * nobody changes or removes their own row. Party logins (portal.manage) are listed below the invites.
  */
@@ -86,7 +86,17 @@ export function TeamTab() {
           <span className="whitespace-nowrap">{t("settings.team.expires", { date: when(i.expiresAt) })}</span>
         ),
     },
-    { key: "revoke", header: "", cell: (i) => <RevokeInvite invite={i} /> },
+    {
+      key: "revoke",
+      header: t("settings.team.actions"),
+      headerHidden: true,
+      cell: (i) => (
+        <div className="flex flex-wrap gap-2">
+          <ResendInvite invite={i} onResent={setInviteLink} />
+          <RevokeInvite invite={i} />
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -184,8 +194,40 @@ function RevokeInvite({ invite }: { invite: Invite }) {
   );
 }
 
-/** What `invite.create` hands back for the inviter to pass on (M3, final explore). */
-type InviteLinkView = { email: string; link: string; emailSent: boolean; expiresAt: Date | string };
+/**
+ * "Resend" on a pending invite, expired or not (plan 2026-11-18, Task 8): a new link replaces the old
+ * one (only its hash is stored, so the old one cannot be shown), the email goes again, and the dialog
+ * shows the new link to copy and says whether the email went.
+ */
+function ResendInvite({ invite, onResent }: { invite: Invite; onResent(link: InviteLinkView): void }) {
+  const { t } = useT();
+  const queryClient = useQueryClient();
+  const resend = useOnceMutation(
+    trpc.invite.resend.mutationOptions({
+      onSuccess: (res) => {
+        onResent({ email: invite.email, link: res.link, emailSent: res.emailSent, expiresAt: res.expiresAt, resent: true });
+        void queryClient.invalidateQueries({ queryKey: trpc.invite.list.queryKey() });
+      },
+      onError: () => toast.error(t("settings.team.resendFailed")),
+    }),
+  );
+  return (
+    <Can do="member.invite">
+      <Button
+        variant="secondary"
+        loading={resend.isPending}
+        aria-label={`${t("settings.team.resend")}: ${invite.email}`}
+        data-testid="invite-resend"
+        onClick={() => resend.mutate({ inviteId: invite.id })}
+      >
+        {t("settings.team.resend")}
+      </Button>
+    </Can>
+  );
+}
+
+/** What `invite.create` (and `invite.resend`) hands back for the inviter to pass on (M3, final explore). */
+type InviteLinkView = { email: string; link: string; emailSent: boolean; expiresAt: Date | string; resent?: boolean };
 
 /**
  * The invite link, to copy and send by hand. Shown at once when the email did not go (the invite
@@ -198,7 +240,7 @@ function InviteLinkDialog({ link, onClose }: { link: InviteLinkView | null; onCl
     <Dialog
       open={link !== null}
       onOpenChange={(o) => !o && onClose()}
-      title={t("settings.team.inviteLink.title", { email: link?.email ?? "" })}
+      title={t(link?.resent ? "settings.team.inviteLink.resentTitle" : "settings.team.inviteLink.title", { email: link?.email ?? "" })}
       actions={<Button onClick={onClose}>{t("common.done")}</Button>}
     >
       {link ? (
@@ -230,7 +272,12 @@ function InviteLinkDialog({ link, onClose }: { link: InviteLinkView | null; onCl
             <Copy aria-hidden="true" strokeWidth={2} />
             {t("settings.team.inviteLink.copy")}
           </Button>
-          <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("settings.team.inviteLink.expires", { date: when(link.expiresAt) })}</p>
+          <p className="m-0 text-[13px] leading-5 text-muted-foreground">
+            {t("settings.team.inviteLink.expires", { date: when(link.expiresAt) })}
+            {link.resent ? ` ${t("settings.team.inviteLink.oldLinkDead")}` : ""}
+          </p>
+          {/* The invite page never joins on load, so a chat app fetching the link for its preview is harmless. */}
+          <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("settings.team.inviteLink.previews")}</p>
         </div>
       ) : null}
     </Dialog>

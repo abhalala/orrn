@@ -32,6 +32,9 @@ const METHOD_ERRORS: Record<string, MessageKey> = {
   AUTH_CANCELLED: "auth.errors.passkeyCancelled",
   PASSKEY_NOT_FOUND: "auth.errors.passkeyNotFound",
   AUTHENTICATION_FAILED: "auth.errors.passkeyNotFound",
+  // Better Auth 1.6.9 only logs "Credential account not found" and answers INVALID_EMAIL_OR_PASSWORD,
+  // so this code does not reach the browser today; if it ever does, it gets its own words.
+  CREDENTIAL_ACCOUNT_NOT_FOUND: "auth.errors.noPasswordYet",
 };
 
 /** Google refusals that can reach the sign-in page as `?error=CODE`. */
@@ -64,6 +67,16 @@ export function signInErrorKey(error: AuthClientError): MessageKey {
     return "auth.login.wrongCredentials";
   }
   return "errors.generic";
+}
+
+/**
+ * Offer "Email me a link to set a password" under this sign-in error (plan 2026-11-18, Task 8). Better
+ * Auth answers an account with no password (a magic-link approval, Google or a passkey only) exactly as
+ * a wrong password, so the link is offered on both; the answer to it never says whether the email has
+ * an account.
+ */
+export function offersPasswordLink(key: MessageKey | null): boolean {
+  return key === "auth.login.wrongCredentials" || key === "auth.errors.noPasswordYet";
 }
 
 /** Message for a failed authenticator code. */

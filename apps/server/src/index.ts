@@ -16,7 +16,7 @@ import { handleIngestUpload } from "@orrn/server/lib/ingest/vault";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
-import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
+import { clearDevInviteThrottle, createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput, devResetTokenInput, readDevResetToken } from "./dev-front-door";
 import { devIngestBotInput, runDevIngestBot } from "./dev-ingest-bot";
 import { devSpectroInput, runDevSpectro } from "./dev-spectro";
 import { seedDevData } from "./dev-seed";
@@ -105,6 +105,20 @@ if (env.NODE_ENV === "development") {
     const input = devIngestBotInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(runDevIngestBot(input.data));
+  });
+
+  // Invite onboarding e2e (plan 2026-11-18, Task 8): the token of the reset link an invitee was emailed.
+  app.post("/dev/reset-token", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devResetTokenInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await readDevResetToken(createDb(), input.data));
+  });
+
+  // Invite e2e: every local request has one IP, so clear the invite throttle rows between tests.
+  app.post("/dev/invite-throttle", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    return c.json(await clearDevInviteThrottle(createDb()));
   });
 
   app.post("/dev/magic-link", async (c) => {

@@ -1,18 +1,100 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, like, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
-import { user } from "@orrn/db/schema/auth";
+import { companyRoles, invite, membership, type CompanyRole } from "@orrn/db/schema/tenant";
+import { authThrottle, user } from "@orrn/db/schema/auth";
+import { createAuth } from "@orrn/auth";
+import { clientIp, throttleHit } from "@orrn/auth/reset-throttle";
+import { signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { env } from "@orrn/env/server";
 import { acceptInvite, inviteHeldBy } from "../lib/acceptInvite";
 import { hasLivePortalRow } from "../lib/portal";
 import { atomicBatch } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
 import { webBaseUrl } from "../lib/webUrl";
 import { errorText } from "../lib/pack";
 import { REPLAY_KEY_PATTERN, replayRowId, replayToken } from "../lib/replayToken";
+import type { OrrnDb } from "../lib/atomic";
 import { actionProcedure, companyProcedure, publicProcedure, router } from "../index";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** An invite link works for a week from when it was sent (or sent again). */
+const INVITE_DAYS = 7;
+
+/** `invite.status` reads per client IP in one window (plan 2026-11-18, Task 8). */
+export const INVITE_STATUS_LIMIT = { max: 30, windowMs: 10 * 60 * 1000 } as const;
+/** `invite.sendSetPasswordLink` per client IP and per invite link, like the reset request's own limit. */
+export const INVITE_SET_PASSWORD_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 } as const;
+const BUSY = "Too many requests. Try again in a few minutes.";
+
+const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+const hashInviteToken = async (token: string) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+
+/**
+ * Counts one public call on each `auth_throttle` key (fixed window, the reset throttle's upsert) and
+ * throws 429 when any is over. Every key is counted, so one busy key does not hide another's count.
+ */
+async function limitInviteCall(db: OrrnDb, keys: string[], limit: { max: number; windowMs: number }, nowMs: number) {
+  const allowed = await Promise.all(keys.map((key) => throttleHit(db as never, key, nowMs, limit)));
+  if (allowed.some((ok) => !ok)) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: BUSY });
+}
+
+/** Old windows are of no use; keep the table small (indexed on window_start). */
+async function sweepInviteThrottle(db: OrrnDb, nowMs: number) {
+  await db.delete(authThrottle).where(and(like(authThrottle.key, "invite:%"), lt(authThrottle.windowStart, nowMs - 2 * INVITE_SET_PASSWORD_LIMIT.windowMs)));
+}
+
+/** The client IP's throttle key for `what`, or none when the platform reports no IP (local dev, tests). */
+const ipKey = (what: string, request: Request | null | undefined) => {
+  const ip = clientIp(request?.headers);
+  return ip ? [`invite:${what}:i:${ip}`] : [];
+};
+
+/** Same rule as `auth.methods.google`: Google sign-in is on when both secrets are bound. */
+const googleOn = () => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+
+/** What the invite page needs about the invited email's account: none, one with a password, or one without. */
+async function inviteAccountState(db: OrrnDb, email: string): Promise<"none" | "password" | "noPassword"> {
+  const found = await db.select({ id: user.id }).from(user).where(sql`lower(${user.email}) = ${email.toLowerCase()}`).get();
+  if (!found) return "none";
+  return (await signInMethodsFor(db as never, found.id)).password ? "password" : "noPassword";
+}
+
+export type InviteStatus =
+  | { live: false }
+  | { live: true; kind: "member" | "portal"; account: "none" | "password" | "noPassword"; google: boolean };
+
+/**
+ * The invite email, sent by `invite.create` and `invite.resend`. Never throws: false when it did not go
+ * (Purelymail refused or unreachable, or no mail set up), and the caller hands the inviter the link.
+ */
+async function sendInviteEmail(email: string, role: CompanyRole, inviteUrl: string): Promise<boolean> {
+  try {
+    await sendEmail({
+      to: email,
+      subject: "You've been invited to join a company on ORRN",
+      text: `You have been invited to join an ORRN company workspace as ${role.toUpperCase()}.\n\nAccept the invitation: ${inviteUrl}\n\nIf you did not expect this invitation, ignore this email. This link works for 7 days.`,
+      html: renderOrrnEmailHtml({
+        title: "Workspace Invitation",
+        description: `You have been invited to join a company workspace on ORRN-AL with the role of ${role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
+        buttonText: "Accept Invitation",
+        buttonUrl: inviteUrl,
+        footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days.",
+      }),
+    });
+    return true;
+  } catch (error) {
+    // Neutral log: no address, no link (the link is a live invite). Provider, SMTP code and our own
+    // message (never the server's reply) say which mail path failed.
+    const failure = error instanceof Error ? error : new Error(String(error));
+    const provider = "provider" in failure ? String(failure.provider) : "unknown";
+    const status = "status" in failure ? String(failure.status) : "";
+    console.warn("Invite saved; its email did not go:", failure.name, provider, status, failure.message);
+    return false;
+  }
+}
 
 export const inviteRouter = router({
   list: companyProcedure.query(async ({ ctx }) => {
@@ -57,7 +139,12 @@ export const inviteRouter = router({
         if (prior.email !== email || prior.role !== input.role) {
           throw new TRPCError({ code: "CONFLICT", message: "This request id was already used for a different request." });
         }
-        const link = `${webBaseUrl()}/invite/${await replayToken(ctx.companyId, "invite.create", keyed.key, "uuid")}`;
+        const token = await replayToken(ctx.companyId, "invite.create", keyed.key, "uuid");
+        // Resent since (invite.resend rotates the token): the first link is dead, so do not hand it back.
+        if ((await hashInviteToken(token)) !== prior.tokenHash) {
+          throw new TRPCError({ code: "CONFLICT", message: "This invite was sent again since. Copy its new link from the Team tab." });
+        }
+        const link = `${webBaseUrl()}/invite/${token}`;
         // The first call tried the email; whether it went is not kept, so a repeat says it did not and hands over the link.
         return { success: true, inviteId: prior.id, email, role: input.role, link, emailSent: false, expiresAt: prior.expiresAt, replayed: true as const };
       };
@@ -122,29 +209,7 @@ export const inviteRouter = router({
       // M3 (final explore): the invite is written; nothing after this throws. The email can fail
       // (Purelymail refused or unreachable) or not be set up (local), so the inviter always gets the link to copy and
       // send by WhatsApp or their own mail, the same way Godseye gets an owner's sign-in details.
-      let emailSent = false;
-      try {
-        await sendEmail({
-          to: email,
-          subject: "You've been invited to join a company on ORRN",
-          text: `You have been invited to join an ORRN company workspace as ${input.role.toUpperCase()}.\n\nAccept the invitation: ${inviteUrl}\n\nIf you did not expect this invitation, ignore this email. This link works for 7 days.`,
-          html: renderOrrnEmailHtml({
-            title: "Workspace Invitation",
-            description: `You have been invited to join a company workspace on ORRN-AL with the role of ${input.role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
-            buttonText: "Accept Invitation",
-            buttonUrl: inviteUrl,
-            footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days."
-          }),
-        });
-        emailSent = true;
-      } catch (error) {
-        // Neutral log: no address, no link (the link is a live invite). Provider, SMTP code and our own
-        // message (never the server's reply) say which mail path failed.
-        const failure = error instanceof Error ? error : new Error(String(error));
-        const provider = "provider" in failure ? String(failure.provider) : "unknown";
-        const status = "status" in failure ? String(failure.status) : "";
-        console.warn("Invite saved; its email did not go:", failure.name, provider, status, failure.message);
-      }
+      const emailSent = await sendInviteEmail(email, input.role, inviteUrl);
 
       return { success: true, inviteId, email, role: input.role, link: inviteUrl, emailSent, expiresAt, replayed: false as const };
     }),
@@ -182,6 +247,110 @@ export const inviteRouter = router({
       ]);
 
       return { success: true };
+    }),
+
+  /**
+   * Resend a pending member invite (plan 2026-11-18, Task 8): only the token's hash is stored, so the
+   * old link cannot be shown again. A new token replaces it (the old link stops working), the link gets
+   * a fresh week, and the invite email goes again. An expired invite that was never revoked or used can
+   * be resent; that is the point. The inviter always gets the link to copy, whether or not the email went.
+   */
+  resend: actionProcedure("member.invite")
+    .input(z.object({ inviteId: z.string().min(1).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.query.invite.findFirst({
+        where: and(eq(invite.id, input.inviteId), eq(invite.companyId, ctx.companyId)),
+      });
+      // Party invites are made again with portal.users.grant (it also resets the portal row).
+      if (!target || target.kind !== "member") throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found" });
+      if (target.acceptedAt || target.revokedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is no longer pending" });
+      if (target.role === "owner" && ctx.role !== "owner") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only an owner can invite another owner" });
+      }
+
+      const token = crypto.randomUUID();
+      const tokenHash = await hashInviteToken(token);
+      const expiresAt = new Date(Date.now() + INVITE_DAYS * DAY_MS);
+      const pending = and(eq(invite.id, target.id), eq(invite.companyId, ctx.companyId), isNull(invite.acceptedAt), isNull(invite.revokedAt));
+      // The pending check is in the write itself, and the audit row is written only when it landed, so a
+      // resend that races an accept or a revoke changes nothing.
+      await atomicBatch(ctx.db, [
+        ctx.db.update(invite).set({ tokenHash, expiresAt }).where(pending),
+        auditInsertGuarded(
+          ctx,
+          { action: "member.invite.resend", subjectType: "invite", subjectId: target.id, meta: { email: target.email, role: target.role } },
+          { from: invite, where: and(eq(invite.id, target.id), eq(invite.tokenHash, tokenHash)) },
+        ),
+      ]);
+      const now = await ctx.db.select({ tokenHash: invite.tokenHash }).from(invite).where(eq(invite.id, target.id)).get();
+      if (now?.tokenHash !== tokenHash) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is no longer pending" });
+
+      const link = `${webBaseUrl()}/invite/${token}`;
+      const emailSent = await sendInviteEmail(target.email, target.role, link);
+      return { link, emailSent, expiresAt };
+    }),
+
+  /**
+   * What the invite page shows (plan 2026-11-18, Task 8), read without accepting anything. A dead link
+   * (unknown, expired, revoked or used) is `{ live: false }`. A live one says its kind, whether the
+   * invited email has an account and whether that account has a password, and whether Google sign-in is
+   * on. It never says the email, the company, the role or which other ways in the account has. An
+   * invite already accepted by the signed-in account (Google sign-up accepts invites as it makes the
+   * account) stays live for that account, so the page offers Join and the idempotent accept answers.
+   * Public, so it is limited per client IP like the other public reads.
+   */
+  status: publicProcedure
+    .input(z.object({ token: z.string().min(1).max(200) }))
+    .query(async ({ ctx, input }): Promise<InviteStatus> => {
+      const nowMs = Date.now();
+      await limitInviteCall(ctx.db, ipKey("status", ctx.request), INVITE_STATUS_LIMIT, nowMs);
+      const dead: InviteStatus = { live: false };
+      const target = await ctx.db.query.invite.findFirst({ where: eq(invite.tokenHash, await hashInviteToken(input.token)) });
+      if (!target || target.revokedAt) return dead;
+      if (target.acceptedAt) {
+        if (!ctx.session) return dead;
+        const me = await ctx.db.select({ email: user.email }).from(user).where(eq(user.id, ctx.session.user.id)).get();
+        if (me?.email.toLowerCase() !== target.email.toLowerCase()) return dead;
+        if (!(await inviteHeldBy(ctx.db, target, ctx.session.user.id))) return dead;
+      } else if (target.expiresAt.getTime() < nowMs) {
+        return dead;
+      }
+      const account = await inviteAccountState(ctx.db, target.email);
+      await sweepInviteThrottle(ctx.db, nowMs);
+      return { live: true, kind: target.kind, account, google: googleOn() };
+    }),
+
+  /**
+   * "Email me a link to set a password" on the invite page (plan 2026-11-18, Task 8), for an invited
+   * email whose account has no password (a magic-link approval, Google or a passkey only). The reset
+   * email goes only when the typed email is the invite's own and the invite is live, and its link comes
+   * back to this invite (`/reset-password?next=/invite/<token>`). The answer is the same either way, so
+   * it says nothing about the invite's email. Limited per client IP and per link before anything is
+   * compared; the reset request's own per-address limit and any send failure are swallowed for the same
+   * reason. Finishing the reset proves the mailbox (`onPasswordReset` sets `emailVerified`), so a later
+   * Google link keeps the new password.
+   */
+  sendSetPasswordLink: publicProcedure
+    .input(z.object({ token: z.string().min(1).max(200), email: z.string().trim().min(1).max(320) }))
+    .mutation(async ({ ctx, input }) => {
+      const nowMs = Date.now();
+      const tokenHash = await hashInviteToken(input.token);
+      await limitInviteCall(ctx.db, [...ipKey("setpw", ctx.request), `invite:setpw:t:${tokenHash.slice(0, 32)}`], INVITE_SET_PASSWORD_LIMIT, nowMs);
+      const target = await ctx.db.query.invite.findFirst({ where: eq(invite.tokenHash, tokenHash) });
+      const live = target && !target.revokedAt && !target.acceptedAt && target.expiresAt.getTime() >= nowMs;
+      if (live && target.email.toLowerCase() === input.email.toLowerCase()) {
+        const redirectTo = `${webBaseUrl()}/reset-password?next=${encodeURIComponent(`/invite/${input.token}`)}`;
+        try {
+          await createAuth().api.requestPasswordReset({
+            body: { email: target.email, redirectTo },
+            headers: ctx.request?.headers ?? new Headers(),
+          });
+        } catch (error) {
+          // The reset request's own limit or a failure: the answer stays the same. No address, no link.
+          console.warn("Invite set-password link not sent:", error instanceof Error ? error.name : "unknown");
+        }
+      }
+      return { success: true as const };
     }),
 
   acceptByToken: publicProcedure

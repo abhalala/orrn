@@ -25,7 +25,17 @@ export async function devInvite(
 ) {
   const res = await request.post(`${API}/dev/invite`, { data: input });
   expect(res.ok(), `/dev/invite returned ${res.status()}: ${await res.text()}`).toBe(true);
-  return (await res.json()) as { path: string; companyName: string };
+  await clearInviteThrottle(request);
+  return (await res.json()) as { token: string; path: string; companyName: string; companyId: string };
+}
+
+/**
+ * Locally every request comes from one IP, so the invite page's limits (status 30 per 10 minutes,
+ * set-password 5 per 15 minutes) would refuse a full group or a rerun. Clears the `invite:%` rows.
+ */
+export async function clearInviteThrottle(request: APIRequestContext) {
+  const res = await request.post(`${API}/dev/invite-throttle`);
+  expect(res.ok(), `/dev/invite-throttle returned ${res.status()}`).toBe(true);
 }
 
 /**

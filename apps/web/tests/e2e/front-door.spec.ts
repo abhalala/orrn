@@ -256,13 +256,11 @@ test.describe("invite", () => {
     const { email, password } = await createLooseAccount(browser, "Kiran Shah");
     const { path, companyName } = await devInvite(page.context().request, { email, role: "viewer" });
     await page.goto(path);
-    await page.getByLabel("Your name").fill("Kiran Shah");
-    await page.getByLabel("Email", { exact: true }).fill(email);
-    await page.getByLabel("Password", { exact: true }).fill(password);
-    await page.getByRole("button", { name: "Create account and join" }).click();
-
+    // invite.status says the invited email has an account with a password: the sign-in view at once
+    // (plan 2026-11-18, Task 8), never a create form that can only fail.
     await expect(page.getByText("This email already has an account. Sign in to join.")).toBeVisible();
-    await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
+    await expect(page.getByRole("button", { name: "Create account and join" })).toHaveCount(0);
+    await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in and join" }).click();
 
@@ -285,9 +283,9 @@ test.describe("invite", () => {
   test("a signed-in member with a dead link is offered their home, not the sign-in form", async ({ page }) => {
     await signInViaApi(page, "owner");
     await page.goto("/invite/not-a-real-token");
-    await expect(page.getByText("You're signed in as owner@orrn.local.")).toBeVisible();
-    await page.getByRole("button", { name: "Join with this account" }).click();
+    // invite.status says the link is dead before anyone taps anything (plan 2026-11-18, Task 8).
     await expect(h1(page, "This invite link doesn't work")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Join with this account" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Go to sign in" })).toHaveCount(0);
     await page.getByRole("link", { name: "Go to Today" }).click();
     await expect(page).toHaveURL(/\/today$/);

@@ -1,7 +1,7 @@
 import { useT, type MessageKey } from "@orrn/i18n";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Text, View, type TextInput as InputRef } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { ScreenTitle } from "@/components/ui/screen-title";
 import { LoadingBlock } from "@/components/ui/state";
-import { inviteAcceptOutcome, inviteProbeResult, inviteSignUpRefusal, isExistingAccount, type InviteOutcome } from "@/features/invite/invite-flow";
+import { AltSignIn, OrLine, useAltSignInButtons } from "@/features/auth/alt-sign-in";
+import { inviteAcceptOutcome, inviteScreen, inviteSignUpRefusal, isExistingAccount, type InviteOutcome, type InviteStatus } from "@/features/invite/invite-flow";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
 import { feedback } from "@/lib/feedback";
@@ -24,19 +25,36 @@ import { trpc } from "@/utils/trpc";
 
 type Failure = { text: string; unsure?: boolean };
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
- * Join a company from an invite link (audit N4). The link opens signed in or
- * out. Signed out, the invite is checked first (before anyone types a
- * password): a dead link says so at once. Then name, email and password:
- * a new email gets an account; an email that already has one (Better Auth's
- * `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, or the older `USER_ALREADY_EXISTS`)
- * signs in with the typed password. Signed in, one button accepts the invite
- * for the account on this phone.
+ * Join a company from an invite link (audit N4; plan 2026-11-18, Task 8: every invite state has a way
+ * in). `invite.status` says whether the link is live and what the invited email's account needs,
+ * without the email, the company or the role. Nothing is accepted until the person taps.
+ *
+ * - Signed in on this phone: one button joins with this account.
+ * - No account for the invite email: name, email and password (or Google), then join.
+ * - An account with a password: sign in (passkey, Google, or email and password), then join.
+ * - An account with no password (a magic-link approval, Google or a passkey only): a way it already
+ *   has, or "Email me a link to set a password" (sent only to the invite's own email; the link opens
+ *   the web invite page after the reset).
  */
 export default function InviteScreen() {
   const { t } = useT();
   const { token } = useLocalSearchParams<{ token: string }>();
   const hasSession = useSyncExternalStore(sessionPresence.subscribe, sessionPresence.get);
+  const status = useQuery({
+    ...trpc.invite.status.queryOptions({ token: token ?? "" }),
+    enabled: Boolean(token),
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  // An accept or a sign-up that found the link dead since it was read.
+  const [expired, setExpired] = useState(false);
+  const screen = expired
+    ? "expired"
+    : inviteScreen(hasSession, status.data ? (status.data as InviteStatus) : status.isError ? "failed" : "pending");
+  const markExpired = useCallback(() => setExpired(true), []);
 
   return (
     <KeyboardAwareScrollView
@@ -51,7 +69,26 @@ export default function InviteScreen() {
         <View className="gap-2">
           <ScreenTitle>{t("auth.invite.genericTitle")}</ScreenTitle>
         </View>
-        {token ? hasSession ? <SignedInInvite token={token} /> : <SignedOutInvite token={token} /> : <Notice text={t("auth.invite.expired")} />}
+        {!token || screen === "expired" ? (
+          <Notice text={t("auth.invite.expired")} />
+        ) : screen === "checking" ? (
+          <View className="gap-3">
+            <LoadingBlock />
+            <Text className="text-center font-sans text-base text-ink-muted">{t("native.invite.checking")}</Text>
+          </View>
+        ) : screen === "failed" ? (
+          <Notice text={t("native.invite.failed")}>
+            <Button size="lg" variant="secondary" label={t("native.invite.tryAgain")} onPress={() => void status.refetch()} />
+          </Notice>
+        ) : screen === "join" ? (
+          <SignedInInvite token={token} />
+        ) : screen === "signIn" ? (
+          <SignInInvite token={token} onExpired={markExpired} />
+        ) : screen === "noPassword" ? (
+          <NoPasswordInvite token={token} onExpired={markExpired} />
+        ) : (
+          <CreateInvite token={token} google={status.data?.live === true && status.data.google} onExpired={markExpired} />
+        )}
       </View>
       <LanguageSwitch className="w-full max-w-[420px] self-center" />
     </KeyboardAwareScrollView>
@@ -70,6 +107,14 @@ function Notice({ text, children }: { text: string; children?: ReactNode }) {
       </Text>
       {children}
     </View>
+  );
+}
+
+function Info({ text }: { text: string }) {
+  return (
+    <Text accessibilityLiveRegion="polite" className="rounded-input bg-tone-blue-tint px-4 py-3 font-sans-medium text-[15px] leading-6 text-tone-blue-ink">
+      {text}
+    </Text>
   );
 }
 
@@ -93,6 +138,45 @@ function useFinish() {
     await afterSignIn();
     router.replace("/");
   }, [router, t]);
+}
+
+/**
+ * Accept after a sign-in on this screen, then finish. A dead link turns the screen to the expired
+ * notice; any other failure is said in place.
+ */
+function useAcceptAfterSignIn(token: string, onExpired: () => void) {
+  const { t } = useT();
+  const finish = useFinish();
+  const accept = useMutation(trpc.invite.acceptByToken.mutationOptions());
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const run = useCallback(
+    async (name?: string) => {
+      setFailure(null);
+      try {
+        await accept.mutateAsync({ token, name });
+      } catch (error) {
+        const { outcome, failure: f } = outcomeFailure(t, error);
+        if (outcome === "expired") return onExpired();
+        setFailure(f);
+        announce(f.text, { shownInLiveRegion: true });
+        feedback.error();
+        return;
+      }
+      await finish();
+    },
+    [accept, finish, onExpired, t, token],
+  );
+  return { run, failure, setFailure, finish };
+}
+
+function FailureNotice({ failure, onCheck }: { failure: Failure | null; onCheck(): void }) {
+  const { t } = useT();
+  if (!failure) return null;
+  return (
+    <Notice text={failure.text}>
+      {failure.unsure ? <Button variant="secondary" label={t("native.invite.checkAccount")} onPress={onCheck} /> : null}
+    </Notice>
+  );
 }
 
 function SignedInInvite({ token }: { token: string }) {
@@ -123,11 +207,7 @@ function SignedInInvite({ token }: { token: string }) {
         <Text className="font-sans-semibold text-lg text-ink">{t("native.invite.signedInTitle", { email: me?.user.email ?? "" })}</Text>
         <Text className="font-sans text-base leading-6 text-ink-muted">{t("native.invite.signedInBody")}</Text>
       </View>
-      {failure ? (
-        <Notice text={failure.text}>
-          {failure.unsure ? <Button variant="secondary" label={t("native.invite.checkAccount")} onPress={() => void finish()} /> : null}
-        </Notice>
-      ) : null}
+      <FailureNotice failure={failure} onCheck={() => void finish()} />
       <View className="gap-3">
         <Button size="lg" label={t("native.invite.accept")} loading={accept.isPending} loadingLabel={t("native.invite.joining")} onPress={() => void submit()} />
         {wrongEmail ? (
@@ -147,43 +227,23 @@ function SignedInInvite({ token }: { token: string }) {
   );
 }
 
-type Check = "checking" | "valid" | "expired" | "failed";
-
-function SignedOutInvite({ token }: { token: string }) {
+/** No account for the invite email: name, email and password, then join; Google too where it works. */
+function CreateInvite({ token, google, onExpired }: { token: string; google: boolean; onExpired(): void }) {
   const { t } = useT();
-  const router = useRouter();
-  const finish = useFinish();
-  const probe = useMutation(trpc.invite.acceptByToken.mutationOptions());
-  const accept = useMutation(trpc.invite.acceptByToken.mutationOptions());
-  const [check, setCheck] = useState<Check>("checking");
+  const { run, failure, finish } = useAcceptAfterSignIn(token, onExpired);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ name?: MessageKey; email?: MessageKey; password?: MessageKey }>({});
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [formFailure, setFormFailure] = useState<Failure | null>(null);
+  const [altError, setAltError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
-  const [twoFactor, setTwoFactor] = useState(false);
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const emailRef = useRef<InputRef>(null);
   const passwordRef = useRef<InputRef>(null);
 
-  // Signed out, acceptByToken looks the token up before it checks the session:
-  // UNAUTHORIZED means the invite is live, NOT_FOUND or BAD_REQUEST that it is dead.
-  const runCheck = useCallback(() => {
-    setCheck("checking");
-    probe.mutate(
-      { token },
-      {
-        onSuccess: () => setCheck("valid"),
-        onError: (error) => setCheck(inviteProbeResult(error)),
-      },
-    );
-  }, [token]);
-  useEffect(() => {
-    runCheck();
-  }, [runCheck]);
-
-  function fail(text: string, unsure = false) {
-    setFailure({ text, unsure });
+  function fail(text: string) {
+    setFormFailure({ text });
     announce(text, { shownInLiveRegion: true });
     feedback.error();
   }
@@ -192,11 +252,11 @@ function SignedOutInvite({ token }: { token: string }) {
     const next: typeof errors = {};
     if (!name.trim()) next.name = "errors.required";
     if (!email.trim()) next.email = "errors.required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = "errors.invalidEmail";
+    else if (!EMAIL.test(email.trim())) next.email = "errors.invalidEmail";
     if (!password) next.password = "errors.required";
     else if (password.length < 8) next.password = "auth.invite.passwordHint";
     setErrors(next);
-    setFailure(null);
+    setFormFailure(null);
     const first = next.name ?? next.email ?? next.password;
     if (first) {
       announce(t(first), { shownInLiveRegion: true });
@@ -213,32 +273,14 @@ function SignedOutInvite({ token }: { token: string }) {
       const created = await authClient.signUp.email(body);
       if (created.error) {
         const refused = inviteSignUpRefusal(created.error);
-        if (refused === "expired") {
-          setCheck("expired");
-          return;
-        }
+        if (refused === "expired") return onExpired();
         if (refused === "wrongEmail") return fail(t("native.invite.wrongEmail"));
-        if (!isExistingAccount(created.error)) {
-          const status = created.error.status;
-          return fail(t(status === 429 ? "native.tooManyTries" : !status ? "errors.network" : "errors.generic"));
-        }
-        // This email already has an account: the typed password is its password.
-        const outcome = afterPassword(await authClient.signIn.email({ email: cleanEmail, password }));
-        if (outcome.step === "error") return fail(t(outcome.messageKey));
-        if (outcome.step === "totp") {
-          setTwoFactor(true);
-          return;
-        }
+        // The account turned up since the link was read: sign in instead.
+        if (isExistingAccount(created.error)) return setExistingEmail(cleanEmail);
+        const status = created.error.status;
+        return fail(t(status === 429 ? "native.tooManyTries" : !status ? "errors.network" : "errors.generic"));
       }
-      try {
-        await accept.mutateAsync({ token, name: name.trim() });
-      } catch (error) {
-        const { outcome, failure: f } = outcomeFailure(t, error);
-        if (outcome === "expired") setCheck("expired");
-        else fail(f.text, f.unsure);
-        return;
-      }
-      await finish();
+      await run(name.trim());
     } catch {
       fail(t("errors.network"));
     } finally {
@@ -246,29 +288,7 @@ function SignedOutInvite({ token }: { token: string }) {
     }
   }
 
-  if (check === "checking") {
-    return (
-      <View className="gap-3">
-        <LoadingBlock />
-        <Text className="text-center font-sans text-base text-ink-muted">{t("native.invite.checking")}</Text>
-      </View>
-    );
-  }
-  if (check === "expired") return <Notice text={t("auth.invite.expired")} />;
-  if (check === "failed") {
-    return (
-      <Notice text={t("native.invite.failed")}>
-        <Button size="lg" variant="secondary" label={t("native.invite.tryAgain")} onPress={runCheck} />
-      </Notice>
-    );
-  }
-  if (twoFactor) {
-    return (
-      <Notice text={t("native.invite.twoFactor")}>
-        <Button size="lg" label={t("native.invite.goSignIn")} onPress={() => router.replace("/")} />
-      </Notice>
-    );
-  }
+  if (existingEmail !== null) return <SignInInvite token={token} onExpired={onExpired} defaultEmail={existingEmail} />;
 
   return (
     <View className="gap-6">
@@ -329,12 +349,206 @@ function SignedOutInvite({ token }: { token: string }) {
           editable={!busy}
         />
       </View>
-      {failure ? (
-        <Notice text={failure.text}>
-          {failure.unsure ? <Button variant="secondary" label={t("native.invite.checkAccount")} onPress={() => void finish()} /> : null}
-        </Notice>
-      ) : null}
+      <FailureNotice failure={formFailure ?? failure} onCheck={() => void finish()} />
       <Button size="lg" label={t("auth.invite.submit")} loading={busy} loadingLabel={t("native.invite.joining")} onPress={() => void submit()} />
+      {/* Google makes the account only for an email with a live invite and accepts it on the way in. */}
+      {google ? <AltSignIn passkey={false} finish={() => run()} error={altError} onError={setAltError} disabled={busy} /> : null}
+    </View>
+  );
+}
+
+/** The invite email has an account with a password: sign in (any way it has), then join. */
+function SignInInvite({ token, onExpired, defaultEmail = "" }: { token: string; onExpired(): void; defaultEmail?: string }) {
+  const { t } = useT();
+  const router = useRouter();
+  const { run, failure, finish } = useAcceptAfterSignIn(token, onExpired);
+  const [email, setEmail] = useState(defaultEmail);
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: MessageKey; password?: MessageKey }>({});
+  const [formFailure, setFormFailure] = useState<Failure | null>(null);
+  const [altError, setAltError] = useState<MessageKey | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [twoFactor, setTwoFactor] = useState(false);
+  const passwordRef = useRef<InputRef>(null);
+
+  function fail(text: string) {
+    setFormFailure({ text });
+    announce(text, { shownInLiveRegion: true });
+    feedback.error();
+  }
+
+  async function submit() {
+    const next: typeof errors = {};
+    if (!email.trim()) next.email = "errors.required";
+    else if (!EMAIL.test(email.trim())) next.email = "errors.invalidEmail";
+    if (!password) next.password = "errors.required";
+    setErrors(next);
+    setFormFailure(null);
+    setAltError(null);
+    const first = next.email ?? next.password;
+    if (first) {
+      announce(t(first), { shownInLiveRegion: true });
+      feedback.error();
+      return;
+    }
+    setBusy(true);
+    try {
+      const outcome = afterPassword(await authClient.signIn.email({ email: email.trim(), password }));
+      if (outcome.step === "error") return fail(t(outcome.messageKey));
+      if (outcome.step === "totp") return setTwoFactor(true);
+      await run();
+    } catch {
+      fail(t("errors.network"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (twoFactor) {
+    return (
+      <Notice text={t("native.invite.twoFactor")}>
+        <Button size="lg" label={t("native.invite.goSignIn")} onPress={() => router.replace("/")} />
+      </Notice>
+    );
+  }
+
+  return (
+    <View className="gap-6">
+      <Info text={t("auth.invite.existingAccount")} />
+      <View className="gap-4">
+        <Field
+          label={t("auth.invite.email")}
+          value={email}
+          onChangeText={(v) => {
+            setEmail(v);
+            if (errors.email) setErrors((e) => ({ ...e, email: undefined }));
+          }}
+          error={errors.email ? t(errors.email) : null}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="username"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          editable={!busy}
+        />
+        <Field
+          ref={passwordRef}
+          label={t("auth.invite.password")}
+          value={password}
+          onChangeText={(v) => {
+            setPassword(v);
+            if (errors.password) setErrors((e) => ({ ...e, password: undefined }));
+          }}
+          error={errors.password ? t(errors.password) : null}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={() => void submit()}
+          editable={!busy}
+        />
+      </View>
+      <FailureNotice failure={formFailure ?? failure} onCheck={() => void finish()} />
+      <Button size="lg" label={t("auth.invite.signInSubmit")} loading={busy} loadingLabel={t("native.invite.joining")} onPress={() => void submit()} />
+      <AltSignIn finish={() => run()} error={altError} onError={setAltError} disabled={busy} />
+    </View>
+  );
+}
+
+/**
+ * The invite email has an account with no password. A passkey or Google first where they can work
+ * (the account may have one), then "Email me a link to set a password", sent only when the typed email
+ * is the invite's (`invite.sendSetPasswordLink`; the answer is the same either way). The link opens the
+ * web invite page after the reset, where the person signs in and joins.
+ */
+function NoPasswordInvite({ token, onExpired }: { token: string; onExpired(): void }) {
+  const { t } = useT();
+  const buttons = useAltSignInButtons();
+  const { run, failure, finish } = useAcceptAfterSignIn(token, onExpired);
+  const send = useMutation(trpc.invite.sendSetPasswordLink.mutationOptions());
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<MessageKey | null>(null);
+  const [formError, setFormError] = useState<MessageKey | null>(null);
+  const [altError, setAltError] = useState<MessageKey | null>(null);
+  const [sent, setSent] = useState(false);
+
+  async function submit() {
+    const clean = email.trim();
+    setFormError(null);
+    if (!clean || !EMAIL.test(clean)) {
+      const key: MessageKey = clean ? "errors.invalidEmail" : "errors.required";
+      setEmailError(key);
+      announce(t(key), { shownInLiveRegion: true });
+      feedback.error();
+      return;
+    }
+    setEmailError(null);
+    try {
+      await send.mutateAsync({ token, email: clean });
+      setSent(true);
+      announce(t("auth.invite.setPasswordSent"));
+    } catch (error) {
+      const code = (error as { data?: { code?: unknown } | null }).data?.code;
+      const key: MessageKey = code === "TOO_MANY_REQUESTS" ? "native.tooManyTries" : "errors.network";
+      setFormError(key);
+      announce(t(key), { shownInLiveRegion: true });
+      feedback.error();
+    }
+  }
+
+  const anyButton = buttons.passkey || buttons.google;
+
+  return (
+    <View className="gap-6">
+      <Info text={`${t("auth.invite.noPasswordTitle")} ${t("auth.invite.noPasswordBody")}`} />
+      <FailureNotice failure={failure} onCheck={() => void finish()} />
+      {anyButton ? <AltSignIn divider={false} finish={() => run()} error={altError} onError={setAltError} /> : null}
+      {anyButton ? <OrLine /> : null}
+      {sent ? (
+        <Text accessibilityLiveRegion="polite" className="font-sans text-base leading-6 text-ink">
+          {t("auth.invite.setPasswordSent")}
+        </Text>
+      ) : (
+        <View className="gap-4">
+          <View className="gap-1">
+            <Text accessibilityRole="header" className="font-sans-semibold text-lg text-ink">
+              {t("auth.invite.setPasswordLead")}
+            </Text>
+            <Text className="font-sans text-base leading-6 text-ink-muted">{t("auth.invite.setPasswordHint")}</Text>
+          </View>
+          <Field
+            label={t("auth.invite.email")}
+            value={email}
+            onChangeText={(v) => {
+              setEmail(v);
+              if (emailError) setEmailError(null);
+            }}
+            error={emailError ? t(emailError) : null}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="username"
+            returnKeyType="send"
+            onSubmitEditing={() => void submit()}
+            editable={!send.isPending}
+          />
+          {formError ? <Notice text={t(formError)} /> : null}
+          <Button
+            size="lg"
+            variant={anyButton ? "secondary" : undefined}
+            label={t("auth.invite.setPasswordSubmit")}
+            loading={send.isPending}
+            loadingLabel={t("auth.invite.setPasswordSending")}
+            onPress={() => void submit()}
+          />
+        </View>
+      )}
     </View>
   );
 }

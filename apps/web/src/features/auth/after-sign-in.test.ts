@@ -58,3 +58,24 @@ describe("destinationAfterSignIn: several plants (plan 2026-11-18, Task 9)", () 
     expect(destinationAfterSignIn(me(two), "//evil.example")).toBe("/choose-plant");
   });
 });
+
+describe("destinationAfterSignIn: back to an invite (plan 2026-11-18, Task 8)", () => {
+  test("an invite page next wins over every home, so the join happens there", () => {
+    const invite = "/invite/2f1c6a0e-1b7d-4c55-9a51-3e2d8f0b9a77";
+    expect(destinationAfterSignIn(me(), invite)).toBe(invite);
+    expect(destinationAfterSignIn(me({ company: null }), invite)).toBe(invite);
+    expect(destinationAfterSignIn(me({ user: { mustChangePassword: true } }), invite)).toBe(invite);
+    expect(
+      destinationAfterSignIn(
+        me({ memberships: [{ companyId: "c1", name: "A", role: "owner" }, { companyId: "c2", name: "B", role: "packer" }] } as never),
+        invite,
+      ),
+    ).toBe(invite);
+  });
+
+  test("only a real invite path counts", () => {
+    expect(destinationAfterSignIn(me({ company: null }), "/invite")).toBe("/no-access");
+    expect(destinationAfterSignIn(me({ company: null }), "/invitex/abc")).toBe("/no-access");
+    expect(destinationAfterSignIn(me({ company: null }), "//evil.com/invite/abc")).toBe("/no-access");
+  });
+});

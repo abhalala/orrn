@@ -5,6 +5,7 @@ import {
   inviteSignUpRefusal,
   isExistingAccount,
   loginErrorKey,
+  offersPasswordLink,
   signInErrorKey,
   totpErrorKey,
 } from "./auth-errors";
@@ -104,5 +105,19 @@ describe("inviteAcceptOutcome", () => {
     expect(inviteAcceptOutcome({ data: { code: "BAD_REQUEST" } })).toBe("expired");
     expect(inviteAcceptOutcome({ data: { code: "INTERNAL_SERVER_ERROR" } })).toBe("failed");
     expect(inviteAcceptOutcome(new TypeError("Failed to fetch"))).toBe("failed");
+  });
+});
+
+describe("no password yet (plan 2026-11-18, Task 8)", () => {
+  test("CREDENTIAL_ACCOUNT_NOT_FOUND reads as no password yet", () => {
+    expect(signInErrorKey({ code: "CREDENTIAL_ACCOUNT_NOT_FOUND", status: 401 })).toBe("auth.errors.noPasswordYet");
+  });
+
+  test("the set-a-password link is offered on no password yet and on a wrong email or password (Better Auth says the same for both)", () => {
+    expect(offersPasswordLink("auth.errors.noPasswordYet")).toBe(true);
+    expect(offersPasswordLink("auth.login.wrongCredentials")).toBe(true);
+    expect(offersPasswordLink("auth.errors.tooMany")).toBe(false);
+    expect(offersPasswordLink("errors.network")).toBe(false);
+    expect(offersPasswordLink(null)).toBe(false);
   });
 });

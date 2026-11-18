@@ -153,6 +153,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "melt.create",
   "member.invite",
   "member.invite.accept",
+  "member.invite.resend",
   "member.invite.revoke",
   "member.remove",
   "member.updateRole",

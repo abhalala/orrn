@@ -25,7 +25,46 @@ export type AltSignInProps = {
   onError: (key: MessageKey | null) => void;
   /** The password step is working: these wait. */
   disabled?: boolean;
+  /** Offer a passkey. Off where no account exists yet (the invite screen's create step). Default on. */
+  passkey?: boolean;
+  /** Draw the "or" line above the buttons. Off where the buttons come first (the invite's no-password step). */
+  divider?: boolean;
 };
+
+/**
+ * Which of the two buttons can show on this phone: a passkey when the phone can use passkeys AND the
+ * server has this platform's association (`auth.methods.native`), Google when the stage has it and the
+ * phone is iOS. A failed read only hides these (the password form still works).
+ */
+export function useAltSignInButtons(passkey = true): { passkey: boolean; google: boolean } {
+  const methods = useQuery({ ...trpc.auth.methods.queryOptions(), staleTime: Infinity, retry: false });
+  const [deviceSupported, setDeviceSupported] = useState(false);
+  useEffect(() => {
+    if (!passkey) return;
+    let live = true;
+    void nativePasskey.supported().then((yes) => {
+      if (live) setDeviceSupported(yes);
+    });
+    return () => {
+      live = false;
+    };
+  }, [passkey]);
+  // iOS only: Android's browser tab would keep the Google login on a shared phone (lib/google-availability.ts).
+  const google = googleAvailableOnThisPlatform(methods.data);
+  return { passkey: passkey && passkeyButtonShown({ deviceSupported, methods: methods.data, platform: Platform.OS }), google };
+}
+
+/** The "or" line between ways in. */
+export function OrLine() {
+  const { t } = useT();
+  return (
+    <View className="flex-row items-center gap-3" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+      <View className="h-px flex-1 bg-hairline" />
+      <Text className="font-sans text-sm text-ink-muted">{t("auth.login.or")}</Text>
+      <View className="h-px flex-1 bg-hairline" />
+    </View>
+  );
+}
 
 /** Google's "G" on a white disc, the mark its sign-in guidelines ask for (lib/google-mark.ts). */
 function GoogleMark() {
@@ -49,27 +88,11 @@ function GoogleMark() {
  * cancelled sheet or a refused Google account is an inline, announced message; the form stays usable. This
  * component never adds a passkey: that is Settings only, after "Is this your own phone?".
  */
-export function AltSignIn({ finish, error, onError, disabled = false }: AltSignInProps) {
+export function AltSignIn({ finish, error, onError, disabled = false, passkey: offerPasskey = true, divider = true }: AltSignInProps) {
   const { t } = useT();
   const onPrimary = useThemeColor("card");
-  // A failed read only hides these (the password form still works); the sign-in screen shows no global error.
-  const methods = useQuery({ ...trpc.auth.methods.queryOptions(), staleTime: Infinity, retry: false });
-  const [deviceSupported, setDeviceSupported] = useState(false);
+  const { passkey, google } = useAltSignInButtons(offerPasskey);
   const [busy, setBusy] = useState<"passkey" | "google" | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    void nativePasskey.supported().then((yes) => {
-      if (live) setDeviceSupported(yes);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const passkey = passkeyButtonShown({ deviceSupported, methods: methods.data, platform: Platform.OS });
-  // iOS only: Android's browser tab would keep the Google login on a shared phone (lib/google-availability.ts).
-  const google = googleAvailableOnThisPlatform(methods.data);
 
   function fail(key: MessageKey, quiet = false) {
     onError(key);
@@ -115,13 +138,7 @@ export function AltSignIn({ finish, error, onError, disabled = false }: AltSignI
 
   return (
     <View className="gap-3">
-      {passkey || google ? (
-        <View className="flex-row items-center gap-3" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <View className="h-px flex-1 bg-hairline" />
-          <Text className="font-sans text-sm text-ink-muted">{t("auth.login.or")}</Text>
-          <View className="h-px flex-1 bg-hairline" />
-        </View>
-      ) : null}
+      {(passkey || google) && divider ? <OrLine /> : null}
       {passkey ? (
         <Button
           size="lg"

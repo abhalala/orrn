@@ -9,7 +9,7 @@ and ui-kit moved from C to A. Keep the long store, platform, press and chain flo
 |---|---|---|
 | A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports, sign-in-methods | 276 s (failed) / 272 s (before sign-in-methods) |
-| C | ageing-masters, ageing, chain, collectors, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker) |
+| C | ageing-masters, ageing, chain, collectors, invite-onboarding, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker and invite-onboarding) |
 
 These are **historical measurements, not verification of the current revision**. The interrupted W4-TESTSWEEP-2 run
 saved them in `/tmp/W4-TESTSWEEP-2/final-summary.txt` and `final-{1,2}-{A,B,C}.json`. The previous distribution's

@@ -1,10 +1,7 @@
 /**
- * The invite screen's decisions (audit N4), kept pure so they are unit-tested.
- *
- * `invite.acceptByToken` looks the token up before it looks at the session, so
- * calling it while signed out is the one way to check an invite before asking
- * for a password: UNAUTHORIZED means the invite is live, NOT_FOUND or
- * BAD_REQUEST means it is dead.
+ * The invite screen's decisions (audit N4; plan 2026-11-18, Task 8), kept pure so they are unit-tested.
+ * `invite.status` says whether the link is live and what the invited email's account needs, without
+ * the email, the company or the role; the screen never accepts until the person taps.
  */
 type AuthError = { code?: string; status?: number; message?: string } | null | undefined;
 
@@ -36,12 +33,19 @@ export function inviteAcceptOutcome(error: unknown): InviteOutcome {
   return "failed";
 }
 
-/** The first thing the screen does with a token while nobody is signed in. */
-export type InviteProbe = "valid" | "expired" | "failed";
+/** What `invite.status` answers (packages/server/src/routers/invite.ts). */
+export type InviteStatus =
+  | { live: false }
+  | { live: true; kind: "member" | "portal"; account: "none" | "password" | "noPassword"; google: boolean };
 
-export function inviteProbeResult(error: unknown): InviteProbe {
-  const outcome = inviteAcceptOutcome(error);
-  if (outcome === "signedOut") return "valid";
-  if (outcome === "expired") return "expired";
-  return "failed";
+export type InviteScreen = "checking" | "failed" | "expired" | "join" | "create" | "signIn" | "noPassword";
+
+/** Which screen the invite link opens, from the session on this phone and `invite.status`. */
+export function inviteScreen(hasSession: boolean, status: InviteStatus | "pending" | "failed"): InviteScreen {
+  if (status === "pending") return "checking";
+  if (status === "failed") return "failed";
+  if (!status.live) return "expired";
+  if (hasSession) return "join";
+  if (status.account === "none") return "create";
+  return status.account === "password" ? "signIn" : "noPassword";
 }
