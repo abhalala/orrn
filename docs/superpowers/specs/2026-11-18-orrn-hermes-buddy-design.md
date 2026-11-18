@@ -145,7 +145,7 @@ The buddy is a separate Worker route plus a lazy-loaded web chunk. If Hermes, CP
 1. orrn: registry + denylist + MCP endpoint (`orrn_search`, `orrn_describe`, `orrn_call` for queries) + `buddy_grant` + `buddy_call`, with tests (cross-tenant token sees nothing; a viewer-role grant gets `forbidden` on an owner-only query; denylisted paths are not found; every router has an allow/deny decision).
 2. orrn: drafts (`buddy_draft`, confirm/reject, the double-confirm replay test, the "MCP token cannot confirm" test).
 3. orrn: `/buddy/chat` proxy + bubble UI + Settings → Buddy, against a fake Hermes.
-4. vayu: API server, profile `orrn-ansh`, MCP config, `orrn-buddy` skill, gate + fence + tunnel + Access. Then a live test on dev with the owner.
+4. vayu: API server, orrn MCP in the default profile, api_server toolset limits, `orrn-buddy` skill, gate + fence + tunnel + Access. Then a live test on dev with the owner.
 5. Promote to prod only on the owner's say-so.
 
 ## 10. Calls made in this design (check these)
