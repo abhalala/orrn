@@ -91,12 +91,52 @@ export type TestEnv = {
    * deterministically to simulate a race. `fn`'s own batches don't re-trigger it.
    */
   beforeNextBatch(fn: () => Promise<unknown>): void;
+  /**
+   * Run `fn` once, right before the first statement whose SQL matches `pattern` reaches D1, whether it
+   * runs alone (`run`/`all`/`first`/`raw`) or inside a `batch()`. Lets a test pause a request at its
+   * actual write (council round 2: a removal paused after its checks, while another one runs).
+   */
+  beforeStatement(pattern: RegExp, fn: () => Promise<unknown>): void;
   /** Most parameters bound to one statement since the last reset (or since start). */
   peakParams(): number;
   resetPeakParams(): void;
 };
 
-type BatchHook = { next: (() => Promise<unknown>) | null; peakParams: number };
+type StatementHook = { pattern: RegExp; fn: () => Promise<unknown> };
+type BatchHook = { next: (() => Promise<unknown>) | null; peakParams: number; statement: StatementHook | null };
+
+/** The SQL of every statement handed out, so `batch()` can match the statements it is given. */
+const statementSql = new WeakMap<object, string>();
+
+/** Takes the pending statement hook when `query` matches it. */
+function takeStatementHook(hook: BatchHook, query: string | undefined): (() => Promise<unknown>) | null {
+  const pending = hook.statement;
+  if (!pending || query === undefined || !pending.pattern.test(query)) return null;
+  hook.statement = null;
+  return pending.fn;
+}
+
+const realStatement = new WeakMap<object, D1PreparedStatement>();
+
+const RUN_METHODS = new Set(["run", "all", "first", "raw"]);
+
+/** A statement whose run methods first wait for a matching `beforeStatement` hook. */
+function pausable(stmt: D1PreparedStatement, query: string, hook: BatchHook): D1PreparedStatement {
+  statementSql.set(stmt, query);
+  return new Proxy(stmt, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof prop === "string" && RUN_METHODS.has(prop) && typeof value === "function") {
+        return async (...args: unknown[]) => {
+          const fn = takeStatementHook(hook, query);
+          if (fn) await fn();
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
 
 /**
  * Wraps a D1 binding so `prepare(sql).bind(...args)` throws when more than 100
@@ -112,7 +152,15 @@ function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
           const fn = hook.next;
           hook.next = null;
           if (fn) await fn();
-          return target.batch(statements);
+          for (const stmt of statements) {
+            const paused = takeStatementHook(hook, statementSql.get(stmt));
+            if (paused) {
+              await paused();
+              break;
+            }
+          }
+          // The real statements (a pausable proxy is not one D1's batch accepts).
+          return target.batch(statements.map((stmt) => realStatement.get(stmt) ?? stmt));
         };
       }
       if (prop === "prepare") {
@@ -126,7 +174,15 @@ function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
                     throw new Error("D1_TOO_MANY_PARAMS");
                   }
                   hook.peakParams = Math.max(hook.peakParams, args.length);
-                  return stmtTarget.bind(...args);
+                  const bound = stmtTarget.bind(...args);
+                  if (!hook.statement) {
+                    statementSql.set(bound, query);
+                    return bound;
+                  }
+                  const wrapped = pausable(bound, query, hook);
+                  realStatement.set(wrapped, bound);
+                  statementSql.set(wrapped, query);
+                  return wrapped;
                 };
               }
               const value = Reflect.get(stmtTarget, stmtProp, stmtTarget);
@@ -174,7 +230,7 @@ export async function createTestEnv(): Promise<TestEnv> {
   const rawD1 = await mf.getD1Database("DB");
   await applyMigrations(rawD1);
 
-  const batchHook: BatchHook = { next: null, peakParams: 0 };
+  const batchHook: BatchHook = { next: null, peakParams: 0, statement: null };
   const d1 = withParamLimit(rawD1, batchHook);
   workersEnv.DB = d1;
 
@@ -413,6 +469,9 @@ export async function createTestEnv(): Promise<TestEnv> {
     plantStock,
     beforeNextBatch(fn) {
       batchHook.next = fn;
+    },
+    beforeStatement(pattern, fn) {
+      batchHook.statement = { pattern, fn };
     },
     peakParams() {
       return batchHook.peakParams;

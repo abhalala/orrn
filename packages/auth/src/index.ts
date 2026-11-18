@@ -12,7 +12,8 @@ import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoog
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
-import { signInAuditAfter, signInMethodGuardBody } from "./sign-in-methods";
+import { signInAuditAfter } from "./sign-in-methods";
+import { signInRemovalBody } from "./sign-in-removal";
 import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { writeAuthLog } from "./logger";
@@ -132,15 +133,19 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // Plan 2026-11-18: removing a passkey, turning two-factor off or unlinking an account may not leave
     // the account with no way in (LAST_SIGN_IN_METHOD), nor a member of a plant that requires secure
     // sign-in with no strong method (COMPANY_REQUIRES_STRONG_METHOD); a passkey added or removed is
-    // audited (sign-in-methods.ts). Tested in packages/server/test/auth-sign-in-methods.test.ts and
+    // audited (sign-in-methods.ts, sign-in-removal.ts). Tested in packages/server/test/auth-sign-in-methods.test.ts and
     // auth-plant-policy.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         // Council round 1, A5: the Expo proxy follows only Google's authorization URL (expo-proxy-guard.ts).
         expoProxyGuard(ctx);
         await signUpGuardBody(db, ctx);
-        await signInMethodGuardBody(db, ctx);
         await noteGoogleLinkToken(db, ctx);
+        // Council round 2 (GPT I1): removals are done here, each as one conditional write that holds
+        // LAST_SIGN_IN_METHOD and COMPANY_REQUIRES_STRONG_METHOD; the answer ends the request
+        // (sign-in-removal.ts).
+        const removed = await signInRemovalBody(db, ctx);
+        if (removed) return removed;
         // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
         await limitPasskeyOptions(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
@@ -162,7 +167,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     socialProviders: googleProviderFor(db, environment),
     // `allowUnlinkingAll`: Better Auth's own rule refuses to unlink the last `account` row, but a passkey
     // is a way in without one (Google + passkey, no password). The real last-way-in rule is ours
-    // (`signInMethodGuardBody`, LAST_SIGN_IN_METHOD), which counts passkeys. Tested in
+    // (`signInRemovalBody`, LAST_SIGN_IN_METHOD), which counts passkeys. Tested in
     // auth-sign-in-methods.test.ts.
     account: {
       accountLinking: { enabled: true, trustedProviders: ["google"], allowUnlinkingAll: true },

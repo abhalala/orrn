@@ -1,8 +1,8 @@
 import type { createDb } from "@orrn/db";
 import { auditLog } from "@orrn/db/schema/audit";
-import { account, authThrottle, passkey, user } from "@orrn/db/schema/auth";
+import { account, passkey, user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError } from "better-auth/api";
 import { and, count, eq, isNotNull, sql } from "drizzle-orm";
 
 import { writeAuthLog } from "./logger";
@@ -26,7 +26,7 @@ import { writeAuthLog } from "./logger";
  */
 export const LAST_SIGN_IN_METHOD = "LAST_SIGN_IN_METHOD";
 export const COMPANY_REQUIRES_STRONG_METHOD = "COMPANY_REQUIRES_STRONG_METHOD";
-/** Another removal of this person's sign-in methods is still in flight (council round 1, A2). */
+/** The rows changed under a removal while it was being judged (council rounds 1 and 2). */
 export const SIGN_IN_CHANGE_BUSY = "SIGN_IN_CHANGE_BUSY";
 
 const MESSAGES = {
@@ -89,111 +89,14 @@ export async function plantRequiresStrongSignIn(db: Db, userId: string): Promise
   return Boolean(row);
 }
 
-type GuardCtx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
-
-export const PASSKEY_DELETE_PATH = "/passkey/delete-passkey";
 export const PASSKEY_REGISTER_PATH = "/passkey/verify-registration";
-export const TWO_FACTOR_DISABLE_PATH = "/two-factor/disable";
-export const UNLINK_ACCOUNT_PATH = "/unlink-account";
-const REMOVAL_PATHS = new Set([PASSKEY_DELETE_PATH, TWO_FACTOR_DISABLE_PATH, UNLINK_ACCOUNT_PATH]);
 
 /**
- * The methods left after this request, or null when the request removes nothing of this user's
- * (an unknown passkey id, a provider the account does not have): the endpoint answers that itself.
+ * The removals themselves (passkey delete, Google or password unlink, two-factor off) are done by the
+ * before-hook in one conditional statement each, so the two rules above hold at the write
+ * (`sign-in-removal.ts`, council round 2). `SIGN_IN_CHANGE_BUSY` is what a removal answers when the
+ * rows kept changing under it (two retries), which only a burst of concurrent changes can cause.
  */
-async function methodsAfter(db: Db, userId: string, ctx: GuardCtx, before: SignInMethods): Promise<SignInMethods | null> {
-  const body = (ctx.body ?? {}) as { id?: unknown; providerId?: unknown; accountId?: unknown };
-  if (ctx.path === PASSKEY_DELETE_PATH) {
-    if (typeof body.id !== "string") return null;
-    const own = await db
-      .select({ id: passkey.id })
-      .from(passkey)
-      .where(and(eq(passkey.id, body.id), eq(passkey.userId, userId)))
-      .get();
-    return own ? { ...before, passkeys: before.passkeys - 1 } : null;
-  }
-  if (ctx.path === TWO_FACTOR_DISABLE_PATH) {
-    return before.authenticator ? { ...before, authenticator: false } : null;
-  }
-  // `/unlink-account` removes one account of the provider (the one named by `accountId`, if given).
-  if (body.providerId === "credential") return before.password ? { ...before, password: false } : null;
-  if (body.providerId === "google") {
-    const rows = await db
-      .select({ accountId: account.accountId })
-      .from(account)
-      .where(and(eq(account.userId, userId), eq(account.providerId, "google")))
-      .all();
-    if (rows.length === 0) return null;
-    if (typeof body.accountId === "string" && !rows.some((r) => r.accountId === body.accountId)) return null;
-    return { ...before, google: rows.length > 1 };
-  }
-  return null;
-}
-
-/**
- * Council round 1, A2: the guard counts before the plugin writes, so two removals sent at once (two
- * passkey deletes in two tabs, a passkey delete and a Google unlink) could each count the other's
- * method as staying. Removals of one person are serialised instead: the before-hook takes this lock
- * (one `auth_throttle` row, a single atomic upsert that only replaces a lock older than
- * `REMOVAL_LOCK_MS`), the after-hook frees it, and a removal that finds it held is refused with
- * `SIGN_IN_CHANGE_BUSY`. The expiry frees a lock whose request died before its after-hook (a crash
- * that is not an `APIError` skips the after-hooks).
- */
-export const REMOVAL_LOCK_MS = 30_000;
-const removalLockKey = (userId: string) => `signin-lock:${userId}`;
-
-async function takeRemovalLock(db: Db, userId: string, nowMs: number): Promise<boolean> {
-  const stale = sql`${authThrottle.windowStart} <= ${nowMs - REMOVAL_LOCK_MS}`;
-  const rows = await db
-    .insert(authThrottle)
-    .values({ key: removalLockKey(userId), windowStart: nowMs, hits: 1 })
-    .onConflictDoUpdate({ target: authThrottle.key, set: { windowStart: nowMs, hits: 1 }, setWhere: stale })
-    .returning({ key: authThrottle.key });
-  return rows.length > 0;
-}
-
-async function freeRemovalLock(db: Db, userId: string): Promise<void> {
-  try {
-    await db.delete(authThrottle).where(eq(authThrottle.key, removalLockKey(userId)));
-  } catch (error) {
-    // The expiry frees it anyway.
-    writeAuthLog("error", "sign-in change lock not freed", error instanceof Error ? error.name : "unknown");
-  }
-}
-
-/**
- * Better Auth `hooks.before`: refuses a passkey delete, a two-factor disable or an account unlink
- * that would leave no way in, or leave a member of a plant that requires secure sign-in with no
- * strong method. Holds the person's removal lock from here to `signInAuditAfter`.
- */
-export async function signInMethodGuardBody(db: Db, ctx: GuardCtx): Promise<void> {
-  if (!ctx.path || !REMOVAL_PATHS.has(ctx.path)) return;
-  const session = await getSessionFromCtx(ctx).catch(() => null);
-  // No session: the endpoint's own session check answers 401.
-  const userId = session?.user?.id;
-  if (!userId) return;
-  if (!(await takeRemovalLock(db, userId, Date.now()))) {
-    throw new APIError("CONFLICT", { code: SIGN_IN_CHANGE_BUSY, message: MESSAGES[SIGN_IN_CHANGE_BUSY] });
-  }
-  try {
-    const before = await signInMethodsFor(db, userId);
-    const after = await methodsAfter(db, userId, ctx, before);
-    if (!after) return;
-    if (hasWayIn(before) && !hasWayIn(after)) {
-      throw new APIError("FORBIDDEN", { code: LAST_SIGN_IN_METHOD, message: MESSAGES[LAST_SIGN_IN_METHOD] });
-    }
-    if (hasStrongMethod(before) && !hasStrongMethod(after) && (await plantRequiresStrongSignIn(db, userId))) {
-      throw new APIError("FORBIDDEN", {
-        code: COMPANY_REQUIRES_STRONG_METHOD,
-        message: MESSAGES[COMPANY_REQUIRES_STRONG_METHOD],
-      });
-    }
-  } catch (error) {
-    // Refused here: the endpoint and its after-hooks never run, so the lock is freed now.
-    await freeRemovalLock(db, userId);
-    throw error;
-  }
-}
 
 /**
  * Writes one user-level audit row (no plant; `audit_log.company_id` is nullable). Never throws: the
@@ -219,7 +122,7 @@ export async function writeUserAudit(
   }
 }
 
-type AfterCtx = { path?: string; context: { returned?: unknown } } & Partial<GuardCtx>;
+type AfterCtx = { path?: string; context: { returned?: unknown } };
 
 /** The endpoint's answer: in-process calls get the object, the HTTP handler a `{ body, _flag: "json" }` wrapper. */
 function returnedBody(returned: unknown): Record<string, unknown> | null {
@@ -232,30 +135,16 @@ function returnedBody(returned: unknown): Record<string, unknown> | null {
   return value;
 }
 
-/** Better Auth `hooks.after`: audit a passkey added or removed, and free the removal lock. Never throws. */
+/**
+ * Better Auth `hooks.after`: audit a passkey added. Never throws. (A removed passkey is audited by the
+ * removal itself, `sign-in-removal.ts`.)
+ */
 export async function signInAuditAfter(db: Db, ctx: AfterCtx): Promise<void> {
-  if (ctx.path && REMOVAL_PATHS.has(ctx.path)) {
-    // The guard took the lock for this request (it runs after every endpoint answer, refusals included).
-    // `/two-factor/disable` swaps the session, so the user id is read from the old cookie's session or
-    // the new one, whichever is still there.
-    const session = await getSessionFromCtx(ctx as GuardCtx).catch(() => null);
-    const userId = session?.user?.id ?? (ctx.context as { session?: { user?: { id?: string } } | null }).session?.user?.id;
-    if (userId) await freeRemovalLock(db, userId);
-  }
   try {
     if (ctx.path === PASSKEY_REGISTER_PATH) {
       const created = returnedBody(ctx.context.returned);
       if (typeof created?.id !== "string" || typeof created.userId !== "string") return;
       await writeUserAudit(db, { userId: created.userId, action: "auth.passkey.add", meta: { passkeyId: created.id } });
-      return;
-    }
-    if (ctx.path === PASSKEY_DELETE_PATH) {
-      const answer = returnedBody(ctx.context.returned);
-      if (answer?.status !== true) return;
-      const session = await getSessionFromCtx(ctx as GuardCtx).catch(() => null);
-      const passkeyId = (ctx.body as { id?: unknown } | undefined)?.id;
-      if (!session?.user?.id || typeof passkeyId !== "string") return;
-      await writeUserAudit(db, { userId: session.user.id, action: "auth.passkey.remove", meta: { passkeyId } });
     }
   } catch (error) {
     writeAuthLog("error", "sign-in audit failed", error instanceof Error ? error.name : "unknown");
