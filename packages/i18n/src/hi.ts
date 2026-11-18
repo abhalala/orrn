@@ -365,6 +365,8 @@ export const hi = {
       googleNotInvited: "इस Google अकाउंट के लिए orrn का कोई इनवाइट नहीं है। अपने एडमिन से इस ईमेल को इनवाइट करने को कहें, या दूसरे तरीके से साइन इन करें।",
       googleNotForStaff: "Godseye स्टाफ अकाउंट Google से साइन इन नहीं कर सकते। पासकी से, या अपने पासवर्ड और कोड से साइन इन करें।",
       googleEmailNotVerified: "Google ने इस ईमेल की पुष्टि नहीं की है। दूसरे तरीके से साइन इन करें।",
+      // Council r1 Lane A (2026-11-18): Google never links itself at sign-in to an account with a passkey or code.
+      googleLinkFromSettings: "इस अकाउंट में पहले से पासकी या ऑथेंटिकेटर ऐप है। उससे साइन इन करें, फिर सेटिंग्स > साइन इन में Google जोड़ें।",
       passkeyCancelled: "पासकी से साइन इन रद्द हो गया। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें।",
       passkeyNotFound: "orrn इस पासकी को नहीं पहचानता। दूसरी पासकी आज़माएं, या दूसरे तरीके से साइन इन करें।",
       signInFailed: "साइन इन पूरा नहीं हुआ। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें।",

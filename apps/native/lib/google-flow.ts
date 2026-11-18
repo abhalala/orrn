@@ -49,6 +49,8 @@ const REFUSALS: Record<string, MessageKey> = {
   GOOGLE_NOT_INVITED: "auth.errors.googleNotInvited",
   GOOGLE_NOT_FOR_STAFF: "auth.errors.googleNotForStaff",
   GOOGLE_EMAIL_NOT_VERIFIED: "auth.errors.googleEmailNotVerified",
+  // Council r1 A6: the account has a passkey or the authenticator app; link Google from Settings.
+  GOOGLE_LINK_FROM_SETTINGS: "auth.errors.googleLinkFromSettings",
 };
 
 /** The words for `?error=CODE` on the return link. The code's own text is never shown. */

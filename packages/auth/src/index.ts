@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
 import { passkeyConfigForEnv } from "./passkey-config";
-import { googleDatabaseHooks, googleProviderFor, webLoginUrl } from "./google-guard";
+import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoogleLinkToken, webLoginUrl } from "./google-guard";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
@@ -136,6 +136,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       before: createAuthMiddleware(async (ctx) => {
         await signUpGuardBody(db, ctx);
         await signInMethodGuardBody(db, ctx);
+        noteGoogleLinkToken(ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
@@ -144,6 +145,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       after: createAuthMiddleware(async (ctx) => {
         await signInAuditAfter(db, ctx);
         await sessionMethodAfter(db, ctx, () => sessionOfRequest(db, ctx));
+        forgetGoogleLinkToken(ctx);
       }),
     },
     // Google (plan 2026-11-18): only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both set.

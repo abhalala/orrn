@@ -373,6 +373,8 @@ export const en = {
       googleNotInvited: "This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way.",
       googleNotForStaff: "Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code.",
       googleEmailNotVerified: "Google hasn't verified this email address. Sign in another way.",
+      // Council r1 Lane A (2026-11-18): Google never links itself at sign-in to an account with a passkey or code.
+      googleLinkFromSettings: "This account already has a passkey or authenticator app. Sign in with it, then link Google in Settings > Sign-in.",
       passkeyCancelled: "Passkey sign-in was cancelled. Try again, or sign in another way.",
       passkeyNotFound: "orrn doesn't know this passkey. Try another one, or sign in another way.",
       signInFailed: "Sign-in didn't finish. Try again, or sign in another way.",

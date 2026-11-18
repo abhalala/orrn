@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8303 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8304 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -285,7 +285,7 @@ Counts: 8303 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (154)
+### auth (155)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -336,6 +336,7 @@ Counts: 8303 screen strings in 50 groups, 45 guides with 866 strings.
 | `errors.googleNotInvited` | This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way. | इस Google अकाउंट के लिए orrn का कोई इनवाइट नहीं है। अपने एडमिन से इस ईमेल को इनवाइट करने को कहें, या दूसरे तरीके से साइन इन करें। |
 | `errors.googleNotForStaff` | Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code. | Godseye स्टाफ अकाउंट Google से साइन इन नहीं कर सकते। पासकी से, या अपने पासवर्ड और कोड से साइन इन करें। |
 | `errors.googleEmailNotVerified` | Google hasn't verified this email address. Sign in another way. | Google ने इस ईमेल की पुष्टि नहीं की है। दूसरे तरीके से साइन इन करें। |
+| `errors.googleLinkFromSettings` | This account already has a passkey or authenticator app. Sign in with it, then link Google in Settings > Sign-in. | इस अकाउंट में पहले से पासकी या ऑथेंटिकेटर ऐप है। उससे साइन इन करें, फिर सेटिंग्स > साइन इन में Google जोड़ें। |
 | `errors.passkeyCancelled` | Passkey sign-in was cancelled. Try again, or sign in another way. | पासकी से साइन इन रद्द हो गया। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
 | `errors.passkeyNotFound` | orrn doesn't know this passkey. Try another one, or sign in another way. | orrn इस पासकी को नहीं पहचानता। दूसरी पासकी आज़माएं, या दूसरे तरीके से साइन इन करें। |
 | `errors.signInFailed` | Sign-in didn't finish. Try again, or sign in another way. | साइन इन पूरा नहीं हुआ। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |

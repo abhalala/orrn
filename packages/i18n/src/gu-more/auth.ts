@@ -59,6 +59,8 @@ export const guAuth = {
       googleNotInvited: "આ Google અકાઉન્ટ માટે orrn નું કોઈ ઇનવાઇટ નથી. તમારા એડમિનને આ ઇમેઇલને ઇનવાઇટ કરવા કહો, અથવા બીજી રીતે સાઇન ઇન કરો.",
       googleNotForStaff: "Godseye સ્ટાફ અકાઉન્ટ Google થી સાઇન ઇન કરી શકતા નથી. પાસકીથી, અથવા તમારા પાસવર્ડ અને કોડથી સાઇન ઇન કરો.",
       googleEmailNotVerified: "Google એ આ ઇમેઇલની ખાતરી કરી નથી. બીજી રીતે સાઇન ઇન કરો.",
+      // Council r1 Lane A (2026-11-18): Google never links itself at sign-in to an account with a passkey or code.
+      googleLinkFromSettings: "આ અકાઉન્ટમાં પહેલેથી પાસકી અથવા ઓથેન્ટિકેટર ઍપ છે. તેનાથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં Google જોડો.",
       passkeyCancelled: "પાસકીથી સાઇન ઇન રદ થયું. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",
       passkeyNotFound: "orrn આ પાસકી ઓળખતું નથી. બીજી પાસકી અજમાવો, અથવા બીજી રીતે સાઇન ઇન કરો.",
       signInFailed: "સાઇન ઇન પૂરું થયું નહીં. ફરી પ્રયત્ન કરો, અથવા બીજી રીતે સાઇન ઇન કરો.",

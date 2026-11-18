@@ -31,6 +31,7 @@ describe("signInErrorKey: passkey and Google (plan 2026-11-18)", () => {
     expect(signInErrorKey({ code: "GOOGLE_NOT_INVITED", status: 403 })).toBe("auth.errors.googleNotInvited");
     expect(signInErrorKey({ code: "GOOGLE_NOT_FOR_STAFF", status: 403 })).toBe("auth.errors.googleNotForStaff");
     expect(signInErrorKey({ code: "GOOGLE_EMAIL_NOT_VERIFIED", status: 403 })).toBe("auth.errors.googleEmailNotVerified");
+    expect(signInErrorKey({ code: "GOOGLE_LINK_FROM_SETTINGS", status: 403 })).toBe("auth.errors.googleLinkFromSettings");
   });
 
   test("a cancelled passkey sheet reads as cancelled, never as a wrong password", () => {
@@ -55,6 +56,7 @@ describe("loginErrorKey (the sign-in page's ?error=, from the Google callback an
     expect(loginErrorKey("GOOGLE_NOT_INVITED")).toBe("auth.errors.googleNotInvited");
     expect(loginErrorKey("GOOGLE_NOT_FOR_STAFF")).toBe("auth.errors.googleNotForStaff");
     expect(loginErrorKey("GOOGLE_EMAIL_NOT_VERIFIED")).toBe("auth.errors.googleEmailNotVerified");
+    expect(loginErrorKey("GOOGLE_LINK_FROM_SETTINGS")).toBe("auth.errors.googleLinkFromSettings");
   });
 
   test("any other code (Better Auth's own lower-case ones, UNKNOWN, junk) is the generic message", () => {

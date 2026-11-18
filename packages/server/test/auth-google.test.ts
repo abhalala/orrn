@@ -267,13 +267,19 @@ describe("Google creates an account only from a live invite", () => {
 });
 
 describe("Google on an existing account", () => {
-  test("google sign-in on account with two-factor needs no code", async () => {
+  test("google sign-in on an account with two-factor and Google linked earlier needs no code", async () => {
+    // Council round 1, A6: Google no longer links itself to such an account at sign-in (see the A6
+    // block below); once linked from Settings, a Google sign-in is the strong method and asks nothing.
     const existing = await makeUser({ emailVerified: true, twoFactor: true });
+    const sub = crypto.randomUUID();
+    await env.db.insert(account).values({
+      id: crypto.randomUUID(), accountId: sub, providerId: "google", userId: existing.id, createdAt: new Date(), updatedAt: new Date(),
+    } as never);
     // Control: the password path on the same account does ask for the code.
     const pw = await passwordSignIn(existing.email);
     expect(((await pw.json()) as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
 
-    const res = await googleSignIn({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await googleSignIn({ sub, email: existing.email });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { token?: string; twoFactorRedirect?: boolean };
     expect(body.twoFactorRedirect).toBeUndefined();
@@ -325,21 +331,16 @@ describe("Google on an existing account", () => {
     expect(rows[0]!.companyId).toBeNull();
   });
 
-  test("google on an unverified account drops the password, passkeys, two-factor and other sessions", async () => {
+  test("google on an unverified account drops the password, a half-set-up authenticator and other sessions", async () => {
     const existing = await makeUser({ emailVerified: false });
     await env.db.update(user).set({ mustChangePassword: true }).where(eq(user.id, existing.id));
-    // Whoever set the account up may have enrolled their own passkey and authenticator app too.
-    await env.db.insert(passkey).values({
-      id: crypto.randomUUID(), name: "admin laptop", publicKey: "pk", userId: existing.id, credentialID: crypto.randomUUID(),
-      counter: 0, deviceType: "singleDevice", backedUp: false, transports: "internal", createdAt: new Date(),
-    } as never);
+    // An authenticator app someone started to set up but never turned on (with it on, or with a
+    // passkey, Google is refused at sign-in since council round 1, A6; see the linkSocial test below).
     await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId: existing.id } as never);
     const before = await passwordSignIn(existing.email);
     expect(before.status).toBe(200);
     const oldCookie = cookieHeader(before);
     expect(await sessionUser(oldCookie)).toBe(existing.id);
-    // Turned on after that session was made (with it on, the password sign-in would stop at the code).
-    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, existing.id));
 
     const res = await googleSignIn({ sub: crypto.randomUUID(), email: existing.email });
     expect(res.status).toBe(200);
@@ -364,6 +365,33 @@ describe("Google on an existing account", () => {
     const fresh = "a-brand-new-password-456";
     await (await auth()).api.setPassword({ body: { newPassword: fresh }, headers: new Headers({ cookie: googleCookie }) });
     expect((await passwordSignIn(existing.email, fresh)).status).toBe(200);
+  });
+
+  test("linking Google from Settings on an unverified account drops passkeys, the authenticator app and other sessions, keeps this one", async () => {
+    const existing = await makeUser({ emailVerified: false });
+    const other = cookieHeader(await passwordSignIn(existing.email));
+    const signedIn = await passwordSignIn(existing.email);
+    const mine = cookieHeader(signedIn);
+    await env.db.insert(passkey).values({
+      id: crypto.randomUUID(), name: "admin laptop", publicKey: "pk", userId: existing.id, credentialID: crypto.randomUUID(),
+      counter: 0, deviceType: "singleDevice", backedUp: false, transports: "internal", createdAt: new Date(),
+    } as never);
+    await env.db.insert(twoFactor).values({ id: crypto.randomUUID(), secret: "s", backupCodes: "b", userId: existing.id } as never);
+    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, existing.id));
+
+    const res = await call("link-social", {
+      body: { provider: "google", idToken: { token: await idToken({ sub: crypto.randomUUID(), email: existing.email }) } },
+      cookie: mine,
+    });
+    expect(res.status).toBe(200);
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["google"]);
+    expect(await env.db.select().from(passkey).where(eq(passkey.userId, existing.id)).all()).toEqual([]);
+    expect(await env.db.select().from(twoFactor).where(eq(twoFactor.userId, existing.id)).all()).toEqual([]);
+    const row = await userByEmail(existing.email);
+    expect(row?.twoFactorEnabled).toBe(false);
+    expect(row?.emailVerified).toBe(true);
+    expect(await sessionUser(other)).toBeNull();
+    expect(await sessionUser(mine)).toBe(existing.id);
   });
 
   test("google refused for platform staff", async () => {
@@ -597,5 +625,96 @@ describe("how a Google session is recorded (council round 1, A4)", () => {
     expect(res.status).toBe(302);
     expect((await accountsOf(existing.id)).map((a) => a.providerId).sort()).toEqual(["credential", "google"]);
     expect((await env.db.select().from(session).where(eq(session.id, own!.id)).get())?.signInMethod).toBe("google");
+  });
+});
+
+describe("Google never links itself to an account with a passkey or authenticator at sign-in (council round 1, A6)", () => {
+  async function addPasskeyTo(userId: string) {
+    await env.db.insert(passkey).values({
+      id: crypto.randomUUID(),
+      name: "Phone",
+      publicKey: "cHVibGljLWtleQ",
+      userId,
+      credentialID: `cred-${crypto.randomUUID()}`,
+      counter: 0,
+      deviceType: "multiDevice",
+      backedUp: true,
+      transports: "internal",
+    });
+  }
+
+  test("id token: an account with the authenticator app on is refused with GOOGLE_LINK_FROM_SETTINGS, nothing linked", async () => {
+    const existing = await makeUser({ emailVerified: true, twoFactor: true });
+    const res = await googleSignIn({ sub: crypto.randomUUID(), email: existing.email });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("GOOGLE_LINK_FROM_SETTINGS");
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["credential"]);
+    expect(await env.db.select().from(session).where(eq(session.userId, existing.id)).all()).toHaveLength(0);
+  });
+
+  test("id token: an unverified account with a passkey is refused too, and keeps its passkey", async () => {
+    const existing = await makeUser({ emailVerified: false });
+    await addPasskeyTo(existing.id);
+    const res = await googleSignIn({ sub: crypto.randomUUID(), email: existing.email });
+    expect(res.status).toBe(403);
+    expect(await codeOf(res)).toBe("GOOGLE_LINK_FROM_SETTINGS");
+    expect(await env.db.select().from(passkey).where(eq(passkey.userId, existing.id)).all()).toHaveLength(1);
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["credential"]);
+  });
+
+  test("browser redirect: lands on /login?error=GOOGLE_LINK_FROM_SETTINGS", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    await addPasskeyTo(existing.id);
+    const start = await call("sign-in/social", { body: { provider: "google", callbackURL: "https://app.test/", disableRedirect: true } });
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, { method: "GET", cookie: cookieHeader(start) });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://app.test/login?error=GOOGLE_LINK_FROM_SETTINGS");
+    expect((await accountsOf(existing.id)).map((a) => a.providerId)).toEqual(["credential"]);
+  });
+
+  test("linking from Settings while signed in stays allowed, with a passkey and the authenticator app", async () => {
+    const existing = await makeUser({ emailVerified: true });
+    await addPasskeyTo(existing.id);
+    const signedIn = await passwordSignIn(existing.email);
+    const sessionCookie = cookieHeader(signedIn);
+    await env.db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, existing.id));
+    const start = await call("link-social", {
+      body: { provider: "google", callbackURL: "https://app.test/settings", disableRedirect: true },
+      cookie: sessionCookie,
+    });
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state")!;
+    nextCallbackIdToken = await idToken({ sub: crypto.randomUUID(), email: existing.email });
+    const res = await call(`callback/google?code=test-code&state=${encodeURIComponent(state)}`, {
+      method: "GET",
+      cookie: `${sessionCookie}; ${cookieHeader(start)}`,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://app.test/settings");
+    expect((await accountsOf(existing.id)).map((a) => a.providerId).sort()).toEqual(["credential", "google"]);
+    // Linked once, the next Google sign-in finds the link and is not refused.
+    const again = await googleSignIn({ sub: (await accountsOf(existing.id)).find((a) => a.providerId === "google")!.accountId, email: existing.email });
+    expect(again.status).toBe(200);
+  });
+
+  test("linking with an id token from a signed-in session stays allowed", async () => {
+    const existing = await makeUser({ emailVerified: true, twoFactor: false });
+    await addPasskeyTo(existing.id);
+    const signedIn = await passwordSignIn(existing.email);
+    const res = await call("link-social", {
+      body: { provider: "google", idToken: { token: await idToken({ sub: crypto.randomUUID(), email: existing.email }) } },
+      cookie: cookieHeader(signedIn),
+    });
+    expect(res.status).toBe(200);
+    expect((await accountsOf(existing.id)).map((a) => a.providerId).sort()).toEqual(["credential", "google"]);
+  });
+
+  test("an account with only a password (dad) and a new invitee still get one-tap Google", async () => {
+    const dad = await makeUser({ emailVerified: true });
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email: dad.email })).status).toBe(200);
+    const email = unique("a6-invitee");
+    await makeInvite(email);
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email })).status).toBe(200);
   });
 });

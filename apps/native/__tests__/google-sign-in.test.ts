@@ -68,6 +68,7 @@ describe("the Google round trip", () => {
       ["GOOGLE_NOT_INVITED", "auth.errors.googleNotInvited"],
       ["GOOGLE_NOT_FOR_STAFF", "auth.errors.googleNotForStaff"],
       ["GOOGLE_EMAIL_NOT_VERIFIED", "auth.errors.googleEmailNotVerified"],
+      ["GOOGLE_LINK_FROM_SETTINGS", "auth.errors.googleLinkFromSettings"],
       ["access_denied", "auth.errors.signInFailed"],
       ["please_restart_the_process", "auth.errors.signInFailed"],
     ];

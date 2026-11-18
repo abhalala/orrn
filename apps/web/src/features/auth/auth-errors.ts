@@ -29,6 +29,8 @@ const METHOD_ERRORS: Record<string, MessageKey> = {
   GOOGLE_NOT_INVITED: "auth.errors.googleNotInvited",
   GOOGLE_NOT_FOR_STAFF: "auth.errors.googleNotForStaff",
   GOOGLE_EMAIL_NOT_VERIFIED: "auth.errors.googleEmailNotVerified",
+  // Council r1 A6: the account has a passkey or the authenticator app; link Google from Settings.
+  GOOGLE_LINK_FROM_SETTINGS: "auth.errors.googleLinkFromSettings",
   AUTH_CANCELLED: "auth.errors.passkeyCancelled",
   PASSKEY_NOT_FOUND: "auth.errors.passkeyNotFound",
   AUTHENTICATION_FAILED: "auth.errors.passkeyNotFound",
@@ -38,7 +40,7 @@ const METHOD_ERRORS: Record<string, MessageKey> = {
 };
 
 /** Google refusals that can reach the sign-in page as `?error=CODE`. */
-const LOGIN_PAGE_ERRORS = new Set(["GOOGLE_NOT_INVITED", "GOOGLE_NOT_FOR_STAFF", "GOOGLE_EMAIL_NOT_VERIFIED"]);
+const LOGIN_PAGE_ERRORS = new Set(["GOOGLE_NOT_INVITED", "GOOGLE_NOT_FOR_STAFF", "GOOGLE_EMAIL_NOT_VERIFIED", "GOOGLE_LINK_FROM_SETTINGS"]);
 
 /**
  * The sign-in page's `?error=`: Google refusals (the callback lands on `/login?error=CODE`) and
