@@ -14,7 +14,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { account, impersonationGrant, passkey, platformAdmin, session, twoFactor, user, verification } from "@orrn/db/schema";
+import { account, company, impersonationGrant, membership, passkey, platformAdmin, session, twoFactor, user, verification } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -428,5 +428,43 @@ describe("turning the authenticator off on a trusted device (council round 2: th
     expect(off.status).toBe(200);
     expect((await trustRows()).filter((v) => v.value === u.id)).toHaveLength(0);
     expect(setCookies(off).some((c) => c.includes("trust_device=") && /Max-Age=0/i.test(c))).toBe(true);
+  });
+});
+
+/** Council round 2 (Claude N-M1): `auth.completeOnboarding` is open to a weak session; its company keys are not. */
+describe("auth.completeOnboarding from a weak session in a strict plant", () => {
+  const details = { facilityLocation: "Sachin GIDC, Surat", primaryContact: "+91 98250 41177", timezone: "Asia/Kolkata", pressCount: 4 };
+  const settingsOf = async (companyId: string) =>
+    ((await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).get())?.settings ?? {}) as Record<string, unknown>;
+  const onboarded = async (userId: string, companyId: string) =>
+    Boolean((await env.db.select({ at: membership.onboardedAt, c: membership.companyId }).from(membership).where(eq(membership.userId, userId)).all()).find((r) => r.c === companyId)?.at);
+
+  async function owner(opts: { strict?: boolean; strongMethod?: boolean }) {
+    const { companyId } = opts.strict === false ? await env.seedCompany() : await strictPlant();
+    const u = await makeUser();
+    if (opts.strongMethod !== false) await addPasskey(u.id);
+    await env.addMembership(u.id, companyId, "owner");
+    return { ...u, companyId };
+  }
+
+  test("an owner with a passkey on a password session: onboarding marked, the company keys untouched", async () => {
+    const o = await owner({});
+    await expect(env.callerForUser(o.id, { signInMethod: "password" }).auth.completeOnboarding(details)).resolves.toEqual({ success: true });
+    const settings = await settingsOf(o.companyId);
+    expect(settings.facilityLocation).toBeUndefined();
+    expect(settings.primaryContact).toBeUndefined();
+    expect(await onboarded(o.id, o.companyId)).toBe(true);
+  });
+
+  test("written from a strong session, in a relaxed plant, or by an owner with no strong method yet (the welcome case)", async () => {
+    const strong = await owner({});
+    await env.callerForUser(strong.id, { signInMethod: "passkey" }).auth.completeOnboarding(details);
+    expect((await settingsOf(strong.companyId)).facilityLocation).toBe("Sachin GIDC, Surat");
+    const relaxed = await owner({ strict: false });
+    await env.callerForUser(relaxed.id, { signInMethod: "password" }).auth.completeOnboarding(details);
+    expect((await settingsOf(relaxed.companyId)).primaryContact).toBe("+91 98250 41177");
+    const fresh = await owner({ strongMethod: false });
+    await env.callerForUser(fresh.id, { signInMethod: "password" }).auth.completeOnboarding(details);
+    expect((await settingsOf(fresh.companyId)).timezone).toBe("Asia/Kolkata");
   });
 });

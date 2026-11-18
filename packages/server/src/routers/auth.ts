@@ -7,7 +7,8 @@ import { account, passkey, session as sessionTable, user } from "@orrn/db/schema
 import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
-import { plantRequiresStrongSignIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
+import { isStrongSession } from "@orrn/auth/session-method";
+import { hasStrongMethod, plantRequiresStrongSignIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { env } from "@orrn/env/server";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
@@ -74,6 +75,16 @@ function readNavOrder(preferences: unknown): MemberNavOrder | null {
  * and read role + company + platform flag from the returned shape rather than
  * piecing it together from `authClient.useSession()`.
  */
+/** See `completeOnboarding`: may this session write the plant's onboarding keys (council round 2, N-M1)? */
+async function companyKeysAllowed(
+  ctx: { db: Parameters<typeof signInMethodsFor>[0]; impersonation?: unknown; membership?: { requireStrongSignIn?: boolean } | null; session: { session: unknown } },
+  userId: string,
+): Promise<boolean> {
+  if (ctx.impersonation || ctx.membership?.requireStrongSignIn !== true) return true;
+  if (isStrongSession((ctx.session.session as { signInMethod?: unknown }).signInMethod)) return true;
+  return !hasStrongMethod(await signInMethodsFor(ctx.db, userId));
+}
+
 export const authRouter = router({
   /**
    * Public: which sign-in methods the sign-in screen may offer on this stage. Google only when both
@@ -403,10 +414,16 @@ export const authRouter = router({
       // must send them. Everyone else just marks their own onboarding done and
       // may send nothing (the welcome stepper's last step); company inputs are
       // ignored for them.
-      const canWriteCompany = Boolean(
+      const mayUpdateSettings = Boolean(
         ctx.companyId &&
           can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
       );
+      // Council round 2 (Claude N-M1): this is an `auth.*` procedure, open to a weak session so the secure
+      // step can finish; the company keys are written only when the session could write settings anyway:
+      // a strong session, a plant that does not require secure sign-in, a person with no strong method
+      // yet (the welcome case: the secure step comes first), or an impersonating admin. Otherwise only
+      // the onboarding is marked done.
+      const canWriteCompany = mayUpdateSettings && (await companyKeysAllowed(ctx, userId));
       if (canWriteCompany && (!input.facilityLocation || !input.primaryContact || !input.timezone)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
