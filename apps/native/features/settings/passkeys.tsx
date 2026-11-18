@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
-import { nativePasskey, PasskeyFailure, passkeyButtonShown } from "@/lib/passkey";
+import { nativePasskey, needsSignInAgain, PasskeyFailure, passkeyButtonShown } from "@/lib/passkey";
+import { signOut } from "@/lib/sign-out";
 import { useFormat } from "@/lib/use-format";
 import { ME_QUERY_KEY } from "@/lib/session";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -33,6 +34,9 @@ export function PasskeysSection() {
   const [deviceSupported, setDeviceSupported] = useState(false);
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState<{ key: MessageKey; tone: "ok" | "error" } | null>(null);
+  /** The add needs a fresh sign-in (session over a day old): offer "Sign in again" under the message. */
+  const [offerSignIn, setOfferSignIn] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -55,6 +59,7 @@ export function PasskeysSection() {
   async function add() {
     setAdding(true);
     setMessage(null);
+    setOfferSignIn(false);
     try {
       await nativePasskey.add(deviceName());
       feedback.success();
@@ -67,6 +72,7 @@ export function PasskeysSection() {
       const failure = thrown instanceof PasskeyFailure ? thrown : new PasskeyFailure("auth.errors.passkeyAddFailed");
       if (!failure.cancelled) feedback.error();
       say(failure.messageKey, "error");
+      setOfferSignIn(needsSignInAgain(failure));
     } finally {
       setAdding(false);
     }
@@ -125,6 +131,20 @@ export function PasskeysSection() {
         >
           {t(message.key)}
         </Text>
+      ) : null}
+
+      {offerSignIn ? (
+        <Button
+          variant="secondary"
+          label={t("settings.signIn.signInAgain")}
+          loading={signingOut}
+          loadingLabel={t("native.signingOut")}
+          onPress={() => {
+            // The usual sign-out: the gate lands on the sign-in screen; a fresh sign-in can add the passkey.
+            setSigningOut(true);
+            void signOut();
+          }}
+        />
       ) : null}
 
       {canAdd ? (

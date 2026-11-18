@@ -44,6 +44,15 @@ describe("nativePasskeyBindings (what the deploy binds on the Worker)", () => {
     expect(nativePasskeyBindings({ ORRN_APPLE_TEAM_ID: " ABCDE12345 " }).appleTeamId).toBe("ABCDE12345");
   });
 
+  test("a malformed Team ID binds nothing, so native.ios fails closed", () => {
+    for (const id of ["abcde12345", "ABCDE1234", "ABCDE-1234", "ABCDE123456"]) {
+      const out = nativePasskeyBindings({ ORRN_APPLE_TEAM_ID: id });
+      expect(out.appleTeamId).toBeUndefined();
+      expect(out.warnings).toHaveLength(1);
+      expect(out.warnings[0]).not.toContain(id);
+    }
+  });
+
   test("the Android hash comes from the certificate, or a given hash that agrees with it", () => {
     expect(nativePasskeyBindings({ ORRN_ANDROID_CERT_SHA256: CERT })).toEqual({ appleTeamId: undefined, androidApkKeyHash: HASH, warnings: [] });
     expect(nativePasskeyBindings({ ORRN_ANDROID_CERT_SHA256: CERT, ANDROID_APK_KEY_HASH: HASH }).androidApkKeyHash).toBe(HASH);

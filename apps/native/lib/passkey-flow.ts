@@ -45,6 +45,14 @@ export class PasskeyFailure extends Error {
   }
 }
 
+/**
+ * The add was refused because the session is over a day old (`SESSION_NOT_FRESH`): Settings then offers
+ * "Sign in again" (the usual sign-out, which lands on the sign-in screen) next to the words that say why.
+ */
+export function needsSignInAgain(failure: PasskeyFailure): boolean {
+  return failure.messageKey === "auth.errors.signInAgain";
+}
+
 /** What `auth.methods` says (the public read the sign-in screen already makes). */
 export type AuthMethods = { google: boolean; passkey: { rpID: string }; native?: { ios: boolean; android: boolean } };
 

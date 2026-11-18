@@ -27,14 +27,15 @@ function has(key: string): boolean {
 }
 
 function deps(over: Partial<GoogleDeps> & { resultUrl?: string; resultType?: string } = {}) {
-  const log: { started?: unknown; opened?: [string, string]; stored: string[] } = { stored: [] };
+  const log: { started?: unknown; opened?: [string, string]; options?: unknown; stored: string[] } = { stored: [] };
   const d: GoogleDeps = {
     start: async (body) => {
       log.started = body;
       return { data: { url: "https://accounts.google.com/o/oauth2/v2/auth?state=abc&client_id=x", redirect: false }, error: null };
     },
-    openAuthSession: async (url, returnUrl) => {
+    openAuthSession: async (url, returnUrl, options) => {
       log.opened = [url, returnUrl];
+      log.options = options;
       return over.resultType && over.resultType !== "success" ? { type: over.resultType } : { type: "success", url: over.resultUrl };
     },
     storeCookie: (header) => {
@@ -137,9 +138,12 @@ describe("the cookie lands where the Expo auth client reads it", () => {
     expect(src).toMatch(/authCookieStorageKey\(/);
   });
 
-  test("the browser opens as an ephemeral session, so no Google login stays on a shared phone", () => {
-    expect(read("lib/google-sign-in.ts")).toMatch(/preferEphemeralSession:\s*true/);
-    expect(read("lib/auth-client.ts")).toMatch(/preferEphemeralSession:\s*true/);
+  test("the browser is asked for an ephemeral session, and the binding passes that through", async () => {
+    const { d, log } = deps({ resultType: "cancel" });
+    await googleSignInWith(d);
+    expect(log.options).toEqual({ preferEphemeralSession: true });
+    // lib/google-sign-in.ts hands the flow's options to openAuthSessionAsync unchanged.
+    expect(read("lib/google-sign-in.ts")).toMatch(/openAuthSessionAsync\(url, returnUrl, options\)/);
   });
 
   test("a Google sign-in finishes like every other sign-in (plant picker included)", () => {

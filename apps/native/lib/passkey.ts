@@ -3,7 +3,7 @@ import { Passkey } from "react-native-passkey";
 import { authClient } from "./auth-client";
 import { createNativePasskey, type AuthFetch, type NativePasskey, type PasskeyModule } from "./passkey-flow";
 
-export { PasskeyFailure, passkeyButtonShown } from "./passkey-flow";
+export { needsSignInAgain, PasskeyFailure, passkeyButtonShown } from "./passkey-flow";
 
 /**
  * Passkeys on this phone (plan 2026-11-18, Task 6): `react-native-passkey` makes and uses them, and

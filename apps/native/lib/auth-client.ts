@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 
 import { authCookieStorageKey } from "./google-flow";
 import { REQUEST_TIMEOUT_MS } from "./request-timeout";
+import { hasSessionCookie } from "./session-cookie";
 
 const SCHEME = Constants.expoConfig?.scheme as string;
 
@@ -36,9 +37,12 @@ export const authClient = createAuthClient({
   ],
 });
 
-/** A session cookie is stored on this device (it may still be expired server-side). */
+/**
+ * A session cookie is stored on this device (it may still be expired server-side). Other cookies (a
+ * passkey challenge or OAuth state left by a cancelled attempt) do not count (lib/session-cookie.ts).
+ */
 export function hasStoredSession(): boolean {
-  return authClient.getCookie().length > 0;
+  return hasSessionCookie(authClient.getCookie());
 }
 
 /** `<server>/api/auth`, where the auth endpoints (and the Expo authorization proxy) live. */

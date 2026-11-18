@@ -23,8 +23,8 @@ export type GoogleStartBody = { provider: "google"; callbackURL: string; errorCa
 export type GoogleDeps = {
   /** `authClient.signIn.social`. */
   start(body: GoogleStartBody): Promise<{ data?: unknown; error?: AuthError }>;
-  /** `WebBrowser.openAuthSessionAsync` in an ephemeral session. */
-  openAuthSession(url: string, returnUrl: string): Promise<{ type: string; url?: string }>;
+  /** `WebBrowser.openAuthSessionAsync`. */
+  openAuthSession(url: string, returnUrl: string, options: { preferEphemeralSession: true }): Promise<{ type: string; url?: string }>;
   /** Stores a Set-Cookie header the way the Expo client does, and tells the session store. */
   storeCookie(setCookie: string): void;
   /** The app's deep link Google's sign-in comes back on (`orrn:///` in a build). */
@@ -32,6 +32,17 @@ export type GoogleDeps = {
   /** `<server>/api/auth`. */
   authBaseUrl: string;
 };
+
+/**
+ * Whether the phone offers "Continue with Google" (controller ruling, Task 6 fix round 1): only when the
+ * stage has Google AND the phone is an iPhone or iPad, where the auth session is ephemeral
+ * (ASWebAuthenticationSession). On Android expo-web-browser opens a Custom Tab that shares Chrome's
+ * cookies, so on a shared floor phone the next person could pick the last person's Google account; Google
+ * stays hidden there until an ephemeral Custom Tab path exists. `lib/google-availability.ts` binds the platform.
+ */
+export function googleAvailableOn(methods: { google?: boolean } | undefined, platform: string): boolean {
+  return methods?.google === true && platform === "ios";
+}
 
 /** Google refusals with their own words (`packages/auth/src/google-guard.ts`); every other code is a failed sign-in. */
 const REFUSALS: Record<string, MessageKey> = {
@@ -86,7 +97,8 @@ export async function googleSignInWith(deps: GoogleDeps): Promise<GoogleOutcome>
   const proxy = `${deps.authBaseUrl}/expo-authorization-proxy?${new URLSearchParams({ authorizationURL: authorizationUrl }).toString()}`;
   let result: { type: string; url?: string };
   try {
-    result = await deps.openAuthSession(proxy, deps.returnUrl);
+    // Ephemeral: the browser keeps no Google login after this, so none stays behind on a shared phone.
+    result = await deps.openAuthSession(proxy, deps.returnUrl, { preferEphemeralSession: true });
   } catch {
     return { step: "error", messageKey: "auth.errors.signInFailed" };
   }

@@ -9,6 +9,7 @@ import Svg, { Path } from "react-native-svg";
 import { Button } from "@/components/ui/button";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
+import { googleAvailableOnThisPlatform } from "@/lib/google-availability";
 import { GOOGLE_MARK_PATHS } from "@/lib/google-mark";
 import { signInWithGoogle } from "@/lib/google-sign-in";
 import { AnimatedView } from "@/lib/nativewind-interop";
@@ -43,7 +44,8 @@ function GoogleMark() {
  * "Sign in with a passkey" and "Continue with Google" on the phone (plan 2026-11-18, Task 6). The owner's
  * ruling (R5): they stand level with the email + password form, the same size and style as its button,
  * under an "or". Each shows only where it can work: the passkey button when the phone can use passkeys AND
- * the server has this platform's association (`auth.methods.native`), Google when the stage has it. A
+ * the server has this platform's association (`auth.methods.native`), Google when the stage has it and the
+ * phone is iOS (`googleAvailableOnThisPlatform`; hidden on Android, see lib/google-availability.ts). A
  * cancelled sheet or a refused Google account is an inline, announced message; the form stays usable. This
  * component never adds a passkey: that is Settings only, after "Is this your own phone?".
  */
@@ -66,7 +68,8 @@ export function AltSignIn({ finish, error, onError, disabled = false }: AltSignI
   }, []);
 
   const passkey = passkeyButtonShown({ deviceSupported, methods: methods.data, platform: Platform.OS });
-  const google = methods.data?.google === true;
+  // iOS only: Android's browser tab would keep the Google login on a shared phone (lib/google-availability.ts).
+  const google = googleAvailableOnThisPlatform(methods.data);
 
   function fail(key: MessageKey, quiet = false) {
     onError(key);

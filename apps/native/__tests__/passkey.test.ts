@@ -4,7 +4,8 @@ import { join } from "node:path";
 
 import { en } from "@orrn/i18n/en";
 
-import { createNativePasskey, PasskeyFailure, passkeyButtonShown, type AuthFetch, type PasskeyModule } from "../lib/passkey-flow";
+import { createNativePasskey, needsSignInAgain, PasskeyFailure, passkeyButtonShown, type AuthFetch, type PasskeyModule } from "../lib/passkey-flow";
+import { hasSessionCookie } from "../lib/session-cookie";
 
 /**
  * Passkeys on the phone (plan 2026-11-18, Task 6). The phone talks to the same Better Auth passkey
@@ -243,8 +244,24 @@ describe("add a passkey (Settings)", () => {
         return {};
       },
     });
-    expect((await failureOf(createNativePasskey({ module, fetch }).add("Android"))).messageKey).toBe("auth.errors.signInAgain");
+    const failure = await failureOf(createNativePasskey({ module, fetch }).add("Android"));
+    expect(failure.messageKey).toBe("auth.errors.signInAgain");
     expect(opened).toBe(false);
+    // Settings then offers "Sign in again" (the usual sign-out to the sign-in screen).
+    expect(needsSignInAgain(failure)).toBe(true);
+  });
+
+  test("only a stale session offers 'Sign in again'", () => {
+    for (const key of ["auth.errors.passkeyAddFailed", "auth.errors.passkeyAddCancelled", "errors.network"] as const) {
+      expect(needsSignInAgain(new PasskeyFailure(key))).toBe(false);
+    }
+  });
+
+  test("Settings wires 'Sign in again' to the existing sign-out flow", () => {
+    const src = read("features/settings/passkeys.tsx");
+    expect(src).toMatch(/setOfferSignIn\(needsSignInAgain\(failure\)\)/);
+    expect(src).toMatch(/settings\.signIn\.signInAgain/);
+    expect(src).toMatch(/void signOut\(\)/);
   });
 
   test("cancel, a passkey already on this phone, and other failures", async () => {
@@ -325,5 +342,20 @@ describe("iOS associated domain (config plugin)", () => {
     expect(plugin.addPasskeyDomain({}, "webcredentials:orrn.in")).toEqual({ [key]: ["webcredentials:orrn.in"] });
     const twice = plugin.addPasskeyDomain(plugin.addPasskeyDomain({ [key]: ["applinks:orrn.in"] }, "webcredentials:orrn.in"), "webcredentials:orrn.in");
     expect(twice).toEqual({ [key]: ["applinks:orrn.in", "webcredentials:orrn.in"] });
+  });
+});
+
+describe("a cancelled attempt does not look like a sign-in", () => {
+  test("only a session cookie counts as a stored session", () => {
+    expect(hasSessionCookie("")).toBe(false);
+    // What a cancelled passkey or Google attempt leaves behind.
+    expect(hasSessionCookie("__Host-better-auth.better-auth-passkey=abc")).toBe(false);
+    expect(hasSessionCookie("__Host-better-auth.state=xyz; __Host-better-auth.better-auth-passkey=abc")).toBe(false);
+    expect(hasSessionCookie("__Host-better-auth.state=xyz; __Host-better-auth.session_token=tok")).toBe(true);
+    expect(hasSessionCookie("better-auth.session_token=tok")).toBe(true);
+  });
+
+  test("the session gate reads it", () => {
+    expect(read("lib/auth-client.ts")).toMatch(/return hasSessionCookie\(authClient\.getCookie\(\)\)/);
   });
 });
