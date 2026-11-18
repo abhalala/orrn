@@ -27,9 +27,10 @@ export const guAuth = {
       // Council r1 Lane A (2026-11-18): a plant that requires secure sign-in signed out a password-only session.
       strongSignInNeeded: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
       strongSignInNeededPlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. તેમાંથી કોઈ એકથી સાઇન ઇન કરો.",
-      // Council r2 (2026-11-18): the phone may offer no passkey or Google; then say where to get the code.
-      strongSignInNeededPhone: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર સાઇન ઇન કરો અને સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
-      strongSignInNeededPhonePlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર સાઇન ઇન કરો અને સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
+      // Council r2 (2026-11-18): the phone may offer no passkey or Google; then say where to get the code
+      // (from a strong web session: a password session may not add a second strong method, N-C1).
+      strongSignInNeededPhone: "{plant} માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર તમારી પાસકી કે Googleથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
+      strongSignInNeededPhonePlant: "આ પ્લાન્ટ માટે પાસકી, Google કે તમારો authenticator કોડ જોઈએ. જો આ ફોન પર પાસકી કે Google ન ચાલે, તો વેબ પર તમારી પાસકી કે Googleથી સાઇન ઇન કરો, પછી સેટિંગ્સ > સાઇન ઇનમાં authenticator ઍપ ચાલુ કરો.",
     },
     totp: {
       title: "તમારો કોડ લખો",
