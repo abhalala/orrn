@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
 import { passkeyConfigForEnv } from "./passkey-config";
+import { expoProxyGuard } from "./expo-proxy-guard";
 import { forgetGoogleLinkToken, googleDatabaseHooks, googleProviderFor, noteGoogleLinkToken, webLoginUrl } from "./google-guard";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
@@ -134,6 +135,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // auth-plant-policy.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // Council round 1, A5: the Expo proxy follows only Google's authorization URL (expo-proxy-guard.ts).
+        expoProxyGuard(ctx);
         await signUpGuardBody(db, ctx);
         await signInMethodGuardBody(db, ctx);
         noteGoogleLinkToken(ctx);

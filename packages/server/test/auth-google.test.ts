@@ -718,3 +718,41 @@ describe("Google never links itself to an account with a passkey or authenticato
     expect((await googleSignIn({ sub: crypto.randomUUID(), email })).status).toBe(200);
   });
 });
+
+describe("the Expo sign-in proxy only sends the browser to Google (council round 1, A5)", () => {
+  const proxy = (query: Record<string, string>) => call(`expo-authorization-proxy?${new URLSearchParams(query).toString()}`, { method: "GET" });
+  const stateCookieSet = (res: Response) => setCookies(res).some((c) => /(^|[._-])(state|oauth_state)$/.test(c.slice(0, c.indexOf("="))) && !c.includes("Max-Age=0"));
+
+  test("the real Google authorization URL from a sign-in start is followed, with its state cookie", async () => {
+    const start = await call("sign-in/social", { body: { provider: "google", callbackURL: "https://app.test/", disableRedirect: true } });
+    const url = ((await start.json()) as { url: string }).url;
+    expect(new URL(url).origin).toBe("https://accounts.google.com");
+    const res = await proxy({ authorizationURL: url });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(url);
+    expect(stateCookieSet(res)).toBe(true);
+  });
+
+  test.each([
+    ["another host", "https://evil.test/o/oauth2/v2/auth?state=abc"],
+    ["a look-alike host", "https://accounts.google.com.evil.test/o/oauth2/v2/auth?state=abc"],
+    ["user info before the host", "https://accounts.google.com@evil.test/o/oauth2/v2/auth?state=abc"],
+    ["plain http", "http://accounts.google.com/o/oauth2/v2/auth?state=abc"],
+    ["another port", "https://accounts.google.com:8443/o/oauth2/v2/auth?state=abc"],
+    ["a javascript URL", "javascript:alert(1)//?state=abc"],
+    ["not a URL", "not a url"],
+  ])("%s is refused with EXPO_PROXY_REFUSED and sets no cookie", async (_label, authorizationURL) => {
+    const res = await proxy({ authorizationURL });
+    expect(res.status).toBe(400);
+    expect(await codeOf(res)).toBe("EXPO_PROXY_REFUSED");
+    expect(res.headers.get("location")).toBeNull();
+    expect(stateCookieSet(res)).toBe(false);
+  });
+
+  test("an oauthState parameter is refused, even with a Google URL", async () => {
+    const res = await proxy({ authorizationURL: "https://accounts.google.com/o/oauth2/v2/auth?state=abc", oauthState: "attacker-state" });
+    expect(res.status).toBe(400);
+    expect(await codeOf(res)).toBe("EXPO_PROXY_REFUSED");
+    expect(stateCookieSet(res)).toBe(false);
+  });
+});
