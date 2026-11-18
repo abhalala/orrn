@@ -203,6 +203,41 @@ Rules (spec, Native and Shared floor phones): passkey sign-in button first when 
 - [ ] **Step 4: Run** native test + `check-types`, web test + build → PASS. (Simulator run is out of scope for this task per the owner; note it as untested on device.)
 - [ ] **Step 5: Commit** `feat(native): passkey sign-in, Google and passkey domain association`.
 
+### Task 8: Onboarding repair (every invite state, resend, copyable link)
+
+Why (prod evidence 2026-11-18): Dad's account `bhavesh28777@gmail.com` was made by an October magic-link approval and has no credential. On the invite page "Create account" got 422 (account exists) and "Sign in" got 401 "Credential account not found" six times, with no third path. Lalu uncle's invite email (ymail.com) may never have arrived, and an inviter cannot resend or copy a pending invite's link because only the token hash is stored.
+
+**Files:**
+- Modify: `packages/server/src/routers/invite.ts` (public `invite.status`; authed `invite.resend`)
+- Modify: `apps/web/src/routes/_public/invite.$token.tsx` (views per account state, Google button, set-password-by-email path)
+- Modify: `apps/web/src/features/auth/auth-errors.ts` (map "Credential account not found" / `CREDENTIAL_ACCOUNT_NOT_FOUND` to `auth.errors.noPasswordYet` with an action)
+- Modify: `apps/web/src/features/auth/sign-in-form.tsx` (on that error, offer "Email me a link to set a password", which calls `requestPasswordReset` for the typed email)
+- Modify: `apps/web/src/routes/_public/forgot-password.tsx` / reset page so a `next` path (same-origin, `safeNext`) survives the reset and returns the person to `/invite/<token>`
+- Modify: Team tab pending invites (web `features/settings/team*`) — "Resend" and "Copy link"
+- Modify: `apps/native/app/invite/[token].tsx` (same states as web)
+- Modify: `packages/i18n` en/hi/gu; `AGENTS.md` (invite bullets)
+- Test: `packages/server/test/invite-onboarding.test.ts`, web unit tests for the view choice, e2e `apps/web/tests/e2e/invite-onboarding.spec.ts` (+ GROUPS.md and group script)
+
+**Interfaces:**
+- Consumes: `auth.methods` (Task 1), Google guard + idempotent `acceptByToken` (Task 2), `signInMethodsFor` (Task 3), the Google/passkey buttons component from Task 4 (`alt-sign-in.tsx`) and Task 6 (native).
+- Produces: `invite.status({ token })` (public, rate-limited like the reset throttle: 30 per 10 min per IP via `auth_throttle`) → `{ live: false } | { live: true; kind: "member" | "portal"; account: "none" | "password" | "noPassword"; google: boolean }`. It never returns the email, the company name or the role. It replaces the page's `probeInvite` accept-as-probe.
+- Produces: `invite.resend({ inviteId })` (`member.invite`, same company, kind member, pending only) → `{ link: string; emailSent: boolean; expiresAt: Date }`. Rotates the token (new hash, `expiresAt` = now + 7 days), re-sends the same email as `invite.create`, audit `member.invite.resend` (meta: email, role; never the link). Old link stops working.
+
+Invite page views (web and native), chosen from `invite.status` and the session:
+- dead → today's expired view.
+- signed in as the invite email → "Join" (today).
+- signed in as another email → today's wrong-account view.
+- `account: "none"` → create account (today) plus Google when `google`.
+- `account: "password"` → sign in (passkey, Google, email + password) then join.
+- `account: "noPassword"` → "Your account doesn't have a password yet." Primary: Google when available; second: "Email me a link to set a password" (reset email to the address the person types, which must be the invite email; reset returns to this invite page); after either, join.
+Team tab: each pending invite row has "Resend" (shows the copy-link dialog with `link`, and says whether the email went) and the dialog warns that link previews in chat apps are fine (the invite page never accepts on load).
+
+- [ ] **Step 1: Write failing tests:** server `invite.status` for dead / none / password / noPassword / google flag, never leaks email; `invite.status throttled after 30`; `invite.resend rotates the token` (old token dead, new token live, email sent, audit row); `invite.resend refused for accepted, revoked, portal, other company, non-inviter roles`. Web unit: view choice for each status. e2e: magic-link-style account (no credential) with a live invite → "Email me a link to set a password" → `/dev/` hook reads the reset link → set password → returns to invite → joined.
+- [ ] **Step 2: Run** → FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** server files, web unit + build, native test + check-types, i18n, the e2e spec → PASS. Visual check 375/820/1280 en + hi.
+- [ ] **Step 5: Commit** `fix(onboarding): every invite state has a way in; resend and copy invite links`.
+
 ### Task 7: Whole-branch gates and docs
 
 **Files:**
