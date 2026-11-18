@@ -134,6 +134,33 @@ Behaviour (spec Design §4–6):
 - [ ] **Step 4: Run** the two test files plus `bun run --cwd apps/web test` and server auth tests → PASS.
 - [ ] **Step 5: Commit** `feat(auth): sign-in facts, link guard and the strong-method rule`.
 
+### Task 9: Plant policy, per-plant onboarding and the plant picker (spec Amendment items 2–6)
+
+**Files:**
+- Create: migration `0051_membership_onboarded.sql` (+ snapshot, journal): `membership.onboarded_at integer` nullable; backfill `onboarded_at = created_at` where the user's `onboarding_completed = 1`
+- Modify: `packages/db/src/schema/tenant.ts` (membership column)
+- Modify: `packages/server/src/routers/auth.ts` (`auth.me`: `company.requireStrongSignIn`, `company.setupPending`, `memberships[].setupPending`; `completeOnboarding` sets the active membership's `onboarded_at`, keeps writing the user flag for old clients)
+- Modify: `packages/server/src/routers/company.ts` (`company.updateSettings` accepts `requireStrongSignIn: boolean`, owner only, audit `company.security.update`)
+- Modify: `packages/auth/src/sign-in-methods.ts` and the before-hook refusal from Task 3: replace `OWNER_NEEDS_STRONG_METHOD` with `COMPANY_REQUIRES_STRONG_METHOD` (refuse when any active membership's company has `requireStrongSignIn`)
+- Modify: `apps/web/src/shared/lib/home.ts`, `apps/web/src/shared/lib/guards.ts`, `apps/web/src/features/auth/welcome-steps.ts`, `apps/web/src/routes/_authed/welcome.tsx`
+- Create: `apps/web/src/routes/_authed/choose-plant.tsx`, `apps/web/src/features/auth/plant-choice.ts`
+- Create: `apps/web/src/features/settings/security-tab.tsx` + `sections.tsx` entry `{ id: "security", requires: ["settings.update"] }` (owner-only save, server judges)
+- Modify: native sign-in landing (`apps/native/app/index.tsx` / `_layout.tsx` gate) to show a plant picker when `memberships.length > 1`
+- Modify: `packages/i18n` en/hi/gu; `AGENTS.md` (Sign-in facts bullet: replace Q2 A with the plant policy; per-plant onboarding)
+- Test: `packages/server/test/auth-plant-policy.test.ts`, `apps/web/src/features/auth/welcome-steps.test.ts`, `apps/web/src/features/auth/plant-choice.test.ts`, e2e `apps/web/tests/e2e/plant-picker.spec.ts`
+
+**Interfaces:**
+- Produces: `auth.me.company.requireStrongSignIn: boolean`, `auth.me.company.setupPending: boolean` (active membership `onboarded_at` is null), `auth.me.memberships: { companyId; name; role; setupPending: boolean }[]`.
+- Produces (web): `welcomeSteps(me)` → `"secureSignIn"` (only when `company.requireStrongSignIn && !hasStrongMethod(me)`), `"company"` (owner/admin and `company.setupPending`), `"password"` (only when the person has no password, no passkey and no Google, or must change it). The old owner-only `twoFactor` step is removed.
+- Produces (web): `needsPlantChoice(me, chosenThisSession: boolean): boolean` — true when `memberships.length > 1`, not impersonating, and no plant was picked since this sign-in (session storage key `orrn.plantChosen`, cleared on sign-out). `homeFor` sends such a person to `/choose-plant`; picking calls `company.switch`, sets the key, and goes to `/welcome` when `setupPending` or the strong-method step applies, else `/today`.
+- Guard: entering a plant (route guard on `_authed` tenant routes) with `requireStrongSignIn && !hasStrongMethod` redirects to `/welcome` (mandatory secure step) — not when impersonating.
+
+- [ ] **Step 1: Write failing tests:** server — `updateSettings requireStrongSignIn owner only` (admin refused), audit row written; `auth.me setupPending per membership` (two plants, one onboarded); `backfill marks existing onboarded users` (migration applied to a fixture with `onboarding_completed=1`); `completeOnboarding only marks the active plant`; `strong method removal refused only when a plant requires it` (`COMPANY_REQUIRES_STRONG_METHOD`; allowed when no plant requires). Web unit — `welcomeSteps` for: policy on + no strong method → `secureSignIn`; policy off → no secure step; owner of new plant → `company`; google-only user → no `password`. `needsPlantChoice` true/false cases. e2e — user in two plants signs in → "Choose a plant" lists both, the new one marked "Setup pending" → pick it → welcome company step → done → /today; switch to the other plant → no welcome.
+- [ ] **Step 2: Run** → FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** server files, web unit + build, native test + check-types, i18n, the e2e spec → PASS.
+- [ ] **Step 5: Commit** `feat(auth): plant secure-sign-in policy, per-plant onboarding and the plant picker`.
+
 ### Task 4: Web login and invite pages
 
 **Files:**

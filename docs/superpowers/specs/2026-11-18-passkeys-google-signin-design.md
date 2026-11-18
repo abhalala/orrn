@@ -168,6 +168,39 @@ The owner picked the how by handing it over ("work on the other things"): A.
   signing certificate SHA-256 as build-time values. Until those values exist the native passkey button stays hidden
   and Google + password work.
 
+
+## Amendment 2026-11-18 (owner, later the same day) — supersedes where it conflicts
+
+Owner's words, condensed: Google and passkeys are first class, alongside email + password. Two-factor is off by
+default and is the user's choice, unless the organization requires it; then any one of passkey, authenticator code
+(TOTP) or Google counts as the second factor. A person in several plants picks the plant right after signing in and
+can switch later; a plant whose onboarding is still pending sends them into that onboarding when picked.
+
+1. **Three first-class ways in.** Login page, invite page and native sign-in show passkey, Google and email +
+   password with equal weight (same button style, same prominence; email + password is a form, not a hidden link).
+   "Passkey is the primary way" from the first version is replaced by "all three are primary". A method that is not
+   available (no WebAuthn, Google not configured) is simply not shown.
+2. **Two-factor is opt-in.** No one is forced into authenticator setup by default, owners included. This replaces the
+   AGENTS.md rule "every first-setup owner must finish two-factor setup (Q2 A)" and Design item 9's owner-only step.
+3. **Plant policy "Require secure sign-in"** (`company.settings.requireStrongSignIn`, default `false`). Owners turn
+   it on in Settings > Security. When on, a member of that plant must have at least one strong method (passkey,
+   TOTP or Google linked). A member without one is sent to a mandatory "Secure your sign-in" step when they enter
+   that plant (sign-in, plant pick or plant switch); other plants they belong to are not affected. Impersonation and
+   Godseye staff screens are exempt. The refusal "remove the last strong method" now applies when any plant the
+   person is an active member of requires secure sign-in (code `COMPANY_REQUIRES_STRONG_METHOD`, replacing
+   `OWNER_NEEDS_STRONG_METHOD`). Turning the policy on writes an audit row `company.security.update`.
+4. **Plant picker after sign-in.** When a person has more than one active plant, every sign-in (password, passkey,
+   Google, invite) lands on "Choose a plant" before the app. Each plant shows its name, the person's role, and
+   "Setup pending" when that plant's onboarding is not finished for them. The plant switcher stays as today.
+5. **Onboarding per plant.** Onboarding moves from `user.onboarding_completed` to `membership.onboarded_at`
+   (new migration; backfilled from the user flag for existing members so nobody is sent back through setup).
+   Picking a plant whose membership is not onboarded opens that plant's welcome steps: "Secure your sign-in" only
+   if the plant requires it and the person has no strong method; company details for owners and admins; then done,
+   which sets `onboarded_at` for that membership only. A user-level "set a password" step no longer exists for
+   people with a passkey or Google; a person with no way in at all still gets one.
+6. Native follows the same rules: picker after sign-in, setup-pending plants open the native welcome steps where
+   they exist, otherwise the "finish on the web" screen the app already uses.
+
 ## Owner inputs needed (not blockers for the code)
 
 1. A Google Cloud OAuth client (Web), redirect URIs `https://api.orrn.in/api/auth/callback/google` and the dev API
