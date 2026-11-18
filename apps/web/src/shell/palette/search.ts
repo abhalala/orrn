@@ -65,14 +65,41 @@ type Field = {
 
 type Prepared = { fields: readonly Field[]; labelLength: number };
 
-const LATIN_MARKS = /[̀-ͯ]/g;
+// Latin accents (U+0300..U+036F after NFD), and the Devanagari (U+093C) and Gujarati (U+0ABC) nukta: "मंज़ूरी" and
+// "मंजूरी" are the same word as people type it. NFD splits the precomposed nukta letters (U+0958..U+095F) first.
+const DROPPED_MARKS = /[\u0300-\u036f\u093c\u0abc]/g;
+// Long and short vowels are written either way ("डाई" and "डाइ"), and candrabindu is often typed as anusvara: fold
+// each long form to the short one. Vowel signs stay (they are marks, kept by SEPARATORS), only their length goes.
+const INDIC_FOLD: Readonly<Record<string, string>> = {
+  "\u0940": "\u093f", // ी -> ि
+  "\u0942": "\u0941", // ू -> ु
+  "\u0908": "\u0907", // ई -> इ
+  "\u090a": "\u0909", // ऊ -> उ
+  "\u0901": "\u0902", // ँ -> ं
+  "\u0ac0": "\u0abf", // ી -> િ
+  "\u0ac2": "\u0ac1", // ૂ -> ુ
+  "\u0a88": "\u0a87", // ઈ -> ઇ
+  "\u0a8a": "\u0a89", // ઊ -> ઉ
+  "\u0a81": "\u0a82", // ઁ -> ં
+};
+const INDIC_LONG = /[\u0940\u0942\u0908\u090a\u0901\u0ac0\u0ac2\u0a88\u0a8a\u0a81]/g;
 // Letters, digits and combining marks of any script stay; everything else separates words. Indic vowel signs are
-// marks (Mn/Mc), so they are kept: only Latin accents (U+0300..U+036F after NFD) are dropped.
+// marks (Mn/Mc), so they are kept.
 const SEPARATORS = /[^\p{L}\p{N}\p{M}]+/gu;
 
-/** Lower case, Latin accents stripped, punctuation and spacing collapsed to single spaces. */
+/**
+ * Lower case, Latin accents and Indic nukta stripped, Indic long vowels folded to short, punctuation and spacing
+ * collapsed to single spaces.
+ */
 export function fold(s: string): string {
-  return s.normalize("NFD").replace(LATIN_MARKS, "").normalize("NFC").toLowerCase().replace(SEPARATORS, " ").trim();
+  return s
+    .normalize("NFD")
+    .replace(DROPPED_MARKS, "")
+    .replace(INDIC_LONG, (c) => INDIC_FOLD[c] ?? c)
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(SEPARATORS, " ")
+    .trim();
 }
 
 function makeField(kind: Kind, raw: string): Field | null {
@@ -153,14 +180,41 @@ export function editDistance(a: string, b: string, max: number): number {
   return rowPrev[m] as number;
 }
 
-/** A query word within its edit allowance of a whole field word, or of a word's start (the person is still typing). */
+const MARKS = /\p{M}/gu;
+
+/** Words up to this many letters get the strict typo rule below. */
+const SHORT_WORD = 5;
+
+/** Letters, not code units: an Indic vowel sign or virama belongs to the letter before it. */
+function letterCount(word: string): number {
+  return word.replace(MARKS, "").length;
+}
+
+/**
+ * A query word within its edit allowance of a whole field word, or of a word's start (the person is still typing).
+ *
+ * The first letter must always match. A 4 or 5 letter word gets only the two slips that are clearly typos: its last
+ * two letters swapped ("stokc"), or its last letter wrong while the word is still being typed ("dispq" for
+ * dispa-tch). Any other single change to a short word usually spells a different word ("cast" and "cust"-omers,
+ * "stock" and "stick"-er, "data" and "date"). Longer words take their allowance anywhere. The start of a word is
+ * never shorter than what was typed: an unfinished word is longer, so "dies" never matches "dis"-patch.
+ * "स्टॉक" counts as 3 letters, so like "dix" it gets no allowance.
+ */
 function typoMatchesWord(token: string, word: string): boolean {
-  const max = allowedEdits(token.length);
-  if (max === 0) return false;
+  const letters = letterCount(token);
+  const max = allowedEdits(letters);
+  if (max === 0 || token.charCodeAt(0) !== word.charCodeAt(0)) return false;
+  const n = token.length;
+  if (letters <= SHORT_WORD) {
+    if (word.length < n || word.slice(0, n - 2) !== token.slice(0, n - 2)) return false;
+    const swapped = word[n - 2] === token[n - 1] && word[n - 1] === token[n - 2];
+    const lastWrongWhileTyping = word.length > n && word[n - 2] === token[n - 2];
+    return swapped || lastWrongWhileTyping;
+  }
   if (editDistance(token, word, max) <= max) return true;
-  // Still typing: compare against the start of the word, one letter either side.
-  for (let len = token.length - max; len <= token.length + max; len++) {
-    if (len < 1 || len >= word.length) continue;
+  // Still typing: compare against the start of the word, never shorter than what was typed.
+  for (let len = n; len <= n + max; len++) {
+    if (len >= word.length) continue;
     if (editDistance(token, word.slice(0, len), max) <= max) return true;
   }
   return false;
@@ -230,6 +284,8 @@ function scoreField(q: Query, f: Field): number {
   if (f.text.includes(q.text)) return TIER.substring;
   const tight = subsequence(q.compact, f);
   if (tight >= 0) return TIER.subsequence + Math.round(tight * 40);
+  // A term is the weakest evidence: a short word's slip against one names a word the person never meant.
+  if (f.kind === Kind.Term && q.tokens.some((t) => letterCount(t) <= SHORT_WORD)) return -1;
   if (typoAll(q.tokens, f.words)) return TIER.typo;
   return -1;
 }
@@ -273,20 +329,23 @@ function matchPrepared(q: Query, p: Prepared): Match | null {
   return bestField.kind >= Kind.Alias ? { score: bestScore, matched: bestField.raw } : { score: bestScore };
 }
 
-/** One item against a query; null when it does not match. An empty query matches everything with score 0. */
+/**
+ * One item against a query; null when it does not match. An empty query matches everything with score 0; a query of
+ * only punctuation ("-", "#") matches nothing.
+ */
 export function matchItem(query: string, item: Searchable): Match | null {
   const q = prepareQuery(query);
-  if (!q) return { score: 0 };
+  if (!q) return query.trim() ? null : { score: 0 };
   return matchPrepared(q, prepare(item));
 }
 
 /**
  * Matching items, best first: score, then shorter label, then group order, then input order. An empty query keeps
- * every item in input order.
+ * every item in input order; a query of only punctuation keeps none.
  */
 export function rankItems<T extends Searchable>(query: string, items: readonly T[]): Ranked<T>[] {
   const q = prepareQuery(query);
-  if (!q) return items.map((item) => ({ ...item, match: { score: 0 } }));
+  if (!q) return query.trim() ? [] : items.map((item) => ({ ...item, match: { score: 0 } }));
   const hits: { item: T; i: number; match: Match; len: number }[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i] as T;

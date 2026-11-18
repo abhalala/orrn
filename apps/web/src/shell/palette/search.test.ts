@@ -19,9 +19,31 @@ describe("fold", () => {
     expect(fold("  Café-Déjà_vu!! ")).toBe("cafe deja vu");
     expect(fold("Melt / Times")).toBe("melt times");
   });
-  test("keeps Indic vowel signs", () => {
-    expect(fold("डाई")).toBe("डाई");
-    expect(fold("ભઠ્ઠી")).toBe("ભઠ્ઠી");
+  test("keeps Indic vowel signs (folded to their short form, never dropped)", () => {
+    expect(fold("डाई")).toBe("डाइ");
+    expect(fold("ભઠ્ઠી")).toBe("ભઠ્ઠિ");
+    expect(fold("डाइ")).toHaveLength(3);
+  });
+  test("Hindi and Gujarati: long and short vowels, nukta and candrabindu fold together (review S2)", () => {
+    expect(fold("डाई")).toBe(fold("डाइ"));
+    expect(fold("मंज़ूरी")).toBe(fold("मंजुरि"));
+    expect(fold("मंज़ूरी")).toBe(fold("मंजूरी"));
+    expect(fold("ऊपर")).toBe(fold("उपर"));
+    expect(fold("ईंट")).toBe(fold("इंट"));
+    expect(fold("माँग")).toBe(fold("मांग"));
+    // Precomposed nukta letters (U+0958..U+095F) decompose and lose the nukta too.
+    expect(fold("\u095B")).toBe(fold("ज"));
+    expect(fold("ડાઈ")).toBe(fold("ડાઇ"));
+    expect(fold("મંજૂરી")).toBe(fold("મંજુરિ"));
+    expect(fold("ઊંચું")).toBe(fold("ઉંચું"));
+    expect(fold("જ઼")).toBe(fold("જ"));
+    expect(fold("ઁ")).toBe(fold("ં"));
+  });
+  test("folding keeps different words apart", () => {
+    // Different consonants and different vowels stay different.
+    expect(fold("डाई")).not.toBe(fold("डिवाइस"));
+    expect(fold("दिन")).not.toBe(fold("दान"));
+    expect(fold("कम")).not.toBe(fold("काम"));
   });
 });
 
@@ -47,7 +69,8 @@ describe("matchItem tiers", () => {
     const wordPrefix = matchItem("tim", item)!.score;
     const substring = matchItem("elt tim", item)!.score;
     const subseq = matchItem("mtt", item)!.score;
-    const typo = matchItem("mletx", page("y", "Meltx bay"))!.score;
+    // A swap in the middle of a 6-letter word (4 and 5 letter words only take slips at the end, review S1).
+    const typo = matchItem("mletxy", page("y", "Meltxy bay"))!.score;
     expect(exact).toBeGreaterThan(prefix);
     expect(prefix).toBeGreaterThan(wordPrefix);
     expect(wordPrefix).toBeGreaterThan(substring);
@@ -89,6 +112,51 @@ describe("typos", () => {
   });
   test("typo while still typing the word", () => {
     expect(matchItem("dispq", page("p", "Dispatches today"))).not.toBeNull();
+    expect(matchItem("dispq", dispatch)).not.toBeNull();
+    expect(matchItem("dispatc", dispatch)).not.toBeNull();
+  });
+});
+
+describe("typo false positives on 4 and 5 letter words (review S1)", () => {
+  const customers = page("customers", "Customers", { aliases: ["party", "client", "buyer"] });
+  const pack = page("pack", "Pack", { aliases: ["packing", "label", "sticker"] });
+  const stock = page("stock", "Stock", { aliases: ["section", "profile"] });
+  const bundles: Searchable = { id: "stock.bundles", group: "sections", label: "Stock bundles", terms: ["serial", "bundle list"] };
+  const ovens: Searchable = { id: "masters.ovens", group: "sections", label: "Ovens", terms: ["oven", "temperature"] };
+  const users: Searchable = { id: "settings.team", group: "sections", label: "Team", terms: ["users", "members"] };
+
+  test("cast does not bring up Customers or Masters", () => {
+    expect(matchItem("cast", customers)).toBeNull();
+    expect(matchItem("cast", page("masters", "Masters"))).toBeNull();
+  });
+  test("stock does not match sticker", () => {
+    expect(matchItem("stock", pack)).toBeNull();
+    expect(rankItems("stock", [pack, stock]).map((r) => r.id)).toEqual(["stock"]);
+  });
+  test("dies does not bring up Dispatch; user does not match serial; team does not match temperature", () => {
+    expect(matchItem("dies", dispatch)).toBeNull();
+    expect(matchItem("user", bundles)).toBeNull();
+    expect(matchItem("team", ovens)).toBeNull();
+    expect(matchItem("user", users)).not.toBeNull(); // the real word still matches
+  });
+  test("a one-vowel slip in Hindi does not match a different word (QA N3)", () => {
+    const hiPack = page("pack", "पैकिंग", { aliases: ["स्टिकर"] });
+    expect(matchItem("स्टॉक", hiPack)).toBeNull();
+  });
+  test("a short word with its last letter changed into another whole word does not match", () => {
+    expect(matchItem("data", page("d", "Ship date"))).toBeNull();
+    expect(matchItem("held", page("h", "Help"))).toBeNull();
+    expect(matchItem("line", page("l", "Die life"))).toBeNull();
+    expect(matchItem("late", page("p", "Print", { aliases: ["label"] }))).toBeNull();
+  });
+  test("a short word's slip never matches a term", () => {
+    expect(matchItem("copx", { id: "s", group: "sections", label: "Die life", terms: ["retired copies"] })).toBeNull();
+  });
+  test("real typos of short words still match", () => {
+    expect(matchItem("stokc", stock)).not.toBeNull(); // swapped last two letters
+    expect(matchItem("dispq", dispatch)).not.toBeNull(); // last letter wrong while typing
+    expect(matchItem("custo", customers)).not.toBeNull(); // plain prefix
+    expect(matchItem("custm", customers)).not.toBeNull(); // last letter wrong while typing
   });
 });
 
@@ -132,6 +200,13 @@ describe("aliases and matched word", () => {
 describe("rankItems", () => {
   test("empty query keeps every item in order", () => {
     expect(rankItems("", ITEMS).map((r) => r.id)).toEqual(["dispatch", "dies", "masters", "foundry"]);
+  });
+  test("a query of only punctuation matches nothing (review M1)", () => {
+    for (const q of ["-", "#", "/", ">", "--", " . "]) {
+      expect(rankItems(q, ITEMS)).toEqual([]);
+      expect(matchItem(q, dispatch)).toBeNull();
+    }
+    expect(rankItems("   ", ITEMS)).toHaveLength(ITEMS.length);
   });
   test("drops non-matches and ranks best first", () => {
     const r = rankItems("di", ITEMS);
