@@ -111,7 +111,8 @@ async function whichRefusal(
 /** The endpoint's body as the answer: a Response (with any cookies set here) over HTTP, the object in process. */
 function answer(ctx: Ctx, body: Record<string, unknown>): Response | Record<string, unknown> {
   if (!ctx.request) return body;
-  const headers = new Headers(ctx.responseHeaders ?? undefined);
+  // better-call's middleware context collects the cookies set above in `responseHeaders` (not typed).
+  const headers = new Headers((ctx as unknown as { responseHeaders?: Headers }).responseHeaders ?? undefined);
   headers.set("content-type", "application/json");
   return new Response(JSON.stringify(body), { status: 200, headers });
 }
