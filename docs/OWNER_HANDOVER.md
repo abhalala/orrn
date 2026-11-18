@@ -50,8 +50,8 @@ manual backup and run one restore drill. Commands: `docs/DEPLOY_PROMOTION.md` se
 Native device work comes after the web is complete and dev is deployed. In order:
 
 1. **Native build.** JDK 17 and the Android SDK, or EAS credentials; iOS and iPadOS through EAS and TestFlight (Apple developer
-   account). A new development build is required (`expo-application`, `expo-crypto`, `expo-speech`). Publish it in Godseye under
-   App builds. (`docs/DEPLOY_PROMOTION.md` section 6, `apps/native/README.md`.)
+   account). A new development build is required (`expo-application`, `expo-crypto`, `expo-speech`, and for passkeys and Google
+   sign-in `react-native-passkey` and `expo-web-browser`; section 11). Publish it in Godseye under App builds. (`docs/DEPLOY_PROMOTION.md` section 6, `apps/native/README.md`.)
 2. **Maestro.** Run the 10 flows in `.maestro/flows` on a real Android phone; none has ever been run.
 3. **Device checks.** Camera capture for the foundry spectro photo (about 2.2 MP, re-encoded under 1 MB) and the camera permission
    flow, haptics, spoken refusals, a label printed from the phone, the press station on an 11-inch tablet, the ageing station on a
@@ -135,3 +135,67 @@ The full text of every question is `.fp-build/OWNER_QUESTIONS.md`.
 - The satellite branches `wt/W2-FD-S-omafranky`, `wt/W3-AG-C-omafranky` and `wt/SAT-*` are superseded (D32) and can be deleted.
 - Orphan workerd processes of gone sessions can be killed; FINAL-FIXES-2 deleted stale shared Miniflare temp dirs during the disk-full stop (rule 15 now forbids it).
 - Blume project registration failed on a workspace conflict (D4); delivery-level checkpoints work.
+
+## 11. Google sign-in and phone passkeys (plan 2026-11-18)
+
+All of this is optional. Until you set a value, the matching button just does not show and nothing else changes:
+no Google client means no "Continue with Google" anywhere, no Apple Team ID means no passkey button in the iPhone app,
+no Android certificate means none in the Android app. Passkeys on the website need nothing from you.
+
+### Google sign-in
+
+Google never makes an account by itself. It only signs in someone who already has an account, or who has a live invite
+for that email address. Godseye staff accounts cannot use Google at all.
+
+1. Open [Google Cloud console](https://console.cloud.google.com/), make or pick a project for ORRN.
+2. **Consent screen** (Google Auth Platform, Branding and Audience). User type External. App name ORRN, a support email
+   you read, authorised domains `orrn.in` and `orrn.app`. ORRN asks only for the basic scopes `openid`, `email` and `profile`,
+   which need no Google review. Set the publishing status to **In production**. While it says Testing, only the test users
+   you list can sign in.
+3. **Client** (Clients, Create client). Application type **Web application**, name it `ORRN`. Under Authorised redirect
+   URIs add both lines exactly:
+   - `https://api.orrn.in/api/auth/callback/google` (production)
+   - `https://api.dev.orrn.app/api/auth/callback/google` (the dev site, `dev.orrn.app`)
+
+   No JavaScript origins are needed.
+4. Copy the client ID and client secret into GitHub, repository Settings, Secrets and variables, Actions, as **secrets**
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Both must be secrets: the deploys read these two from secrets only, so a
+   variable with the same name is ignored. Put them under the `dev` and `production` environments, or once at repository
+   level for both. Set both or neither; one alone keeps Google off.
+5. Run the deploy again. The button appears on the website and in the iPhone app.
+
+Google stays hidden in the **Android app** for now, on purpose. Android's sign-in tab shares Chrome's saved Google
+logins, so on a shared phone the next person could pick the last person's account. Android users sign in with a
+passkey or password until that is fixed.
+
+### Passkeys in the phone apps
+
+The phone apps need two values so that iOS and Android trust `orrn.in` for passkeys. Add each one in GitHub as a
+**variable** (a secret of the same name also works), under the `dev` and `production` environments or at repository level.
+
+| Name | What it is | Where to find it |
+|---|---|---|
+| `ORRN_APPLE_TEAM_ID` | Your Apple Developer Team ID, 10 capital letters and digits | [developer.apple.com/account](https://developer.apple.com/account), Membership details, Team ID |
+| `ORRN_ANDROID_CERT_SHA256` | The SHA-256 fingerprint of the certificate that signs the Android app people install, 64 hex digits (colons are fine) | EAS: `bunx eas credentials`, Android, the keystore's SHA-256 fingerprint. A local keystore: `keytool -list -v -keystore <file>`. Once the app is on Google Play with Play app signing: Play Console, Test and release, App integrity, App signing key certificate, SHA-256 |
+
+Leave `ANDROID_APK_KEY_HASH` unset. The deploy works it out from the certificate, and a hand-typed one that disagrees
+switches Android passkeys off.
+
+Check the values before saving. A Team ID or fingerprint that is set but wrongly shaped stops the web build, so the
+deploy fails until you fix or remove it.
+
+The fingerprint must belong to the certificate that signed the installed app. A development build signed with a
+different key than the release build has a different fingerprint, so give the `dev` environment the development
+build's fingerprint and `production` the release one.
+
+After the next deploy:
+
+1. **A new development build is needed.** Passkeys and Google sign-in use `react-native-passkey` and `expo-web-browser`,
+   which an over-the-air update cannot add (section 4, `docs/DEPLOY_PROMOTION.md` section 6).
+2. **For a build that talks to the dev site,** set `ORRN_PASSKEY_RP_ID=dev.orrn.app` when you prebuild or build it,
+   for example `ORRN_PASSKEY_RP_ID=dev.orrn.app bunx expo prebuild`. Without it the iPhone app trusts `orrn.in` only,
+   and passkeys made on the dev site will not work in it. Production builds leave it unset.
+3. Nobody has tried passkeys or Google on a real phone yet. Try both on one iPhone and one Android phone before the
+   plant relies on them.
+
+Secret and variable names per environment are also listed in `docs/DEPLOYMENT.md`.

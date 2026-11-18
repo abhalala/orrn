@@ -297,7 +297,8 @@ test.describe("front-door forms", () => {
     expect(describedBy).toBeTruthy();
     const text = await page.evaluate((ids) => ids?.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" "), describedBy);
     expect(text?.trim().length).toBeGreaterThan(0);
-    await expect(email).toHaveAttribute("autocomplete", "username");
+    // "webauthn" lets the browser offer saved passkeys in the email field (plan 2026-11-18, Task 4).
+    await expect(email).toHaveAttribute("autocomplete", "username webauthn");
   });
 
   test("login: password field has a stateful show/hide button and the right autocomplete", async ({ page }) => {

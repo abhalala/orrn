@@ -1,6 +1,6 @@
 # e2e groups A / B / C
 
-The 52 spec files run in three groups, one after another on one port pair, never together. Each group starts or
+The 53 grouped spec files (A 18, B 18, C 17) run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
@@ -16,6 +16,9 @@ saved them in `/tmp/W4-TESTSWEEP-2/final-summary.txt` and `final-{1,2}-{A,B,C}.j
 baseline wall times were A 258 s, B 300 s, C 356 s (`base-summary.txt`). The rebalanced first B run failed at the
 foundry correction's `correct-now` assertion; the second run does not erase that failure. Those runs also used the
 subsequently removed retry/warmup helpers, so their green results do not establish the reviewed code is passing.
+
+Four spec files are in no group and the script warns about each: `ingest-shots` takes screenshots for design review and
+runs by hand with `SHOTS=1`; `label-photo-import`, `label-studio` and `printing-labels` are not in any group either, so no gate runs them.
 
 `a11y-app` is the signed-in axe sweep (every nav screen, desktop and 375 px, light and dark, en plus hi for Today, Pack, Scan and
 Dispatch). It has no saved wall time yet (about 10 minutes on two workers). It writes every violation to
