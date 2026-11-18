@@ -193,11 +193,11 @@ describe("party (portal) invite: accept racing revoke or a fresh grant", () => {
  * that failed for another reason while the claim could still land is thrown as it is.
  */
 describe("a lost claim whose abort text is not recognised", () => {
-  async function unrecognised<T>(run: () => Promise<T>): Promise<T> {
+  async function unrecognised(run: () => Promise<unknown>): Promise<void> {
     const atomic = await import("../src/lib/atomic");
     const spy = spyOn(atomic, "isBatchAbort").mockReturnValue(false);
     try {
-      return await run();
+      await run();
     } finally {
       spy.mockRestore();
     }
@@ -209,8 +209,8 @@ describe("a lost claim whose abort text is not recognised", () => {
     const inv = await memberInvite(companyId, email);
     const userId = await accountFor(email);
     env.beforeNextBatch(() => env.caller({ role: "owner", companyId }).invite.revoke({ inviteId: inv.id }));
-    await unrecognised(() =>
-      expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toMatchObject({
+    await unrecognised(async () =>
+      await expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toMatchObject({
         code: "BAD_REQUEST",
         message: "Invite is expired or no longer valid",
       }),
@@ -224,7 +224,7 @@ describe("a lost claim whose abort text is not recognised", () => {
     const inv = await memberInvite(companyId, email);
     const userId = await accountFor(email);
     env.beforeNextBatch(() => env.callerForUser(userId).invite.acceptByToken({ token: inv.token }));
-    await unrecognised(() => expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).resolves.toMatchObject({ success: true }));
+    await unrecognised(async () => await expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).resolves.toMatchObject({ success: true }));
     expect(await membershipOf(userId, companyId)).toBeDefined();
   });
 
@@ -236,7 +236,7 @@ describe("a lost claim whose abort text is not recognised", () => {
     env.beforeNextBatch(async () => {
       throw new Error("D1_ERROR: network connection lost");
     });
-    await unrecognised(() => expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toThrow(/network connection lost/));
+    await unrecognised(async () => await expect(env.callerForUser(userId).invite.acceptByToken({ token: inv.token })).rejects.toThrow(/network connection lost/));
     expect((await inviteRow(inv.id))?.acceptedAt).toBeNull();
   });
 });

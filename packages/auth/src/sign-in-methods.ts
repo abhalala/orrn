@@ -29,7 +29,8 @@ export const COMPANY_REQUIRES_STRONG_METHOD = "COMPANY_REQUIRES_STRONG_METHOD";
 /** The rows changed under a removal while it was being judged (council rounds 1 and 2). */
 export const SIGN_IN_CHANGE_BUSY = "SIGN_IN_CHANGE_BUSY";
 
-const MESSAGES = {
+/** Server text for the removal refusals (`sign-in-removal.ts`); the apps show their own words by code. */
+export const SIGN_IN_CHANGE_MESSAGES = {
   [LAST_SIGN_IN_METHOD]: "This is the last way to sign in to this account. Add another one first.",
   [COMPANY_REQUIRES_STRONG_METHOD]:
     "A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first.",

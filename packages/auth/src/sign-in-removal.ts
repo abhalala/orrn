@@ -9,6 +9,7 @@ import {
   COMPANY_REQUIRES_STRONG_METHOD,
   LAST_SIGN_IN_METHOD,
   SIGN_IN_CHANGE_BUSY,
+  SIGN_IN_CHANGE_MESSAGES,
   signInMethodsFor,
   hasStrongMethod,
   hasWayIn,
@@ -46,12 +47,7 @@ export const PASSKEY_DELETE_PATH = "/passkey/delete-passkey";
 export const TWO_FACTOR_DISABLE_PATH = "/two-factor/disable";
 export const UNLINK_ACCOUNT_PATH = "/unlink-account";
 
-const MESSAGES = {
-  [LAST_SIGN_IN_METHOD]: "This is the last way to sign in to this account. Add another one first.",
-  [COMPANY_REQUIRES_STRONG_METHOD]:
-    "A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first.",
-  [SIGN_IN_CHANGE_BUSY]: "Another change to your sign-in is still saving. Try again in a moment.",
-} as const;
+const MESSAGES = SIGN_IN_CHANGE_MESSAGES;
 
 const refusal = (code: keyof typeof MESSAGES) =>
   new APIError(code === SIGN_IN_CHANGE_BUSY ? "CONFLICT" : "FORBIDDEN", { code, message: MESSAGES[code] });

@@ -128,7 +128,7 @@ describe("concurrent removals", () => {
     await addPasskey(u.id);
     const res = await call("passkey/delete-passkey", { body: { id: a }, cookie: u.cookie });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: true });
+    expect((await res.json()) as unknown).toEqual({ status: true });
     expect(res.headers.get("cookie")).toBeNull();
     expect(res.headers.get("content-type")).toContain("application/json");
     expect(await passkeysOf(u.id)).toHaveLength(1);
@@ -198,7 +198,7 @@ describe("concurrent removals", () => {
     expect(await codeOf(wrong)).toBe("INVALID_PASSWORD");
     const off = await call("two-factor/disable", { body: { password: PASSWORD }, cookie });
     expect(off.status).toBe(200);
-    expect(await off.json()).toEqual({ status: true });
+    expect((await off.json()) as unknown).toEqual({ status: true });
     const sessions = await env.db.select().from(session).where(eq(session.userId, u.id)).all();
     expect(sessions).toHaveLength(1);
     expect(sessions[0]!.id).not.toBe(old!.id);
