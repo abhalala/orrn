@@ -66,7 +66,8 @@ export async function contextFromGrant(
   if (row.expiresAt && row.expiresAt.getTime() <= at.getTime()) return { ok: false };
   if (row.companyStatus !== "active") return { ok: false };
   if (!companyListed(buddyEnv(), row.companySlug)) return { ok: false };
-  if (!roleMayUseBuddy(row.role, opts.roles ?? BUDDY_ROLES)) return { ok: false };
+  // Tests may widen the roles (to reach a procedure's own guard); production checks BUDDY_ROLES and buddy.use.
+  if (opts.roles ? !opts.roles.includes(row.role) : !roleMayUseBuddy(row.role, BUDDY_ROLES)) return { ok: false };
 
   if (!row.lastUsedAt || at.getTime() - row.lastUsedAt.getTime() >= LAST_USED_STEP_MS) {
     await db.update(buddyGrant).set({ lastUsedAt: at }).where(eq(buddyGrant.id, row.id));

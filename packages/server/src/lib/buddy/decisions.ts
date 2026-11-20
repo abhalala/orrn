@@ -92,6 +92,10 @@ export const BUDDY_DECISIONS = {
     "scale.reading": deny("§10 scan: calls the print node over the network for a live scale reading."),
     "reports.salesRegisterCsv": deny("§10 scan: a month's sales register as a CSV download (bulk export with GSTINs)."),
     "foundry.spectro.file": deny("§10 scan: returns a stored spectro file as a download."),
+    // Not tools by their nature: file bytes and public share pages stay in the browser (§12.2 by analogy).
+    "dieInstance.files.beginUpload": deny("Die file upload: the bytes come from the browser only."),
+    "dieInstance.files.commit": deny("Die file upload: the bytes come from the browser only."),
+    "die.share.view": deny("The public share page, opened with a share token; not a plant tool."),
     "reports.ageing": {
       kind: "allow",
       unless: { field: "format", values: ["csv"], reason: "§10 scan: the CSV form is a download." },
