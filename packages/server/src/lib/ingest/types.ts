@@ -192,6 +192,8 @@ export const VISION_ROWS_WRITTEN = "Rows of this sheet are already written. Its 
 /** Reused from `approveCandidate` and `ingest.artifact.*`. */
 export const VISION_NOT_STORED = "The original file is not saved yet. Upload the same file again, then approve.";
 export const VISION_ALREADY_READ = "This file is already read";
+/** Contract section 12 (batches): the file holds `blocksPerFile` tables, so no further page can become one. */
+export const VISION_FILE_FULL = "This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far.";
 
 /** Contract section 4: the state of one page, derived from the vault, the run rows and the blocks. */
 export const VISION_PAGE_STATES = ["waiting", "ready", "read", "not_read", "typed", "skipped"] as const;
@@ -243,8 +245,22 @@ export type VisionBandTicketsOut = {
   uploads: { band: number; url: string; ticket: string; expiresAt: number }[];
 };
 
-/** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most the plant's pages per batch when it started). */
-export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
+/**
+ * `vision.pages` (contract section 12): `pageCount` pages in the file; pages 1 to `planned` are in the plan,
+ * which grows one batch at a time (`vision.nextBatch`). `settled`: every planned page is read, typed or
+ * skipped. `full`: the file holds `blocksPerFile` tables. `restNotRead`: a person chose to finish with
+ * pages `planned + 1` to `pageCount` not read (`vision.finishRest`). `canFinish`: what `artifact.complete`
+ * requires, settled and either every page planned or the rest marked not read.
+ */
+export type VisionPagesOut = {
+  pageCount: number;
+  planned: number;
+  pages: VisionPageView[];
+  settled: boolean;
+  full: boolean;
+  restNotRead: boolean;
+  canFinish: boolean;
+};
 
 /** One signed PUT for a page image, a band image or a page's text. */
 export type VisionUpload = { page: number; url: string; ticket: string; expiresAt: number };
