@@ -23,7 +23,8 @@
  *
  * Auth it checks, like the real gate: `Authorization: Bearer $FAKE_HERMES_KEY` (default "fake-hermes-key")
  * and both `CF-Access-Client-Id` / `CF-Access-Client-Secret` present. Anything else: 401.
- * `GET /__fake/last` returns the last request body (tests check what orrn sent; it never holds a token).
+ * `GET /__fake/last` returns the last request body, `{}` before any (tests check what orrn sent; it never holds a token);
+ * it is also the readiness URL.
  */
 
 export type FakeHermesOptions = {
@@ -138,7 +139,7 @@ export function createFakeHermes(opts: FakeHermesOptions = {}): FakeHermes {
     },
     async handle(request: Request): Promise<Response> {
       const url = new URL(request.url);
-      if (url.pathname === "/__fake/last" && request.method === "GET") return Response.json(lastBody);
+      if (url.pathname === "/__fake/last" && request.method === "GET") return Response.json(lastBody ?? {});
       if (url.pathname === "/__fake/token" && request.method === "POST") {
         const b = (await request.json().catch(() => null)) as { token?: unknown } | null;
         token = typeof b?.token === "string" ? b.token : null;

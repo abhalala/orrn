@@ -48,6 +48,13 @@ describe("deploy env reaches alchemy through turbo", () => {
     for (const n of ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "MODEL_ACCESS_CLIENT_ID", "MODEL_ACCESS_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
   });
 
+  test("the buddy's five names pass through (design 2026-11-18, §6)", () => {
+    const allowed = passThrough();
+    for (const n of ["HERMES_BASE_URL", "HERMES_ACCESS_CLIENT_ID", "HERMES_ACCESS_CLIENT_SECRET", "HERMES_API_KEY", "BUDDY_COMPANIES"]) {
+      expect(allowed.has(n)).toBe(true);
+    }
+  });
+
   test("the Google sign-in pair passes through and both workflows set it", () => {
     const allowed = passThrough();
     for (const n of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
