@@ -42,20 +42,17 @@ export type VisionPageView = Omit<ServerPageView, "next"> & {
 
 export type VisionPageTicket = ServerStartOut["uploads"][number];
 
-/**
- * `vision.start`. `texts` (section 11.5): for a text PDF, one ticket per page with no text yet, for
- * `pages/<n>.text.json`; optional here until the server's type has it.
- */
-export type VisionStartOut = ServerStartOut & { texts?: VisionPageTicket[] };
+/** `vision.start`. `texts` (section 11.5): for a text PDF, one ticket per page with no text yet, for `pages/<n>.text.json`. */
+export type VisionStartOut = ServerStartOut;
 
 export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
 
 /**
  * `BlockView.vision`: where a model-read (or typed) block came from. `lowRows` lowest confidence first, then by index.
- * `unseen` (section 11.5): `[row, col]` cells whose digits are not in the PDF's text layer; optional until the server
- * sends it, and missing means no marks.
+ * `unseen` (section 11.5): `[row, col]` cells whose digits are not in the PDF's text layer. Read as optional, since a
+ * block made before the digit check has none, and missing means no marks.
  */
-export type BlockVision = BlockVisionView & { unseen?: [number, number][] };
+export type BlockVision = Omit<BlockVisionView, "unseen" | "bands"> & { unseen?: BlockVisionView["unseen"]; bands?: BlockVisionView["bands"] };
 
 export type VisionReadUrlIn = { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number };
 
