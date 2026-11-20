@@ -208,7 +208,7 @@ export const ingestBlock = sqliteTable(
        * `tables` the number of tables of that page (the page is read only when all are blocks), and
        * `typed` when a person entered the table by hand. Absent on a parser block. No migration: JSON.
        */
-      vision?: { page: number; table: number; pageCount: number; rowConfidence: number[]; tables?: number; typed?: boolean };
+      vision?: { page: number; table: number; pageCount: number; rowConfidence: number[]; tables?: number; typed?: boolean; unseen?: [number, number][]; bands?: number };
     }>(),
     /**
      * Round 8 item 8: the table above this one, as the reader sent it (`continues`: the table above

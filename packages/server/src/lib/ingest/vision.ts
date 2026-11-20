@@ -27,7 +27,7 @@ import { countCalls, historyOutcome, planVision, runVisionAttempt, SONNET, shape
 import { capSample, fitDiffJson, learnedHoles, stateForFit } from "./candidates";
 import { guardedBatch, ingestAbortUnlessChanged, isIngestAbort, loadArtifact, MOVED, type ArtifactRow, type StoredVision } from "./core";
 import { anthropicEnv, botRunStore } from "./engines";
-import { artifactPrefix, ingestVault, issueReadTicket, issueTicket, pageKey, pagesIndexKey, pageTablesKey, rawKey, vaultReady } from "./vault";
+import { artifactPrefix, ingestVault, issueReadTicket, issueTicket, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NO_STORAGE,
@@ -74,6 +74,45 @@ function validIndex(x: unknown): x is PagesIndex {
 async function loadIndex(bucket: R2Bucket, ctx: Pick<IngestCtx, "companyId">, a: ArtifactRow): Promise<{ index: PagesIndex; etag: string } | null> {
   const got = await readJson<PagesIndex>(bucket, pagesIndexKey(ctx.companyId, a.sha256));
   return got && validIndex(got.body) ? { index: got.body, etag: got.etag } : null;
+}
+
+// ---------------------------------------------------------------------------
+// Text-layer digit check (contract section 11.5)
+// ---------------------------------------------------------------------------
+
+/** The page text a text PDF page sent (`pages/<n>.text.json`). */
+export type PageTextFile = { v: 1; items: string[] };
+
+/** The digit runs of a string: `\d+` after a comma between two digits is removed (1,23,456 is 123456). */
+export function digitRuns(s: string): string[] {
+  return s.replace(/(?<=\d),(?=\d)/g, "").match(/\d+/g) ?? [];
+}
+
+/**
+ * The cells (`[row, col]`) holding a digit run that is not a digit run anywhere in the page's text. Each
+ * text item is read on its own, so two items never join into one run. Whole runs are matched, never a
+ * part of one: "210" is marked against a page that only holds "2100". No text (null) means no marks.
+ */
+export function unseenCells(rows: readonly (readonly string[])[], items: readonly string[] | null): [number, number][] {
+  if (!items) return [];
+  const seen = new Set<string>();
+  for (const item of items) for (const run of digitRuns(item)) seen.add(run);
+  const out: [number, number][] = [];
+  rows.forEach((row, r) =>
+    row.forEach((cell, c) => {
+      if (digitRuns(cell).some((run) => !seen.has(run))) out.push([r, c]);
+    }),
+  );
+  return out;
+}
+
+/** The text items of a text PDF page, or null when the file is not a text PDF or the text is missing or not valid. */
+async function loadPageText(bucket: R2Bucket, ctx: Pick<IngestCtx, "companyId">, a: ArtifactRow, page: number): Promise<string[] | null> {
+  if (a.kind !== "pdf_text") return null;
+  const got = await readJson<PageTextFile>(bucket, pageTextKey(ctx.companyId, a.sha256, page));
+  const body = got?.body;
+  if (!body || body.v !== 1 || !Array.isArray(body.items) || !body.items.every((x) => typeof x === "string")) return null;
+  return body.items;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,7 +383,28 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
     });
     uploads.push({ page: p, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
   }
-  return { pageCount: index.index.pageCount, planned: index.index.planned, uploads };
+  // A text PDF page also sends its pdfjs text for the digit check (contract section 11.5).
+  const texts: VisionStartOut["texts"] = [];
+  if (a.kind === "pdf_text") {
+    for (let p = 1; p <= index.index.planned; p++) {
+      const key = pageTextKey(ctx.companyId, a.sha256, p);
+      if (have.has(key)) continue;
+      const t = await issueTicket(ctx, {
+        purpose: "ingest-page",
+        companyId: ctx.companyId,
+        userId: ctx.session.user.id,
+        artifactId: a.id,
+        sha256: a.sha256,
+        key,
+        size: VISION_PARAMS.maxPageTextBytes,
+        exactSize: false,
+        contentType: "application/json",
+        fileName: `${p}.text.json`,
+      });
+      texts.push({ page: p, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
+    }
+  }
+  return { pageCount: index.index.pageCount, planned: index.index.planned, uploads, texts };
 }
 
 /** Every planned page with its state. A file not started yet (kept, or read before release 2) has no pages. */
@@ -572,6 +632,9 @@ async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCo
   const fresh = await loadArtifact(ctx, a.id);
   if (fresh.blockCount + missing.length > INGEST_LIMITS.blocksPerFile) return;
   const learned = await learnedHoles(ctx);
+  // The digit check reads the page's text once; missing text only means no marks.
+  const bucket = ingestVault();
+  const items = bucket ? await loadPageText(bucket, ctx, a, page) : null;
   for (const { t, i } of missing) {
     const at = now();
     const ordinal = visionOrdinal(page, i);
@@ -588,7 +651,7 @@ async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCo
           rows: t.rows,
           readBy: "model",
           headerBy: "reader",
-          vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length },
+          vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length, unseen: unseenCells(t.rows, items) },
         },
         at,
       )),

@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 
 import "./env-mock";
 
-import { derivePage, type PageFacts } from "../src/lib/ingest/vision";
+import { derivePage, digitRuns, unseenCells, type PageFacts } from "../src/lib/ingest/vision";
 import type { BotRunHistoryRow } from "../src/lib/ingest/bot";
 
 const S = "claude-sonnet-5-5";
@@ -75,5 +75,29 @@ describe("derivePage", () => {
 
   test("a full file is manual before any call", () => {
     expect(derivePage(facts({ fileBlocks: 50 }))).toMatchObject({ state: "not_read", reason: "too_many_tables", next: "manual", canRetry: false });
+  });
+});
+
+describe("text-layer digit check (pure)", () => {
+  test("digit runs drop a comma only between digits", () => {
+    expect(digitRuns("1,23,456")).toEqual(["123456"]);
+    expect(digitRuns("12, 34")).toEqual(["12", "34"]);
+    expect(digitRuns("Rate 210.50/kg")).toEqual(["210", "50"]);
+    expect(digitRuns("no digits")).toEqual([]);
+  });
+
+  test("whole runs are matched, never a part of one; items never join", () => {
+    expect(unseenCells([["210"]], ["2100"])).toEqual([[0, 0]]);
+    expect(unseenCells([["123456"]], ["1,23,456"])).toEqual([]);
+    expect(unseenCells([["1,23,456"]], ["123456"])).toEqual([]);
+    // Two items "12" and "34" are not the run "1234".
+    expect(unseenCells([["1234"]], ["12", "34"])).toEqual([[0, 0]]);
+    // A cell is marked when any one of its runs is missing; cells with no digits are never marked.
+    expect(unseenCells([["S100 x 7", "Nova"]], ["S100", "7"])).toEqual([]);
+    expect(unseenCells([["S100 x 8", "Nova"]], ["S100", "7"])).toEqual([[0, 0]]);
+  });
+
+  test("no text means no marks", () => {
+    expect(unseenCells([["210"]], null)).toEqual([]);
   });
 });

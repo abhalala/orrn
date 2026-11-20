@@ -228,11 +228,20 @@ export type VisionPageView = {
 /** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most `VISION_PARAMS.maxPagesPerFile`). */
 export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
 
-/** `vision.start`: upload tickets for the planned pages that have no image yet. */
+/** One signed PUT for a page image, a band image or a page's text. */
+export type VisionUpload = { page: number; url: string; ticket: string; expiresAt: number };
+
+/**
+ * `vision.start`: upload tickets for the planned pages that have no image yet (a page cut into bands gets
+ * none here; `vision.bandTickets` issues those). `texts`: for a text PDF only, one ticket per page with no
+ * text yet, for `pages/<n>.text.json` (`{ v: 1, items: string[] }`, `application/json`, at most
+ * `VISION_PARAMS.maxPageTextBytes`). Empty for a scan or photo.
+ */
 export type VisionStartOut = {
   pageCount: number;
   planned: number;
-  uploads: { page: number; url: string; ticket: string; expiresAt: number }[];
+  uploads: VisionUpload[];
+  texts: VisionUpload[];
 };
 
 /** `vision.readUrl`: a signed GET, 10 minutes. */
@@ -249,6 +258,13 @@ export type BlockVisionView = {
   pageCount: number;
   rowConfidence: number[];
   lowRows: number[];
+  /**
+   * Contract section 11.5: `[row, col]` cells holding a digit run that is not in the PDF's text layer
+   * (text PDFs only; empty when the page sent no text). Shown first and marked.
+   */
+  unseen: [number, number][];
+  /** Contract section 11.3: the bands the page was cut into, or null when it was read whole. */
+  bands: number | null;
   typed?: boolean;
 };
 

@@ -70,6 +70,12 @@ export const digestKey = (companyId: string, sha256: string) => `${artifactPrefi
 export const pageKey = (companyId: string, sha256: string, n: number) => `${artifactPrefix(companyId, sha256)}/pages/${n}.jpg`;
 /** The validated tables of one page, written before its blocks (contract section 6). */
 export const pageTablesKey = (companyId: string, sha256: string, n: number) => `${artifactPrefix(companyId, sha256)}/pages/${n}.tables.json`;
+/** The pdfjs text of one text PDF page (`{ v: 1, items: string[] }`), for the digit check (contract section 11.5). */
+export const pageTextKey = (companyId: string, sha256: string, n: number) => `${artifactPrefix(companyId, sha256)}/pages/${n}.text.json`;
+/** The image of band `k` of page `n` (contract section 11.3). */
+export const bandKey = (companyId: string, sha256: string, n: number, k: number) => `${artifactPrefix(companyId, sha256)}/pages/${n}/b${k}.jpg`;
+/** The validated tables of band `k` of page `n`, written before any block of the page. */
+export const bandTablesKey = (companyId: string, sha256: string, n: number, k: number) => `${artifactPrefix(companyId, sha256)}/pages/${n}/b${k}.tables.json`;
 /** The page plan of a file read page by page (contract section 5). */
 export const pagesIndexKey = (companyId: string, sha256: string) => `${artifactPrefix(companyId, sha256)}/pages/index.json`;
 

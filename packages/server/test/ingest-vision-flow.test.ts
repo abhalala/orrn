@@ -12,7 +12,7 @@ import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { layout, learnLayout, plant, pump, trim, upload, type Caller, type Plant } from "./ingest-portal-helpers";
 import { fakeRefusal, fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
-import { handleIngestRead, handleIngestUpload, pageKey, pagesIndexKey, pageTablesKey, rawKey } from "../src/lib/ingest/vault";
+import { handleIngestRead, handleIngestUpload, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey } from "../src/lib/ingest/vault";
 import { VISION_PARAMS, visionOrdinal, visionPageKey } from "@orrn/ingest";
 
 let env: TestEnv;
@@ -196,7 +196,7 @@ describe("vision.readPage", () => {
     expect(got).toMatchObject({ readState: "reading", blockCount: 2, rowCount: 4 });
     const [b0, b1] = got.blocks;
     expect(b0).toMatchObject({ ordinal: visionOrdinal(1, 0), sheetName: null, title: "Party list", headerRow: 0, headerRows: 1, readBy: "model", modelChecked: false, rowCount: 3, rowsPut: 3, headers: ["Party name", "City"] });
-    expect(b0!.vision).toEqual({ page: 1, table: 0, pageCount: 2, rowConfidence: [0.95, 0.4, 0.6], lowRows: [1, 2] });
+    expect(b0!.vision).toEqual({ page: 1, table: 0, pageCount: 2, rowConfidence: [0.95, 0.4, 0.6], lowRows: [1, 2], unseen: [], bands: null });
     expect(b1).toMatchObject({ ordinal: visionOrdinal(1, 1), readBy: "model", rowCount: 1 });
     expect(b0!.candidates).toHaveLength(1);
     expect(b0!.candidates[0]!.counts.total).toBe(3);
@@ -204,7 +204,7 @@ describe("vision.readPage", () => {
       .prepare("select reader_facts from ingest_block where id = ?")
       .bind(b0!.id)
       .first<{ reader_facts: string }>();
-    expect(JSON.parse(stored!.reader_facts).vision).toEqual({ page: 1, table: 0, pageCount: 2, rowConfidence: [0.95, 0.4, 0.6], tables: 2 });
+    expect(JSON.parse(stored!.reader_facts).vision).toEqual({ page: 1, table: 0, pageCount: 2, rowConfidence: [0.95, 0.4, 0.6], tables: 2, unseen: [] });
     const staged = await env.d1.prepare("select count(*) as n from ingest_staged_row where candidate_id = ? and state = 'pending'").bind(b0!.candidates[0]!.id).first<{ n: number }>();
     expect(Number(staged?.n)).toBe(3);
     const tablesFile = JSON.parse(await (await bucket.get(pageTablesKey(f.p.companyId, f.sha, 1)))!.text());
@@ -363,7 +363,7 @@ describe("skip, type and complete", () => {
     const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
     const typedBlock = got.blocks.find((b) => b.ordinal === visionOrdinal(2, 0))!;
     expect(typedBlock).toMatchObject({ readBy: "parser", title: "Typed", rowCount: 1, modelChecked: false });
-    expect(typedBlock.vision).toEqual({ page: 2, table: 0, pageCount: 3, rowConfidence: [], lowRows: [], typed: true });
+    expect(typedBlock.vision).toEqual({ page: 2, table: 0, pageCount: 3, rowConfidence: [], lowRows: [], unseen: [], bands: null, typed: true });
 
     expect(await f.p.owner.ingest.artifact.complete({ artifactId: f.artifactId })).toEqual({ canonicalUploads: [] });
     expect(await f.p.owner.ingest.artifact.complete({ artifactId: f.artifactId })).toEqual({ canonicalUploads: [] });
@@ -478,5 +478,63 @@ describe("vision.readUrl", () => {
     await expect(other.owner.ingest.vision.readUrl({ artifactId: f.artifactId, what: "raw" })).rejects.toThrow("Import file not found");
     // A viewer of the file page (merge) may read it.
     expect((await f.p.as("admin").ingest.vision.readUrl({ artifactId: f.artifactId, what: "raw" })).url).toContain("ticket=");
+  });
+});
+
+describe("text-layer digit check (contract section 11.5)", () => {
+  test("start hands text tickets for a text PDF only; the text goes up as JSON by the real route", async () => {
+    const scan = await started(2);
+    expect(scan.out.texts).toEqual([]);
+
+    const f = await keptFile({ kind: "pdf_text" });
+    setShapeClientForTests(new FakeShapeClient([]));
+    const out = await f.p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 2 });
+    expect(out.texts.map((t) => t.page)).toEqual([1, 2]);
+    const body = new TextEncoder().encode(JSON.stringify({ v: 1, items: ["Party name", "Rajkot 120"] }));
+    const res = await handleIngestUpload(new Request(out.texts[0]!.url, { method: "PUT", body, headers: { "content-length": String(body.byteLength) } }), { bucket: routeBucket() });
+    expect(res.status).toBe(200);
+    const stored = await bucket.head(pageTextKey(f.p.companyId, f.sha, 1));
+    expect(stored?.httpMetadata?.contentType).toBe("application/json");
+    const big = await handleIngestUpload(new Request(out.texts[1]!.url, { method: "PUT", body, headers: { "content-length": String(VISION_PARAMS.maxPageTextBytes + 1) } }), { bucket: routeBucket() });
+    expect(big.status).toBe(413);
+    // Only the missing text is asked for again.
+    expect((await f.p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 2 })).texts.map((t) => t.page)).toEqual([2]);
+  });
+
+  test("a cell whose digits are not in the page's text is marked; missing text means no marks", async () => {
+    const f = await started(2, 2, { kind: "pdf_text" });
+    const put = (n: number, items: string[]) => bucket.put(pageTextKey(f.p.companyId, f.sha, n), JSON.stringify({ v: 1, items }));
+    await put(1, ["Party name City Bundles", "Nova Metals", "1,23,456", "Om Alloys 2100"]);
+    const t = table({ headers: ["Party", "Bundles"], rows: [["Nova Metals", "123456"], ["Om Alloys", "210"], ["Sai 12", "7"]], rowConfidence: [0.9, 0.9, 0.9] });
+    setShapeClientForTests(new FakeShapeClient([sonnet(tables(t)), sonnet(tables(t))]));
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "read" });
+    // Page 2 sent no text: no marks.
+    expect(await read(f.p.owner, f.artifactId, 2)).toMatchObject({ state: "read" });
+    const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
+    const [b1, b2] = got.blocks;
+    // "123456" is in the text as 1,23,456; "210" is only part of "2100"; "12" and "7" are nowhere.
+    expect(b1!.vision!.unseen).toEqual([
+      [1, 1],
+      [2, 0],
+      [2, 1],
+    ]);
+    expect(b2!.vision!.unseen).toEqual([]);
+
+    // A person fixes a marked cell: its mark goes, the others stay.
+    const c = await f.p.owner.ingest.candidate.get({ candidateId: b1!.candidates[0]!.id });
+    const fixed = await f.p.owner.ingest.vision.fixCell({ candidateId: c.id, expectSeq: c.serverSeq, rowIndex: 1, col: 1, text: "2100" });
+    expect(fixed.block.vision!.unseen).toEqual([
+      [2, 0],
+      [2, 1],
+    ]);
+  });
+
+  test("a scan never gets marks, even with a text object in the vault", async () => {
+    const f = await started(1);
+    await bucket.put(pageTextKey(f.p.companyId, f.sha, 1), JSON.stringify({ v: 1, items: [] }));
+    setShapeClientForTests(new FakeShapeClient([sonnet(tables(table()))]));
+    await read(f.p.owner, f.artifactId, 1);
+    const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
+    expect(got.blocks[0]!.vision!.unseen).toEqual([]);
   });
 });

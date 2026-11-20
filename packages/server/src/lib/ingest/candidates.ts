@@ -2266,16 +2266,24 @@ export async function visionFixCell(
       meta: { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from, to: text },
     }),
   ];
-  // The block's sample shows the first rows: it shows the fixed cell too.
+  // The block's sample shows the first rows: it shows the fixed cell too. A person typed the cell, so its
+  // text-layer mark (contract section 11.5) goes.
+  const blockSet: Partial<typeof ingestBlock.$inferInsert> = {};
   if (input.rowIndex < block.sample.length) {
-    const sample = block.sample.map((r, i) => {
+    blockSet.sample = block.sample.map((r, i) => {
       if (i !== input.rowIndex) return r;
       const next = [...r];
       while (next.length <= input.col) next.push("");
       next[input.col] = text;
       return next;
     });
-    statements.push(ctx.db.update(ingestBlock).set({ sample }).where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId))));
+  }
+  const vision = block.readerFacts?.vision;
+  if (vision?.unseen?.some(([r, col]) => r === input.rowIndex && col === input.col)) {
+    blockSet.readerFacts = { ...block.readerFacts!, vision: { ...vision, unseen: vision.unseen.filter(([r, col]) => !(r === input.rowIndex && col === input.col)) } };
+  }
+  if (Object.keys(blockSet).length > 0) {
+    statements.push(ctx.db.update(ingestBlock).set(blockSet).where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId))));
   }
   try {
     await guardedBatch(ctx.db, statements);

@@ -242,7 +242,8 @@ export function visionView(b: Pick<BlockRow, "readerFacts">): BlockVisionView | 
     .filter((x) => x.c < VISION_PARAMS.lowConfidence)
     .sort((a, b) => a.c - b.c || a.i - b.i)
     .map((x) => x.i);
-  return { page: v.page, table: v.table, pageCount: v.pageCount, rowConfidence, lowRows, ...(v.typed ? { typed: true } : {}) };
+  const unseen = Array.isArray(v.unseen) ? v.unseen.filter((c) => Array.isArray(c) && c.length === 2) : [];
+  return { page: v.page, table: v.table, pageCount: v.pageCount, rowConfidence, lowRows, unseen, bands: v.bands ?? null, ...(v.typed ? { typed: true } : {}) };
 }
 
 // ---------------------------------------------------------------------------
