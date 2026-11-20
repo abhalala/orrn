@@ -240,7 +240,8 @@ export async function readIngestReadTicket(text: string, now: number = Date.now(
   if (ticket.as === "raw") {
     if (ticket.key !== `${prefix}/raw`) return null;
   } else if (ticket.as === "page") {
-    if (!/^\/pages\/[1-9]\d{0,3}\.jpg$/.test(ticket.key.slice(prefix.length))) return null;
+    // A page image, or the image of one band of a page (contract section 11.3).
+    if (!/^\/pages\/[1-9]\d{0,3}(\/b[1-9])?\.jpg$/.test(ticket.key.slice(prefix.length))) return null;
   } else {
     return null;
   }

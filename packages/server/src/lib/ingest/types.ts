@@ -210,19 +210,32 @@ export type VisionNotReadReason = (typeof VISION_NOT_READ_REASONS)[number];
 
 /**
  * One page of a file read page by page (contract section 7). `next`: "retry" while `vision.readPage`
- * should be called again (a retry or a rebuild is due), "manual" when a person types or skips it,
- * "done" when settled, null when the model was not asked yet or the image is missing. `attempts`:
- * model calls made for the page. `tables`: tables of the page (blocks when read).
+ * should be called again (a retry, the next band or a rebuild is due), "band" when a scan or photo read
+ * whole is too dense and the browser cuts it into bands (`vision.bandTickets`, section 11.3), "manual"
+ * when a person types or skips it, "done" when settled, null when the model was not asked yet or the
+ * image is missing. `attempts`: model calls made for the page (bands included). `tables`: tables of the
+ * page (blocks when read). `bands`: while the page is read in bands, how many there are, how many are
+ * read and the band `readPage` reads next (null when all are read); null for a page read whole.
+ * `bandHeaders`: with `next: "band"`, the headers of the dense table, or null when the answer was cut off.
  */
 export type VisionPageView = {
   page: number;
   state: VisionPageState;
   reason: VisionNotReadReason | null;
   canRetry: boolean;
-  next: "retry" | "manual" | "done" | null;
+  next: "retry" | "band" | "manual" | "done" | null;
   attempts: number;
   blockIds: string[];
   tables: number;
+  bands: { total: number; read: number; next: number | null } | null;
+  bandHeaders: string[] | null;
+};
+
+/** `vision.bandTickets`: one upload ticket per band of the page that has no image yet. */
+export type VisionBandTicketsOut = {
+  page: number;
+  total: number;
+  uploads: { band: number; url: string; ticket: string; expiresAt: number }[];
 };
 
 /** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most `VISION_PARAMS.maxPagesPerFile`). */

@@ -101,3 +101,48 @@ describe("text-layer digit check (pure)", () => {
     expect(unseenCells([["210"]], null)).toEqual([]);
   });
 });
+
+describe("derivePage: bands (contract section 11.3)", () => {
+  const item = (over: Partial<{ hasImage: boolean; hasTables: boolean; history: BotRunHistoryRow[] }> = {}) => ({ hasImage: true, hasTables: false, history: [] as BotRunHistoryRow[], ...over });
+  const done = () => item({ hasTables: true, history: [run("recipe")] });
+
+  test("a dense scan read whole goes to bands with its headers; a text PDF builds its blocks", () => {
+    const dense = { history: [run("recipe")], hasTables: true, tablesInFile: 1, largest: { rows: 101, headers: ["A", "B"] } };
+    expect(derivePage(facts({ ...dense, bandable: true }))).toMatchObject({ state: "ready", next: "band", bandHeaders: ["A", "B"], bands: null });
+    expect(derivePage(facts({ ...dense, bandable: false }))).toMatchObject({ state: "ready", next: "retry", bandHeaders: null });
+    // At the threshold it is not dense.
+    expect(derivePage(facts({ ...dense, largest: { rows: 100, headers: ["A"] }, bandable: true }))).toMatchObject({ next: "retry" });
+  });
+
+  test("a cut-off scan goes to bands at once with no headers; a text PDF keeps its retry and then too_long", () => {
+    const cut = run("invalid", ["output:truncated"]);
+    expect(derivePage(facts({ history: [cut], bandable: true }))).toMatchObject({ state: "ready", next: "band", bandHeaders: null });
+    expect(derivePage(facts({ history: [cut] }))).toMatchObject({ state: "ready", next: "retry" });
+    expect(derivePage(facts({ history: [cut, cut] }))).toMatchObject({ reason: "too_long" });
+  });
+
+  test("bands are read in order: waiting for an image, the next band, then the merge", () => {
+    const band = (items: ReturnType<typeof item>[], band1Tables: number | null = null) => ({ total: items.length, items, band1Tables });
+    // The whole-page history no longer decides anything, but its calls still count.
+    const whole = { history: [run("recipe")], hasTables: true, bandable: true };
+    expect(derivePage(facts({ ...whole, band: band([item({ hasImage: false }), item({ hasImage: false })]) }))).toMatchObject({ state: "waiting", next: null, attempts: 1, bands: { total: 2, read: 0, next: 1 } });
+    expect(derivePage(facts({ ...whole, band: band([item(), item()]) }))).toMatchObject({ state: "ready", next: null, bands: { total: 2, read: 0, next: 1 } });
+    expect(derivePage(facts({ ...whole, band: band([done(), item()], 2) }))).toMatchObject({ state: "ready", next: "retry", tables: 2, attempts: 2, bands: { total: 2, read: 1, next: 2 } });
+    expect(derivePage(facts({ ...whole, band: band([done(), item({ hasImage: false })], 2) }))).toMatchObject({ state: "waiting", bands: { next: 2 } });
+    // Every band read and no block yet: the next readPage merges, with no call.
+    expect(derivePage(facts({ band: band([done(), done(), done()], 2) }))).toMatchObject({ state: "ready", next: "retry", tables: 2, bands: { total: 3, read: 3, next: null } });
+    // Read only when every table is a block.
+    expect(derivePage(facts({ band: band([done(), done()], 2), blocks: [model("a", 2)] }))).toMatchObject({ state: "ready", next: "retry" });
+    expect(derivePage(facts({ band: band([done(), done()], 2), blocks: [model("a", 2), model("b", 2)] }))).toMatchObject({ state: "read", next: "done", bands: { read: 2, next: null } });
+  });
+
+  test("a band follows the Sonnet plan on its own key; a manual band makes the page manual", () => {
+    const band = (items: ReturnType<typeof item>[]) => ({ total: items.length, items, band1Tables: 1 });
+    expect(derivePage(facts({ band: band([done(), item({ history: [run("invalid", ["vision:band_width"])] })]) }))).toMatchObject({ state: "ready", next: "retry" });
+    expect(derivePage(facts({ band: band([done(), item({ history: [run("invalid"), run("invalid")] })]) }))).toMatchObject({ state: "not_read", reason: "invalid", next: "manual" });
+    expect(derivePage(facts({ band: band([item({ history: [run("no_target")] }), item()]) }))).toMatchObject({ reason: "no_table" });
+    expect(derivePage(facts({ band: band([done(), item({ history: [run("capped", ["cap:day_cost"])] })]) }))).toMatchObject({ reason: "cap_day_cost", canRetry: true });
+    // A full file is manual before any band call.
+    expect(derivePage(facts({ band: band([item(), item()]), fileBlocks: 50 }))).toMatchObject({ reason: "too_many_tables" });
+  });
+});

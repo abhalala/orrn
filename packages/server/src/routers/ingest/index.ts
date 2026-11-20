@@ -29,6 +29,7 @@ import type {
   VisionPageView,
   VisionReadUrlOut,
   VisionStartOut,
+  VisionBandTicketsOut,
 } from "../../lib/ingest/types";
 import {
   answerSetInput,
@@ -59,7 +60,9 @@ import {
   shapeSaveInput,
   visionCheckInput,
   visionFixCellInput,
+  visionBandTicketsInput,
   visionPageInput,
+  visionReadPageInput,
   visionReadUrlInput,
   visionStartInput,
   visionTypePageInput,
@@ -101,7 +104,7 @@ import {
   visionFixCell,
 } from "../../lib/ingest/candidates";
 import { dryRunStep } from "../../lib/ingest/dryrun";
-import { visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
+import { visionBandTickets, visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
 import { mergeEngine } from "../../lib/ingest/engines";
 import type { IngestCtx } from "../../lib/ingest/types";
 
@@ -164,7 +167,8 @@ export const ingestRouter = router({
    */
   vision: router({
     start: U.input(visionStartInput).mutation(({ ctx, input }): Promise<VisionStartOut> => visionStart(ix(ctx), input)),
-    readPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionReadPage(ix(ctx), input)),
+    readPage: U.input(visionReadPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionReadPage(ix(ctx), input)),
+    bandTickets: U.input(visionBandTicketsInput).mutation(({ ctx, input }): Promise<VisionBandTicketsOut> => visionBandTickets(ix(ctx), input)),
     pages: R.input(artifactIdInput).query(({ ctx, input }): Promise<VisionPagesOut> => visionPages(ix(ctx), input)),
     skipPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionSkipPage(ix(ctx), input)),
     typePage: U.input(visionTypePageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionTypePage(ix(ctx), input)),

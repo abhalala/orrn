@@ -247,6 +247,10 @@ const visionCell = z.string().max(L.cellChars);
 
 export const visionStartInput = z.object({ artifactId: id, pageCount: z.number().int().min(1).max(10_000) });
 export const visionPageInput = z.object({ artifactId: id, page: visionPage });
+const visionBand = z.number().int().min(1).max(VISION_PARAMS.maxBandsPerPage);
+/** `band`: read that band of a page cut into bands (contract section 11.3); left out, the next band. */
+export const visionReadPageInput = z.object({ artifactId: id, page: visionPage, band: visionBand.optional() });
+export const visionBandTicketsInput = z.object({ artifactId: id, page: visionPage, bands: z.number().int().min(2).max(VISION_PARAMS.maxBandsPerPage) });
 export const visionTypePageInput = z.object({
   artifactId: id,
   page: visionPage,
@@ -256,7 +260,7 @@ export const visionTypePageInput = z.object({
 });
 export const visionReadUrlInput = z.discriminatedUnion("what", [
   z.object({ artifactId: id, what: z.literal("raw") }),
-  z.object({ artifactId: id, what: z.literal("page"), page: visionPage }),
+  z.object({ artifactId: id, what: z.literal("page"), page: visionPage, band: visionBand.optional() }),
 ]);
 export const visionCheckInput = z.object({ candidateId: id, expectSeq: seq, checked: z.boolean() });
 export const visionFixCellInput = z.object({

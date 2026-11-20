@@ -12,7 +12,7 @@
  * Every procedure answers through it, so the web loops on `next === "retry"` only while the next
  * `readPage` will change what is stored (a model call or a rebuild of blocks from `pages/<n>.tables.json`).
  */
-import { fitBlock, headerKey, inferKinds, normalizeHeaders, VISION_PARAMS, visionOrdinal, visionPageKey } from "@orrn/ingest";
+import { fitBlock, headerKey, inferKinds, normalizeHeaders, VISION_PARAMS, visionBandKey, visionOrdinal, visionPageKey } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
@@ -27,7 +27,7 @@ import { countCalls, historyOutcome, planVision, runVisionAttempt, SONNET, shape
 import { capSample, fitDiffJson, learnedHoles, stateForFit } from "./candidates";
 import { guardedBatch, ingestAbortUnlessChanged, isIngestAbort, loadArtifact, MOVED, type ArtifactRow, type StoredVision } from "./core";
 import { anthropicEnv, botRunStore } from "./engines";
-import { artifactPrefix, ingestVault, issueReadTicket, issueTicket, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey, vaultReady } from "./vault";
+import { artifactPrefix, bandKey, bandTablesKey, ingestVault, issueReadTicket, issueTicket, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NO_STORAGE,
@@ -41,6 +41,7 @@ import {
   KEPT_UNREAD_NOT_READ,
   isVisualKind,
   type IngestCtx,
+  type VisionBandTicketsOut,
   type VisionNotReadReason,
   type VisionPagesOut,
   type VisionPageView,
@@ -52,7 +53,14 @@ import {
 // Page index (contract section 5)
 // ---------------------------------------------------------------------------
 
-export type PagesIndex = { v: 1; pageCount: number; planned: number; skipped: number[]; startedBy: string; startedAt: number };
+/** `bands`: page number to the bands it is cut into (contract section 11.3), set once by `vision.bandTickets`. */
+export type PagesIndex = { v: 1; pageCount: number; planned: number; skipped: number[]; startedBy: string; startedAt: number; bands?: Record<string, number> };
+
+/** The bands a page is cut into, or 0 when it is read whole. */
+const bandsOf = (index: PagesIndex, page: number): number => {
+  const n = index.bands?.[String(page)];
+  return Number.isInteger(n) && n! >= 2 && n! <= VISION_PARAMS.maxBandsPerPage ? n! : 0;
+};
 
 export type PageTablesFile = { v: 1; runId: string; model: string; tables: VisionTable[] };
 
@@ -173,6 +181,12 @@ export function mergeBands(first: readonly VisionTable[], rest: readonly (readon
 
 export type PageBlock = { id: string; readBy: "parser" | "model"; typed: boolean; tables: number };
 
+/** One band of a page cut into bands: its image, its tables object and its run rows (`visionBandKey`). */
+export type BandItemFacts = { hasImage: boolean; hasTables: boolean; history: readonly BotRunHistoryRow[] };
+
+/** A page cut into bands. `band1Tables`: tables in band 1's tables object, when it was read. */
+export type BandFacts = { total: number; items: readonly BandItemFacts[]; band1Tables: number | null };
+
 /** Everything the state of one page is derived from. */
 export type PageFacts = {
   page: number;
@@ -188,6 +202,12 @@ export type PageFacts = {
   skipped: boolean;
   /** Blocks of the whole file. */
   fileBlocks: number;
+  /** A scan or photo: a dense or cut-off whole-page read goes to bands (section 11.3). A text PDF never does. */
+  bandable?: boolean;
+  /** The table of the tables object with the most rows, when the object was read. */
+  largest?: { rows: number; headers: string[] } | null;
+  /** The page is cut into bands: the whole-page tables object and run rows no longer count. */
+  band?: BandFacts | null;
 };
 
 const CAP_REASON: Record<string, VisionNotReadReason> = {
@@ -196,62 +216,33 @@ const CAP_REASON: Record<string, VisionNotReadReason> = {
   "cap:day_cost": "cap_day_cost",
 };
 
+type PlanView = Pick<VisionPageView, "state" | "reason" | "canRetry" | "next">;
+
+const lastCall = (history: readonly BotRunHistoryRow[]) => history.filter((h) => h.outcome !== "capped").at(-1);
+
+/** A band is read when its last call was a recipe and its tables reached the vault. */
+const bandRead = (b: BandItemFacts) => b.hasTables && lastCall(b.history)?.outcome === "recipe";
+
 /**
- * The view of one page (pure). Settled first (typed, all tables read, skipped), then the run plan.
- * `next: "retry"` comes back only when the next `readPage` makes a call or rebuilds blocks; a file with
- * no room for the page's tables, and a `recipe` run whose tables never reached the vault, are manual.
+ * The plan of one run key (the whole page or one band) with no stored tables of a recipe run: waiting
+ * for the image, the next call, or not read with its reason.
  */
-export function derivePage(f: PageFacts): VisionPageView {
-  const attempts = countCalls(f.history);
-  const blockIds = f.blocks.map((b) => b.id);
-  const view = (v: Pick<VisionPageView, "state" | "reason" | "canRetry" | "next"> & { tables?: number }): VisionPageView => ({
-    page: f.page,
-    attempts,
-    blockIds,
-    tables: v.tables ?? f.blocks.length,
-    state: v.state,
-    reason: v.reason,
-    canRetry: v.canRetry,
-    next: v.next,
-  });
-  const notRead = (reason: VisionNotReadReason, canRetry = false) => view({ state: "not_read", reason, canRetry, next: "manual" });
-
-  if (f.blocks.some((b) => b.typed)) return view({ state: "typed", reason: null, canRetry: false, next: "done" });
-  const model = f.blocks.filter((b) => b.readBy === "model");
-  const expected = Math.max(0, ...model.map((b) => b.tables));
-  if (model.length > 0 && model.length >= expected) return view({ state: "read", reason: null, canRetry: false, next: "done" });
-  if (f.skipped) return view({ state: "skipped", reason: null, canRetry: false, next: "done" });
-
-  const room = INGEST_LIMITS.blocksPerFile - f.fileBlocks;
-  if (model.length > 0) {
-    // Part of the page's tables are blocks: the rest are rebuilt from the tables object.
-    const missing = (f.tablesInFile ?? expected) - model.length;
-    if (!f.hasTables) return notRead("error");
-    if (missing > room) return notRead("too_many_tables");
-    return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: f.tablesInFile ?? expected });
-  }
-
-  const calls = f.history.filter((h) => h.outcome !== "capped");
-  const lastReal = calls.at(-1);
-  if (lastReal?.outcome === "recipe" && f.hasTables) {
-    const n = f.tablesInFile ?? 0;
-    if (n > room) return notRead("too_many_tables");
-    return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: n });
-  }
-  if (!f.hasImage) return view({ state: "waiting", reason: null, canRetry: false, next: null, tables: 0 });
+function planKey(history: readonly BotRunHistoryRow[], hasImage: boolean, hasTables: boolean, room: number): PlanView {
+  const notRead = (reason: VisionNotReadReason, canRetry = false): PlanView => ({ state: "not_read", reason, canRetry, next: "manual" });
+  if (!hasImage) return { state: "waiting", reason: null, canRetry: false, next: null };
   if (room <= 0) return notRead("too_many_tables");
-
-  // A recipe run whose tables never reached the vault is not a done page; it counts as an error.
-  const orphan = lastReal?.outcome === "recipe" && !f.hasTables;
-  const history = orphanHistory(f.history, orphan);
-  const last = f.history.at(-1);
+  const calls = history.filter((h) => h.outcome !== "capped");
+  // A recipe run whose tables never reached the vault is not a done read; it counts as an error.
+  const orphan = calls.at(-1)?.outcome === "recipe" && !hasTables;
+  const seen = orphanHistory(history, orphan);
+  const last = history.at(-1);
   if (last?.outcome === "capped") return notRead(CAP_REASON[(last.errorCodes ?? [])[0] ?? ""] ?? "cap_day_calls", true);
-  const plan = planVision(history, SONNET);
+  const plan = planVision(seen, SONNET);
   if (plan.next === "retry" || plan.next === "escalate") {
     if (orphan) return notRead("error", true);
-    return view({ state: "ready", reason: null, canRetry: false, next: calls.length === 0 ? null : "retry", tables: 0 });
+    return { state: "ready", reason: null, canRetry: false, next: calls.length === 0 ? null : "retry" };
   }
-  const real = history.filter((h) => h.outcome !== "capped");
+  const real = seen.filter((h) => h.outcome !== "capped");
   const end = real.at(-1);
   if (!end) return notRead("error");
   if (end.outcome === "no_target") return notRead("no_table");
@@ -262,6 +253,84 @@ export function derivePage(f: PageFacts): VisionPageView {
     return notRead(truncated ? "too_long" : "invalid");
   }
   return notRead("error");
+}
+
+/**
+ * The view of one page (pure). Settled first (typed, all tables read, skipped), then the run plan.
+ * `next: "retry"` comes back only when the next `readPage` makes a call or builds blocks; a file with
+ * no room for the page's tables, and a `recipe` run whose tables never reached the vault, are manual.
+ * A page cut into bands reads band by band in order and builds its blocks when every band is read.
+ */
+export function derivePage(f: PageFacts): VisionPageView {
+  const band = f.band ?? null;
+  const attempts = countCalls([...f.history, ...(band?.items.flatMap((b) => b.history) ?? [])]);
+  const blockIds = f.blocks.map((b) => b.id);
+  const firstUnread = band ? band.items.findIndex((b) => !bandRead(b)) : -1;
+  const bands = band ? { total: band.total, read: band.items.filter(bandRead).length, next: firstUnread >= 0 ? firstUnread + 1 : null } : null;
+  const view = (v: PlanView & { tables?: number; bandHeaders?: string[] | null }): VisionPageView => ({
+    page: f.page,
+    attempts,
+    blockIds,
+    tables: v.tables ?? f.blocks.length,
+    state: v.state,
+    reason: v.reason,
+    canRetry: v.canRetry,
+    next: v.next,
+    bands,
+    bandHeaders: v.bandHeaders ?? null,
+  });
+  const notRead = (reason: VisionNotReadReason, canRetry = false) => view({ state: "not_read", reason, canRetry, next: "manual" });
+
+  if (f.blocks.some((b) => b.typed)) return view({ state: "typed", reason: null, canRetry: false, next: "done" });
+  const model = f.blocks.filter((b) => b.readBy === "model");
+  const expected = Math.max(0, ...model.map((b) => b.tables));
+  if (model.length > 0 && model.length >= expected) return view({ state: "read", reason: null, canRetry: false, next: "done" });
+  if (f.skipped) return view({ state: "skipped", reason: null, canRetry: false, next: "done" });
+
+  const room = INGEST_LIMITS.blocksPerFile - f.fileBlocks;
+  if (band) {
+    const n = band.band1Tables ?? expected;
+    if (model.length > 0) {
+      // Part of the page's tables are blocks: the rest are built again from the bands' tables objects.
+      if (bands!.next !== null) return notRead("error");
+      if (n - model.length > room) return notRead("too_many_tables");
+      return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: n });
+    }
+    if (bands!.next === null) {
+      // Every band is read: the next readPage merges them and builds the blocks, with no call.
+      if (n > room) return notRead("too_many_tables");
+      return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: n });
+    }
+    const b = band.items[bands!.next - 1]!;
+    const plan = planKey(b.history, b.hasImage, b.hasTables, room);
+    // Band 2..K waits for nothing but its image once band 1 is read: it is the next call.
+    const next = plan.state === "ready" && bands!.read > 0 ? "retry" : plan.next;
+    return view({ ...plan, next, tables: band.band1Tables ?? 0 });
+  }
+
+  if (model.length > 0) {
+    // Part of the page's tables are blocks: the rest are rebuilt from the tables object.
+    const missing = (f.tablesInFile ?? expected) - model.length;
+    if (!f.hasTables) return notRead("error");
+    if (missing > room) return notRead("too_many_tables");
+    return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: f.tablesInFile ?? expected });
+  }
+
+  const lastReal = lastCall(f.history);
+  if (lastReal?.outcome === "recipe" && f.hasTables) {
+    const n = f.tablesInFile ?? 0;
+    // A scan or photo with a table past the threshold is read again in bands (section 11.3).
+    if (f.bandable && (f.largest?.rows ?? 0) > VISION_PARAMS.bandRowThreshold) {
+      return view({ state: "ready", reason: null, canRetry: false, next: "band", tables: n, bandHeaders: f.largest!.headers });
+    }
+    if (n > room) return notRead("too_many_tables");
+    return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: n });
+  }
+  // A scan or photo whose whole-page answer was cut off is read in bands instead of again whole.
+  if (f.bandable && f.hasImage && lastReal?.outcome === "invalid" && (lastReal.errorCodes ?? []).includes("output:truncated") && f.history.at(-1)?.outcome !== "capped") {
+    return view({ state: "ready", reason: null, canRetry: false, next: "band", tables: 0, bandHeaders: null });
+  }
+  return view({ ...planKey(f.history, f.hasImage, f.hasTables, room), tables: 0 });
 }
 
 /** The history the planner sees when a recipe run's tables never reached the vault: those runs are errors. */
@@ -292,14 +361,25 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
     if (!listed.truncated) break;
     cursor = listed.cursor;
   }
-  const runKeys = pages.map((p) => visionPageKey(a.id, p));
-  const runs = runKeys.length
-    ? await ctx.db
-        .select({ blockId: ingestBotRun.blockId, attempt: ingestBotRun.attempt, model: ingestBotRun.model, outcome: ingestBotRun.outcome, errorCodes: ingestBotRun.errorCodes })
+  // The page keys and, for a page cut into bands, its band keys. Up to 30 x 5 keys: the IN list is cut
+  // into parts under D1's 100 bound parameters.
+  const runKeys = pages.flatMap((p) => [visionPageKey(a.id, p), ...Array.from({ length: bandsOf(index.index, p) }, (_, k) => visionBandKey(a.id, p, k + 1))]);
+  type RunRow = { blockId: string; attempt: number; model: string; outcome: string; errorCodes: string[] | null; createdAt: Date };
+  const runs: RunRow[] = [];
+  for (let i = 0; i < runKeys.length; i += 90) {
+    const part = runKeys.slice(i, i + 90);
+    runs.push(
+      ...((await ctx.db
+        .select({ blockId: ingestBotRun.blockId, attempt: ingestBotRun.attempt, model: ingestBotRun.model, outcome: ingestBotRun.outcome, errorCodes: ingestBotRun.errorCodes, createdAt: ingestBotRun.createdAt })
         .from(ingestBotRun)
-        .where(and(eq(ingestBotRun.companyId, ctx.companyId), eq(ingestBotRun.purpose, "vision"), inArray(ingestBotRun.blockId, runKeys)))
-        .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt))
-    : [];
+        .where(and(eq(ingestBotRun.companyId, ctx.companyId), eq(ingestBotRun.purpose, "vision"), inArray(ingestBotRun.blockId, part)))
+        .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt))) as RunRow[]),
+    );
+  }
+  const historyOf = (key: string) =>
+    runs
+      .filter((r) => r.blockId === key)
+      .map((r) => ({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome as never), errorCodes: r.errorCodes }));
   const blocks = await ctx.db
     .select({ id: ingestBlock.id, ordinal: ingestBlock.ordinal, readBy: ingestBlock.readBy, readerFacts: ingestBlock.readerFacts })
     .from(ingestBlock)
@@ -309,8 +389,19 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
   const skipped = new Set(index.index.skipped);
   const facts: PageFacts[] = [];
   for (const p of pages) {
-    const key = visionPageKey(a.id, p);
-    const history = runs.filter((r) => r.blockId === key).map((r) => ({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome), errorCodes: r.errorCodes }));
+    const history = historyOf(visionPageKey(a.id, p));
+    const total = bandsOf(index.index, p);
+    const band: BandFacts | null = total
+      ? {
+          total,
+          items: Array.from({ length: total }, (_, k) => ({
+            hasImage: keys.has(bandKey(ctx.companyId, a.sha256, p, k + 1)),
+            hasTables: keys.has(bandTablesKey(ctx.companyId, a.sha256, p, k + 1)),
+            history: historyOf(visionBandKey(a.id, p, k + 1)),
+          })),
+          band1Tables: null,
+        }
+      : null;
     const onPage = blockRows
       .filter((b) => b.vision?.page === p)
       .map((b) => ({ id: b.id, readBy: b.readBy, typed: b.vision?.typed === true, tables: b.vision?.tables ?? 1 }));
@@ -325,13 +416,25 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
       skipped: skipped.has(p),
       // The stored count moves with every block written (and is what the write guard checks).
       fileBlocks: Math.max(blocks.length, a.blockCount ?? 0),
+      bandable: a.kind !== "pdf_text",
+      largest: null,
+      band,
     };
-    // The tables object is read only for a page whose blocks are not all there yet (rare).
-    if (hasTables && !isSettled(derivePage(f))) {
+    // A tables object is read only for a page whose blocks are not all there yet (rare).
+    if (band) {
+      if (band.items[0]!.hasTables && !isSettled(derivePage(f))) {
+        const got = await readJson<PageTablesFile>(bucket, bandTablesKey(ctx.companyId, a.sha256, p, 1));
+        if (got && Array.isArray(got.body?.tables)) band.band1Tables = got.body.tables.length;
+        else f.band = { ...band, items: band.items.map((b, k) => (k === 0 ? { ...b, hasTables: false } : b)) };
+      }
+    } else if (hasTables && !isSettled(derivePage(f))) {
       const got = await readJson<PageTablesFile>(bucket, pageTablesKey(ctx.companyId, a.sha256, p));
       // An object that cannot be read is as good as none: the page is not rebuilt from it.
-      if (got && Array.isArray(got.body?.tables)) f.tablesInFile = got.body.tables.length;
-      else f.hasTables = false;
+      if (got && Array.isArray(got.body?.tables)) {
+        f.tablesInFile = got.body.tables.length;
+        const big = got.body.tables[bandedTableIndex(got.body.tables)];
+        f.largest = big ? { rows: big.rows.length, headers: big.headers } : null;
+      } else f.hasTables = false;
     }
     facts.push(f);
   }
@@ -420,7 +523,8 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
   const uploads: VisionStartOut["uploads"] = [];
   for (let p = 1; p <= index.index.planned; p++) {
     const key = pageKey(ctx.companyId, a.sha256, p);
-    if (have.has(key)) continue;
+    // A page cut into bands sends its bands instead (`vision.bandTickets`).
+    if (have.has(key) || bandsOf(index.index, p) > 0) continue;
     const t = await issueTicket(ctx, {
       purpose: "ingest-page",
       companyId: ctx.companyId,
@@ -488,13 +592,16 @@ function pageStore(base: BotRunStore, orphan: boolean): BotRunStore {
   return { ...base, listBlockRuns: async (args) => orphanHistory(await base.listBlockRuns(args), true) };
 }
 
-export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string; page: number }): Promise<VisionPageView> {
+export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string; page: number; band?: number }): Promise<VisionPageView> {
   const { a, bucket, index } = await readingFile(ctx, input.artifactId);
   plannedPage(index.index, input.page);
   const facts = await loadFacts(ctx, bucket, a, index, input.page);
   const f = facts.facts[0]!;
   const view = facts.pages[0]!;
   if (isSettled(view)) return view;
+  if (f.band) return readBand(ctx, a, bucket, index.index, f, f.band, view, input);
+  // A band of a page that is not cut into bands, or a page that waits for its bands: no call.
+  if (input.band !== undefined || view.next === "band") return view;
   if (view.state === "waiting") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
   if (view.state === "not_read" && !view.canRetry) return view;
 
@@ -540,9 +647,144 @@ export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string
       httpMetadata: { contentType: "application/json" },
       customMetadata: { companyId: ctx.companyId, artifactId: a.id },
     });
-    await insertTables(ctx, a, input.page, index.index.pageCount, result.tables);
+    // A scan or photo with a table past the threshold makes no blocks: the page is read again in bands.
+    const dense = a.kind !== "pdf_text" && result.tables.some((t) => t.rows.length > VISION_PARAMS.bandRowThreshold);
+    if (!dense) await insertTables(ctx, a, input.page, index.index.pageCount, result.tables);
   }
   return reread(ctx, input);
+}
+
+/**
+ * Contract section 11.3: one band of a page cut into bands, at most one call. Band 1 is read like a
+ * page; bands 2..K get the headers of band 1's banded table as JSON data and must answer one table that
+ * wide. When every band is read, the bands are merged and the page's blocks are built (no call).
+ */
+async function readBand(
+  ctx: IngestCtx,
+  a: ArtifactRow,
+  bucket: R2Bucket,
+  index: PagesIndex,
+  f: PageFacts,
+  band: BandFacts,
+  view: VisionPageView,
+  input: { artifactId: string; page: number; band?: number },
+): Promise<VisionPageView> {
+  if (input.band !== undefined && input.band > band.total) throw new TRPCError(MOVED);
+  const target = input.band ?? view.bands!.next;
+  if (target === null || bandRead(band.items[target - 1]!)) {
+    if (view.bands!.next === null && view.state === "ready") return mergeAndInsert(ctx, a, bucket, index, input.page, band.total, view);
+    return view;
+  }
+  const item = band.items[target - 1]!;
+  const room = INGEST_LIMITS.blocksPerFile - f.fileBlocks;
+  const plan = planKey(item.history, item.hasImage, item.hasTables, room);
+  if (plan.state === "waiting") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
+  if (plan.state === "not_read" && !plan.canRetry) return view;
+
+  // Bands 2..K need band 1's headers: until band 1 is read, they wait.
+  let headers: string[] | null = null;
+  if (target >= 2) {
+    const first = bandRead(band.items[0]!) ? await readJson<PageTablesFile>(bucket, bandTablesKey(ctx.companyId, a.sha256, input.page, 1)) : null;
+    if (!first || !Array.isArray(first.body.tables) || first.body.tables.length === 0) return view;
+    headers = first.body.tables[bandedTableIndex(first.body.tables)]!.headers;
+  }
+  const obj = await bucket.get(bandKey(ctx.companyId, a.sha256, input.page, target));
+  if (!obj) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
+  const bytes = new Uint8Array(await obj.arrayBuffer());
+  const mediaType = (obj.httpMetadata?.contentType ?? VISION_PARAMS.pageContentType) as "image/jpeg";
+  const result = await runVisionAttempt({
+    env: anthropicEnv(),
+    store: pageStore(botRunStore(ctx), lastCall(item.history)?.outcome === "recipe" && !item.hasTables),
+    companyId: ctx.companyId,
+    userId: ctx.session.user.id,
+    blockId: visionBandKey(a.id, input.page, target),
+    pageKind: a.kind === "image" ? "image" : "pdf_scan",
+    page: { mediaType, bytes },
+    vaultReady: true,
+    visualReads: true,
+    band: headers ? { index: target, total: band.total, headers } : null,
+    nowMs: () => now().getTime(),
+  });
+  if (result.status === "skipped") {
+    if (result.reason === "page_too_large" || result.reason === "unsupported_page") {
+      return { ...view, state: "not_read", reason: result.reason, canRetry: false, next: "manual" };
+    }
+    if (result.reason === "no_key" || result.reason === "vault_required") {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: result.reason === "no_key" ? KEPT_UNREAD_NOT_READ : KEPT_UNREAD_NO_STORAGE });
+    }
+    return reread(ctx, input);
+  }
+  if (result.outcome === "recipe" && result.tables) {
+    const file: PageTablesFile = { v: 1, runId: result.runId, model: result.model, tables: result.tables };
+    await bucket.put(bandTablesKey(ctx.companyId, a.sha256, input.page, target), JSON.stringify(file), {
+      httpMetadata: { contentType: "application/json" },
+      customMetadata: { companyId: ctx.companyId, artifactId: a.id },
+    });
+    const after = await reread(ctx, input);
+    if (after.bands?.next === null && after.state === "ready") return mergeAndInsert(ctx, a, bucket, index, input.page, band.total, after);
+    return after;
+  }
+  return reread(ctx, input);
+}
+
+/** Merge the bands of a page whose bands are all read and build its blocks. No call. */
+async function mergeAndInsert(ctx: IngestCtx, a: ArtifactRow, bucket: R2Bucket, index: PagesIndex, page: number, total: number, view: VisionPageView): Promise<VisionPageView> {
+  const answers: VisionTable[][] = [];
+  for (let k = 1; k <= total; k++) {
+    const got = await readJson<PageTablesFile>(bucket, bandTablesKey(ctx.companyId, a.sha256, page, k));
+    if (!got || !Array.isArray(got.body.tables)) return view;
+    answers.push(got.body.tables);
+  }
+  const merged = mergeBands(answers[0]!, answers.slice(1));
+  // Each band was checked for width when it was read, so this does not happen; it is manual if it does.
+  if (!merged) return { ...view, state: "not_read", reason: "invalid", canRetry: false, next: "manual" };
+  await insertTables(ctx, a, page, index.pageCount, merged.tables, total);
+  return reread(ctx, { artifactId: a.id, page });
+}
+
+/**
+ * Contract section 11.3: cut a page into `bands` bands (2..4) and hand one upload ticket per band with no
+ * image yet. The cut is written once into the page plan; the same count again hands the missing tickets,
+ * another count is refused as a change from another tab.
+ */
+export async function visionBandTickets(ctx: IngestCtx, input: { artifactId: string; page: number; bands: number }): Promise<VisionBandTicketsOut> {
+  const { a, bucket, index } = await readingFile(ctx, input.artifactId);
+  plannedPage(index.index, input.page);
+  const view = (await loadFacts(ctx, bucket, a, index, input.page)).pages[0]!;
+  if (view.state === "read" || view.state === "typed") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_PAGE_READ });
+  const have = bandsOf(index.index, input.page);
+  if (have && have !== input.bands) throw new TRPCError(MOVED);
+  if (!have) {
+    const body: PagesIndex = { ...index.index, bands: { ...(index.index.bands ?? {}), [String(input.page)]: input.bands } };
+    const put = await bucket.put(pagesIndexKey(ctx.companyId, a.sha256), JSON.stringify(body), {
+      onlyIf: { etagMatches: index.etag },
+      httpMetadata: { contentType: "application/json" },
+      customMetadata: { companyId: ctx.companyId, artifactId: a.id },
+    });
+    if (!put) throw new TRPCError(MOVED);
+    await guardedBatch(ctx.db, [
+      auditInsert(ctx, { action: "ingest.vision.bands", subjectType: "ingest_artifact", subjectId: a.id, meta: { page: input.page, bands: input.bands } }),
+    ]);
+  }
+  const uploads: VisionBandTicketsOut["uploads"] = [];
+  for (let k = 1; k <= input.bands; k++) {
+    const key = bandKey(ctx.companyId, a.sha256, input.page, k);
+    if (await bucket.head(key)) continue;
+    const t = await issueTicket(ctx, {
+      purpose: "ingest-page",
+      companyId: ctx.companyId,
+      userId: ctx.session.user.id,
+      artifactId: a.id,
+      sha256: a.sha256,
+      key,
+      size: VISION_PARAMS.maxPageBytes,
+      exactSize: false,
+      contentType: VISION_PARAMS.pageContentType,
+      fileName: `${input.page}-b${k}.jpg`,
+    });
+    uploads.push({ band: k, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
+  }
+  return { page: input.page, total: input.bands, uploads };
 }
 
 async function reread(ctx: IngestCtx, input: { artifactId: string; page: number }): Promise<VisionPageView> {
@@ -671,7 +913,7 @@ const isBlockUnique = (e: unknown) => {
  * guarded on its own ordinal by the unique index). The room for every missing table is checked before
  * the first. A table another tab already wrote is taken as written.
  */
-async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCount: number, tables: readonly VisionTable[]): Promise<void> {
+async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCount: number, tables: readonly VisionTable[], bands = 0): Promise<void> {
   const list = tables.slice(0, VISION_PARAMS.tablesPerPage);
   const { lo, hi } = pageOrdinals(page);
   const have = await ctx.db
@@ -703,7 +945,7 @@ async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCo
           rows: t.rows,
           readBy: "model",
           headerBy: "reader",
-          vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length, unseen: unseenCells(t.rows, items) },
+          vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length, unseen: unseenCells(t.rows, items), ...(bands ? { bands } : {}) },
         },
         at,
       )),
@@ -796,11 +1038,19 @@ export async function visionTypePage(
 // readUrl
 // ---------------------------------------------------------------------------
 
-export async function visionReadUrl(ctx: IngestCtx, input: { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number }): Promise<VisionReadUrlOut> {
+export async function visionReadUrl(
+  ctx: IngestCtx,
+  input: { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number; band?: number },
+): Promise<VisionReadUrlOut> {
   // The key is built here from the caller's company and the artifact row loaded under it.
   const a = await loadArtifact(ctx, input.artifactId);
   const bucket = needVault();
-  const key = input.what === "raw" ? rawKey(ctx.companyId, a.sha256) : pageKey(ctx.companyId, a.sha256, input.page);
+  const key =
+    input.what === "raw"
+      ? rawKey(ctx.companyId, a.sha256)
+      : input.band !== undefined
+        ? bandKey(ctx.companyId, a.sha256, input.page, input.band)
+        : pageKey(ctx.companyId, a.sha256, input.page);
   if (!(await bucket.head(key))) throw new TRPCError({ code: "NOT_FOUND", message: "Import file not found" });
   return issueReadTicket(ctx, { companyId: ctx.companyId, userId: ctx.session.user.id, artifactId: a.id, sha256: a.sha256, key, as: input.what });
 }

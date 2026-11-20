@@ -10,19 +10,7 @@ import { describe, expect, test } from "bun:test";
 
 import "./env-mock";
 
-import {
-  handleIngestRead,
-  handleIngestUpload,
-  INGEST_TICKET_TTL_MS,
-  issueReadTicket,
-  issueTicket,
-  pageKey,
-  rawKey,
-  readIngestReadTicket,
-  readIngestTicket,
-  signIngestReadTicket,
-  type IngestReadTicket,
-} from "../src/lib/ingest/vault";
+import { bandKey, bandTablesKey, handleIngestRead, handleIngestUpload, INGEST_TICKET_TTL_MS, issueReadTicket, issueTicket, pageKey, pageTextKey, rawKey, readIngestReadTicket, readIngestTicket, signIngestReadTicket, type IngestReadTicket } from "../src/lib/ingest/vault";
 
 const SHA = createHash("sha256").update("synthetic file").digest("hex");
 const CO = "co_read";
@@ -93,6 +81,10 @@ describe("read tickets", () => {
     expect(await readIngestReadTicket(await sign({ key: rawKey(CO, SHA), as: "page" }), NOW)).toBeNull();
     expect(await readIngestReadTicket(await sign({ key: `${rawKey(CO, SHA).replace("/raw", "")}/digest.json`, as: "page" }), NOW)).toBeNull();
     expect(await readIngestReadTicket(await sign({ key: pageKey(CO, SHA, 3), as: "page" }), NOW)).toMatchObject({ as: "page" });
+    // A band image of a page (section 11.3) is a page image too; its tables object and the page text are not.
+    expect(await readIngestReadTicket(await sign({ key: bandKey(CO, SHA, 3, 2), as: "page" }), NOW)).toMatchObject({ as: "page" });
+    expect(await readIngestReadTicket(await sign({ key: bandTablesKey(CO, SHA, 3, 2), as: "page" }), NOW)).toBeNull();
+    expect(await readIngestReadTicket(await sign({ key: pageTextKey(CO, SHA, 3), as: "page" }), NOW)).toBeNull();
   });
 
   test("purpose pinning: a read ticket PUT to the upload route is 403", async () => {

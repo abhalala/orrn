@@ -12,8 +12,8 @@ import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { layout, learnLayout, plant, pump, trim, upload, type Caller, type Plant } from "./ingest-portal-helpers";
 import { fakeRefusal, fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
-import { handleIngestRead, handleIngestUpload, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey } from "../src/lib/ingest/vault";
-import { VISION_PARAMS, visionOrdinal, visionPageKey } from "@orrn/ingest";
+import { bandKey, handleIngestRead, handleIngestUpload, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey } from "../src/lib/ingest/vault";
+import { VISION_PARAMS, visionBandKey, visionOrdinal, visionPageKey } from "@orrn/ingest";
 
 let env: TestEnv;
 let mf: Miniflare;
@@ -254,7 +254,8 @@ describe("vision.readPage", () => {
   });
 
   test("a truncated answer twice is too_long; a refusal is manual at once; a page with no table is no_table", async () => {
-    const f = await started(3);
+    // A text PDF: a cut-off scan or photo goes to bands instead (section 11.3, tested under "bands").
+    const f = await started(3, 3, { kind: "pdf_text" });
     setShapeClientForTests(new FakeShapeClient([sonnet(null, { stopReason: "max_tokens" }), sonnet(null, { stopReason: "max_tokens" }), fakeRefusal({ modelUsed: S }), sonnet(tables())]));
     await read(f.p.owner, f.artifactId, 1);
     expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "not_read", reason: "too_long", next: "manual" });
@@ -536,5 +537,144 @@ describe("text-layer digit check (contract section 11.5)", () => {
     await read(f.p.owner, f.artifactId, 1);
     const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
     expect(got.blocks[0]!.vision!.unseen).toEqual([]);
+  });
+});
+
+describe("bands (contract section 11.3)", () => {
+  const BH = ["Section", "Bundles", "Kg"];
+  const body = (from: number, n: number) => Array.from({ length: n }, (_, i) => [`S${from + i}`, String(from + i), String((from + i) * 3)]);
+  const dense = (rows: string[][], headers = BH) => table({ title: null, headers, rows, rowConfidence: rows.map(() => 0.9) });
+  const putBand = (f: File, n: number, k: number) => bucket.put(bandKey(f.p.companyId, f.sha, n, k), JPEG, { httpMetadata: { contentType: "image/jpeg" } });
+  const textOf = (client: FakeShapeClient, i: number) => (client.calls[i]!.messages[0]!.content as { text?: string }[]).map((p) => p.text ?? "").join("\n");
+  const bandRuns = async (f: File, page: number, k: number) =>
+    (await env.d1.prepare("select outcome from ingest_bot_run where company_id = ? and block_id = ?").bind(f.p.companyId, visionBandKey(f.artifactId, page, k)).all<{ outcome: string }>()).results;
+
+  test("a dense text PDF page in 4 bands: tickets once, band by band, merged into one block of 259 rows next to its title table", async () => {
+    const f = await started(1, 0, { kind: "pdf_text" });
+    const t = await f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 4 });
+    expect(t).toMatchObject({ page: 1, total: 4 });
+    expect(t.uploads.map((u) => u.band)).toEqual([1, 2, 3, 4]);
+    // A band goes up by its ticket, through the real upload route.
+    const res = await handleIngestUpload(new Request(t.uploads[0]!.url, { method: "PUT", body: JPEG, headers: { "content-length": String(JPEG.byteLength) } }), { bucket: routeBucket() });
+    expect(res.status).toBe(200);
+    // The same count again hands only the missing bands; another count is a change from another tab.
+    expect((await f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 4 })).uploads.map((u) => u.band)).toEqual([2, 3, 4]);
+    await expect(f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 3 })).rejects.toThrow("This import changed in another tab");
+    // start no longer asks for the whole page image.
+    expect((await f.p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 1 })).uploads).toEqual([]);
+
+    // Band 2 waits for its image; band 1 is next.
+    let v = (await pagesOf(f)).pages[0]!;
+    expect(v).toMatchObject({ state: "ready", next: null, bands: { total: 4, read: 0, next: 1 } });
+    for (const k of [2, 3, 4]) await putBand(f, 1, k);
+
+    const title = table({ title: "Stock", headers: ["As on"], rows: [["31.10.2025"]], rowConfidence: [0.9] });
+    const strip = [...BH];
+    const client = new FakeShapeClient([
+      sonnet(tables(title, dense(body(1, 65)))),
+      sonnet(tables(dense([strip, ...body(66, 65)]))),
+      sonnet(tables(dense(body(131, 65)))),
+      sonnet(tables(dense(body(196, 64)))),
+    ]);
+    setShapeClientForTests(client);
+    v = await read(f.p.owner, f.artifactId, 1);
+    expect(v).toMatchObject({ state: "ready", next: "retry", bands: { total: 4, read: 1, next: 2 }, attempts: 1 });
+    // Band 1 is read like a page; band 2 is told the headers, as JSON data.
+    expect(textOf(client, 0)).not.toContain("This is band");
+    v = await read(f.p.owner, f.artifactId, 1);
+    expect(textOf(client, 1)).toContain(`This is band 2 of 4 of one page. The table's headers are: ${JSON.stringify(JSON.stringify(BH))}.`);
+    v = await f.p.owner.ingest.vision.readPage({ artifactId: f.artifactId, page: 1, band: 3 });
+    expect(v.bands).toEqual({ total: 4, read: 3, next: 4 });
+    v = await read(f.p.owner, f.artifactId, 1);
+    expect(v).toMatchObject({ state: "read", next: "done", tables: 2, attempts: 4, bands: { total: 4, read: 4, next: null } });
+    expect(client.calls).toHaveLength(4);
+    for (const k of [1, 2, 3, 4]) expect(await bandRuns(f, 1, k)).toEqual([{ outcome: "recipe" }]);
+
+    const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
+    expect(got.blocks).toHaveLength(2);
+    const [b0, b1] = got.blocks;
+    expect(b0!.title).toBe("Stock");
+    expect(b1!.vision).toMatchObject({ page: 1, table: 1, bands: 4 });
+    expect(b1!.vision!.rowConfidence).toHaveLength(259);
+    const staged = await env.d1.prepare("select count(*) as n from ingest_staged_row where company_id = ? and candidate_id = ?").bind(f.p.companyId, b1!.candidates[0]!.id).first<{ n: number }>();
+    expect(Number(staged!.n)).toBe(259);
+    // The header strip of band 2 was dropped once; no row is missing or doubled at a band edge.
+    const rows = await env.d1.prepare("select raw from ingest_staged_row where company_id = ? and candidate_id = ? order by row_index").bind(f.p.companyId, b1!.candidates[0]!.id).all<{ raw: string }>();
+    expect(rows.results.map((r) => JSON.parse(r.raw)[0])).toEqual(body(1, 259).map((r) => r[0]));
+
+    // The person sees the band image to tick against.
+    const url = await f.p.owner.ingest.vision.readUrl({ artifactId: f.artifactId, what: "page", page: 1, band: 2 });
+    expect((await handleIngestRead(new Request(url.url), { bucket: routeBucket() })).status).toBe(200);
+    // A read page is not cut again.
+    await expect(f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 4 })).rejects.toThrow("This page is already read");
+  });
+
+  test("a scan read whole with more than the threshold rows answers band with its headers, makes no block and no second call", async () => {
+    const f = await started(1);
+    const client = new FakeShapeClient([sonnet(tables(dense(body(1, 101)))), sonnet(tables(dense(body(1, 60)))), sonnet(tables(dense(body(61, 41))))]);
+    setShapeClientForTests(client);
+    let v = await read(f.p.owner, f.artifactId, 1);
+    expect(v).toMatchObject({ state: "ready", next: "band", bandHeaders: BH, bands: null, blockIds: [] });
+    expect((await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId })).blocks).toHaveLength(0);
+    // No call until the bands are there.
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ next: "band" });
+    expect(client.calls).toHaveLength(1);
+
+    await f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 2 });
+    v = (await pagesOf(f)).pages[0]!;
+    expect(v).toMatchObject({ state: "waiting", bands: { total: 2, read: 0, next: 1 } });
+    await expect(read(f.p.owner, f.artifactId, 1)).rejects.toThrow("Upload this page first");
+    await putBand(f, 1, 1);
+    await putBand(f, 1, 2);
+    await read(f.p.owner, f.artifactId, 1);
+    v = await read(f.p.owner, f.artifactId, 1);
+    expect(v).toMatchObject({ state: "read", attempts: 3, bands: { total: 2, read: 2, next: null } });
+    const got = await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
+    expect(got.blocks).toHaveLength(1);
+    expect(got.blocks[0]!.vision!.rowConfidence).toHaveLength(101);
+  });
+
+  test("a scan whose whole-page answer was cut off answers band with no headers; a text PDF keeps its retry", async () => {
+    const cut = { stopReason: "max_tokens" as const };
+    const f = await started(1);
+    setShapeClientForTests(new FakeShapeClient([sonnet(null, cut)]));
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "ready", next: "band", bandHeaders: null });
+
+    const t = await started(1, 1, { kind: "pdf_text" });
+    setShapeClientForTests(new FakeShapeClient([sonnet(null, cut)]));
+    expect(await read(t.p.owner, t.artifactId, 1)).toMatchObject({ state: "ready", next: "retry" });
+  });
+
+  test("a text PDF page read whole with many rows is not banded", async () => {
+    const f = await started(1, 1, { kind: "pdf_text" });
+    setShapeClientForTests(new FakeShapeClient([sonnet(tables(dense(body(1, 120))))]));
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "read", bands: null });
+  });
+
+  test("a band of another width is invalid with its code, retried once, then manual on that band", async () => {
+    const f = await started(1, 0);
+    await f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 2 });
+    await putBand(f, 1, 1);
+    await putBand(f, 1, 2);
+    const narrow = tables(dense([["S9", "9"]], ["Section", "Bundles"]));
+    const client = new FakeShapeClient([sonnet(tables(dense(body(1, 5)))), sonnet(narrow), sonnet(narrow)]);
+    setShapeClientForTests(client);
+    await read(f.p.owner, f.artifactId, 1);
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "ready", next: "retry", bands: { total: 2, read: 1, next: 2 } });
+    expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "not_read", reason: "invalid", next: "manual", bands: { total: 2, read: 1, next: 2 } });
+    expect(textOf(client, 2)).toContain("vision:band_width");
+    expect(await bandRuns(f, 1, 2)).toEqual([{ outcome: "invalid" }, { outcome: "invalid" }]);
+    // A person may still type or skip the page.
+    expect(await f.p.owner.ingest.vision.skipPage({ artifactId: f.artifactId, page: 1 })).toMatchObject({ state: "skipped" });
+  });
+
+  test("30 planned pages, each cut into 4 bands: the page list reads 150 run keys in parts", async () => {
+    const f = await started(30, 0);
+    const index = JSON.parse(await (await bucket.get(pagesIndexKey(f.p.companyId, f.sha)))!.text());
+    index.bands = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [String(i + 1), 4]));
+    await bucket.put(pagesIndexKey(f.p.companyId, f.sha), JSON.stringify(index));
+    const pages = await pagesOf(f);
+    expect(pages.pages).toHaveLength(30);
+    expect(pages.pages.every((p) => p.state === "waiting" && p.bands?.total === 4)).toBe(true);
   });
 });
