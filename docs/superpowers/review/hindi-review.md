@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8412 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8440 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3147,7 +3147,7 @@ Counts: 8412 screen strings in 50 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (352)
+### admin (379)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3210,6 +3210,7 @@ Counts: 8412 screen strings in 50 groups, 45 guides with 866 strings.
 | `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
 | `company.sections` | Company sections | कंपनी के हिस्से |
 | `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.limits` | Limits | सीमाएं |
 | `company.tabs.printing` | Printing | प्रिंटिंग |
 | `company.tabs.access` | Access | एक्सेस |
 | `company.tabs.audit` | Audit | ऑडिट |
@@ -3311,6 +3312,32 @@ Counts: 8412 screen strings in 50 groups, 45 guides with 866 strings.
 | `support.failed` | That didn't send. Try again. | यह नहीं गया। फिर कोशिश करें। |
 | `support.earlierReply` | Reply sent {time} | जवाब {time} को भेजा गया |
 | `support.readOnly` | Your role can read requests but not answer them. | आपकी भूमिका अनुरोध पढ़ सकती है, जवाब नहीं दे सकती। |
+| `limits.intro` | Limits for this plant. Each one follows the orrn default until you set it. | इस प्लांट की सीमाएं। जब तक आप कोई सीमा तय नहीं करते, वह orrn की डिफ़ॉल्ट पर चलती है। |
+| `limits.names.dayModelCalls` | Model calls a day | रोज़ मॉडल कॉल |
+| `limits.names.dayModelCostCents` | Model spend a day | रोज़ मॉडल खर्च |
+| `limits.names.blockModelCalls` | Model tries per table | हर टेबल पर मॉडल की कोशिशें |
+| `limits.names.visionPagesPerBatch` | Pages read at a time | एक बार में पढ़े जाने वाले पेज |
+| `limits.names.filesPerUpload` | Files per upload | एक अपलोड में फ़ाइलें |
+| `limits.names.rawRowsPerFile` | Rows per file | हर फ़ाइल में लाइनें |
+| `limits.names.openRowsPerPlant` | Rows waiting to merge | मर्ज के इंतज़ार में लाइनें |
+| `limits.hints.dayModelCalls` | Reads by the model in one plant day. The day starts at midnight India time. | एक प्लांट दिन में मॉडल कितनी बार पढ़े। दिन भारत के समय से आधी रात को शुरू होता है। |
+| `limits.hints.dayModelCostCents` | What the model may spend in one plant day, in US dollars. | एक प्लांट दिन में मॉडल कितना खर्च कर सकता है, अमेरिकी डॉलर में। |
+| `limits.hints.blockModelCalls` | Tries on one table or one page part before it waits for a person. | किसी व्यक्ति के देखने से पहले एक टेबल या पेज के एक हिस्से पर कितनी कोशिशें हों। |
+| `limits.hints.visionPagesPerBatch` | Pages of one PDF or photo read in one go. | एक PDF या फ़ोटो के कितने पेज एक बार में पढ़े जाएं। |
+| `limits.hints.filesPerUpload` | Files taken from one pick or drop. | एक बार चुनने या डालने में कितनी फ़ाइलें ली जाएं। |
+| `limits.hints.rawRowsPerFile` | A file with more rows than this is refused. | इससे ज़्यादा लाइनों वाली फ़ाइल नहीं ली जाती। |
+| `limits.hints.openRowsPerPlant` | Rows from imports not merged or discarded yet. New files wait above this. | इम्पोर्ट की वे लाइनें जो अभी मर्ज नहीं हुईं या हटाई नहीं गईं। इससे ऊपर नई फ़ाइलें रुकती हैं। |
+| `limits.defaultValue` | Default {value} | डिफ़ॉल्ट {value} |
+| `limits.ceiling` | Up to {max} | ज़्यादा से ज़्यादा {max} |
+| `limits.usesDefault` | Uses the default | डिफ़ॉल्ट पर है |
+| `limits.setHere` | Set for this plant | इस प्लांट के लिए तय |
+| `limits.useDefault` | Use default | डिफ़ॉल्ट रखें |
+| `limits.invalid` | Enter a whole number from 1 to {max}. | 1 से {max} तक की पूरी संख्या डालें। |
+| `limits.invalidMoney` | Enter an amount from 0.01 to {max}. | 0.01 से {max} तक की रकम डालें। |
+| `limits.costBuys` | About {count} dense page parts a day, at about 7 US cents a part. | रोज़ लगभग {count} घने पेज हिस्से, हर हिस्सा लगभग 7 अमेरिकी सेंट का। |
+| `limits.save` | Save limits | सीमाएं सेव करें |
+| `limits.saved` | Limits saved | सीमाएं सेव हो गईं |
+| `limits.unsaved` | Changes not saved | बदलाव सेव नहीं हुए |
 | `plan.plan` | Plan | प्लान |
 | `plan.plans.starter` | Starter | स्टार्टर |
 | `plan.plans.growth` | Growth | ग्रोथ |
@@ -7108,8 +7135,8 @@ Please check, Lalubhai:
 | `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में 20 फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
 | `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
-| `drop.tooManyRows` | {name} has more than 200,000 rows. Split it and try again. | {name} में 2,00,000 से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
-| `drop.openLimit` | More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में 3,00,000 से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
+| `drop.tooManyRows` | {name} has more than {limit} rows. Split it and try again. | {name} में {limit} से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `drop.openLimit` | More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में {limit} से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
 | `drop.wrongType` | {name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो नहीं है। इनमें से कोई चुनें। |
 | `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
@@ -7999,7 +8026,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (323)
+### audit (324)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8251,6 +8278,7 @@ Please check, Lalubhai:
 | `actions.plan__create` | Press plan created | प्रेस प्लान बनाया |
 | `actions.plan__release` | Press plan released to the press | प्रेस प्लान प्रेस को भेजा |
 | `actions.plan__update` | Press plan changed | प्रेस प्लान बदला |
+| `actions.platform__company__limits__update` | Plant limits changed by orrn support | orrn सपोर्ट ने प्लांट की सीमाएं बदलीं |
 | `actions.platform__company__modules__update` | Plant modules changed by orrn support | orrn सपोर्ट ने प्लांट के मॉड्यूल बदले |
 | `actions.platform__waitlist__signInLink` | Owner sign-in link made | मालिक का साइन-इन लिंक बनाया |
 | `actions.portal__certificate__issue` | Test certificate issued to the party | पार्टी को टेस्ट सर्टिफ़िकेट दिया |

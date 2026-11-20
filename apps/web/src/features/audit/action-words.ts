@@ -184,6 +184,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "plan.create",
   "plan.release",
   "plan.update",
+  "platform.company.limits.update",
   "platform.company.modules.update",
   "platform.waitlist.signInLink",
   "portal.certificate.issue",
