@@ -246,6 +246,19 @@ describe("multipart upload", () => {
     expect(again.parts).toBeNull();
   });
 
+  test("a plan close to R2's 7-day abort is started again, not resumed", async () => {
+    const f = await begun();
+    await sendAll(f, [1]);
+    // The plan as if it were written six and a half days ago.
+    const key = uploadPlanKey(f.p.companyId, f.sha256);
+    const plan = JSON.parse(await (await raw.get(key))!.text()) as { createdAt: number };
+    await raw.put(key, JSON.stringify({ ...plan, createdAt: Date.now() - 6.5 * 24 * 60 * 60 * 1000 }));
+    const start = await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
+    expect(start.done).toEqual([]);
+    await sendAll(f);
+    expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+  });
+
   test("other digests for the same file start a new upload; the old one's tickets answer 409", async () => {
     const f = await begun();
     await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });

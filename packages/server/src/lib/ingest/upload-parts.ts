@@ -28,6 +28,8 @@ export const RAW_PART_BYTES = 16 * 1024 * 1024;
 export const RAW_MAX_PARTS = 10_000;
 /** The largest raw file: 10,000 parts. The only size bound left, and not per kind. */
 export const RAW_MAX_BYTES = RAW_PART_BYTES * RAW_MAX_PARTS;
+/** A plan older than this is not resumed (R2 aborts unfinished multipart uploads after 7 days). */
+export const PLAN_RESUME_MS = 6 * 24 * 60 * 60 * 1000;
 /** Part tickets asked for in one call. */
 export const PART_TICKETS_PER_CALL = 8;
 
@@ -189,7 +191,9 @@ export async function uploadStart(ctx: IngestCtx, input: { artifactId: string; p
   if (await bucket.head(key)) return { partSize: RAW_PART_BYTES, partCount, done: all };
 
   const plan = await readPlan(bucket, ctx.companyId, a.sha256);
-  if (plan && plan.partSize === RAW_PART_BYTES && plan.size === a.sizeBytes && plan.parts.join() === input.parts.join()) {
+  // R2 aborts an unfinished upload after 7 days: a plan close to that age is started again rather than resumed.
+  const fresh0 = plan !== null && now().getTime() - plan.createdAt < PLAN_RESUME_MS;
+  if (plan && fresh0 && plan.partSize === RAW_PART_BYTES && plan.size === a.sizeBytes && plan.parts.join() === input.parts.join()) {
     const done = await recordedParts(bucket, ctx.companyId, a.sha256, plan.uploadId);
     return { partSize: RAW_PART_BYTES, partCount, done: [...done.keys()].sort((x, y) => x - y) };
   }
