@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { user } from "@orrn/db/schema/auth";
@@ -13,6 +13,7 @@ import {
 } from "@orrn/db/schema/tenant";
 import { normalizeModules } from "@orrn/domain";
 import { atomicBatch } from "../../lib/atomic";
+import { guardedBatch, ingestAbortUnlessChanged } from "../../lib/ingest/core";
 import { auditInsert } from "../../lib/audit";
 import { limitsPatchSql } from "../../lib/companySettings";
 import { COMPANY_MODULES } from "../../lib/modules";
@@ -46,6 +47,22 @@ const printingStatus = sql<"pending" | "active" | "offline" | null>`(
  * rejected before that, which are still `pending` with no members. Not a
  * company: never listed, counted or opened.
  */
+export const LIMITS_MOVED = "Someone else changed these limits just now. Reload and save again.";
+
+/**
+ * True in SQL while each named limit is stored as `from` says, read the way `setLimits` reads it (a whole number of
+ * at least 1, else not set). Keys must be `PLANT_LIMIT_KEYS` (plain names).
+ */
+export function limitsUnchangedSql(from: Record<string, number | null>): SQL {
+  const parts = Object.entries(from).map(([key, was]) => {
+    if (!(PLANT_LIMIT_KEYS as readonly string[]).includes(key)) throw new Error(`limit key ${key} is not known`);
+    const v = sql.raw(`json_extract(coalesce(settings, '{}'), '$.limits.${key}')`);
+    const usable = sql`(CASE WHEN json_type(coalesce(settings, '{}'), ${`$.limits.${key}`}) = 'integer' AND ${v} >= 1 THEN ${v} END)`;
+    return was === null ? sql`${usable} IS NULL` : sql`${usable} = ${was}`;
+  });
+  return parts.length === 0 ? sql`1 = 1` : sql.join(parts, sql` AND `);
+}
+
 export const notRejectedRequest = sql`not (${company.status} = 'pending' and exists (
   select 1 from ${waitlistRequest}
   where ${waitlistRequest.companyId} = ${outerCompanyId} and ${waitlistRequest.status} = 'rejected'
@@ -317,18 +334,28 @@ export const companiesProcedures = {
       }
       if (Object.keys(change).length === 0) return { limits: before };
 
-      await atomicBatch(ctx.db, [
-        ctx.db.update(company).set({ settings: limitsPatchSql(change) }).where(eq(company.id, input.companyId)),
-        auditInsert(
-          { ...ctx, companyId: input.companyId },
-          {
-            action: "platform.company.limits.update",
-            subjectType: "company",
-            subjectId: input.companyId,
-            meta: { from, to },
-          },
-        ),
-      ]);
+      // The audit's `from` is what the row held when this call read it; the write lands only while the row still holds
+      // those values, so two staff saving the same key at once cannot both record the same old value (server N2).
+      await guardedBatch(
+        ctx.db,
+        [
+          ctx.db
+            .update(company)
+            .set({ settings: limitsPatchSql(change) })
+            .where(and(eq(company.id, input.companyId), limitsUnchangedSql(from))),
+          ingestAbortUnlessChanged(ctx.db),
+          auditInsert(
+            { ...ctx, companyId: input.companyId },
+            {
+              action: "platform.company.limits.update",
+              subjectType: "company",
+              subjectId: input.companyId,
+              meta: { from, to },
+            },
+          ),
+        ],
+        { code: "CONFLICT", message: LIMITS_MOVED },
+      );
       const after = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, input.companyId)).get();
       return { limits: setLimits(after?.settings ?? {}) };
     }),

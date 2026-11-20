@@ -163,7 +163,23 @@ const ingestVault = await optionalR2Bucket("ingest-vault", {
   feature: "the import file vault",
   probe: r2Probe,
   forget: forgetR2State("ingest-vault"),
-  create: () => R2Bucket("ingest-vault", { adopt: true, delete: false }),
+  create: () =>
+    R2Bucket("ingest-vault", {
+      adopt: true,
+      delete: false,
+      // Security M1 / L6 (fix round 2026-11-20): a multipart upload left unfinished is aborted after 1 day, so its
+      // parts stop costing; R2's own default is 7 days. Only an abort rule: no object is ever deleted by age (raw files
+      // are kept forever). `upload-parts.ts` resumes a plan only within 20 hours (PLAN_RESUME_MS) and the daily cron
+      // clears what is left. This PUT replaces the bucket's lifecycle rules, including R2's default abort rule.
+      lifecycle: [
+        {
+          id: "abort-unfinished-uploads-1d",
+          conditions: { prefix: "" },
+          enabled: true,
+          abortMultipartUploadsTransition: { condition: { maxAge: 86_400, type: "Age" } },
+        },
+      ],
+    }),
 });
 
 /**
@@ -259,6 +275,9 @@ export const server = await Worker("server", {
   adopt: true,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
+  // The Workers Paid default, pinned: the whole-file SHA-256 check of a chunked upload runs in one request, and the
+  // largest file per upload (`uploadFileMiB` ceiling, 2 GiB) is chosen to hash well inside it (plantLimits.ts).
+  limits: { cpu_ms: 30_000 },
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
   // Purelymail SMTP is the sender until then (packages/auth/src/smtp.ts).
   // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.

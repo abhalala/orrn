@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 
 import "./env-mock";
 
-import { bandKey, bandTablesKey, handleIngestRead, handleIngestUpload, INGEST_TICKET_TTL_MS, issueReadTicket, issueTicket, pageKey, pageTextKey, rawKey, readIngestReadTicket, readIngestTicket, signIngestReadTicket, type IngestReadTicket } from "../src/lib/ingest/vault";
+import { bandKey, bandTablesKey, handleIngestRead, handleIngestUpload, INGEST_TICKET_TTL_MS, RAW_READ_TTL_MS, issueReadTicket, issueTicket, pageKey, pageTextKey, rawKey, readIngestReadTicket, readIngestTicket, signIngestReadTicket, type IngestReadTicket } from "../src/lib/ingest/vault";
 
 const SHA = createHash("sha256").update("synthetic file").digest("hex");
 const CO = "co_read";
@@ -64,13 +64,15 @@ const ticketOf = (url: string) => new URL(url, "https://api.test").searchParams.
 const get = (ticket: string) => new Request(`https://api.test/files/ingest/read?ticket=${encodeURIComponent(ticket)}`);
 
 describe("read tickets", () => {
-  test("a read ticket is good for 10 minutes and names its own artifact's key", async () => {
+  test("a raw read ticket is good for 2 minutes (security L1) and names its own artifact's key", async () => {
     const { url, expiresAt } = await issueReadTicket({ request: new Request("https://api.test/trpc") }, readFields(), NOW);
     expect(url.startsWith("https://api.test/files/ingest/read?ticket=")).toBe(true);
-    expect(expiresAt).toBe(NOW + INGEST_TICKET_TTL_MS);
+    expect(expiresAt).toBe(NOW + RAW_READ_TTL_MS);
     const t = ticketOf(url);
-    expect(await readIngestReadTicket(t, NOW + INGEST_TICKET_TTL_MS - 1)).toMatchObject({ purpose: "ingest-read", key: rawKey(CO, SHA), as: "raw" });
-    expect(await readIngestReadTicket(t, NOW + INGEST_TICKET_TTL_MS + 1)).toBeNull();
+    expect(await readIngestReadTicket(t, NOW + RAW_READ_TTL_MS - 1)).toMatchObject({ purpose: "ingest-read", key: rawKey(CO, SHA), as: "raw" });
+    expect(await readIngestReadTicket(t, NOW + RAW_READ_TTL_MS + 1)).toBeNull();
+    // A page image keeps the 10 minutes of the other tickets.
+    expect((await issueReadTicket({}, readFields({ key: pageKey(CO, SHA, 1), as: "page" }), NOW)).expiresAt).toBe(NOW + INGEST_TICKET_TTL_MS);
   });
 
   test("a key outside the artifact, with .., or of the wrong shape for its use is refused", async () => {
@@ -125,7 +127,7 @@ describe("read route", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/octet-stream");
     expect(res.headers.get("content-disposition")).toBe("attachment");
-    expect(res.headers.get("cache-control")).toBe("private, max-age=600");
+    expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");

@@ -120,6 +120,27 @@ describe("platform.companiesSetLimits", () => {
     expect(rows.every((r) => r.actorId && r.subjectId === companyId)).toBe(true);
   });
 
+  test("N2: the write lands only while the row holds the values the audit names as `from`", async () => {
+    const { limitsUnchangedSql, LIMITS_MOVED } = await import("../src/routers/platform/companies");
+    const { companyId } = await env.seedCompany({ settings: { limits: { dayModelCalls: 120, filesPerUpload: "lots" } } });
+    const matches = async (from: Record<string, number | null>) =>
+      (await env.db.select({ id: company.id }).from(company).where(and(eq(company.id, companyId), limitsUnchangedSql(from))).all()).length;
+    expect(await matches({ dayModelCalls: 120 })).toBe(1);
+    expect(await matches({ dayModelCalls: null })).toBe(0);
+    expect(await matches({ dayModelCalls: 600 })).toBe(0);
+    // A stored value `setLimits` reads as not set matches null, as the audit records it.
+    expect(await matches({ filesPerUpload: null })).toBe(1);
+    // Two staff saving one key at once: never two audit rows with the same old value.
+    const both = await Promise.allSettled([setLimits(companyId, { dayModelCalls: 200 }), setLimits(companyId, { dayModelCalls: 300 })]);
+    for (const r of both) if (r.status === "rejected") expect((r.reason as Error).message).toBe(LIMITS_MOVED);
+    const rows = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "platform.company.limits.update")));
+    const froms = rows.map((r) => (r.meta as { from: { dayModelCalls: number | null } }).from.dayModelCalls);
+    expect(new Set(froms).size).toBe(froms.length);
+  });
+
   test("plant roles cannot set limits, even the owner of that plant; an unknown plant is Not found", async () => {
     const { companyId } = await env.seedCompany();
     for (const role of ["owner", "admin", "manager"] as const) {
@@ -179,6 +200,8 @@ describe("resolve: defaults, clamp, bad stored values", () => {
       filesPerUpload: 20,
       rawRowsPerFile: 200_000,
       openRowsPerPlant: 300_000,
+      uploadFileMiB: 2_048,
+      vaultQuotaGiB: 50,
     });
     expect(L.resolveLimits({})).toEqual({ ...got, dayModelCalls: 300, blockModelCalls: 4 });
     expect(L.resolveLimits(null)).toEqual(L.resolveLimits({ limits: [] }));
@@ -469,7 +492,7 @@ describe("ingest.status sends the plant's own values", () => {
     const b = await plant(env);
     await setLimits(a.companyId, { filesPerUpload: 3, rawRowsPerFile: 9000, openRowsPerPlant: 50_000, visionPagesPerBatch: 12 });
     const sa = await a.owner.ingest.status();
-    expect(sa.limits).toMatchObject({ filesPerUpload: 3, rawRowsPerFile: 9000, openRowsPerPlant: 50_000, cellChars: 200, blocksPerFile: 50 });
+    expect(sa.limits).toMatchObject({ filesPerUpload: 3, rawRowsPerFile: 9000, openRowsPerPlant: 50_000, cellChars: 200, blocksPerFile: 200 });
     expect(sa.visionPagesPerBatch).toBe(12);
     const sb = await b.owner.ingest.status();
     expect(sb.limits).toMatchObject({ filesPerUpload: 20, rawRowsPerFile: 200_000, openRowsPerPlant: 300_000 });

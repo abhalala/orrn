@@ -12,10 +12,19 @@ import { Miniflare } from "miniflare";
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { plant, type Plant } from "./ingest-portal-helpers";
-import { handleIngestRead, handleIngestUpload, issueReadTicket, rawKey } from "../src/lib/ingest/vault";
+import { handleIngestRead, handleIngestUpload, issueReadTicket, issueTicket, pageKey, rawKey } from "../src/lib/ingest/vault";
+import { ingestArtifact } from "@orrn/db/schema/ingest";
+import { eq } from "drizzle-orm";
 import {
+  CHECK_FAILED,
+  CHECK_RUNNING,
   DIGEST_MISMATCH,
   PARTS_MISSING,
+  SOMEONE_ELSE_SENDING,
+  UPLOAD_RAN_OUT,
+  abortIfAbandoned,
+  checkKey,
+  sweepUnfinishedUploads,
   RAW_PART_BYTES,
   handleIngestPart,
   partBytes,
@@ -73,17 +82,32 @@ function wrapUpload(u: R2MultipartUpload): R2MultipartUpload {
     complete: (parts: R2UploadedPart[]) => u.complete(parts),
   } as R2MultipartUpload;
 }
+/** Calls the Worker made on the bucket, by method, for the cost tests (S9). */
+const calls: { method: string; key: string }[] = [];
+/** Runs after a `get` body is read to its end (to race the whole-file check, N6). */
+let afterBodyRead: ((key: string) => Promise<void>) | null = null;
 const vault = () =>
   ({
-    head: (k: string) => raw.head(k),
-    list: (o: R2ListOptions) => raw.list(o),
+    head: (k: string) => (calls.push({ method: "head", key: k }), raw.head(k)),
+    list: (o: R2ListOptions) => (calls.push({ method: "list", key: o.prefix ?? "" }), raw.list(o)),
     delete: (k: string | string[]) => raw.delete(k),
-    put: async (k: string, v: unknown, o?: R2PutOptions) => raw.put(k, await toBytes(v), o),
+    put: async (k: string, v: unknown, o?: R2PutOptions) => (calls.push({ method: "put", key: k }), raw.put(k, await toBytes(v), o)),
     get: async (k: string, o?: R2GetOptions) => {
+      calls.push({ method: "get", key: k });
       const obj = await raw.get(k, o);
       if (!obj) return null;
       const bytes = new Uint8Array(await obj.arrayBuffer());
-      return { size: obj.size, customMetadata: obj.customMetadata, body: new Response(bytes).body!, text: async () => new TextDecoder().decode(bytes) };
+      const hook = afterBodyRead;
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(bytes);
+        },
+        async pull(c) {
+          if (hook) await hook(k);
+          c.close();
+        },
+      });
+      return { size: obj.size, etag: obj.etag, customMetadata: obj.customMetadata, body, text: async () => new TextDecoder().decode(bytes) };
     },
     createMultipartUpload: async (k: string, o?: R2MultipartOptions) => wrapUpload(await raw.createMultipartUpload(k, o)),
     resumeMultipartUpload: (k: string, id: string) => wrapUpload(raw.resumeMultipartUpload(k, id)),
@@ -95,8 +119,11 @@ beforeAll(async () => {
   raw = (await mf.getR2Bucket("VAULT")) as unknown as R2Bucket;
 }, 60_000);
 
-afterEach(() => {
+afterEach(async () => {
   workersEnv.INGEST_VAULT = vault();
+  afterBodyRead = null;
+  const { setClockForTests } = await import("../src/lib/clock");
+  setClockForTests(null);
 });
 
 afterAll(async () => {
@@ -133,10 +160,28 @@ function putPart(url: string, body: Uint8Array, length = body.byteLength) {
 async function sendAll(f: Awaited<ReturnType<typeof begun>>, only?: number[]) {
   const start = await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
   const want = (only ?? f.parts.map((_, i) => i + 1)).filter((n) => !start.done.includes(n));
-  if (want.length === 0) return start;
-  const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: want });
-  for (const t of tickets) expect((await putPart(t.url, f.parts[t.part - 1]!)).status).toBe(200);
+  for (const t of await ticketsFor(f, want)) expect((await putPart(t.url, f.parts[t.part - 1]!)).status).toBe(200);
   return start;
+}
+
+/** Tickets for every part named, asked as the browser asks: a few at a time (PART_TICKETS_ISSUED a call). */
+async function ticketsFor(f: { p: Plant; artifactId: string }, want: number[]) {
+  const out: { part: number; url: string }[] = [];
+  let left = [...want];
+  while (left.length > 0) {
+    const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: left.slice(0, 8) });
+    out.push(...tickets);
+    left = left.filter((n) => !tickets.some((t) => t.part === n));
+  }
+  return out;
+}
+
+/** The recorded parts as R2 completes them: one marker per part, the ETag in its custom metadata. */
+async function markerEtags(companyId: string, sha256: string, uploadId: string) {
+  const list = await raw.list({ prefix: `tenants/${companyId}/artifacts/${sha256}/upload/${uploadId}/`, include: ["customMetadata"] } as R2ListOptions);
+  return list.objects
+    .map((o) => ({ partNumber: Number(/p(\d+)$/.exec(o.key)![1]), etag: o.customMetadata!.etag! }))
+    .sort((a, b) => a.partNumber - b.partNumber);
 }
 
 const artifactRow = (f: { p: Plant; artifactId: string }) => f.p.owner.ingest.artifact.get({ artifactId: f.artifactId });
@@ -198,7 +243,7 @@ describe("multipart upload", () => {
   test("a wrong part digest is refused with 400 and the part stays missing until the right bytes come", async () => {
     const f = await begun();
     await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
-    const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: [1, 2] });
+    const tickets = await ticketsFor(f, [1, 2]);
     expect((await putPart(tickets[0]!.url, f.parts[0]!)).status).toBe(200);
     const wrong = new Uint8Array(f.parts[1]!);
     wrong[0] = wrong[0]! ^ 0xff;
@@ -222,12 +267,16 @@ describe("multipart upload", () => {
     const f = await begun(p, named);
     const otherParts = partsOf(sent);
     await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: otherParts.map(hex) });
-    const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: [1, 2] });
+    const tickets = await ticketsFor(f, [1, 2]);
     for (const t of tickets) expect((await putPart(t.url, otherParts[t.part - 1]!)).status).toBe(200);
     await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(DIGEST_MISMATCH);
     expect(await raw.head(rawKey(p.companyId, f.sha256))).toBeNull();
     expect(await raw.head(uploadPlanKey(p.companyId, f.sha256))).toBeNull();
     expect((await artifactRow(f)).vaultState).toBe("pending");
+    // One failed check marks the file failed with plain words (decision 4); complete is not tried forever.
+    expect((await artifactRow(f)).readState).toBe("failed");
+    expect((await artifactRow(f)).readError).toBe(DIGEST_MISMATCH);
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow("The upload ran out");
     // Nothing to read: the raw read is not signed.
     await expect(f.p.owner.ingest.vision.readUrl({ artifactId: f.artifactId, what: "raw" })).rejects.toThrow("Import file not found");
   });
@@ -246,13 +295,14 @@ describe("multipart upload", () => {
     expect(again.parts).toBeNull();
   });
 
-  test("a plan close to R2's 7-day abort is started again, not resumed", async () => {
+  test("a plan close to the 1-day lifecycle abort is started again, not resumed", async () => {
     const f = await begun();
     await sendAll(f, [1]);
-    // The plan as if it were written six and a half days ago.
+    // The plan as if it were written 21 hours ago (resumed only within 20 hours).
     const key = uploadPlanKey(f.p.companyId, f.sha256);
-    const plan = JSON.parse(await (await raw.get(key))!.text()) as { createdAt: number };
-    await raw.put(key, JSON.stringify({ ...plan, createdAt: Date.now() - 6.5 * 24 * 60 * 60 * 1000 }));
+    const old = await raw.get(key);
+    const plan = JSON.parse(await old!.text()) as { createdAt: number };
+    await raw.put(key, JSON.stringify({ ...plan, createdAt: Date.now() - 21 * 60 * 60 * 1000 }), { customMetadata: old!.customMetadata });
     const start = await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
     expect(start.done).toEqual([]);
     await sendAll(f);
@@ -288,13 +338,11 @@ describe("multipart upload", () => {
     const f = await begun(p, named);
     const otherParts = partsOf(bigFile());
     await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: otherParts.map(hex) });
-    const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: [1, 2] });
+    const tickets = await ticketsFor(f, [1, 2]);
     for (const t of tickets) await putPart(t.url, otherParts[t.part - 1]!);
     // Completed straight on R2 (as if the answer of uploadComplete were lost before the check ran).
     const plan = JSON.parse(await (await raw.get(uploadPlanKey(p.companyId, f.sha256)))!.text()) as { uploadId: string };
-    const list = await raw.list({ prefix: `tenants/${p.companyId}/artifacts/${f.sha256}/upload/${plan.uploadId}/` });
-    const etags = list.objects.map((o) => /p(\d+)-(.+)$/.exec(o.key)!).map((m) => ({ partNumber: Number(m[1]), etag: decodeURIComponent(m[2]!) }));
-    await raw.resumeMultipartUpload(rawKey(p.companyId, f.sha256), plan.uploadId).complete(etags.sort((a, b) => a.partNumber - b.partNumber));
+    await raw.resumeMultipartUpload(rawKey(p.companyId, f.sha256), plan.uploadId).complete(await markerEtags(p.companyId, f.sha256, plan.uploadId));
     expect(await raw.head(rawKey(p.companyId, f.sha256))).not.toBeNull();
     // The raw read is not signed before the check.
     await expect(f.p.owner.ingest.vision.readUrl({ artifactId: f.artifactId, what: "raw" })).rejects.toThrow("Import file not found");
@@ -308,9 +356,7 @@ describe("multipart upload", () => {
     const f = await begun();
     await sendAll(f);
     const plan = JSON.parse(await (await raw.get(uploadPlanKey(f.p.companyId, f.sha256)))!.text()) as { uploadId: string };
-    const list = await raw.list({ prefix: `tenants/${f.p.companyId}/artifacts/${f.sha256}/upload/${plan.uploadId}/` });
-    const etags = list.objects.map((o) => /p(\d+)-(.+)$/.exec(o.key)!).map((m) => ({ partNumber: Number(m[1]), etag: decodeURIComponent(m[2]!) }));
-    await raw.resumeMultipartUpload(rawKey(f.p.companyId, f.sha256), plan.uploadId).complete(etags.sort((a, b) => a.partNumber - b.partNumber));
+    await raw.resumeMultipartUpload(rawKey(f.p.companyId, f.sha256), plan.uploadId).complete(await markerEtags(f.p.companyId, f.sha256, plan.uploadId));
     expect((await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) })).done).toEqual([1, 2]);
     expect((await f.p.owner.ingest.artifact.commitRaw({ artifactId: f.artifactId })).vaultState).toBe("stored");
   });
@@ -373,5 +419,238 @@ describe("read route Range", () => {
       expect(r.headers.get("content-length")).toBe("20");
       expect((await r.text()).length).toBe(20);
     }
+  });
+});
+
+describe("fix round: part markers, the whole-file check and who may restart", () => {
+  test("S8: a recorded ETag R2 no longer holds (two PUTs of one part crossed) asks for the parts again; the upload stays", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const planKey = uploadPlanKey(f.p.companyId, f.sha256);
+    const plan = JSON.parse(await (await raw.get(planKey))!.text()) as { uploadId: string };
+    // Part 1's marker names an ETag that is not the part R2 holds.
+    await raw.put(`tenants/${f.p.companyId}/artifacts/${f.sha256}/upload/${encodeURIComponent(plan.uploadId)}/p1`, "", { customMetadata: { etag: "0123456789abcdef0123456789abcdef" } });
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(PARTS_MISSING);
+    // Not wiped: the same plan and multipart upload, every part to send again.
+    expect(JSON.parse(await (await raw.get(planKey))!.text()).uploadId).toBe(plan.uploadId);
+    const again = await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
+    expect(again.done).toEqual([]);
+    await sendAll(f);
+    expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+  });
+
+  test("S8: two PUTs of the same part at once leave one marker for it, and complete stores the file", async () => {
+    const f = await begun();
+    await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
+    const [t1, t2] = await ticketsFor(f, [1, 2]);
+    const both = await Promise.all([putPart(t1!.url, f.parts[0]!), putPart(t1!.url, f.parts[0]!)]);
+    expect(both.map((r) => r.status)).toEqual([200, 200]);
+    expect((await putPart(t2!.url, f.parts[1]!)).status).toBe(200);
+    const plan = JSON.parse(await (await raw.get(uploadPlanKey(f.p.companyId, f.sha256)))!.text()) as { uploadId: string };
+    expect((await markerEtags(f.p.companyId, f.sha256, plan.uploadId)).map((m) => m.partNumber)).toEqual([1, 2]);
+    expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+  });
+
+  test("S9: a part PUT reads only the plan's head: no marker listing, no plan body", async () => {
+    const f = await begun();
+    await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
+    const [t1] = await ticketsFor(f, [1]);
+    calls.length = 0;
+    expect((await putPart(t1!.url, f.parts[0]!)).status).toBe(200);
+    expect(calls.filter((c) => c.method === "list")).toEqual([]);
+    expect(calls.filter((c) => c.method === "get")).toEqual([]);
+    expect(calls.filter((c) => c.method === "head").map((c) => c.key)).toEqual([uploadPlanKey(f.p.companyId, f.sha256)]);
+  });
+
+  test("N8: tickets are issued two at a time, the first ones asked for", async () => {
+    const f = await begun(undefined, bigFile(3 * 16 * 1024 * 1024));
+    await f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) });
+    const { tickets } = await f.p.owner.ingest.artifact.uploadTickets({ artifactId: f.artifactId, parts: [3, 1, 2, 4] });
+    expect(tickets.map((t) => t.part)).toEqual([3, 1]);
+  });
+
+  test("decision 4: a check that never finished (CPU limit) marks the file failed once and is not run again", async () => {
+    const f = await begun();
+    await sendAll(f);
+    // As if an earlier complete took the lock and the Worker died while hashing.
+    await raw.put(checkKey(f.p.companyId, f.sha256), JSON.stringify({ at: Date.now() - 6 * 60 * 1000, userId: "u_x" }));
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(CHECK_FAILED);
+    const row = await artifactRow(f);
+    expect([row.vaultState, row.readState, row.readError]).toEqual(["pending", "failed", CHECK_FAILED]);
+    expect((await raw.list({ prefix: `tenants/${f.p.companyId}/artifacts/${f.sha256}/` })).objects).toEqual([]);
+    calls.length = 0;
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(UPLOAD_RAN_OUT);
+    expect(calls.filter((c) => c.method === "get" && c.key === rawKey(f.p.companyId, f.sha256))).toEqual([]);
+    // Added again by the person: it goes up and is checked, and the PDF is back to kept.
+    await f.p.owner.ingest.artifact.begin({ sha256: f.sha256, fileName: "big.pdf", sizeBytes: f.bytes.length, contentType: "application/pdf", kind: "pdf_scan" });
+    await sendAll(f);
+    expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+    expect((await artifactRow(f)).readState).toBe("kept_unread");
+  });
+
+  test("M2: a check running now is not run twice; abort waits for it (N6, L8)", async () => {
+    const f = await begun();
+    await sendAll(f);
+    await raw.put(checkKey(f.p.companyId, f.sha256), JSON.stringify({ at: Date.now(), userId: "u_x" }));
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(CHECK_RUNNING);
+    await expect(f.p.owner.ingest.artifact.uploadAbort({ artifactId: f.artifactId })).rejects.toThrow(CHECK_RUNNING);
+    expect(await raw.head(rawKey(f.p.companyId, f.sha256))).not.toBeNull();
+  });
+
+  test("N5: two completes at once never say the upload ran out", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const out = await Promise.allSettled([
+      f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId }),
+      f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId }),
+    ]);
+    const said = out.map((r) => (r.status === "fulfilled" ? r.value.vaultState : String((r.reason as Error).message)));
+    expect(said).toContain("stored");
+    expect(said.every((x) => x === "stored" || x === CHECK_RUNNING)).toBe(true);
+    expect((await artifactRow(f)).vaultState).toBe("stored");
+  });
+
+  test("N6/L8: an object removed while it was hashed is not marked stored", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const key = rawKey(f.p.companyId, f.sha256);
+    const plan = JSON.parse(await (await raw.get(uploadPlanKey(f.p.companyId, f.sha256)))!.text()) as { uploadId: string };
+    await raw.resumeMultipartUpload(key, plan.uploadId).complete(await markerEtags(f.p.companyId, f.sha256, plan.uploadId));
+    afterBodyRead = async (k) => {
+      if (k === key) await raw.delete(key);
+    };
+    await expect(f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(UPLOAD_RAN_OUT);
+    expect((await artifactRow(f)).vaultState).toBe("pending");
+  });
+
+  test("L7: another person cannot restart a running upload with other parts; they may remove it first", async () => {
+    const f = await begun();
+    await sendAll(f, [1]);
+    const fake = [hex(new Uint8Array([1])), hex(new Uint8Array([2]))];
+    await expect(f.p.admin.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: fake })).rejects.toThrow(SOMEONE_ELSE_SENDING);
+    // The same parts resume for anyone.
+    expect((await f.p.admin.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) })).done).toEqual([1]);
+    expect((await f.p.admin.ingest.artifact.uploadAbort({ artifactId: f.artifactId })).aborted).toBe(true);
+    expect((await f.p.admin.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: fake })).done).toEqual([]);
+  });
+
+  test("L6: a file with no live sheet and bytes not stored has its upload aborted and its records deleted", async () => {
+    const f = await begun();
+    await sendAll(f, [1]);
+    expect(await abortIfAbandoned({ db: env.db, companyId: f.p.companyId }, f.artifactId)).toBe(true);
+    expect((await raw.list({ prefix: `tenants/${f.p.companyId}/artifacts/${f.sha256}/` })).objects).toEqual([]);
+    // A stored file keeps everything.
+    const g = await begun();
+    await sendAll(g);
+    await g.p.owner.ingest.artifact.uploadComplete({ artifactId: g.artifactId });
+    expect(await abortIfAbandoned({ db: env.db, companyId: g.p.companyId }, g.artifactId)).toBe(false);
+    expect(await raw.head(rawKey(g.p.companyId, g.sha256))).not.toBeNull();
+  });
+
+  test("N7/L6: the daily sweep clears uploads begun over a day ago and stores a one-piece file whose commit never came", async () => {
+    const f = await begun();
+    await sendAll(f, [1]);
+    workersEnv.INGEST_VAULT = vault();
+    const small = new TextEncoder().encode(`%PDF one piece ${randomUUID()}`);
+    const one = await f.p.owner.ingest.artifact.begin({ sha256: hex(small), fileName: "one.pdf", sizeBytes: small.length, contentType: "application/pdf", kind: "pdf_scan" });
+    await raw.put(rawKey(f.p.companyId, hex(small)), small);
+    // A fresh one is left alone.
+    expect(await sweepUnfinishedUploads(env.db, vault(), new Date())).toEqual({ cleared: 0, stored: 0 });
+    const later = new Date(Date.now() + 25 * 60 * 60 * 1000);
+    const out = await sweepUnfinishedUploads(env.db, vault(), later);
+    expect(out.cleared).toBeGreaterThanOrEqual(1);
+    expect(out.stored).toBeGreaterThanOrEqual(1);
+    expect(await raw.head(uploadPlanKey(f.p.companyId, f.sha256))).toBeNull();
+    expect((await artifactRow(f)).vaultState).toBe("pending");
+    expect((await f.p.owner.ingest.artifact.get({ artifactId: one.artifactId })).vaultState).toBe("stored");
+  });
+});
+
+describe("fix round: limits on file size and storage (decision 3)", () => {
+  const MiB = 1024 * 1024;
+  const begin = (pl: Plant, sizeBytes: number, kind: "pdf_scan" | "csv" | "sheet" = "pdf_scan") =>
+    pl.owner.ingest.artifact.begin({
+      sha256: hex(new TextEncoder().encode(randomUUID())),
+      fileName: kind === "csv" ? "a.csv" : kind === "sheet" ? "a.xlsx" : "a.pdf",
+      sizeBytes,
+      contentType: kind === "pdf_scan" ? "application/pdf" : null,
+      kind,
+    });
+  const staff = () => env.caller({ platformRole: "support" });
+
+  test("largest file per upload: the default 2 GiB is the ceiling; a lowered limit names itself and who can raise it", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    expect((await begin(pl, 2048 * MiB)).parts?.partCount).toBe(128);
+    await expect(begin(pl, 2048 * MiB + 1)).rejects.toThrow("a.pdf is too big. The largest file orrn can take is 2 GB.");
+    await staff().platform.companiesSetLimits({ companyId: pl.companyId, limits: { uploadFileMiB: 100 } });
+    await expect(begin(pl, 100 * MiB + 1, "csv")).rejects.toThrow("a.csv is too big. The largest file for this plant is 100 MB. Godseye staff can raise it.");
+    expect((await begin(pl, 100 * MiB, "csv")).parts?.partCount).toBe(7);
+  });
+
+  test("storage quota: counted from D1 with unfinished uploads; two begins at once cannot both pass", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    await staff().platform.companiesSetLimits({ companyId: pl.companyId, limits: { vaultQuotaGiB: 1 } });
+    const two = await Promise.allSettled([begin(pl, 600 * MiB), begin(pl, 600 * MiB)]);
+    expect(two.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const refused = two.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect((refused.reason as Error).message).toBe("This plant's file storage is full (1 GB). Godseye staff can raise it.");
+    expect((await begin(pl, 400 * MiB)).parts).not.toBeNull();
+    // An upload begun more than a day ago holds no parts (lifecycle rule) and no longer counts.
+    await env.db.update(ingestArtifact).set({ updatedAt: new Date(Date.now() - 25 * 60 * 60 * 1000) }).where(eq(ingestArtifact.companyId, pl.companyId));
+    expect((await begin(pl, 900 * MiB)).parts).not.toBeNull();
+  });
+
+  test("decision 2: with no vault the old refusal by kind holds, with the old words", async () => {
+    delete workersEnv.INGEST_VAULT;
+    const pl = await plant(env);
+    await expect(begin(pl, 21 * MiB, "sheet")).rejects.toThrow("a.xlsx is too big. The limit for this kind of file is 20 MB.");
+    await expect(begin(pl, 300 * MiB, "csv")).rejects.toThrow("a.csv is too big. The limit for this kind of file is 50 MB.");
+    expect((await begin(pl, 20 * MiB, "sheet")).parts).toBeNull();
+    // With a vault there is no refusal by kind.
+    workersEnv.INGEST_VAULT = vault();
+    expect((await begin(pl, 300 * MiB, "csv")).parts?.partCount).toBe(19);
+  });
+});
+
+describe("fix round: read tickets and page uploads (security L1, L4)", () => {
+  test("L1: a raw read is never cached and its link lasts two minutes; a page image may be cached briefly", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    const bytes = new TextEncoder().encode("raw bytes");
+    const sha256 = hex(bytes);
+    await raw.put(rawKey(pl.companyId, sha256), bytes);
+    await raw.put(pageKey(pl.companyId, sha256, 1), bytes);
+    const at = Date.now();
+    const rawLink = await issueReadTicket({ request: null }, { companyId: pl.companyId, userId: "u_1", artifactId: "a_1", sha256, key: rawKey(pl.companyId, sha256), as: "raw" }, at);
+    const pageLink = await issueReadTicket({ request: null }, { companyId: pl.companyId, userId: "u_1", artifactId: "a_1", sha256, key: pageKey(pl.companyId, sha256, 1), as: "page" }, at);
+    expect(rawLink.expiresAt - at).toBe(2 * 60 * 1000);
+    expect(pageLink.expiresAt - at).toBe(10 * 60 * 1000);
+    const abs = (u: string) => (u.startsWith("http") ? u : `https://api.test${u}`);
+    expect((await handleIngestRead(new Request(abs(rawLink.url)), { bucket: vault() })).headers.get("cache-control")).toBe("no-store");
+    expect((await handleIngestRead(new Request(abs(pageLink.url)), { bucket: vault() })).headers.get("cache-control")).toBe("private, max-age=600");
+  });
+
+  test("L4: of two uploads of one page at once exactly one lands; a page ticket names only a page key", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    const sha256 = hex(new TextEncoder().encode(randomUUID()));
+    const base = { purpose: "ingest-page" as const, companyId: pl.companyId, userId: "u_1", artifactId: "a_1", sha256, size: 1000, exactSize: false, contentType: "image/jpeg", fileName: "1.jpg" };
+    const t = await issueTicket({ request: null }, { ...base, key: pageKey(pl.companyId, sha256, 1) });
+    const url = t.url.startsWith("http") ? t.url : `https://api.test${t.url}`;
+    const a = new Uint8Array(500).fill(1);
+    const b = new Uint8Array(500).fill(2);
+    const put = (body: Uint8Array) => handleIngestUpload(new Request(url, { method: "PUT", body, headers: { "content-length": "500" } }), { bucket: vault() });
+    const both = await Promise.all([put(a), put(b)]);
+    expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
+    const stored = new Uint8Array(await (await raw.get(pageKey(pl.companyId, sha256, 1)))!.arrayBuffer());
+    expect(stored[0]).toBe(both[0]!.status === 200 ? 1 : 2);
+    // A later upload of the same page is refused too.
+    expect((await put(a)).status).toBe(409);
+    // A page ticket that names the raw file (or any other key) is not valid.
+    const bad = await issueTicket({ request: null }, { ...base, key: rawKey(pl.companyId, sha256) });
+    const badUrl = bad.url.startsWith("http") ? bad.url : `https://api.test${bad.url}`;
+    expect((await handleIngestUpload(new Request(badUrl, { method: "PUT", body: a, headers: { "content-length": "500" } }), { bucket: vault() })).status).toBe(403);
   });
 });

@@ -5,7 +5,7 @@ import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, VISION_PARAMS } from "@orrn/ingest";
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
 import { DOUBT_CODES, INGEST_LIMITS as L } from "../../lib/ingest/types";
-import { PART_TICKETS_PER_CALL, RAW_MAX_BYTES, RAW_MAX_PARTS } from "../../lib/ingest/upload-parts";
+import { PART_TICKETS_PER_CALL, RAW_MAX_BYTES, RAW_MAX_PARTS, RAW_PLAN_MAX_PARTS } from "../../lib/ingest/upload-parts";
 import { VISION_FILE_MAX_PAGES } from "../../lib/plantLimits";
 
 const id = z.string().min(1).max(64);
@@ -17,7 +17,7 @@ export const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/, "Not a SHA-256 diges
 export const beginInput = z.object({
   sha256: sha256Hex,
   fileName: z.string().trim().min(1).max(255),
-  // No size by kind (limits brief part B); the only bound is R2's 10,000 parts.
+  // Loose on purpose: `begin` refuses with words (no vault: by kind; vault: the plant's `uploadFileMiB`).
   sizeBytes: z.number().int().min(1).max(RAW_MAX_BYTES),
   contentType: z.string().max(200).nullable(),
   kind: z.enum(ARTIFACT_KINDS),
@@ -27,7 +27,7 @@ export const beginInput = z.object({
 export const artifactIdInput = z.object({ artifactId: id });
 
 /** The SHA-256 of every part, part 1 first (chunked upload). */
-export const uploadStartInput = z.object({ artifactId: id, parts: z.array(sha256Hex).min(2).max(RAW_MAX_PARTS) });
+export const uploadStartInput = z.object({ artifactId: id, parts: z.array(sha256Hex).min(2).max(RAW_PLAN_MAX_PARTS) });
 export const uploadTicketsInput = z.object({ artifactId: id, parts: z.array(z.number().int().min(1).max(RAW_MAX_PARTS)).min(1).max(PART_TICKETS_PER_CALL) });
 
 /** `readError` set: the browser could not read the file; the artifact and its candidates become failed. */

@@ -26,6 +26,11 @@ import type { OrrnDb } from "../atomic";
 import { base64url, dieFileSigningReady, fromBase64url, hex, hmacKey, apiOrigin } from "../dieFiles";
 
 export const INGEST_TICKET_TTL_MS = 10 * 60 * 1000;
+/**
+ * A read ticket of the raw file (security L1): the browser fetches at once and asks for a new link a minute before
+ * one runs out (`vision-read.ts`), so two minutes is enough and a leaked link is useful for less time.
+ */
+export const RAW_READ_TTL_MS = 2 * 60 * 1000;
 
 /** The largest canonical rows file accepted (gzip of up to 50,000 rows of 200 cells). */
 export const CANONICAL_MAX_BYTES = 60 * 1024 * 1024;
@@ -85,6 +90,21 @@ function keyBelongs(t: Pick<IngestTicket, "key" | "companyId" | "sha256">): bool
   return t.key.startsWith(`${artifactPrefix(t.companyId, t.sha256)}/`) && !t.key.includes("..");
 }
 
+/**
+ * The key shapes each upload purpose may name under its artifact (security L4): the raw file itself; one canonical
+ * rows file; and for a page ticket one page image, one band image or one page's text, by page number. The key is
+ * built on the server from the artifact row (sha) and the page number, and the ticket is signed, so a page ticket
+ * names exactly one page of exactly one file.
+ */
+const UPLOAD_KEY_SHAPES: Record<IngestTicketPurpose, RegExp> = {
+  "ingest-raw": /^\/raw$/,
+  "ingest-canonical": /^\/canonical\/\d{1,4}\.jsonl\.gz$/,
+  "ingest-page": /^\/pages\/[1-9]\d{0,4}(\.jpg|\.text\.json|\/b[1-9]\.jpg)$/,
+};
+function keyShapeFits(t: Pick<IngestTicket, "key" | "companyId" | "sha256" | "purpose">): boolean {
+  return UPLOAD_KEY_SHAPES[t.purpose].test(t.key.slice(artifactPrefix(t.companyId, t.sha256).length));
+}
+
 /** `{payload}.{hex HMAC}` signed with the purpose's key. */
 export async function signIngestTicket(ticket: IngestTicket): Promise<string> {
   const payload = base64url(new TextEncoder().encode(JSON.stringify(ticket)));
@@ -111,7 +131,7 @@ export async function readIngestTicket(text: string, now: number = Date.now()): 
   const key = await hmacKey(ticket.purpose);
   if (!(await crypto.subtle.verify("HMAC", key, sig, new TextEncoder().encode(`${ticket.purpose}:${payload}`)))) return null;
   if (ticket.v !== 1 || !Number.isFinite(ticket.exp) || ticket.exp < now) return null;
-  if (!/^[0-9a-f]{64}$/.test(ticket.sha256) || !keyBelongs(ticket)) return null;
+  if (!/^[0-9a-f]{64}$/.test(ticket.sha256) || !keyBelongs(ticket) || !keyShapeFits(ticket)) return null;
   return ticket;
 }
 
@@ -133,7 +153,9 @@ export async function issueTicket(
 /**
  * Worker route `PUT /files/ingest/upload?ticket=...` (no session: the ticket is the authority). O(1):
  * verify the ticket, check Content-Length, refuse an existing object, stream the body into R2. The raw
- * object is put with the ticket's SHA-256, so R2 refuses bytes that do not match.
+ * object is put with the ticket's SHA-256, so R2 refuses bytes that do not match. Every object is created only
+ * when absent (`onlyIf: { etagDoesNotMatch: "*" }`): of two PUTs at once exactly one lands, so a page cannot be
+ * swapped after the model or the checker saw it (security L4).
  */
 export async function handleIngestUpload(
   request: Request,
@@ -164,11 +186,17 @@ export async function handleIngestUpload(
     contentType: ticket.contentType.slice(0, 200),
   };
   try {
-    await bucket.put(ticket.key, request.body, {
+    const put = await bucket.put(ticket.key, request.body, {
+      onlyIf: { etagDoesNotMatch: "*" },
       httpMetadata: { contentType: ticket.purpose === "ingest-raw" ? ticket.contentType || "application/octet-stream" : ticket.contentType },
       customMetadata,
       ...(ticket.purpose === "ingest-raw" ? { sha256: ticket.sha256 } : {}),
     });
+    // Another PUT of the same key landed first while this one streamed.
+    if (put === null) {
+      await markCanonical(ticket, opts.db);
+      return text("This upload is already done", 409);
+    }
   } catch (error) {
     // R2 code 10037: the bytes do not match the digest the browser signed into the ticket.
     if (/10037|SHA-256 checksum/i.test(String((error as Error)?.message ?? error))) {
@@ -260,7 +288,7 @@ export async function issueReadTicket(
   t: Omit<IngestReadTicket, "v" | "exp" | "purpose">,
   now: number = Date.now(),
 ): Promise<{ url: string; expiresAt: number }> {
-  const exp = now + INGEST_TICKET_TTL_MS;
+  const exp = now + (t.as === "raw" ? RAW_READ_TTL_MS : INGEST_TICKET_TTL_MS);
   const ticket = await signIngestReadTicket({ ...t, purpose: READ_PURPOSE, v: 1, exp });
   return { url: ingestReadUrl(ctx, ticket), expiresAt: exp };
 }
@@ -280,7 +308,8 @@ export async function handleIngestRead(request: Request, opts: { bucket?: R2Buck
   const ticket = await readIngestReadTicket(new URL(request.url).searchParams.get("ticket") ?? "", opts.now ?? Date.now());
   if (!ticket) return text("Link expired or not valid", 403);
   const headers = new Headers({
-    "cache-control": "private, max-age=600",
+    // A raw file is never kept in the browser cache (security L1: a shared plant PC); a page image may be, briefly.
+    "cache-control": ticket.as === "raw" ? "no-store" : "private, max-age=600",
     "x-content-type-options": "nosniff",
     "content-security-policy": "default-src 'none'; sandbox",
     "referrer-policy": "no-referrer",
