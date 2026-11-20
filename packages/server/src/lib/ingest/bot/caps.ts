@@ -71,6 +71,13 @@ export interface BotRunStore {
    * Listings report a `pending` row as `error`: it is a call that counts.
    */
   finishRun?(id: string, row: BotRunRecord): Promise<void>;
+  /**
+   * Writes a `pending` row only when no other live `pending` row of the same key and purpose exists (one
+   * statement, so two tabs cannot both claim). A `pending` row older than `staleMs` is a call whose
+   * Worker stopped: it no longer holds the key. Returns the new id, or null when another call holds the
+   * key. The vision read uses it so one page or band is never paid for twice at once.
+   */
+  claimRun?(row: BotRunRecord, staleMs: number): Promise<string | null>;
 }
 
 const DAY_MS = 86_400_000;
@@ -175,5 +182,12 @@ export class MemoryBotRunStore implements BotRunStore {
   async finishRun(id: string, row: BotRunRecord) {
     const i = this.rows.findIndex((r) => r.id === id);
     if (i !== -1) this.rows[i] = { ...row, id };
+  }
+
+  async claimRun(row: BotRunRecord, staleMs: number) {
+    const held = this.rows.some(
+      (r) => r.companyId === row.companyId && r.blockId === row.blockId && r.purpose === row.purpose && r.outcome === "pending" && r.createdAtMs > row.createdAtMs - staleMs,
+    );
+    return held ? null : this.insertRun(row);
   }
 }

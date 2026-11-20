@@ -9,6 +9,7 @@ import "./env-mock";
 
 import { derivePage, digitRuns, unseenCells, type PageFacts } from "../src/lib/ingest/vision";
 import type { BotRunHistoryRow } from "../src/lib/ingest/bot";
+import { INGEST_LIMITS } from "../src/lib/ingest/types";
 
 const S = "claude-sonnet-5-5";
 const H = "claude-haiku-5-5";
@@ -43,12 +44,12 @@ describe("derivePage", () => {
     // Without the object there is nothing to rebuild from.
     expect(derivePage(facts({ blocks: [model("a", 3)], history: [run("recipe")], hasTables: false, fileBlocks: 1 }))).toMatchObject({ state: "not_read", reason: "error", next: "manual" });
     // Without room for the rest, it is manual.
-    expect(derivePage(facts({ blocks: [model("a", 3)], history: [run("recipe")], hasTables: true, tablesInFile: 3, fileBlocks: 49 }))).toMatchObject({ state: "not_read", reason: "too_many_tables", next: "manual" });
+    expect(derivePage(facts({ blocks: [model("a", 3)], history: [run("recipe")], hasTables: true, tablesInFile: 3, fileBlocks: INGEST_LIMITS.blocksPerFile - 1 }))).toMatchObject({ state: "not_read", reason: "too_many_tables", next: "manual" });
   });
 
   test("a recipe run with its tables in the vault and no block is a rebuild; with no object it is an error that may be read again", () => {
     expect(derivePage(facts({ history: [run("recipe")], hasTables: true, tablesInFile: 2 }))).toMatchObject({ state: "ready", next: "retry", tables: 2 });
-    expect(derivePage(facts({ history: [run("recipe")], hasTables: true, tablesInFile: 2, fileBlocks: 49 }))).toMatchObject({ state: "not_read", reason: "too_many_tables" });
+    expect(derivePage(facts({ history: [run("recipe")], hasTables: true, tablesInFile: 2, fileBlocks: INGEST_LIMITS.blocksPerFile - 1 }))).toMatchObject({ state: "not_read", reason: "too_many_tables" });
     expect(derivePage(facts({ history: [run("recipe")] }))).toMatchObject({ state: "not_read", reason: "error", canRetry: true, next: "manual", attempts: 1 });
     // A second such run is manual for good (two errors in a row).
     expect(derivePage(facts({ history: [run("recipe"), run("recipe")] }))).toMatchObject({ state: "not_read", reason: "error", canRetry: false });
@@ -67,14 +68,26 @@ describe("derivePage", () => {
     expect(derivePage(facts({ history: [run("invalid", null, H), run("invalid")] }))).toMatchObject({ reason: "invalid", next: "manual" });
   });
 
+  test("a page another tab is reading (a live claim) is ready with nothing to do now, never a retry", () => {
+    expect(derivePage(facts({ history: [run("error")], inFlight: true }))).toMatchObject({ state: "ready", next: null, reason: null });
+    expect(derivePage(facts({ inFlight: true }))).toMatchObject({ state: "ready", next: null });
+  });
+
+  test("a model block whose rows stop short (S5) keeps its page open for the rebuild", () => {
+    const block = { id: "b1", readBy: "model" as const, typed: false, tables: 1 };
+    expect(derivePage(facts({ history: [run("recipe")], hasTables: true, tablesInFile: 1, blocks: [block] }))).toMatchObject({ state: "read" });
+    expect(derivePage(facts({ history: [run("recipe")], hasTables: true, tablesInFile: 1, blocks: [{ ...block, short: true }] }))).toMatchObject({ state: "ready", next: "retry" });
+  });
+
+  // N11: a page at its own call cap stays capped whatever the day, so it is not offered "Read again".
   test("a capped page is not read with its cap reason and may be read again; capped rows are not calls", () => {
     expect(derivePage(facts({ history: [run("capped", ["cap:day_calls"])] }))).toMatchObject({ state: "not_read", reason: "cap_day_calls", canRetry: true, attempts: 0 });
     expect(derivePage(facts({ history: [run("invalid"), run("capped", ["cap:day_cost"])] }))).toMatchObject({ reason: "cap_day_cost", canRetry: true, attempts: 1 });
-    expect(derivePage(facts({ history: [run("error"), run("invalid"), run("error"), run("invalid"), run("capped", ["cap:block_calls"])] }))).toMatchObject({ reason: "cap_page", canRetry: true });
+    expect(derivePage(facts({ history: [run("error"), run("invalid"), run("error"), run("invalid"), run("capped", ["cap:block_calls"])] }))).toMatchObject({ reason: "cap_page", canRetry: false });
   });
 
   test("a full file is manual before any call", () => {
-    expect(derivePage(facts({ fileBlocks: 50 }))).toMatchObject({ state: "not_read", reason: "too_many_tables", next: "manual", canRetry: false });
+    expect(derivePage(facts({ fileBlocks: INGEST_LIMITS.blocksPerFile }))).toMatchObject({ state: "not_read", reason: "too_many_tables", next: "manual", canRetry: false });
   });
 });
 
@@ -84,6 +97,10 @@ describe("text-layer digit check (pure)", () => {
     expect(digitRuns("12, 34")).toEqual(["12", "34"]);
     expect(digitRuns("Rate 210.50/kg")).toEqual(["210", "50"]);
     expect(digitRuns("no digits")).toEqual([]);
+    // N16: Gujarati and Devanagari digits are read as the same digits.
+    expect(digitRuns("\u0ae7,\u0ae8\u0ae9\u0aea")).toEqual(["1234"]);
+    expect(digitRuns("\u0967\u0968\u0969 kg")).toEqual(["123"]);
+    expect(unseenCells([["1234", "\u0ae7\u0ae8"]], ["\u0ae7\u0ae8\u0ae9\u0aea", "12"])).toEqual([]);
   });
 
   test("whole runs are matched, never a part of one; items never join", () => {
@@ -143,6 +160,6 @@ describe("derivePage: bands (contract section 11.3)", () => {
     expect(derivePage(facts({ band: band([item({ history: [run("no_target")] }), item()]) }))).toMatchObject({ reason: "no_table" });
     expect(derivePage(facts({ band: band([done(), item({ history: [run("capped", ["cap:day_cost"])] })]) }))).toMatchObject({ reason: "cap_day_cost", canRetry: true });
     // A full file is manual before any band call.
-    expect(derivePage(facts({ band: band([item(), item()]), fileBlocks: 50 }))).toMatchObject({ reason: "too_many_tables" });
+    expect(derivePage(facts({ band: band([item(), item()]), fileBlocks: INGEST_LIMITS.blocksPerFile }))).toMatchObject({ reason: "too_many_tables" });
   });
 });

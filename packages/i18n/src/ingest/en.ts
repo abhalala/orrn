@@ -83,6 +83,17 @@ export const ingestEn = {
       partsMissing: "Some parts of the file did not arrive. Add the same file again to send them.",
       digest: "The saved file did not match the file you chose. Add it again.",
       ranOut: "The upload took too long and stopped. Add the same file again.",
+      checkRunning: "This file is still being checked. Wait a minute, then try again.",
+      checkFailed: "orrn could not check this file after it arrived. Remove it from the list and add it again.",
+      someoneElse: "Someone else is sending this file now. Try again when they finish.",
+    },
+    // fix round: refusals of artifact.begin (decisions 2 and 3)
+    refused: {
+      tooBigKind: "{name} is too big. The limit for this kind of file is {limit} MB.",
+      fileTooBig: "{name} is too big. The largest file for this plant is {size}. Godseye staff can raise it.",
+      fileTooBigMax: "{name} is too big. The largest file orrn can take is {size}.",
+      storageFull: "This plant's file storage is full ({size}). Godseye staff can raise it.",
+      storageFullMax: "This plant's file storage is full ({size}).",
     },
   },
   kept: {
@@ -625,7 +636,9 @@ export const ingestEn = {
       fileRead: "This file is already read.",
       checkFirst: "Check these rows against the page first.",
       fileGone: "This file is no longer there.",
-      fileFull: "This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far.",
+      fileFull: "This file already holds the most tables one file can hold. Finish it to use the tables read so far.",
+      rebuildFailed: "The tables read from this page could not be written. Skip this page.",
+      needsPrices: "Someone who can see prices must check this table.",
     },
   },
   rate: {

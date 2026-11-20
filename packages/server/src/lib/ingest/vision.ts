@@ -24,8 +24,20 @@ import { now } from "../clock";
 import { effectiveLimits } from "../effectiveLimits";
 import { createId } from "../id";
 import { modelCaps } from "../plantLimits";
-import { stagedRowOf } from "./artifacts";
-import { countCalls, historyOutcome, planVision, runVisionAttempt, SONNET, shapeBotReady, type BotRunHistoryRow, type BotRunStore, type VisionTable } from "./bot";
+import { openStagedRows, stagedRowOf } from "./artifacts";
+import {
+  countCalls,
+  historyOutcome,
+  planVision,
+  runVisionAttempt,
+  SONNET,
+  shapeBotReady,
+  VISION_CLAIM_STALE_MS,
+  type BotRunHistoryRow,
+  type BotRunRecord,
+  type BotRunStore,
+  type VisionTable,
+} from "./bot";
 import { capSample, fitDiffJson, learnedHoles, stateForFit } from "./candidates";
 import { guardedBatch, ingestAbortUnlessChanged, isIngestAbort, loadArtifact, MOVED, type ArtifactRow, type StoredVision } from "./core";
 import { anthropicEnv, botRunStore } from "./engines";
@@ -40,6 +52,7 @@ import {
   VISION_NOT_STORED,
   VISION_PAGE_PAST,
   VISION_PAGE_READ,
+  VISION_REBUILD_FAILED,
   VISION_UPLOAD_FIRST,
   KEPT_UNREAD_NOT_READ,
   isVisualKind,
@@ -144,9 +157,19 @@ async function loadIndex(bucket: R2Bucket, ctx: Pick<IngestCtx, "companyId">, a:
 /** The page text a text PDF page sent (`pages/<n>.text.json`). */
 export type PageTextFile = { v: 1; items: string[] };
 
-/** The digit runs of a string: `\d+` after a comma between two digits is removed (1,23,456 is 123456). */
+/** Devanagari (U+0966) and Gujarati (U+0AE6) digits, read as ASCII digits (N16). */
+const INDIC_DIGITS = /[\u0966-\u096f\u0ae6-\u0aef]/g;
+const asciiDigit = (ch: string) => {
+  const c = ch.codePointAt(0)!;
+  return String(c - (c >= 0x0ae6 ? 0x0ae6 : 0x0966));
+};
+
+/**
+ * The digit runs of a string: Devanagari and Gujarati digits read as ASCII digits first, then `\d+` after a
+ * comma between two digits is removed (1,23,456 is 123456).
+ */
 export function digitRuns(s: string): string[] {
-  return s.replace(/(?<=\d),(?=\d)/g, "").match(/\d+/g) ?? [];
+  return s.replace(INDIC_DIGITS, asciiDigit).replace(/(?<=\d),(?=\d)/g, "").match(/\d+/g) ?? [];
 }
 
 /**
@@ -199,8 +222,9 @@ const headerLine = (cells: readonly string[]) => cells.map((c) => c.trim().repla
  * Merge the bands of one page (pure). `first` is band 1's answer; `rest` is the answer of bands 2..K in
  * order. The banded table of band 1 takes the rows of every later band in order; a first row of band
  * k >= 2 that equals the headers (the header strip read as data) is dropped, once; nothing else is
- * de-duplicated, since the cuts have no overlap. Band 1's other tables stay as they are, in place. Null
- * when band 1 has no table, a later band is not exactly one table, or any row is not as wide as the headers.
+ * de-duplicated, since the cuts have no overlap. Band 1's other tables stay as they are, in place. A later
+ * band with no table (a footer or signature strip, S4) adds no rows. Null when band 1 has no table, a later
+ * band holds more than one table, or any row is not as wide as the headers.
  */
 export function mergeBands(first: readonly VisionTable[], rest: readonly (readonly VisionTable[])[]): { tables: VisionTable[]; banded: number } | null {
   if (first.length === 0) return null;
@@ -212,6 +236,7 @@ export function mergeBands(first: readonly VisionTable[], rest: readonly (readon
   const rows = [...base.rows];
   const rowConfidence = [...base.rowConfidence];
   for (const answer of rest) {
+    if (answer.length === 0) continue;
     if (answer.length !== 1) return null;
     const t = answer[0]!;
     if (t.headers.length !== width || t.rows.some((r) => r.length !== width)) return null;
@@ -232,10 +257,11 @@ export function mergeBands(first: readonly VisionTable[], rest: readonly (readon
 // Page state (contract section 4)
 // ---------------------------------------------------------------------------
 
-export type PageBlock = { id: string; readBy: "parser" | "model"; typed: boolean; tables: number };
+/** `short`: a model block whose staged rows stop before its row count (a batch after the first one stopped, S5). */
+export type PageBlock = { id: string; readBy: "parser" | "model"; typed: boolean; tables: number; short?: boolean };
 
 /** One band of a page cut into bands: its image, its tables object and its run rows (`visionBandKey`). */
-export type BandItemFacts = { hasImage: boolean; hasTables: boolean; history: readonly BotRunHistoryRow[] };
+export type BandItemFacts = { hasImage: boolean; hasTables: boolean; history: readonly BotRunHistoryRow[]; inFlight?: boolean };
 
 /** A page cut into bands. `band1Tables`: tables in band 1's tables object, when it was read. */
 export type BandFacts = { total: number; items: readonly BandItemFacts[]; band1Tables: number | null };
@@ -261,6 +287,8 @@ export type PageFacts = {
   largest?: { rows: number; headers: string[] } | null;
   /** The page is cut into bands: the whole-page tables object and run rows no longer count. */
   band?: BandFacts | null;
+  /** A live claim (`pending`, younger than `VISION_CLAIM_STALE_MS`) holds the page key: a call is in flight. */
+  inFlight?: boolean;
 };
 
 const CAP_REASON: Record<string, VisionNotReadReason> = {
@@ -289,7 +317,12 @@ function planKey(history: readonly BotRunHistoryRow[], hasImage: boolean, hasTab
   const orphan = calls.at(-1)?.outcome === "recipe" && !hasTables;
   const seen = orphanHistory(history, orphan);
   const last = history.at(-1);
-  if (last?.outcome === "capped") return notRead(CAP_REASON[(last.errorCodes ?? [])[0] ?? ""] ?? "cap_day_calls", true);
+  if (last?.outcome === "capped") {
+    // N11: a page at its own call cap stays capped on any day (the key's history has no day window), so
+    // only a day cap may be read again.
+    const reason = CAP_REASON[(last.errorCodes ?? [])[0] ?? ""] ?? "cap_day_calls";
+    return notRead(reason, reason !== "cap_page");
+  }
   const plan = planVision(seen, SONNET);
   if (plan.next === "retry" || plan.next === "escalate") {
     if (orphan) return notRead("error", true);
@@ -337,16 +370,22 @@ export function derivePage(f: PageFacts): VisionPageView {
   if (f.blocks.some((b) => b.typed)) return view({ state: "typed", reason: null, canRetry: false, next: "done" });
   const model = f.blocks.filter((b) => b.readBy === "model");
   const expected = Math.max(0, ...model.map((b) => b.tables));
-  if (model.length > 0 && model.length >= expected) return view({ state: "read", reason: null, canRetry: false, next: "done" });
+  const short = model.some((b) => b.short);
+  if (model.length > 0 && model.length >= expected && !short) return view({ state: "read", reason: null, canRetry: false, next: "done" });
   if (f.skipped) return view({ state: "skipped", reason: null, canRetry: false, next: "done" });
 
   const room = INGEST_LIMITS.blocksPerFile - f.fileBlocks;
+  // Another tab's call is in flight on this page or its next band: nothing to do now (no call, no retry loop).
+  const busy = view({ state: "ready", reason: null, canRetry: false, next: null, tables: 0 });
   if (band) {
+    if (bands!.next !== null && band.items[bands!.next - 1]!.inFlight) return busy;
     const n = band.band1Tables ?? expected;
     if (model.length > 0) {
       // Part of the page's tables are blocks: the rest are built again from the bands' tables objects.
       if (bands!.next !== null) return notRead("error");
       if (n - model.length > room) return notRead("too_many_tables");
+      // S2: the bands hold no table that is not a block yet, so a rebuild could add nothing.
+      if (band.band1Tables !== null && n <= model.length && !short) return notRead("error");
       return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: n });
     }
     if (bands!.next === null) {
@@ -361,10 +400,13 @@ export function derivePage(f: PageFacts): VisionPageView {
     return view({ ...plan, next, tables: band.band1Tables ?? 0 });
   }
 
+  if (f.inFlight && model.length === 0) return busy;
   if (model.length > 0) {
     // Part of the page's tables are blocks: the rest are rebuilt from the tables object.
     const missing = (f.tablesInFile ?? expected) - model.length;
     if (!f.hasTables) return notRead("error");
+    // S2: the tables object holds no table that is not a block yet, so a rebuild could add nothing.
+    if (f.tablesInFile !== null && missing <= 0 && !short) return notRead("error");
     if (missing > room) return notRead("too_many_tables");
     return view({ state: "ready", reason: null, canRetry: false, next: "retry", tables: f.tablesInFile ?? expected });
   }
@@ -398,7 +440,7 @@ type FileFacts = {
   etag: string;
   pages: VisionPageView[];
   facts: PageFacts[];
-  blockRows: { id: string; ordinal: number; readBy: "parser" | "model"; vision: StoredVision | null }[];
+  blockRows: { id: string; ordinal: number; readBy: "parser" | "model"; vision: StoredVision | null; short: boolean }[];
 };
 
 /** Reads the facts of every planned page (or only `only`): one listing, one runs query, one blocks query. */
@@ -420,18 +462,21 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
     .where(and(eq(ingestBotRun.companyId, ctx.companyId), eq(ingestBotRun.purpose, "vision"), keyFilter))
     .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt))) as RunRow[];
   const byKey = new Map<string, BotRunHistoryRow[]>();
+  const live = new Set<string>();
+  const staleBefore = now().getTime() - VISION_CLAIM_STALE_MS;
   for (const r of runs) {
     const list = byKey.get(r.blockId) ?? [];
     list.push({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome as never), errorCodes: r.errorCodes });
     byKey.set(r.blockId, list);
+    if (r.outcome === "pending" && r.createdAt.getTime() > staleBefore) live.add(r.blockId);
   }
   const historyOf = (key: string): BotRunHistoryRow[] => byKey.get(key) ?? [];
   const blocks = await ctx.db
-    .select({ id: ingestBlock.id, ordinal: ingestBlock.ordinal, readBy: ingestBlock.readBy, readerFacts: ingestBlock.readerFacts })
+    .select({ id: ingestBlock.id, ordinal: ingestBlock.ordinal, readBy: ingestBlock.readBy, readerFacts: ingestBlock.readerFacts, rowsPut: ingestBlock.rowsPut, rowCount: ingestBlock.rowCount })
     .from(ingestBlock)
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, a.id)))
     .orderBy(asc(ingestBlock.ordinal));
-  const blockRows = blocks.map((b) => ({ id: b.id, ordinal: b.ordinal, readBy: b.readBy, vision: b.readerFacts?.vision ?? null }));
+  const blockRows = blocks.map((b) => ({ id: b.id, ordinal: b.ordinal, readBy: b.readBy, vision: b.readerFacts?.vision ?? null, short: b.readBy === "model" && b.rowsPut < b.rowCount }));
   const skipped = new Set(index.index.skipped);
   const facts: PageFacts[] = [];
   for (const p of pages) {
@@ -444,13 +489,14 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
             hasImage: keys.has(bandKey(ctx.companyId, a.sha256, p, k + 1)),
             hasTables: keys.has(bandTablesKey(ctx.companyId, a.sha256, p, k + 1)),
             history: historyOf(visionBandKey(a.id, p, k + 1)),
+            inFlight: live.has(visionBandKey(a.id, p, k + 1)),
           })),
           band1Tables: null,
         }
       : null;
     const onPage = blockRows
       .filter((b) => b.vision?.page === p)
-      .map((b) => ({ id: b.id, readBy: b.readBy, typed: b.vision?.typed === true, tables: b.vision?.tables ?? 1 }));
+      .map((b) => ({ id: b.id, readBy: b.readBy, typed: b.vision?.typed === true, tables: b.vision?.tables ?? 1, short: b.short }));
     const hasTables = keys.has(pageTablesKey(ctx.companyId, a.sha256, p));
     const f: PageFacts = {
       page: p,
@@ -465,6 +511,7 @@ async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index
       bandable: a.kind !== "pdf_text",
       largest: null,
       band,
+      inFlight: live.has(visionPageKey(a.id, p)),
     };
     // A tables object is read only for a page whose blocks are not all there yet (rare).
     if (band) {
@@ -537,11 +584,14 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
       startedAt: now().getTime(),
     };
     body.batches = [[1, body.planned]];
+    // Written only when absent: two first starts at once write one plan, and the slower one answers it.
     const put = await bucket.put(pagesIndexKey(ctx.companyId, a.sha256), JSON.stringify(body), {
+      onlyIf: { etagDoesNotMatch: "*" },
       httpMetadata: { contentType: "application/json" },
       customMetadata: { companyId: ctx.companyId, artifactId: a.id },
     });
-    index = { index: body, etag: put.etag };
+    index = put ? { index: body, etag: put.etag } : await loadIndex(bucket, ctx, a);
+    if (!index) throw new TRPCError(MOVED);
   }
   if (a.readState === "kept_unread") {
     await guardedBatch(
@@ -706,10 +756,48 @@ export async function visionAllSettled(ctx: IngestCtx, a: ArtifactRow): Promise<
 // readPage
 // ---------------------------------------------------------------------------
 
-/** The run store, with a page's recipe runs seen as errors when their tables never reached the vault. */
-function pageStore(base: BotRunStore, orphan: boolean): BotRunStore {
-  if (!orphan) return base;
-  return { ...base, listBlockRuns: async (args) => orphanHistory(await base.listBlockRuns(args), true) };
+/**
+ * The run store of a page or band read: a page's recipe runs are seen as errors when their tables never
+ * reached the vault, and `claimRun` writes the `pending` claim in one statement that finds no live claim
+ * of the same key (AGENTS section 2: the guard is in the statement's own WHERE), so two tabs never both
+ * call for one page or band.
+ */
+function visionStore(ctx: IngestCtx, orphan: boolean): BotRunStore {
+  const base = botRunStore(ctx);
+  return {
+    ...base,
+    ...(orphan ? { listBlockRuns: async (args: Parameters<BotRunStore["listBlockRuns"]>[0]) => orphanHistory(await base.listBlockRuns(args), true) } : {}),
+    claimRun: (row, staleMs) => claimVisionRun(ctx, row, staleMs),
+  };
+}
+
+async function claimVisionRun(ctx: IngestCtx, row: BotRunRecord, staleMs: number): Promise<string | null> {
+  const id = createId();
+  await ctx.db.run(sql`
+    insert into ingest_bot_run (id, company_id, block_id, candidate_id, purpose, model, attempt, outcome, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_micro_usd, duration_ms, error_codes, created_by, created_at)
+    select ${id}, ${ctx.companyId}, ${row.blockId}, null, 'vision', ${row.model}, ${row.attempt}, 'pending', 0, 0, 0, 0, ${row.costMicroUsd}, 0, null, ${row.createdBy}, ${row.createdAtMs}
+    where not exists (
+      select 1 from ingest_bot_run r
+      where r.company_id = ${ctx.companyId} and r.block_id = ${row.blockId} and r.purpose = 'vision' and r.outcome = 'pending' and r.created_at > ${row.createdAtMs - staleMs}
+    )`);
+  const [got] = await ctx.db.select({ id: ingestBotRun.id }).from(ingestBotRun).where(and(eq(ingestBotRun.id, id), eq(ingestBotRun.companyId, ctx.companyId))).limit(1);
+  return got ? id : null;
+}
+
+/**
+ * Writes a tables object only when the key holds none (an earlier answer whose run never finished keeps
+ * its place), and answers the tables the key holds after the write.
+ */
+async function putTablesOnce(bucket: R2Bucket, key: string, file: PageTablesFile, a: ArtifactRow, companyId: string): Promise<VisionTable[]> {
+  const put = await bucket.put(key, JSON.stringify(file), {
+    onlyIf: { etagDoesNotMatch: "*" },
+    httpMetadata: { contentType: "application/json" },
+    customMetadata: { companyId, artifactId: a.id },
+  });
+  if (put) return file.tables;
+  const got = await readJson<PageTablesFile>(bucket, key);
+  if (!got || !Array.isArray(got.body?.tables)) throw new Error("tables object unreadable");
+  return got.body.tables;
 }
 
 export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string; page: number; band?: number }): Promise<VisionPageView> {
@@ -720,17 +808,20 @@ export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string
   const view = facts.pages[0]!;
   if (isSettled(view)) return view;
   if (f.band) return readBand(ctx, a, bucket, index.index, f, f.band, view, input);
+  if (f.inFlight) return view;
   // A band of a page that is not cut into bands, or a page that waits for its bands: no call.
   if (input.band !== undefined || view.next === "band") return view;
   if (view.state === "waiting") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
   if (view.state === "not_read" && !view.canRetry) return view;
+  // S3: a file or plant already at its row limit is refused before the model is paid for the page.
+  await assertRowRoom(ctx, a, 0);
 
   // A rebuild: the tables are in the vault but not all of them are blocks yet. No model call.
   if (view.state === "ready" && f.hasTables && (f.blocks.length > 0 || f.history.filter((h) => h.outcome !== "capped").at(-1)?.outcome === "recipe")) {
     const got = await readJson<PageTablesFile>(bucket, pageTablesKey(ctx.companyId, a.sha256, input.page));
     if (got && Array.isArray(got.body.tables)) {
-      await insertTables(ctx, a, input.page, index.index.pageCount, got.body.tables);
-      return reread(ctx, input);
+      const wrote = await insertTables(ctx, a, input.page, index.index.pageCount, got.body.tables);
+      return afterRebuild(ctx, input, wrote);
     }
   }
 
@@ -739,9 +830,15 @@ export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string
   const bytes = new Uint8Array(await obj.arrayBuffer());
   const mediaType = (obj.httpMetadata?.contentType ?? VISION_PARAMS.pageContentType) as "image/jpeg";
   const lastReal = f.history.filter((h) => h.outcome !== "capped").at(-1);
+  const tablesKey = pageTablesKey(ctx.companyId, a.sha256, input.page);
+  let stored: VisionTable[] | null = null;
   const result = await runVisionAttempt({
     env: anthropicEnv(),
-    store: pageStore(botRunStore(ctx), lastReal?.outcome === "recipe" && !f.hasTables),
+    store: visionStore(ctx, lastReal?.outcome === "recipe" && !f.hasTables),
+    // The tables go to the vault before the run is finished, so a batch that fails is rebuilt with no new call.
+    onTables: async (tables, runId, model) => {
+      stored = await putTablesOnce(bucket, tablesKey, { v: 1, runId, model, tables }, a, ctx.companyId);
+    },
     caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
@@ -762,15 +859,10 @@ export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string
     return reread(ctx, input);
   }
   if (result.outcome === "recipe" && result.tables) {
-    // The tables go to the vault before the blocks, so a batch that fails is rebuilt with no new call.
-    const file: PageTablesFile = { v: 1, runId: result.runId, model: result.model, tables: result.tables };
-    await bucket.put(pageTablesKey(ctx.companyId, a.sha256, input.page), JSON.stringify(file), {
-      httpMetadata: { contentType: "application/json" },
-      customMetadata: { companyId: ctx.companyId, artifactId: a.id },
-    });
+    const tables: VisionTable[] = stored ?? result.tables;
     // A scan or photo with a table past the threshold makes no blocks: the page is read again in bands.
-    const dense = a.kind !== "pdf_text" && result.tables.some((t) => t.rows.length > VISION_PARAMS.bandRowThreshold);
-    if (!dense) await insertTables(ctx, a, input.page, index.index.pageCount, result.tables);
+    const dense = a.kind !== "pdf_text" && tables.some((t) => t.rows.length > VISION_PARAMS.bandRowThreshold);
+    if (!dense) await insertTables(ctx, a, input.page, index.index.pageCount, tables);
   }
   return reread(ctx, input);
 }
@@ -797,10 +889,12 @@ async function readBand(
     return view;
   }
   const item = band.items[target - 1]!;
+  if (item.inFlight) return view;
   const room = INGEST_LIMITS.blocksPerFile - f.fileBlocks;
   const plan = planKey(item.history, item.hasImage, item.hasTables, room);
   if (plan.state === "waiting") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
   if (plan.state === "not_read" && !plan.canRetry) return view;
+  await assertRowRoom(ctx, a, 0);
 
   // Bands 2..K need band 1's headers: until band 1 is read, they wait.
   let headers: string[] | null = null;
@@ -813,9 +907,13 @@ async function readBand(
   if (!obj) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_UPLOAD_FIRST });
   const bytes = new Uint8Array(await obj.arrayBuffer());
   const mediaType = (obj.httpMetadata?.contentType ?? VISION_PARAMS.pageContentType) as "image/jpeg";
+  const bandTables = bandTablesKey(ctx.companyId, a.sha256, input.page, target);
   const result = await runVisionAttempt({
     env: anthropicEnv(),
-    store: pageStore(botRunStore(ctx), lastCall(item.history)?.outcome === "recipe" && !item.hasTables),
+    store: visionStore(ctx, lastCall(item.history)?.outcome === "recipe" && !item.hasTables),
+    onTables: async (tables, runId, model) => {
+      await putTablesOnce(bucket, bandTables, { v: 1, runId, model, tables }, a, ctx.companyId);
+    },
     caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
@@ -837,11 +935,6 @@ async function readBand(
     return reread(ctx, input);
   }
   if (result.outcome === "recipe" && result.tables) {
-    const file: PageTablesFile = { v: 1, runId: result.runId, model: result.model, tables: result.tables };
-    await bucket.put(bandTablesKey(ctx.companyId, a.sha256, input.page, target), JSON.stringify(file), {
-      httpMetadata: { contentType: "application/json" },
-      customMetadata: { companyId: ctx.companyId, artifactId: a.id },
-    });
     const after = await reread(ctx, input);
     if (after.bands?.next === null && after.state === "ready") return mergeAndInsert(ctx, a, bucket, index, input.page, band.total, after);
     return after;
@@ -860,8 +953,38 @@ async function mergeAndInsert(ctx: IngestCtx, a: ArtifactRow, bucket: R2Bucket, 
   const merged = mergeBands(answers[0]!, answers.slice(1));
   // Each band was checked for width when it was read, so this does not happen; it is manual if it does.
   if (!merged) return { ...view, state: "not_read", reason: "invalid", canRetry: false, next: "manual" };
-  await insertTables(ctx, a, page, index.pageCount, merged.tables, total);
-  return reread(ctx, { artifactId: a.id, page });
+  const wrote = await insertTables(ctx, a, page, index.pageCount, merged.tables, total);
+  return afterRebuild(ctx, { artifactId: a.id, page }, wrote);
+}
+
+/**
+ * Contract section 6: a rebuild that wrote nothing while the page still asks for one throws, so the web
+ * stops its loop on the error and never spins on `next: "retry"` (S2). Not CONFLICT: the pump reads a
+ * page again on CONFLICT.
+ */
+async function afterRebuild(ctx: IngestCtx, input: { artifactId: string; page: number }, wrote: number): Promise<VisionPageView> {
+  const after = await reread(ctx, input);
+  if (wrote === 0 && after.state === "ready" && after.next === "retry") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_REBUILD_FAILED });
+  return after;
+}
+
+/** The plant's open-rows sentence (as `artifact.begin` says it). */
+const OPEN_ROWS_FULL = "Too many rows are waiting. Merge or discard older imports first.";
+/** The rows-per-file sentence (as `artifact.putBlocks` says it). */
+const fileRowsFull = (fileName: string, limit: number) => `${fileName} has more than ${limit.toLocaleString("en-US")} rows. Split it and try again.`;
+
+/**
+ * S3: model-read and typed rows count against the plant's `rawRowsPerFile` and `openRowsPerPlant`
+ * (`effectiveLimits`), as a sheet's rows do. `rows` is what the write adds; 0 checks that there is room
+ * for any row at all (before a model call). PRECONDITION_FAILED, so the screen shows the sentence.
+ */
+async function assertRowRoom(ctx: IngestCtx, a: ArtifactRow, rows: number): Promise<{ rawRowsPerFile: number }> {
+  const limits = await effectiveLimits(ctx);
+  const fresh = await loadArtifact(ctx, a.id);
+  const over = (have: number, limit: number) => (rows === 0 ? have >= limit : have + rows > limit);
+  if (over(fresh.rowCount, limits.rawRowsPerFile)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: fileRowsFull(a.fileName, limits.rawRowsPerFile) });
+  if (over(await openStagedRows(ctx), limits.openRowsPerPlant)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: OPEN_ROWS_FULL });
+  return { rawRowsPerFile: limits.rawRowsPerFile };
 }
 
 /**
@@ -937,18 +1060,18 @@ async function tableStatements(
   learned: Awaited<ReturnType<typeof learnedHoles>>,
   t: { ordinal: number; title: string | null; headers: string[]; rows: string[][]; readBy: "parser" | "model"; headerBy: "reader" | "person"; vision: StoredVision },
   at: Date,
-): Promise<SqliteBatchItem[]> {
-  const rows = t.rows.map((r) => {
-    const cut = r.slice(0, INGEST_LIMITS.columnsPerBlock);
-    return [...cut, ...Array<string>(Math.max(0, t.headers.length - cut.length)).fill("")].slice(0, Math.max(t.headers.length, 1));
-  });
+): Promise<{ statements: SqliteBatchItem[]; blockId: string; candidateId: string; target: ReturnType<typeof fitBlock>["target"]; rows: string[][] }> {
+  const rows = padRows(t.headers, t.rows);
   const sample = capSample(rows.slice(0, INGEST_LIMITS.sampleRowsPerBlock).map((r) => r.map((c) => c.slice(0, INGEST_LIMITS.cellChars))));
   const fp = fingerprintOf(t.headers, sample);
   const fit = fitBlock(fp, learned);
   const blockId = createId();
   const candidateId = createId();
+  // S5: the first batch stages at most `rowsPerPut` rows; `rowsPut` says how many, and `topUpRows` writes
+  // the rest of a merged banded table batch by batch.
+  const first = Math.min(rows.length, ROWS_PER_BATCH);
   const staged = await Promise.all(
-    rows.map((cells, i) => stagedRowOf(ctx, { artifactId: a.id, ordinal: t.ordinal, rowIndex: i, cells, candidateId, target: fit.target, doubts: null, at })),
+    rows.slice(0, first).map((cells, i) => stagedRowOf(ctx, { artifactId: a.id, ordinal: t.ordinal, rowIndex: i, cells, candidateId, target: fit.target, doubts: null, at })),
   );
   const out: SqliteBatchItem[] = [
     ctx.db.insert(ingestBlock).values({
@@ -970,7 +1093,7 @@ async function tableStatements(
       headerKey: fp.headerKey,
       columnCount: fp.columnCount,
       rowCount: rows.length,
-      rowsPut: rows.length,
+      rowsPut: first,
       sample: sample.map((r) => r.slice(0, fp.columnCount)),
       readBy: t.readBy,
       modelChecked: false,
@@ -996,14 +1119,65 @@ async function tableStatements(
     }),
   ];
   pushChunkedInserts(out, (part) => ctx.db.insert(ingestStagedRow).values(part), staged);
-  return out;
+  return { statements: out, blockId, candidateId, target: fit.target, rows };
+}
+
+/** Rows of a staged write: at most `rowsPerPut` (500) a batch, the size `putRows` writes (contract section 6). */
+const ROWS_PER_BATCH = INGEST_LIMITS.rowsPerPut;
+
+/** Rows cut to the block's columns and padded to its headers, as stored. */
+function padRows(headers: readonly string[], rows: readonly (readonly string[])[]): string[][] {
+  return rows.map((r) => {
+    const cut = r.slice(0, INGEST_LIMITS.columnsPerBlock);
+    return [...cut, ...Array<string>(Math.max(0, headers.length - cut.length)).fill("")].slice(0, Math.max(headers.length, 1));
+  });
 }
 
 /**
- * The guard of one page write: the file is still read page by page, has room for one more block, and
- * the page holds no block of the other kind (a typed table and model tables never share a page).
+ * S5: the staged rows of a model block past `rowsPut`, one batch of `rowsPerPut` rows at a time. Each batch
+ * moves `rowsPut` only from the value it read (in the statement's own WHERE) with its abort statement, so
+ * two tabs never write the same rows; a lost race stops quietly (the other tab writes them). Answers the
+ * batches written.
  */
-function pageGuard(ctx: IngestCtx, a: ArtifactRow, page: number, other: "parser" | "model", rows: number, at: Date): SqliteBatchItem[] {
+async function topUpRows(
+  ctx: IngestCtx,
+  a: ArtifactRow,
+  block: { id: string; ordinal: number; rowsPut: number },
+  candidate: { id: string; target: ReturnType<typeof fitBlock>["target"] },
+  rows: readonly string[][],
+): Promise<number> {
+  let wrote = 0;
+  for (let start = block.rowsPut; start < rows.length; start += ROWS_PER_BATCH) {
+    const end = Math.min(rows.length, start + ROWS_PER_BATCH);
+    const at = now();
+    const staged = await Promise.all(
+      rows.slice(start, end).map((cells, j) => stagedRowOf(ctx, { artifactId: a.id, ordinal: block.ordinal, rowIndex: start + j, cells, candidateId: candidate.id, target: candidate.target, doubts: null, at })),
+    );
+    const statements: SqliteBatchItem[] = [
+      ctx.db
+        .update(ingestBlock)
+        .set({ rowsPut: end })
+        .where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.rowsPut, start))),
+      ingestAbortUnlessChanged(ctx.db),
+    ];
+    pushChunkedInserts(statements, (part) => ctx.db.insert(ingestStagedRow).values(part), staged);
+    try {
+      await guardedBatch(ctx.db, statements);
+    } catch (e) {
+      if (e instanceof TRPCError && e.code === "CONFLICT") return wrote;
+      throw e;
+    }
+    wrote += 1;
+  }
+  return wrote;
+}
+
+/**
+ * The guard of one page write: the file is still read page by page, has room for one more block and for
+ * its rows under the plant's rows per file, and the page holds no block of the other kind (a typed table
+ * and model tables never share a page).
+ */
+function pageGuard(ctx: IngestCtx, a: ArtifactRow, page: number, other: "parser" | "model", rows: number, at: Date, rawRowsPerFile: number): SqliteBatchItem[] {
   const { lo, hi } = pageOrdinals(page);
   return [
     ctx.db
@@ -1015,6 +1189,8 @@ function pageGuard(ctx: IngestCtx, a: ArtifactRow, page: number, other: "parser"
           eq(ingestArtifact.companyId, ctx.companyId),
           eq(ingestArtifact.readState, "reading"),
           sql`${ingestArtifact.blockCount} < ${INGEST_LIMITS.blocksPerFile}`,
+          // S3: the file's rows stay within the plant's rows per file, checked in the write itself.
+          sql`${ingestArtifact.rowCount} + ${rows} <= ${rawRowsPerFile}`,
           sql`not exists (select 1 from ingest_block b where b.artifact_id = ${a.id} and b.company_id = ${ctx.companyId} and b.ordinal between ${lo} and ${hi} and b.read_by = ${other})`,
         ),
       ),
@@ -1032,21 +1208,37 @@ const isBlockUnique = (e: unknown) => {
 
 /**
  * Contract section 6: each table of the page not yet a block becomes one, one table per batch (each
- * guarded on its own ordinal by the unique index). The room for every missing table is checked before
- * the first. A table another tab already wrote is taken as written.
+ * guarded on its own ordinal by the unique index). The room for every missing table, and for its rows
+ * under the plant's row limits (S3), is checked before the first. A table another tab already wrote is
+ * taken as written; a block cut short by a stopped batch gets the rest of its rows (S5). Answers how many
+ * batches it wrote, so a rebuild that wrote nothing can say so.
  */
-async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCount: number, tables: readonly VisionTable[], bands = 0): Promise<void> {
+async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCount: number, tables: readonly VisionTable[], bands = 0): Promise<number> {
   const list = tables.slice(0, VISION_PARAMS.tablesPerPage);
   const { lo, hi } = pageOrdinals(page);
   const have = await ctx.db
-    .select({ ordinal: ingestBlock.ordinal })
+    .select({ id: ingestBlock.id, ordinal: ingestBlock.ordinal, readBy: ingestBlock.readBy, rowsPut: ingestBlock.rowsPut, rowCount: ingestBlock.rowCount })
     .from(ingestBlock)
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, a.id), sql`${ingestBlock.ordinal} between ${lo} and ${hi}`));
+  let wrote = 0;
+  for (const b of have) {
+    if (b.readBy !== "model" || b.rowsPut >= b.rowCount) continue;
+    const i = list.findIndex((_, k) => visionOrdinal(page, k) === b.ordinal);
+    if (i < 0) continue;
+    const [c] = await ctx.db
+      .select({ id: ingestCandidate.id, target: ingestCandidate.target })
+      .from(ingestCandidate)
+      .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, b.id), sql`${ingestCandidate.parentId} is null`))
+      .limit(1);
+    if (!c) continue;
+    wrote += await topUpRows(ctx, a, b, c, padRows(list[i]!.headers, list[i]!.rows));
+  }
   const taken = new Set(have.map((b) => b.ordinal));
   const missing = list.map((t, i) => ({ t, i })).filter((x) => !taken.has(visionOrdinal(page, x.i)));
-  if (missing.length === 0) return;
+  if (missing.length === 0) return wrote;
   const fresh = await loadArtifact(ctx, a.id);
-  if (fresh.blockCount + missing.length > INGEST_LIMITS.blocksPerFile) return;
+  if (fresh.blockCount + missing.length > INGEST_LIMITS.blocksPerFile) return wrote;
+  const { rawRowsPerFile } = await assertRowRoom(ctx, a, missing.reduce((n, x) => n + x.t.rows.length, 0));
   const learned = await learnedHoles(ctx);
   // The digit check reads the page's text once; missing text only means no marks.
   const bucket = ingestVault();
@@ -1054,23 +1246,24 @@ async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCo
   for (const { t, i } of missing) {
     const at = now();
     const ordinal = visionOrdinal(page, i);
+    const built = await tableStatements(
+      ctx,
+      a,
+      learned,
+      {
+        ordinal,
+        title: t.title,
+        headers: t.headers,
+        rows: t.rows,
+        readBy: "model",
+        headerBy: "reader",
+        vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length, unseen: unseenCells(t.rows, items), ...(bands ? { bands } : {}) },
+      },
+      at,
+    );
     const statements: SqliteBatchItem[] = [
-      ...pageGuard(ctx, a, page, "parser", t.rows.length, at),
-      ...(await tableStatements(
-        ctx,
-        a,
-        learned,
-        {
-          ordinal,
-          title: t.title,
-          headers: t.headers,
-          rows: t.rows,
-          readBy: "model",
-          headerBy: "reader",
-          vision: { page, table: i, pageCount, rowConfidence: t.rowConfidence, tables: list.length, unseen: unseenCells(t.rows, items), ...(bands ? { bands } : {}) },
-        },
-        at,
-      )),
+      ...pageGuard(ctx, a, page, "parser", t.rows.length, at, rawRowsPerFile),
+      ...built.statements,
       auditInsert(ctx, { action: "ingest.vision.page", subjectType: "ingest_artifact", subjectId: a.id, meta: { page, table: i, ordinal, rows: t.rows.length } }),
     ];
     try {
@@ -1078,14 +1271,18 @@ async function insertTables(ctx: IngestCtx, a: ArtifactRow, page: number, pageCo
     } catch (e) {
       if (isBlockUnique(e)) continue;
       if (e instanceof TRPCError && e.code === "CONFLICT") {
-        // The guard failed: the file left page reading, filled up, or a person typed this page.
+        // The guard failed: the file left page reading, filled up, reached its rows per file, or a person typed this page.
         const now2 = await loadArtifact(ctx, a.id);
         if (now2.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_NOT_READING });
-        return;
+        if (now2.rowCount + t.rows.length > rawRowsPerFile) throw new TRPCError({ code: "PRECONDITION_FAILED", message: fileRowsFull(a.fileName, rawRowsPerFile) });
+        return wrote;
       }
       throw e;
     }
+    wrote += 1;
+    wrote += await topUpRows(ctx, a, { id: built.blockId, ordinal, rowsPut: Math.min(built.rows.length, ROWS_PER_BATCH) }, { id: built.candidateId, target: built.target }, built.rows);
   }
+  return wrote;
 }
 
 // ---------------------------------------------------------------------------
@@ -1118,11 +1315,13 @@ export async function visionTypePage(
   plannedPage(index.index, input.page);
   const view = (await loadFacts(ctx, bucket, a, index, input.page)).pages[0]!;
   if (view.state === "read" || view.state === "typed") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_PAGE_READ });
+  const { rawRowsPerFile } = await assertRowRoom(ctx, a, input.rows.length);
   const at = now();
   const ordinal = visionOrdinal(input.page, 0);
   const statements: SqliteBatchItem[] = [
-    ...pageGuard(ctx, a, input.page, "model", input.rows.length, at),
-    ...(await tableStatements(
+    ...pageGuard(ctx, a, input.page, "model", input.rows.length, at, rawRowsPerFile),
+    ...(
+      await tableStatements(
       ctx,
       a,
       await learnedHoles(ctx),
@@ -1136,7 +1335,8 @@ export async function visionTypePage(
         vision: { page: input.page, table: 0, pageCount: index.index.pageCount, rowConfidence: [], tables: 1, typed: true },
       },
       at,
-    )),
+      )
+    ).statements,
     auditInsert(ctx, { action: "ingest.vision.type", subjectType: "ingest_artifact", subjectId: a.id, meta: { page: input.page, ordinal, rows: input.rows.length, columns: input.headers.length } }),
   ];
   try {
@@ -1146,6 +1346,7 @@ export async function visionTypePage(
     if (isIngestAbort(e) || (e instanceof TRPCError && e.code === "CONFLICT")) {
       const now2 = await loadArtifact(ctx, a.id);
       if (now2.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_NOT_READING });
+      if (now2.rowCount + input.rows.length > rawRowsPerFile) throw new TRPCError({ code: "PRECONDITION_FAILED", message: fileRowsFull(a.fileName, rawRowsPerFile) });
       const again = await reread(ctx, input);
       if (again.state === "read" || again.state === "typed") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_PAGE_READ });
       if (again.reason === "too_many_tables" || now2.blockCount >= INGEST_LIMITS.blocksPerFile) return { ...again, state: "not_read", reason: "too_many_tables", canRetry: false, next: "manual" };

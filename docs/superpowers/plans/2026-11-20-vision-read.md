@@ -26,8 +26,9 @@ No other file may hold these numbers as literals. EVAL changes land here only.
   kind. Haiku is never asked for a vision page.
 - `planVision`, Sonnet start: `invalid` (schema, checks, `output:truncated`, `output:not_json`) gets ONE retry on Sonnet
   with the validation codes. A second invalid answer: manual. `refused`: manual (no retry). `no_target`: manual (page
-  "not read", reason `no_table`). Transport `error`: the same model again, at most 2 errors in a row, then manual.
-  Old history rows from Haiku keep their old meaning (Haiku failure escalates to Sonnet once).
+  "not read", reason `no_table`). Transport `error`: Sonnet again (never Haiku, even after an old Haiku row; fix round
+  N12), at most 2 errors in a row, then manual. Old history rows from Haiku keep their old meaning (Haiku failure
+  escalates to Sonnet once).
 - `pdf_text` pages are read as `pdf_scan` (`pageKind` is `image` for an image artifact, else `pdf_scan`).
 
 ## 3. What a run is keyed to (brief gate 4)
@@ -40,7 +41,18 @@ No other file may hold these numbers as literals. EVAL changes land here only.
   instructions, about 0.01 USD in; a 3,000 token answer is 0.03 USD. 30 pages with a retry each is about 2.40 USD.
   A page that hits the 16,000 token cap costs about 0.17 USD, so a file of only such pages can hit the 5 USD day
   cap near call 29. A page stopped by a cap shows "not read" with reason `cap_day_calls` / `cap_day_cost` /
-  `cap_page`; capped rows are not calls, so "Read again" works the next plant day.
+  `cap_page`; capped rows are not calls, so "Read again" works the next plant day for a day cap. `cap_page` has
+  `canRetry: false`: the key's own history has no day window, so it stays capped (fix round N11).
+- **Claim (fix round S1, decision 8).** Before each call `runVisionAttempt` writes a `pending` run row for its key
+  (page or band) at the call's worst-case cost `VISION_WORST_COST_MICRO` (6,000 input tokens, from EVAL's measured
+  965 + about 4,800, and the full 16,000 Sonnet answer: 0.175 USD), in ONE statement whose own WHERE finds no other
+  live `pending` row of that key (`insert ... select ... where not exists`). A second tab finds the claim and makes no
+  call and writes no row (`skipped`, reason `busy`). Then `capsAfterClaim` runs as on the shape path; a cap turns the
+  claim into the `capped` row. The valid tables are written to the vault (`onTables`) BEFORE the claim becomes the
+  `recipe` row, so no tab ever sees a finished recipe run without its tables. A `pending` row older than
+  `VISION_CLAIM_STALE_MS` (10 minutes; the client gives up after 90 s and one retry) no longer holds the key and
+  counts as one failed call. While a live claim holds a page or its next band, the page view is `ready` with
+  `next: null` (nothing to do now), and `readPage` answers it with no call.
 
 ## 4. States
 
@@ -68,11 +80,12 @@ Page (derived, never stored as a column), `VisionPageState`:
 
 `reason` for `not_read` (`VisionNotReadReason`): `no_table`, `refused`, `invalid`, `too_long` (`output:truncated` twice),
 `error`, `cap_page`, `cap_day_calls`, `cap_day_cost`, `page_too_large`, `unsupported_page`, `too_many_tables` (file
-already holds `INGEST_LIMITS.blocksPerFile` blocks). `cap_*` pages may be read again (`canRetry: true`).
+already holds `INGEST_LIMITS.blocksPerFile` blocks, 200 for every plant, a fixed limit: fix round decision 1).
+`cap_day_calls` and `cap_day_cost` pages may be read again (`canRetry: true`); `cap_page` may not (N11).
 
 `next` (built): `"retry"` only when the next `vision.readPage` makes a model call (after one invalid answer or one
-transport error) or rebuilds blocks from `pages/<n>.tables.json`; `null` for `waiting` and for `ready` with no call
-yet; `"manual"` for `not_read`; `"done"` when settled. A full file (`too_many_tables`) is manual before any call. A
+transport error) or rebuilds blocks from `pages/<n>.tables.json`; `null` for `waiting`, for `ready` with no call
+yet, and for a page another tab's call holds (section 3, claim); `"manual"` for `not_read`; `"done"` when settled. A full file (`too_many_tables`) is manual before any call. A
 `recipe` run whose tables object is missing counts as an `error` run for the plan: one is `not_read`/`error` with
 `canRetry: true`, two in a row is `canRetry: false`.
 
@@ -106,7 +119,10 @@ Under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`):
 - the artifact's `blockCount` and `rowCount` grow by the new blocks; audit `ingest.vision.page`.
 - unique `(artifact, ordinal)`: a second tab's insert fails and the page answers `read` with the stored blocks.
 - Before the batch, the validated tables are written to the vault at `pages/<n>.tables.json`
-  (`{ v: 1, runId, model, tables: VisionTable[] }`). If the batch fails after a `recipe` run (limit, conflict, Worker
+  (`{ v: 1, runId, model, tables: VisionTable[] }`), while the claim still holds the key, and only when the key holds
+  no object yet (`onlyIf: { etagDoesNotMatch: "*" }`): an earlier answer whose run never finished keeps its place and
+  the blocks are built from it (fix round S1). The same holds for band tables objects and for the first
+  `pages/index.json` (two first starts write one plan and both answer it, N10). If the batch fails after a `recipe` run (limit, conflict, Worker
   stop), the next `vision.readPage` rebuilds the blocks from that object with no model call. A `recipe` run with no
   block and no tables object is `not_read` with reason `error` and `canRetry: true` (the run is not counted as done).
 - Rows: at most `MAX_ROWS_PER_TABLE` (500) per table and 5 tables. Built: one table per `guardedBatch` (at most 500
@@ -115,8 +131,20 @@ Under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`):
   a typed table and model tables never share a page) and its abort statement. The room for every missing table of
   the page is checked before the first. A page is `read` only when its model blocks number `readerFacts.vision.tables`;
   a page with fewer (a batch stopped after table 0) is `ready` with `next: "retry"`, and the next `vision.readPage`
-  inserts only the missing ordinals from `pages/<n>.tables.json`, with no model call. A rebuild that fails throws (the
-  web stops its loop on an error, never on `retry`).
+  inserts only the missing ordinals from `pages/<n>.tables.json`, with no model call. A rebuild that wrote nothing
+  while the page still asks for one throws BAD_REQUEST "The tables read from this page could not be written. Skip
+  this page." (never CONFLICT, which the pump reads again; the web stops its loop on an error, never on `retry`). A
+  tables object that holds no table missing from the blocks makes the page `not_read` / `error` (fix round S2).
+- Rows per batch (fix round S5): a table's first batch stages at most `rowsPerPut` (500) rows and sets `rowsPut` to
+  that count; a merged banded table over 500 rows stages the rest 500 a batch, each batch moving `rowsPut` from the
+  value it read in its own WHERE with the abort statement. A model block with `rowsPut < rowCount` keeps its page
+  `ready` / `retry`, and the next `readPage` stages the missing rows from the tables objects with no call.
+- Row limits (fix round S3): model-read and typed rows count against the plant's `rawRowsPerFile` and
+  `openRowsPerPlant` (`effectiveLimits`). `readPage` refuses before the model call when the file or the plant is
+  already at its limit; the write refuses when its rows would pass a limit, with the rows per file also checked in
+  `pageGuard`'s own WHERE (`row_count + rows <= rawRowsPerFile`). Both refusals are PRECONDITION_FAILED with the
+  existing sentences: "<file> has more than <limit> rows. Split it and try again." and "Too many rows are waiting.
+  Merge or discard older imports first."
 
 The block then goes through the normal fit, `shape.make` (no longer refused for a model block), dry run and review.
 `artifact.putBlocks` still refuses a PDF or photo (blocks of a visual file come only from `vision.*`).
@@ -199,7 +227,10 @@ Rules:
 - "This file is not being read page by page"
 - "Only PDFs and photos are read page by page"
 - "Rows of this sheet are already written. Its rows cannot change now."
-- "This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far." (section 12)
+- "This file already holds 200 tables, the most one file can hold. Finish it to use the tables read so far." (section 12;
+  built from `INGEST_LIMITS.blocksPerFile`, matched by the web with any number)
+- "The tables read from this page could not be written. Skip this page." (section 6, fix round S2)
+- "Someone who can see prices must check this table." (section 7, fix round decision 6)
 - Reused as they are: `KEPT_UNREAD_NO_STORAGE`, `KEPT_UNREAD_NOT_READ`, "The original file is not saved yet. Upload
   the same file again, then approve.", "This file is already read", "Check these rows against the page first",
   `MOVED`, "Import file not found".
@@ -259,7 +290,9 @@ These override sections 1 to 10 where they disagree.
      headers text is data from the first read and goes inside a JSON string, never as an instruction.
    - Procedures: `vision.bandTickets({ artifactId, page, bands: 2..4 })` returns one ticket per band;
      `vision.readPage({ artifactId, page, band?: 1..4 })` reads one band. A band answer must be one table whose width
-     equals band 1's headers, else invalid (`vision:band_width`) and the normal one retry.
+     equals band 1's headers, else invalid (`vision:band_width`) and the normal one retry. A band 2..K that answers
+     no table (a footer or signature strip) is a `recipe` with zero rows, not `no_target` (fix round S4); band 1 with
+     no table is `no_target` as a page is.
    - Merge (server, pure function, tested): bands in order, rows concatenated; a first row of band k >= 2 equal to the
      headers (the strip read as data) is dropped; nothing else is de-duplicated (cuts have no overlap). Tests: no row
      duplicated or dropped at any band edge, the header row dropped once, widths checked. The merged table becomes one
@@ -337,7 +370,7 @@ These override sections 1 to 11 where they disagree. A file with more pages than
   refusals). A page is open for the model when it is `waiting` or `ready` (not `next: "band"`), or `not_read` with
   `cap_day_calls` / `cap_day_cost` (`openForModel`, server and web). While any planned page is open, or every page is
   planned, nothing is planned and the missing tickets of the whole plan come back (a double click or a second tab
-  plans nothing twice). A file holding `blocksPerFile` tables is refused: BAD_REQUEST "This file already holds 50
+  plans nothing twice). A file holding `blocksPerFile` tables is refused: BAD_REQUEST "This file already holds 200
   tables, the most one file can hold. Finish it to use the tables read so far." Otherwise it plans `planned + 1` to
   `min(pageCount, planned + visionPagesPerBatch)` with the plant's value now, appends the range to `batches`, clears
   `restNotRead`, writes audit `ingest.vision.batch { from, to, pageCount }`, and hands tickets for that range only.
@@ -376,7 +409,7 @@ file with pages past the plan; only a person's "Finish without pages N to M" doe
 - A batch read through with pages past the plan: "Pages read: 1 to 30." (`ingest.vision.readRanges`, ranges of read or
   typed pages), "Pages 31 to 100 of 100 are not read yet.", "Read next pages" with "Reads pages 31 to 60." (fetches the
   raw bytes, plans the batch, draws and reads only its pages), and "Finish without pages 31 to 100".
-- A full file: "This file holds 50 tables, the most one file can hold. The tables read so far can still be checked and
+- A full file: "This file holds 200 tables, the most one file can hold. The tables read so far can still be checked and
   imported." and "Skip the rest and finish" while planned pages are open. Tables already read stay usable.
 - Upload strip: pages past the plan count as not read in "{count} pages are not read".
 - New server sentence: the full-file sentence above, listed in 8b and mapped to `ingest.vision.error.fileFull`.
@@ -384,11 +417,11 @@ file with pages past the plan; only a person's "Finish without pages N to M" doe
 ### Calls and cost
 
 - A batch of 30 dense pages at the defaults: a text PDF at 3 bands is 90 calls; a scan is 1 whole read plus 3 bands, 120
-  calls. The 300 call cap does not bind. At about 0.07 USD a band call, `checkCaps` allows a call while the day's spend
-  is under 5 USD: 71 calls spend 4.97 USD, call 72 goes (5.04 USD), call 73 is capped. A dense batch finishes the next
-  plant day with "Read next pages".
+  calls. The 300 call cap does not bind. At about 0.07 USD a band call, each call claimed at 0.175 USD first (section 3),
+  a call goes while the day's spend plus its claim stays within 5 USD: 68 calls spend 4.76 USD, call 69 goes (4.83 USD),
+  call 70 is capped (4.83 + 0.175 is over 5). A dense batch finishes the next plant day with "Read next pages".
 - 100 pages one table each: four batches (30, 30, 30, 10). Whole pages only: 100 calls at about 0.04 USD (section 3), about 4 USD: one plant day if few pages need a retry, else two. Dense
-  text at 3 bands: 300 calls, about 21 USD, so about 72 calls a day at 5 USD: five plant days. The day call cap (300)
-  is never the wall at 5 USD. The 50-table file limit binds first for any file with more than 50 tables: at one table a
-  page, page 51 onward is `too_many_tables`; such a file cannot be read whole in one artifact (owner decision).
+  text at 3 bands: 300 calls, about 21 USD, so about 69 calls a day at 5 USD: five plant days. The day call cap (300)
+  is never the wall at 5 USD. The 200-table file limit binds for any file with more than 200 tables: at one table a
+  page, page 201 onward is `too_many_tables`; such a file cannot be read whole in one artifact (owner decision).
 

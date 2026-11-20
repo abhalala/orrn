@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import "./env-mock";
 
 import { VISION_PARAMS } from "@orrn/ingest";
-import { BLOCK_CALL_CAP, DAY_CALL_CAP, DAY_COST_CAP_MICRO, type VisionTable } from "../src/lib/ingest/bot";
+import { BLOCK_CALL_CAP, DAY_CALL_CAP, fakeResponse, FakeShapeClient, MemoryBotRunStore, runVisionAttempt, type RunVisionArgs, type VisionTable } from "../src/lib/ingest/bot";
 import { bandedTableIndex, mergeBands } from "../src/lib/ingest/vision";
 
 const H = ["Section", "Bundles", "Kg"];
@@ -72,34 +72,57 @@ describe("mergeBands", () => {
     expect(mergeBands([t(rowsFrom(1, 2))], [[t([["S3", "3"]], { headers: ["Section", "Bundles"] })]])).toBeNull();
     expect(mergeBands([t(rowsFrom(1, 2))], [[t([["S3", "3"]])]])).toBeNull();
     expect(mergeBands([t(rowsFrom(1, 2))], [[t(rowsFrom(3, 1)), t(rowsFrom(4, 1))]])).toBeNull();
-    expect(mergeBands([t(rowsFrom(1, 2))], [[]])).toBeNull();
     expect(mergeBands([], [])).toBeNull();
+  });
+
+  test("S4: a later band with no table (a footer strip) adds no rows; the other bands still merge", () => {
+    const merged = mergeBands([t(rowsFrom(1, 2))], [[t(rowsFrom(3, 2))], []]);
+    expect(merged!.tables[0]!.rows).toEqual(rowsFrom(1, 4));
+    expect(mergeBands([t(rowsFrom(1, 2))], [[]])!.tables[0]!.rows).toEqual(rowsFrom(1, 2));
   });
 });
 
-describe("cap arithmetic (contract section 11.3)", () => {
+/**
+ * Contract section 11.3, calls and caps, through the real `runVisionAttempt` and the real caps (N14: these
+ * tests used to add up numbers written into the test). Each run key has its own 4-call cap; a whole file's
+ * calls stay under the day call cap.
+ */
+describe("caps of a banded file (contract section 11.3)", () => {
   const pages = VISION_PARAMS.maxPagesPerFile;
-  const k = VISION_PARAMS.maxBandsPerPage;
-  test("one key never meets its cap: a call and one retry per band", () => {
-    expect(1 + 1).toBeLessThanOrEqual(BLOCK_CALL_CAP);
+  const CHEAP = { input: 100, output: 100, cacheRead: 0, cacheWrite: 0 };
+  const S = "claude-sonnet-5-5";
+  const valid = () => fakeResponse({ tables: [{ title: null, headers: H, rows: [{ cells: ["S1", "1", "3"], confidence: 0.9 }] }] }, { modelUsed: S, usage: CHEAP });
+  const invalid = () => fakeResponse({ tables: [{ title: null, headers: H, rows: [{ cells: ["S1"], confidence: 0.9 }] }] }, { modelUsed: S, usage: CHEAP });
+  const at = Date.UTC(2026, 10, 10, 6, 0, 0);
+  const run = (store: MemoryBotRunStore, blockId: string, client: FakeShapeClient, band: RunVisionArgs["band"] = null) =>
+    runVisionAttempt({ env: { ANTHROPIC_API_KEY: "sk-test" }, store, companyId: "co1", userId: "u1", blockId, pageKind: "pdf_scan", page: { mediaType: "image/jpeg", bytes: new Uint8Array([1, 2, 3]) }, vaultReady: true, visualReads: true, band, client, nowMs: () => at });
+
+  test("one key never meets its cap: an invalid answer and its retry are two of the key's four calls", async () => {
+    const store = new MemoryBotRunStore();
+    const client = new FakeShapeClient([invalid(), valid()]);
+    expect(await run(store, "a:p1:b2", client, { index: 2, total: 3, headers: H })).toMatchObject({ status: "ran", outcome: "invalid", next: "retry" });
+    expect(await run(store, "a:p1:b2", client, { index: 2, total: 3, headers: H })).toMatchObject({ status: "ran", outcome: "recipe", next: "done" });
+    expect(store.rows.map((r) => r.outcome)).toEqual(["invalid", "recipe"]);
+    // The key still has room under its own cap: a third run is refused as done, not as capped.
+    expect(await run(store, "a:p1:b2", client)).toMatchObject({ status: "skipped", reason: "already_done" });
+    expect(store.rows.filter((r) => r.outcome !== "capped").length).toBeLessThan(BLOCK_CALL_CAP);
   });
-  test("calls per file stay under the day cap", () => {
-    // Whole pages only, a retry each.
-    expect(pages * 2).toBe(60);
-    // Every page a dense text PDF at 3 bands, a retry each.
-    expect(pages * 3).toBe(90);
-    expect(pages * 3 * 2).toBe(180);
-    // Every page a dense scan: one whole read and 3 bands, a retry each.
-    expect(pages * (1 + 3)).toBe(120);
-    expect(pages * (1 + 3) * 2).toBe(240);
-    expect(pages * (1 + 3) * 2).toBeLessThanOrEqual(DAY_CALL_CAP);
-    // The most bands one page may have still fits a 30 page scan with no retries.
-    expect(pages * (1 + k)).toBeLessThanOrEqual(DAY_CALL_CAP);
-  });
-  test("cost: 90 band calls at about 0.07 USD pass the 5 USD day cap near call 70", () => {
-    const perBandMicro = 60_000 + 10_000;
-    expect(90 * perBandMicro).toBe(6_300_000);
-    expect(90 * perBandMicro).toBeGreaterThan(DAY_COST_CAP_MICRO);
-    expect(Math.ceil(DAY_COST_CAP_MICRO / perBandMicro)).toBe(72);
+
+  test("a whole file of dense scans, one whole read and 3 bands a page, a retry each, stays under the day call cap", async () => {
+    const store = new MemoryBotRunStore();
+    const client = new FakeShapeClient(Array.from({ length: pages * 4 }, () => [invalid(), valid()]).flat());
+    let capped = 0;
+    for (let p = 1; p <= pages; p++) {
+      for (const key of [`a:p${p}`, `a:p${p}:b1`, `a:p${p}:b2`, `a:p${p}:b3`]) {
+        for (let i = 0; i < 2; i++) {
+          const r = await run(store, key, client);
+          if (r.status === "ran" && r.outcome === "capped") capped++;
+        }
+      }
+    }
+    expect(capped).toBe(0);
+    const day = await store.dayTotals({ companyId: "co1", sinceMs: 0 });
+    expect(day.calls).toBe(pages * 4 * 2);
+    expect(day.calls).toBeLessThanOrEqual(DAY_CALL_CAP);
   });
 });

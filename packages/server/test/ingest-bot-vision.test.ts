@@ -12,6 +12,8 @@ import {
   planVision,
   runVisionAttempt,
   toBase64,
+  VISION_CLAIM_STALE_MS,
+  VISION_WORST_COST_MICRO,
   visionStartModel,
   type BotRunHistoryRow,
   type RunVisionArgs,
@@ -181,7 +183,8 @@ describe("vision read", () => {
     expect(planVision([row(1, S, "invalid"), row(2, S, "capped")], S)).toMatchObject({ next: "retry", model: S });
     // Old Haiku history keeps its old meaning: escalate once, then Sonnet's failure is manual.
     expect(planVision([row(1, H, "invalid"), row(2, S, "invalid")], S)).toMatchObject({ next: "manual" });
-    expect(planVision([row(1, H, "error")], H)).toMatchObject({ next: "retry", model: H });
+    // N12: a transport error retries on Sonnet; Haiku is never asked for a page.
+    expect(planVision([row(1, H, "error")], H)).toMatchObject({ next: "retry", model: S });
     expect(planVision([row(1, H, "error"), row(2, H, "error")], H)).toMatchObject({ next: "manual" });
     // A failed Sonnet escalation retries on Sonnet, never back on Haiku (it would loop H invalid, S error).
     expect(planVision([row(1, H, "invalid"), row(2, S, "error")], H)).toMatchObject({ next: "retry", model: S, carryErrors: true });
@@ -228,6 +231,123 @@ describe("vision read", () => {
     const text = (client.calls[0]!.messages[0]!.content as { text?: string }[]).map((p) => p.text ?? "").join("\n");
     expect(text).toContain(`This is band 2 of 3 of one page. The table's headers are: ${JSON.stringify(JSON.stringify(headers))}.`);
     expect(text).toContain("Copy only the body rows in this band; do not copy the header strip at the top.");
+  });
+
+  // ---- Release 2 fix round: the claim (server S1, decision 8), bands with no table (S4), Sonnet only (N12) ----
+
+  const pendingRow = (atMs: number, blockId = "page1") => ({
+    companyId: "co1",
+    blockId,
+    candidateId: null,
+    purpose: "vision" as const,
+    model: "claude-sonnet-5-5",
+    attempt: 1,
+    outcome: "pending" as const,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costMicroUsd: 0,
+    durationMs: 0,
+    createdBy: null,
+    createdAtMs: atMs,
+    errorCodes: null,
+  });
+
+  test("a live claim on the same page key: no call, no row, the read answers busy", async () => {
+    const store = new MemoryBotRunStore();
+    const at = Date.UTC(2026, 10, 10, 12, 0, 0);
+    await store.insertRun(pendingRow(at - 60_000));
+    const client = new FakeShapeClient([sonnet(answer(table()))]);
+    expect(await runVisionAttempt(args({ store, client }))).toEqual({ status: "skipped", reason: "busy", next: "manual" });
+    expect(client.calls).toHaveLength(0);
+    expect(store.rows).toHaveLength(1);
+    // Another page key is not held by it.
+    expect(ran(await runVisionAttempt(args({ store, client, blockId: "page2" }))).outcome).toBe("recipe");
+  });
+
+  test("a claim older than the stale window no longer holds the key", async () => {
+    const store = new MemoryBotRunStore();
+    const at = Date.UTC(2026, 10, 10, 12, 0, 0);
+    await store.insertRun(pendingRow(at - VISION_CLAIM_STALE_MS - 1));
+    const client = new FakeShapeClient([sonnet(answer(table()))]);
+    // The stale pending row counts as one failed call (an error), so this is attempt 2.
+    expect(ran(await runVisionAttempt(args({ store, client })))).toMatchObject({ outcome: "recipe", attempt: 2 });
+    expect(client.calls).toHaveLength(1);
+  });
+
+  test("the call is claimed before it is made, at its worst-case cost, and the claim becomes the run", async () => {
+    const store = new MemoryBotRunStore();
+    let seen: string[] = [];
+    const client = {
+      calls: 0,
+      async call() {
+        this.calls += 1;
+        seen = store.rows.map((r) => `${r.outcome}:${r.costMicroUsd}`);
+        return sonnet(answer(table()));
+      },
+    };
+    const r = ran(await runVisionAttempt(args({ store, client: client as never })));
+    expect(seen).toEqual([`pending:${VISION_WORST_COST_MICRO}`]);
+    expect(store.rows).toHaveLength(1);
+    expect(store.rows[0]).toMatchObject({ id: r.runId, outcome: "recipe" });
+  });
+
+  test("two claims that would pass the day cost cap together: the late one is capped, not called", async () => {
+    const store = new MemoryBotRunStore();
+    const at = Date.UTC(2026, 10, 10, 12, 0, 0);
+    // Another page is in flight with its worst-case claim; this page's claim takes the day past the cap.
+    await store.insertRun({ ...pendingRow(at, "page9"), costMicroUsd: VISION_WORST_COST_MICRO });
+    const client = new FakeShapeClient([sonnet(answer(table()))]);
+    const caps = { blockCalls: 4, dayCalls: 300, dayCostMicro: VISION_WORST_COST_MICRO + VISION_WORST_COST_MICRO / 2 };
+    const r = ran(await runVisionAttempt(args({ store, client, caps })));
+    expect(r).toMatchObject({ outcome: "capped", capReason: "day_cost" });
+    expect(client.calls).toHaveLength(0);
+    // The claim row was turned into the capped row: nothing stays pending, nothing counts as a call.
+    expect(store.rows.filter((x) => x.blockId === "page1").map((x) => x.outcome)).toEqual(["capped"]);
+  });
+
+  test("the tables are stored before the run is finished; a failed store is an error run with no tables", async () => {
+    const store = new MemoryBotRunStore();
+    const order: string[] = [];
+    const ok = ran(
+      await runVisionAttempt(
+        args({
+          store,
+          client: new FakeShapeClient([sonnet(answer(table()))]),
+          onTables: async (tables, runId) => {
+            order.push(`tables:${tables.length}:${store.rows.find((x) => x.id === runId)?.outcome}`);
+          },
+        }),
+      ),
+    );
+    expect(ok.outcome).toBe("recipe");
+    expect(order).toEqual(["tables:1:pending"]);
+    const bad = ran(
+      await runVisionAttempt(
+        args({
+          store: new MemoryBotRunStore(),
+          client: new FakeShapeClient([sonnet(answer(table()))]),
+          onTables: async () => {
+            throw new Error("R2 down");
+          },
+        }),
+      ),
+    );
+    expect(bad).toMatchObject({ outcome: "error", tables: null, errors: ["vault:tables"], next: "retry" });
+  });
+
+  test("S4: a band 2..K with no table is zero rows, not a page with no table", async () => {
+    const client = new FakeShapeClient([sonnet(answer())]);
+    const r = ran(await runVisionAttempt(args({ client, band: { index: 3, total: 3, headers: ["Section", "Bundles"] } })));
+    expect(r).toMatchObject({ outcome: "recipe", tables: [], next: "done" });
+    // A whole page (or band 1) with no table is still no_target.
+    expect(ran(await runVisionAttempt(args({ client: new FakeShapeClient([sonnet(answer())]) })))).toMatchObject({ outcome: "no_target", next: "manual" });
+  });
+
+  test("N12: after a transport error the retry is on Sonnet, even when old history was Haiku", () => {
+    const row = (attempt: number, model: string, outcome: BotRunHistoryRow["outcome"]): BotRunHistoryRow => ({ attempt, model, outcome });
+    expect(planVision([row(1, "claude-haiku-5-5", "error")], "claude-sonnet-5-5")).toMatchObject({ next: "retry", model: "claude-sonnet-5-5" });
   });
 
   test("base64 matches the standard encoding for large input", () => {

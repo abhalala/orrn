@@ -36,7 +36,8 @@ export type IngestCtx = Pick<Context, "request" | "impersonation" | "ingestSourc
 /** Plan A9. One object so the browser and the server read the same numbers. */
 export const INGEST_LIMITS = {
   filesPerUpload: 20,
-  blocksPerFile: 50,
+  /** Decision 1 (owner, release 2 fix round): 200 tables a file for every plant; fixed, not a Godseye limit. */
+  blocksPerFile: 200,
   columnsPerBlock: 200,
   rawRowsPerFile: 200_000,
   stagedRowsPerBlock: 50_000,
@@ -186,11 +187,15 @@ export const VISION_PAGE_READ = "This page is already read";
 export const VISION_NOT_READING = "This file is not being read page by page";
 export const VISION_KINDS_ONLY = "Only PDFs and photos are read page by page";
 export const VISION_ROWS_WRITTEN = "Rows of this sheet are already written. Its rows cannot change now.";
+/** Contract section 6 (S2): a rebuild of a page's blocks from its tables object wrote nothing. */
+export const VISION_REBUILD_FAILED = "The tables read from this page could not be written. Skip this page.";
+/** Contract section 7 (decision 6): the tick of a table with a rate column a viewer cannot see. */
+export const VISION_CHECK_NEEDS_PRICES = "Someone who can see prices must check this table.";
 /** Reused from `approveCandidate` and `ingest.artifact.*`. */
 export const VISION_NOT_STORED = "The original file is not saved yet. Upload the same file again, then approve.";
 export const VISION_ALREADY_READ = "This file is already read";
 /** Contract section 12 (batches): the file holds `blocksPerFile` tables, so no further page can become one. */
-export const VISION_FILE_FULL = "This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far.";
+export const VISION_FILE_FULL = `This file already holds ${INGEST_LIMITS.blocksPerFile} tables, the most one file can hold. Finish it to use the tables read so far.`;
 
 /** Contract section 4: the state of one page, derived from the vault, the run rows and the blocks. */
 export const VISION_PAGE_STATES = ["waiting", "ready", "read", "not_read", "typed", "skipped"] as const;

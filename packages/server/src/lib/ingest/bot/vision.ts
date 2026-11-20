@@ -18,9 +18,9 @@
  * (`visionPageKey`). `outcome` has no value for tables, so "recipe" means one or more valid tables
  * and "no_target" means a page with no table.
  */
-import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, type CapValues, checkCaps, countCalls } from "./caps";
-import { costOfResponse } from "./cost";
-import { canonicalShapeModel, getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
+import { type BotOutcome, type BotRunHistoryRow, type BotRunRecord, type BotRunStore, type CapValues, capsAfterClaim, checkCaps, countCalls } from "./caps";
+import { costOfResponse, worstCaseCostMicro } from "./cost";
+import { canonicalShapeModel, getShapeClient, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
 import type { Next } from "./escalate";
 import { VISION_PARAMS } from "@orrn/ingest";
 import { safeErrorCodes } from "./prompt";
@@ -37,6 +37,19 @@ export const MAX_ROWS_PER_TABLE = 500;
 export const VISION_MAX_COLUMNS = 200;
 export const MAX_CELL_CHARS = 200;
 const PAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+/**
+ * Input tokens of one page call, for the claim's worst-case cost: EVAL measured about 965 tokens of
+ * instructions and about 4,800 image tokens for a 2400 px page (VISION-EVAL-REPORT.md, resize note).
+ */
+export const VISION_INPUT_TOKENS = 6_000;
+/** What a claim books under the day cost cap before the call: the input above and the full Sonnet answer. */
+export const VISION_WORST_COST_MICRO: number = worstCaseCostMicro(SONNET, VISION_INPUT_TOKENS, MAX_TOKENS[SONNET]);
+/**
+ * A `pending` claim older than this is a call whose Worker stopped (the client gives up after 90 s and one
+ * retry): it no longer holds its page or band, and it counts as one failed call.
+ */
+export const VISION_CLAIM_STALE_MS = 10 * 60_000;
 
 /**
  * A checked table as the server keeps it: rows as cell lists and one confidence per row (taken from the
@@ -97,11 +110,18 @@ export type RunVisionArgs = {
    * text as JSON data, and the answer must be one table exactly that wide.
    */
   band?: { index: number; total: number; headers: readonly string[] } | null;
+  /**
+   * Stores a valid answer's tables (the vault's `tables.json`) while the claim still holds the key, so no
+   * other tab sees a finished `recipe` run without its tables and pays for the page again. When it throws,
+   * the run is an `error` with code `vault:tables` and no tables.
+   */
+  onTables?: (tables: VisionTable[], runId: string, model: ShapeModelId) => Promise<void>;
   client?: ShapeModelClient;
   nowMs?: () => number;
 };
 
-export type VisionSkipReason = "kept_unread" | "no_key" | "vault_required" | "unsupported_page" | "page_too_large" | "already_done" | "attempts_exhausted";
+/** `busy`: another call holds this page or band right now (a live claim); nothing was called or written. */
+export type VisionSkipReason = "kept_unread" | "no_key" | "vault_required" | "unsupported_page" | "page_too_large" | "already_done" | "attempts_exhausted" | "busy";
 
 export type VisionAttemptResult =
   | { status: "skipped"; reason: VisionSkipReason; next: "manual" | "done" }
@@ -132,8 +152,8 @@ type VisionPlan = { next: Next; model: ShapeModelId | null; attempt: number; car
  * What the next call of a page is (contract section 2).
  *
  * - Sonnet start: an invalid answer gets ONE retry on Sonnet with its codes; a second invalid answer
- *   is manual. A refusal is manual. A page with no table is manual. A transport error repeats the
- *   same model, at most 2 errors in a row, then manual.
+ *   is manual. A refusal is manual. A page with no table is manual. A transport error retries on
+ *   Sonnet, at most 2 errors in a row, then manual.
  * - Old history with a Haiku run keeps its old meaning: Haiku's invalid or refused answer goes to
  *   Sonnet once, and Sonnet's failure after that is manual.
  */
@@ -150,11 +170,10 @@ export function planVision(history: readonly BotRunHistoryRow[], start: ShapeMod
     let trailing = 0;
     for (let i = calls.length - 1; i >= 0 && calls[i]!.outcome === "error"; i--) trailing++;
     if (trailing >= 2) return { next: "manual", model: null, attempt, carryErrors: false };
-    // A transport error repeats the model that failed, as the shape planner does (A34). Taking the
-    // model from the last real row would send a failed Sonnet escalation back to Haiku.
+    // A transport error is retried on Sonnet (owner decision: Haiku is never asked for a page, even
+    // when an old history row was Haiku's).
     const prev = real[real.length - 1];
-    const model: ShapeModelId = isHaiku(last.model) ? HAIKU : SONNET;
-    return { next: "retry", model, attempt, carryErrors: prev?.outcome === "invalid" };
+    return { next: "retry", model: SONNET, attempt, carryErrors: prev?.outcome === "invalid" };
   }
   if (isHaiku(last.model)) return { next: "escalate", model: SONNET, attempt, carryErrors: last.outcome === "invalid" };
   if (oldHaiku) return { next: "manual", model: null, attempt, carryErrors: false };
@@ -226,10 +245,31 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
   const model = plan.model;
 
   const base = { companyId: args.companyId, blockId: args.blockId, candidateId: null, purpose: "vision" as const, attempt: plan.attempt, createdBy: args.userId };
+  const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0 };
   const capReason = await checkCaps({ store: args.store, companyId: args.companyId, history, nowMs: now(), caps: args.caps });
   if (capReason) {
-    const runId = await args.store.insertRun({ ...base, model, outcome: "capped", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0, createdAtMs: now(), errorCodes: [`cap:${capReason}`] });
+    const runId = await args.store.insertRun({ ...base, model, outcome: "capped", ...zero, createdAtMs: now(), errorCodes: [`cap:${capReason}`] });
     return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", tables: null, errors: [`cap:${capReason}`], costMicroUsd: 0, runId, capReason };
+  }
+
+  // Claim this call's place before the model is called (as the shape path does, A8), and hold the page
+  // or band key alone: a second tab finds the live claim and makes no call. The claim books the call's
+  // worst-case cost, so calls in flight on other pages count under the day cost cap; the finished run
+  // replaces it with the real cost.
+  const claimRow: BotRunRecord = { ...base, model, outcome: "pending", ...zero, costMicroUsd: VISION_WORST_COST_MICRO, createdAtMs: now(), errorCodes: null };
+  let claimId: string | null = null;
+  if (args.store.claimRun) {
+    claimId = await args.store.claimRun(claimRow, VISION_CLAIM_STALE_MS);
+    if (!claimId) return { status: "skipped", reason: "busy", next: "manual" };
+  } else if (args.store.finishRun) {
+    claimId = await args.store.insertRun(claimRow);
+  }
+  if (claimId && args.store.finishRun) {
+    const late = await capsAfterClaim({ store: args.store, companyId: args.companyId, blockId: args.blockId, purpose: "vision", sinceMs: args.holeVersionSinceMs, nowMs: now(), caps: args.caps });
+    if (late) {
+      await args.store.finishRun(claimId, { ...base, model, outcome: "capped", ...zero, createdAtMs: now(), errorCodes: [`cap:${late}`] });
+      return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", tables: null, errors: [`cap:${late}`], costMicroUsd: 0, runId: claimId, capReason: late };
+    }
   }
 
   const errors = plan.carryErrors ? safeErrorCodes(args.previousErrors ?? history.filter((h) => h.outcome !== "capped").at(-1)?.errorCodes ?? []) : [];
@@ -295,7 +335,8 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
         if (problems.length > 0) {
           outcome = "invalid";
           codes = problems;
-        } else if (parsed.data.tables.length === 0) {
+        } else if (parsed.data.tables.length === 0 && !args.band) {
+          // A band 2..K with no table (a footer or signature strip) is zero rows of the banded table (S4).
           outcome = "no_target";
         } else {
           outcome = "recipe";
@@ -307,7 +348,17 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
     codes = [`client:${typeof clientError?.kind === "string" ? clientError.kind : "unknown"}`];
   }
 
-  const runId = await args.store.insertRun({
+  if (outcome === "recipe" && tables && args.onTables) {
+    try {
+      await args.onTables(tables, claimId ?? "", model);
+    } catch {
+      outcome = "error";
+      codes = ["vault:tables"];
+      tables = null;
+    }
+  }
+
+  const record: BotRunRecord = {
     ...base,
     model,
     outcome,
@@ -319,7 +370,14 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
     durationMs: ms,
     createdAtMs: now(),
     errorCodes: codes.length > 0 ? codes : null,
-  });
+  };
+  let runId: string;
+  if (claimId && args.store.finishRun) {
+    await args.store.finishRun(claimId, record);
+    runId = claimId;
+  } else {
+    runId = await args.store.insertRun(record);
+  }
   const after = planVision([...history, { attempt: plan.attempt, model, outcome, errorCodes: codes }], start);
   return { status: "ran", outcome, attempt: plan.attempt, model, next: after.next, tables, errors: codes, costMicroUsd: cost, runId };
 }

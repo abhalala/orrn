@@ -14,6 +14,7 @@ import { layout, learnLayout, plant, pump, trim, upload, type Caller, type Plant
 import { fakeRefusal, fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
 import { bandKey, handleIngestRead, handleIngestUpload, pageKey, pagesIndexKey, pageTablesKey, pageTextKey, rawKey } from "../src/lib/ingest/vault";
 import { VISION_PARAMS, visionBandKey, visionOrdinal, visionPageKey } from "@orrn/ingest";
+import { INGEST_LIMITS } from "../src/lib/ingest/types";
 
 let env: TestEnv;
 let mf: Miniflare;
@@ -335,7 +336,7 @@ describe("vision.readPage", () => {
 
   test("a file with no room for another table: the page is not read with too_many_tables and the model is not asked", async () => {
     const f = await started(1);
-    await env.d1.prepare("update ingest_artifact set block_count = 50 where id = ?").bind(f.artifactId).run();
+    await env.d1.prepare("update ingest_artifact set block_count = ? where id = ?").bind(INGEST_LIMITS.blocksPerFile, f.artifactId).run();
     const client = new FakeShapeClient([sonnet(tables(table()))]);
     setShapeClientForTests(client);
     expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "not_read", reason: "too_many_tables", canRetry: false, next: "manual" });

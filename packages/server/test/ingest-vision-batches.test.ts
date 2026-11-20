@@ -13,7 +13,7 @@ import { Miniflare } from "miniflare";
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { plant, type Plant } from "./ingest-portal-helpers";
-import { fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
+import { DAY_COST_CAP_MICRO, fakeResponse, FakeShapeClient, MemoryBotRunStore, runVisionAttempt, setShapeClientForTests, VISION_WORST_COST_MICRO } from "../src/lib/ingest/bot";
 import { INGEST_LIMITS, VISION_FILE_FULL } from "../src/lib/ingest/types";
 import { pageKey, pagesIndexKey, rawKey } from "../src/lib/ingest/vault";
 import { visionPageKey } from "@orrn/ingest";
@@ -179,11 +179,14 @@ describe("batches: plan, tickets and finish", () => {
 
 describe("batches: day caps and the next plant day", () => {
   test("the day cost cap stops the read mid-file; the next plant day carries on from that page; no page is read twice", async () => {
-    // 20 cents a day at 7 cents a page: three pages, then the fourth call would start at 21 cents spent.
-    const p = await plant(env, { limits: { visionPagesPerBatch: 4, dayModelCostCents: 20 } });
+    // 35 cents a day at 7 cents a page, each call claimed at its worst case (17.5 cents) first: three pages
+    // go (the third claim books 14 + 17.5 = 31.5 cents), the fourth would book 21 + 17.5 = 38.5 cents.
+    const p = await plant(env, { limits: { visionPagesPerBatch: 4, dayModelCostCents: 35 } });
     const f = await keptPdf(p);
     const { setClockForTests } = await import("../src/lib/clock");
-    setClockForTests(new Date("2026-11-20T06:00:00Z"));
+    // N15: one minute before midnight in Kolkata (18:29 UTC); the next plant day starts two minutes later on
+    // the same UTC day, so a cap counted by UTC day would still be spent.
+    setClockForTests(new Date("2026-11-20T18:29:00Z"));
     const client = new FakeShapeClient(answers(1, 8));
     setShapeClientForTests(client);
     await p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 8 });
@@ -204,8 +207,8 @@ describe("batches: day caps and the next plant day", () => {
     expect(await read(f, 4)).toMatchObject({ state: "not_read", reason: "cap_day_cost" });
     expect(client.calls).toHaveLength(3);
 
-    // The next plant day (IST midnight passed): page 4 reads, then the next batch.
-    setClockForTests(new Date("2026-11-21T06:00:00Z"));
+    // The next plant day (IST midnight passed at 18:30 UTC): page 4 reads, then the next batch.
+    setClockForTests(new Date("2026-11-20T18:31:00Z"));
     expect(await readUntilCap(f, 4, 4)).toBeNull();
     const second = await nextBatch(f);
     expect(second.uploads.map((u) => u.page)).toEqual([5, 6, 7, 8]);
@@ -213,7 +216,7 @@ describe("batches: day caps and the next plant day", () => {
     // Day 2 has paid for page 4 already: pages 5 and 6 read, page 7 is capped.
     expect(await readUntilCap(f, 5, 8)).toBe(7);
 
-    setClockForTests(new Date("2026-11-22T06:00:00Z"));
+    setClockForTests(new Date("2026-11-21T18:31:00Z"));
     expect(await readUntilCap(f, 7, 8)).toBeNull();
     expect((await pagesOf(f)).pages.every((v) => v.state === "read")).toBe(true);
 
@@ -299,68 +302,85 @@ describe("batches: listings stay within 1,000 keys a call", () => {
   }, 60_000);
 });
 
-describe("batches: cost arithmetic of contract section 12", () => {
-  test("at 0.07 USD a band call, 72 calls go under the 5 USD day cap and call 73 is capped", () => {
-    // checkCaps allows a call while the day's spend is under the cap.
-    const perCall = 70_000;
-    const cap = 5_000_000;
-    let spent = 0;
+/**
+ * Contract section 12, calls and cost, through the real `runVisionAttempt` and caps (N14: this test used to
+ * add up numbers written into it). Each call is claimed at its worst case (`VISION_WORST_COST_MICRO`) before
+ * it is made, so a call goes only while the day's spend plus that claim stays within the cap.
+ */
+describe("batches: day cost of contract section 12", () => {
+  test("at 0.07 USD a band call, 69 calls go under the 5 USD day cap and call 70 is capped", async () => {
+    const store = new MemoryBotRunStore();
+    const at = Date.UTC(2026, 10, 20, 6, 0, 0);
     let calls = 0;
-    while (spent < cap) {
-      spent += perCall;
-      calls += 1;
+    let capReason: string | undefined;
+    for (let page = 1; page <= 100 && !capReason; page++) {
+      const r = await runVisionAttempt({
+        env: { ANTHROPIC_API_KEY: "sk-test" },
+        store,
+        companyId: "co1",
+        userId: "u1",
+        blockId: `a:p${page}`,
+        pageKind: "pdf_scan",
+        page: { mediaType: "image/jpeg", bytes: JPEG },
+        vaultReady: true,
+        visualReads: true,
+        client: new FakeShapeClient([answer(page)]),
+        nowMs: () => at,
+      });
+      if (r.status === "ran" && r.outcome === "capped") capReason = r.capReason;
+      else calls += 1;
     }
-    expect(calls).toBe(72);
-    expect(spent).toBe(5_040_000);
-    // A dense 30 page batch: 90 band calls (text PDF, 3 bands) or 120 (scan: whole read and 3 bands), both under 300 calls.
-    expect(30 * 3).toBeLessThanOrEqual(300);
-    expect(30 * 4).toBeLessThanOrEqual(300);
-    // 100 dense text pages at 3 bands: 300 calls, five plant days at 72 a day, if the file had room for the tables.
-    expect(Math.ceil(300 / 72)).toBe(5);
-    expect(100).toBeGreaterThan(INGEST_LIMITS.blocksPerFile);
+    expect(capReason).toBe("day_cost");
+    expect(VISION_WORST_COST_MICRO).toBe(175_000);
+    expect(calls).toBe(Math.floor((DAY_COST_CAP_MICRO - VISION_WORST_COST_MICRO) / 70_000) + 1);
+    expect(calls).toBe(69);
+    expect((await store.dayTotals({ companyId: "co1", sinceMs: 0 })).costMicroUsd).toBe(69 * 70_000);
   });
 });
 
 describe("batches: a file full of tables", () => {
-  test("the sentence names the limit in code", () => {
-    expect(VISION_FILE_FULL).toContain(`${INGEST_LIMITS.blocksPerFile} tables`);
+  test("the sentence names the limit in code; decision 1: 200 tables a file for every plant", () => {
+    expect(INGEST_LIMITS.blocksPerFile).toBe(200);
+    expect(VISION_FILE_FULL).toBe("This file already holds 200 tables, the most one file can hold. Finish it to use the tables read so far.");
   });
 
   test("a full file says so, plans no more pages, keeps the tables read, and finishes with the rest skipped", async () => {
-    const p = await plant(env, { limits: { visionPagesPerBatch: 12 } });
+    // Pages of five tables each fill the file (decision 1: `blocksPerFile` is 200, so 40 pages).
+    const fill = INGEST_LIMITS.blocksPerFile / 5;
+    expect(fill).toBe(40);
+    const p = await plant(env, { limits: { visionPagesPerBatch: fill + 2 } });
     const f = await keptPdf(p);
-    // Ten pages of five tables each fill the file (50 tables).
     const five = (n: number) =>
       fakeResponse(
         { tables: Array.from({ length: 5 }, (_, t) => ({ title: `Page ${n} table ${t + 1}`, headers: ["Party name", "City"], rows: [{ cells: [`Party ${n}.${t}`, "Rajkot"], confidence: 0.9 }] })) },
         { modelUsed: S, usage: BAND_USAGE },
       );
-    const client = new FakeShapeClient(Array.from({ length: 10 }, (_, i) => five(i + 1)));
+    const client = new FakeShapeClient(Array.from({ length: fill }, (_, i) => five(i + 1)));
     setShapeClientForTests(client);
-    await p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 20 });
-    await putPages(f, 1, 12);
-    expect(await readUntilCap(f, 1, 10)).toBeNull();
+    await p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: fill + 10 });
+    await putPages(f, 1, fill + 2);
+    expect(await readUntilCap(f, 1, fill)).toBeNull();
     expect((await p.owner.ingest.artifact.get({ artifactId: f.artifactId })).blockCount).toBe(INGEST_LIMITS.blocksPerFile);
-    expect(await read(f, 11)).toMatchObject({ state: "not_read", reason: "too_many_tables", canRetry: false });
+    expect(await read(f, fill + 1)).toMatchObject({ state: "not_read", reason: "too_many_tables", canRetry: false });
     const full = await pagesOf(f);
     expect(full).toMatchObject({ full: true, settled: false, canFinish: false });
-    expect(full.pages.slice(10).map((v) => [v.state, v.reason])).toEqual([
+    expect(full.pages.slice(fill).map((v) => [v.state, v.reason])).toEqual([
       ["not_read", "too_many_tables"],
       ["not_read", "too_many_tables"],
     ]);
-    // Pages 11 and 12 only a person can settle now, so they do not hold the next batch: the file being full does.
+    // The two pages past the full mark only a person can settle now, so they do not hold the next batch: the file being full does.
     await expect(nextBatch(f)).rejects.toThrow(VISION_FILE_FULL);
-    expect(client.calls).toHaveLength(10);
+    expect(client.calls).toHaveLength(fill);
 
     const done = await p.owner.ingest.vision.finishRest({ artifactId: f.artifactId });
     expect(done).toMatchObject({ settled: true, restNotRead: true, canFinish: true });
-    expect(done.pages.map((v): string => v.state)).toEqual([...Array<string>(10).fill("read"), "skipped", "skipped"]);
+    expect(done.pages.map((v): string => v.state)).toEqual([...Array<string>(fill).fill("read"), "skipped", "skipped"]);
     await p.owner.ingest.artifact.complete({ artifactId: f.artifactId });
     const got = await p.owner.ingest.artifact.get({ artifactId: f.artifactId });
     expect(got.readState).toBe("read");
     expect(got.blocks).toHaveLength(INGEST_LIMITS.blocksPerFile);
     expect(got.blocks.every((b) => b.readBy === "model")).toBe(true);
     const audit = await env.d1.prepare("select meta from audit_log where company_id = ? and action = 'ingest.vision.rest'").bind(p.companyId).first<{ meta: string }>();
-    expect(JSON.parse(audit!.meta)).toEqual({ skipped: [11, 12], notRead: [13, 20] });
-  });
+    expect(JSON.parse(audit!.meta)).toEqual({ skipped: [fill + 1, fill + 2], notRead: [fill + 3, fill + 10] });
+  }, 120_000);
 });
