@@ -2,6 +2,7 @@ export * from "./auth";
 export * from "./ageing";
 export * from "./approval";
 export * from "./audit";
+export * from "./buddy";
 export * from "./catalog";
 export * from "./collector";
 export * from "./count";

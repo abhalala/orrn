@@ -36,6 +36,7 @@ import { supportRouter } from "./support";
 import { transporterRouter } from "./transporter";
 import { portalRouter } from "./portal";
 import { ingestRouter } from "./ingest/index";
+import { buddyRouter } from "./buddy";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -85,5 +86,6 @@ export const appRouter = router({
   transporter: transporterRouter,
   portal: portalRouter,
   ingest: ingestRouter,
+  buddy: buddyRouter,
 });
 export type AppRouter = typeof appRouter;

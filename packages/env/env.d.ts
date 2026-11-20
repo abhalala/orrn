@@ -75,6 +75,18 @@ export interface CloudflareEnv {
    * app hides its passkey button.
    */
   ORRN_APPLE_TEAM_ID?: string;
+  /**
+   * orrn buddy (design 2026-11-18, §6). All four set = the buddy is available on this stage; any missing =
+   * `auth.me.buddy` is false and `/buddy/chat` answers 404. `HERMES_BASE_URL` is an origin only (no path).
+   * The Access pair is the Cloudflare Access service token in front of Hermes; `HERMES_API_KEY` is the
+   * Hermes API server key. Logged by name only, never by value.
+   */
+  HERMES_BASE_URL?: string;
+  HERMES_ACCESS_CLIENT_ID?: string;
+  HERMES_ACCESS_CLIENT_SECRET?: string;
+  HERMES_API_KEY?: string;
+  /** Comma list of company slugs that may connect the buddy (v1: `fourcubesllp`). Unset = none. */
+  BUDDY_COMPANIES?: string;
 }
 
 declare global {

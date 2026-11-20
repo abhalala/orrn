@@ -18,6 +18,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { settingsPatchSql } from "../lib/companySettings";
 import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
+import { buddyAccess, buddyOn } from "../lib/buddy/access";
 import { authedProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 const navOrderInput = z
@@ -160,6 +161,10 @@ export const authRouter = router({
       ? false
       : (memberships.find((m) => m.companyId === ctx.companyId)?.setupPending ?? false);
 
+    // The floating buddy (design 2026-11-18, §13): on this stage, the role may, the plant is listed, and
+    // the person connected Hermes here. Never for an impersonating admin.
+    const buddy = companyRow && ctx.role ? buddyOn(await buddyAccess(ctx)) : false;
+
     return {
       user: {
         id: userId,
@@ -205,6 +210,7 @@ export const authRouter = router({
             expiresAt: ctx.impersonation.expiresAt.toISOString(),
           }
         : null,
+      buddy,
     };
   }),
 
