@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8459 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8461 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -8045,7 +8045,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (324)
+### audit (326)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8260,6 +8260,8 @@ Please check, Lalubhai:
 | `actions.ingest__vision__type` | Page typed by hand | पेज हाथ से लिखा |
 | `actions.ingest__vision__check` | Table checked against its page | टेबल को उसके पेज से मिलाया |
 | `actions.ingest__vision__fix` | Cell of a page table fixed | पेज की टेबल का खाना ठीक किया |
+| `actions.ingest__vision__batch` | Next pages planned for reading | अगले पेज पढ़ने के लिए तय किए |
+| `actions.ingest__vision__rest` | File finished without the remaining pages | बाकी पेज छोड़कर फ़ाइल पूरी की |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
 | `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |

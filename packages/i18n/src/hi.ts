@@ -6992,6 +6992,8 @@ export const hi = {
       ingest__vision__type: "पेज हाथ से लिखा",
       ingest__vision__check: "टेबल को उसके पेज से मिलाया",
       ingest__vision__fix: "पेज की टेबल का खाना ठीक किया",
+      ingest__vision__batch: "अगले पेज पढ़ने के लिए तय किए",
+      ingest__vision__rest: "बाकी पेज छोड़कर फ़ाइल पूरी की",
       ingest__candidate__hold: "इम्पोर्ट होल्ड किया",
       ingest__candidate__recheck: "इम्पोर्ट दोबारा जाँचा",
       ingest__hole__retire: "इम्पोर्ट का लेआउट हटाया",

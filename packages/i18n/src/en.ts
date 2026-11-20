@@ -7010,6 +7010,8 @@ export const en = {
       ingest__vision__type: "Page typed by hand",
       ingest__vision__check: "Table checked against its page",
       ingest__vision__fix: "Cell of a page table fixed",
+      ingest__vision__batch: "Next pages planned for reading",
+      ingest__vision__rest: "File finished without the remaining pages",
       ingest__candidate__hold: "Import held",
       ingest__candidate__recheck: "Import checked again",
       ingest__hole__retire: "Import layout removed",

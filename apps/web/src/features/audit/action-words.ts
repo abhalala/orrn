@@ -145,6 +145,8 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "ingest.vision.type",
   "ingest.vision.check",
   "ingest.vision.fix",
+  "ingest.vision.batch",
+  "ingest.vision.rest",
   "ingest.candidate.approve",
   "ingest.candidate.discard",
   "ingest.candidate.hold",
