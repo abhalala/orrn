@@ -12,7 +12,7 @@ import { Miniflare } from "miniflare";
 
 import { auditLog, company } from "@orrn/db/schema";
 import { fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
-import { pageKey, rawKey } from "../src/lib/ingest/vault";
+import { bandKey, pageKey, rawKey } from "../src/lib/ingest/vault";
 import { visionPageKey } from "@orrn/ingest";
 
 import { workersEnv } from "./env-mock";
@@ -294,6 +294,86 @@ describe("model caps per plant (vision.readPage)", () => {
     expect(client.calls).toHaveLength(0);
     expect(await raised.owner.ingest.vision.readPage({ artifactId: fr.artifactId, page: 1 })).toMatchObject({ state: "read" });
     expect(client.calls).toHaveLength(1);
+  });
+});
+
+describe("model caps per plant: the other call sites", () => {
+  test("calls per block lowered to 1: a page with one call the ladder would escalate is capped; another plant reads it", async () => {
+    const at = await pinDay();
+    const low = await plant(env);
+    const other = await plant(env);
+    await setLimits(low.companyId, { blockModelCalls: 1 });
+    const fl = await startedPage(low);
+    const fo = await startedPage(other);
+    const ins = env.d1.prepare(RUN_INSERT);
+    for (const [p, f] of [[low, fl], [other, fo]] as const) {
+      await ins.bind(`run_${randomUUID()}`, p.companyId, visionPageKey(f.artifactId, 1), "vision", HAIKU, 1, "invalid", 0, at).run();
+    }
+    const client = new FakeShapeClient([fakeResponse(oneTable(), { modelUsed: S })]);
+    setShapeClientForTests(client);
+    expect(await low.owner.ingest.vision.readPage({ artifactId: fl.artifactId, page: 1 })).toMatchObject({ state: "not_read", reason: "cap_page" });
+    expect(client.calls).toHaveLength(0);
+    expect(await other.owner.ingest.vision.readPage({ artifactId: fo.artifactId, page: 1 })).toMatchObject({ state: "read" });
+    expect(client.calls).toHaveLength(1);
+  });
+
+  test("a band read follows the plant's day calls", async () => {
+    const at = await pinDay();
+    const low = await plant(env);
+    const other = await plant(env);
+    await setLimits(low.companyId, { dayModelCalls: 2 });
+    await spentToday(low.companyId, 2, 0, at);
+    await spentToday(other.companyId, 2, 0, at);
+    const banded = async (p: Plant) => {
+      const f = await keptPdf(p);
+      setShapeClientForTests(new FakeShapeClient([]));
+      await p.owner.ingest.vision.start({ artifactId: f.artifactId, pageCount: 1 });
+      await p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 2 });
+      for (const k of [1, 2]) await bucket.put(bandKey(p.companyId, f.sha, 1, k), JPEG, { httpMetadata: { contentType: "image/jpeg" } });
+      return f;
+    };
+    const fl = await banded(low);
+    const fo = await banded(other);
+    const client = new FakeShapeClient([fakeResponse(oneTable(), { modelUsed: S })]);
+    setShapeClientForTests(client);
+    await low.owner.ingest.vision.readPage({ artifactId: fl.artifactId, page: 1, band: 1 });
+    expect(client.calls).toHaveLength(0);
+    const capped = await env.d1
+      .prepare("select outcome, error_codes from ingest_bot_run where company_id = ? and purpose = 'vision'")
+      .bind(low.companyId)
+      .all<{ outcome: string; error_codes: string | null }>();
+    expect(capped.results).toEqual([{ outcome: "capped", error_codes: JSON.stringify(["cap:day_calls"]) }]);
+    await other.owner.ingest.vision.readPage({ artifactId: fo.artifactId, page: 1, band: 1 });
+    expect(client.calls).toHaveLength(1);
+  });
+
+  test("shape.make (the sheet layout call) follows the plant's day calls, claim included", async () => {
+    // The shape call counts the day on the real clock (it passes no clock of its own).
+    const at = Date.now() - 1_000;
+    const low = await plant(env);
+    const other = await plant(env);
+    await setLimits(low.companyId, { dayModelCalls: 3 });
+    await spentToday(low.companyId, 3, 0, at);
+    await spentToday(other.companyId, 3, 0, at);
+    const sheet = { headers: ["Khata", "Gaam"], rows: [["Acme", "Surat"], ["Bharat", "Rajkot"]] };
+    const client = new FakeShapeClient([fakeResponse({ result: { kind: "no_target", reason: "none" } }), fakeResponse({ result: { kind: "no_target", reason: "none" } })]);
+    setShapeClientForTests(client);
+    const make = async (p: Plant) => {
+      const { candidates } = await upload(p.admin, [sheet]);
+      const c = candidates[0]!;
+      return failure(p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq }));
+    };
+    await make(low);
+    expect(client.calls).toHaveLength(0);
+    const lowRuns = await env.d1.prepare("select outcome from ingest_bot_run where company_id = ? and purpose = 'shape' and outcome = 'capped'").bind(low.companyId).all();
+    expect(lowRuns.results).toHaveLength(1);
+    await make(other);
+    expect(client.calls).toHaveLength(1);
+
+    // Raised past what is spent, the same plant makes the call.
+    await setLimits(low.companyId, { dayModelCalls: 10 });
+    await make(low);
+    expect(client.calls).toHaveLength(2);
   });
 });
 

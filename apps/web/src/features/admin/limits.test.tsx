@@ -44,7 +44,7 @@ describe("limits form", () => {
       change: { dayModelCalls: 600, filesPerUpload: null, dayModelCostCents: 1250 },
       invalid: [],
     });
-    expect(limitsChange(set, { ...draft, visionPagesPerBatch: "101" })).toEqual({ change: {}, invalid: ["visionPagesPerBatch"] });
+    expect(limitsChange(set, { ...draft, visionPagesPerBatch: "81" })).toEqual({ change: {}, invalid: ["visionPagesPerBatch"] });
   });
 
   test("what the day spend buys, at about 7 cents a dense page part", () => {

@@ -13,9 +13,11 @@
  * - dayModelCalls 3,000: ten times the default; a 100-page dense scan at 4 bands and a retry each is 1,000.
  * - dayModelCostCents 5,000 (50 USD): ten times the default.
  * - blockModelCalls 10: the attempt ladder stops a block well before this.
- * - visionPagesPerBatch 100: one batch lists and tickets every planned page in one request.
+ * - visionPagesPerBatch 80: `vision.start` lists the file's `pages/` keys once, and R2 returns at most 1,000
+ *   keys a call. A page has up to 11 keys there (image, text, tables, 4 bands with their tables): 80 x 11 = 880.
  * - filesPerUpload 100: five times the default; the browser reads each file in turn.
- * - rawRowsPerFile 1,000,000: the most a browser tab can hold for one file without running out of memory.
+ * - rawRowsPerFile 1,000,000: five times the default. Browser memory at this size is not measured yet;
+ *   the per-block and blocks-per-file bounds (50,000 x 50) still apply.
  * - openRowsPerPlant 2,000,000: about seven times the default staged rows waiting in D1.
  */
 import { VISION_PARAMS } from "@orrn/ingest";
@@ -43,7 +45,7 @@ export const PLANT_LIMITS: Readonly<Record<PlantLimitKey, PlantLimitDef>> = {
   dayModelCalls: { default: DAY_CALL_CAP, ceiling: 3_000 },
   dayModelCostCents: { default: DAY_COST_CAP_MICRO / MICRO_PER_CENT, ceiling: 5_000 },
   blockModelCalls: { default: BLOCK_CALL_CAP, ceiling: 10 },
-  visionPagesPerBatch: { default: VISION_PARAMS.maxPagesPerFile, ceiling: 100 },
+  visionPagesPerBatch: { default: VISION_PARAMS.maxPagesPerFile, ceiling: 80 },
   filesPerUpload: { default: INGEST_LIMITS.filesPerUpload, ceiling: 100 },
   rawRowsPerFile: { default: INGEST_LIMITS.rawRowsPerFile, ceiling: 1_000_000 },
   openRowsPerPlant: { default: INGEST_LIMITS.openRowsPerPlant, ceiling: 2_000_000 },
