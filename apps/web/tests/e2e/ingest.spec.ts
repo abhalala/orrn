@@ -722,7 +722,8 @@ test.describe("imports portal", () => {
   test("a PDF is kept and not read", async ({ page }) => {
     const name = `packing-list-${STAMP}.pdf`;
     await openPortal(page, "admin");
-    await upload(page, name, Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"), "application/pdf");
+    // The run's stamp in the bytes: the same bytes from an earlier run on this local database would be "added before".
+    await upload(page, name, Buffer.from(`%PDF-1.4\n% ${STAMP}\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`), "application/pdf");
     const entry = stripRow(page, name);
     const noStorage = page.getByText(/^PDFs and photos need file storage/);
     // With storage the file is kept and listed under its own heading; with none the upload is refused in the server's words.
