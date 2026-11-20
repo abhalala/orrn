@@ -49,7 +49,9 @@ import {
 import { chunk, IN_LIST_CHUNK, mapInChunks, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
+import { effectiveLimits } from "../effectiveLimits";
 import { createId } from "../id";
+import { modelCaps } from "../plantLimits";
 import { defaultCatalogue, runShapeAttempt, type SampleStats } from "./bot";
 import {
   artifactSummary,
@@ -402,8 +404,9 @@ export async function putBlocks(
     return e && !changed.includes(e) ? e.rowCount : b.rowCount;
   };
   const totalRows = input.blocks.reduce((n, b) => n + keptCount(b), 0);
-  if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
+  const { rawRowsPerFile } = await effectiveLimits(ctx);
+  if (totalRows > rawRowsPerFile) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than ${rawRowsPerFile.toLocaleString("en-US")} rows. Split it and try again.` });
   }
 
   const learned = await learnedHoles(ctx);
@@ -1091,6 +1094,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
   const result = await runShapeAttempt({
     env: anthropicEnv(),
     store: botRunStore(ctx),
+    caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
     candidateId: c.id,

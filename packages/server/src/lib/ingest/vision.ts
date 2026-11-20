@@ -21,7 +21,9 @@ import { ingestArtifact, ingestBlock, ingestBotRun, ingestCandidate, ingestStage
 import { pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
+import { effectiveLimits } from "../effectiveLimits";
 import { createId } from "../id";
+import { modelCaps } from "../plantLimits";
 import { stagedRowOf } from "./artifacts";
 import { countCalls, historyOutcome, planVision, runVisionAttempt, SONNET, shapeBotReady, type BotRunHistoryRow, type BotRunStore, type VisionTable } from "./bot";
 import { capSample, fitDiffJson, learnedHoles, stateForFit } from "./candidates";
@@ -484,7 +486,8 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
     const body: PagesIndex = {
       v: 1,
       pageCount: input.pageCount,
-      planned: Math.min(input.pageCount, VISION_PARAMS.maxPagesPerFile),
+      // The plant's pages per batch (`effectiveLimits`, set in Godseye). A plan already written keeps its own.
+      planned: Math.min(input.pageCount, (await effectiveLimits(ctx)).visionPagesPerBatch),
       skipped: [],
       startedBy: ctx.session.user.id,
       startedAt: now().getTime(),
@@ -622,6 +625,7 @@ export async function visionReadPage(ctx: IngestCtx, input: { artifactId: string
   const result = await runVisionAttempt({
     env: anthropicEnv(),
     store: pageStore(botRunStore(ctx), lastReal?.outcome === "recipe" && !f.hasTables),
+    caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
     blockId: visionPageKey(a.id, input.page),
@@ -695,6 +699,7 @@ async function readBand(
   const result = await runVisionAttempt({
     env: anthropicEnv(),
     store: pageStore(botRunStore(ctx), lastCall(item.history)?.outcome === "recipe" && !item.hasTables),
+    caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
     blockId: visionBandKey(a.id, input.page, target),

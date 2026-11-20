@@ -11,7 +11,7 @@
  * `CF-Access-Client-Id` and `CF-Access-Client-Secret`). See `client.ts`. Only `claude-haiku-5-5` and
  * `claude-sonnet-5-5` are ever asked for, and an answer from any other model is an error that is never stored.
  */
-import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
+import { type BotOutcome, type BotRunRecord, type BotRunStore, type CapValues, capsAfterClaim, checkCaps } from "./caps";
 import { costOfResponse, estimateTokens, worstCaseCostMicro } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
 import { canonicalShapeModel, getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeResponse } from "./client";
@@ -75,6 +75,8 @@ export type RunShapeArgs = {
   env: ShapeEnv;
   /** Lane A's store over `ingest_bot_run`. */
   store: BotRunStore;
+  /** The plant's caps (`effectiveLimits`); left out, the defaults in `caps.ts`. */
+  caps?: CapValues | undefined;
   companyId: string;
   userId: string | null;
   candidateId: string | null;
@@ -210,7 +212,7 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     createdBy: args.userId,
   };
 
-  const capReason = await checkCaps({ store: args.store, companyId: args.companyId, history, nowMs: now() });
+  const capReason = await checkCaps({ store: args.store, companyId: args.companyId, history, nowMs: now(), caps: args.caps });
   if (capReason) {
     const runId = await args.store.insertRun({
       ...base,
@@ -243,6 +245,7 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
       purpose: "shape",
       sinceMs: args.holeVersionSinceMs,
       nowMs: now(),
+      caps: args.caps,
     });
     if (late) {
       await args.store.finishRun(claimId, { ...base, model, outcome: "capped", ...zero, createdAtMs: now(), errorCodes: [`cap:${late}`] });

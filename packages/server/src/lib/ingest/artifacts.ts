@@ -21,6 +21,7 @@ import {
 
 import { auditInsert } from "../audit";
 import { now } from "../clock";
+import { effectiveLimits } from "../effectiveLimits";
 import { createId } from "../id";
 import { pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { shapeBot } from "./engines";
@@ -210,7 +211,7 @@ export async function beginArtifact(
     return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload };
   }
 
-  if (!keptOnly && (await openStagedRows(ctx)) >= INGEST_LIMITS.openRowsPerPlant) {
+  if (!keptOnly && (await openStagedRows(ctx)) >= (await effectiveLimits(ctx)).openRowsPerPlant) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Too many rows are waiting. Merge or discard older imports first." });
   }
 
@@ -710,6 +711,7 @@ export function istMidnight(at: Date): Date {
 }
 
 export async function ingestStatus(ctx: IngestCtx): Promise<IngestStatus> {
+  const plant = await effectiveLimits(ctx);
   const [run] = await ctx.db
     .select({ id: ingestMergeRun.id })
     .from(ingestMergeRun)
@@ -724,7 +726,9 @@ export async function ingestStatus(ctx: IngestCtx): Promise<IngestStatus> {
     vaultReady: vaultReady(),
     // Contract section 7: PDFs and photos are read page by page only with a vault and a model route.
     visionReady: vaultReady() && shapeBot.botReady(),
-    limits: INGEST_LIMITS,
+    // The plant's own values for the limits staff may set (`effectiveLimits`), the rest as in code.
+    limits: { ...INGEST_LIMITS, filesPerUpload: plant.filesPerUpload, rawRowsPerFile: plant.rawRowsPerFile, openRowsPerPlant: plant.openRowsPerPlant },
+    visionPagesPerBatch: plant.visionPagesPerBatch,
     activeRunId: run?.id ?? null,
     botToday: { calls: Number(today?.calls ?? 0), costMicroUsd: Number(today?.cost ?? 0) },
   };

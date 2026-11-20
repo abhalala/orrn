@@ -35,6 +35,9 @@ const SETTINGS_KEY = /^[A-Za-z][A-Za-z0-9_]*$/;
  */
 export function settingsPatchSql(patch: Record<string, unknown>): SQL {
   const pairs = Object.entries(patch).filter(([, v]) => v !== undefined);
+  for (const [key] of pairs) {
+    if (isLimitsKey(key)) throw new Error(`settings key ${key} is written only by orrn staff (platform.companiesSetLimits)`);
+  }
   if (pairs.length === 0) return sql`coalesce(${company.settings}, '{}')`;
   const base = sql`coalesce(${company.settings}, '{}')`;
   const args: SQL[] = [];
@@ -50,6 +53,44 @@ export function settingsPatchSql(patch: Record<string, unknown>): SQL {
   return sql`json_set(${base}, ${sql.join(args, sql`, `)})`;
 }
 
+
+/** `limits` and `limits.*`: the plant's limits, which only orrn staff set (limits brief, section A). */
+function isLimitsKey(key: string): boolean {
+  return key === "limits" || key.startsWith("limits.");
+}
+
+/**
+ * The new `company.settings` with only the named limits changed, computed in SQL from the row as it is
+ * when the statement runs, like `settingsPatchSql`: a number sets the key, `null` removes it (the plant
+ * reads the default again). Other limits and every other setting stay as they are, so two staff saving
+ * different limits both land. Keys must already be checked against `PLANT_LIMIT_KEYS` (plain names).
+ * Only `platform.companiesSetLimits` calls it.
+ */
+export function limitsPatchSql(change: Record<string, number | null>): SQL {
+  const base = sql`coalesce(${company.settings}, '{}')`;
+  const entries = Object.entries(change);
+  for (const [key, value] of entries) {
+    if (!SETTINGS_KEY.test(key)) throw new Error(`limit key ${key} is not a plain name`);
+    if (value !== null && !Number.isSafeInteger(value)) throw new Error(`limit ${key} is not a whole number`);
+  }
+  const withParent = sql`json_set(${base}, '$.limits', json(CASE WHEN json_type(${base}, '$.limits') = 'object' THEN json_extract(${base}, '$.limits') ELSE '{}' END))`;
+  const sets = entries.filter(([, v]) => v !== null);
+  const removes = entries.filter(([, v]) => v === null);
+  let out = withParent;
+  if (sets.length > 0) {
+    out = sql`json_set(${out}, ${sql.join(
+      sets.map(([k, v]) => sql.raw(`'$.limits.${k}', ${v}`)),
+      sql`, `,
+    )})`;
+  }
+  if (removes.length > 0) {
+    out = sql`json_remove(${out}, ${sql.join(
+      removes.map(([k]) => sql.raw(`'$.limits.${k}'`)),
+      sql`, `,
+    )})`;
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Shifts (FP-PF-05)

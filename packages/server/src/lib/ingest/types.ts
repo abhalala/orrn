@@ -59,14 +59,19 @@ export const INGEST_LIMITS = {
   decideRowsPerCall: 200,
   noteChars: 500,
 } as const;
-export type IngestLimits = typeof INGEST_LIMITS;
+/** Numbers, not the literal defaults: `ingest.status` sends the plant's own values for the settable ones. */
+type Widened<T> = { [K in keyof T]: T[K] extends number ? number : Widened<T[K]> };
+export type IngestLimits = Widened<typeof INGEST_LIMITS>;
 
 export type IngestStatus = {
   botReady: boolean;
   vaultReady: boolean;
   /** Vision read (release 2): PDFs and photos can be read page by page (a vault and a model route). */
   visionReady: boolean;
+  /** `filesPerUpload`, `rawRowsPerFile` and `openRowsPerPlant` are the plant's own (`effectiveLimits`). */
   limits: IngestLimits;
+  /** Pages read per file per batch for this plant (`effectiveLimits`, default `VISION_PARAMS.maxPagesPerFile`). */
+  visionPagesPerBatch: number;
   activeRunId: string | null;
   botToday: { calls: number; costMicroUsd: number };
 };
@@ -238,7 +243,7 @@ export type VisionBandTicketsOut = {
   uploads: { band: number; url: string; ticket: string; expiresAt: number }[];
 };
 
-/** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most `VISION_PARAMS.maxPagesPerFile`). */
+/** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most the plant's pages per batch when it started). */
 export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
 
 /** One signed PUT for a page image, a band image or a page's text. */

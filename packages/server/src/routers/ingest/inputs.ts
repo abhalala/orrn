@@ -5,6 +5,7 @@ import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, VISION_PARAMS } from "@orrn/ingest";
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
 import { DOUBT_CODES, INGEST_LIMITS as L } from "../../lib/ingest/types";
+import { VISION_PAGES_CEILING } from "../../lib/plantLimits";
 
 const id = z.string().min(1).max(64);
 const seq = z.number().int().min(0);
@@ -242,7 +243,8 @@ export const provenanceInput = z.object({ type: z.string().min(1).max(64), id })
 // Vision read (contract docs/superpowers/plans/2026-11-20-vision-read.md, section 7)
 // ---------------------------------------------------------------------------
 
-const visionPage = z.number().int().min(1).max(VISION_PARAMS.maxPagesPerFile);
+/** Bounded by the hard ceiling; the plant's own plan (`index.planned`) is checked in the handler. */
+const visionPage = z.number().int().min(1).max(VISION_PAGES_CEILING);
 const visionCell = z.string().max(L.cellChars);
 
 export const visionStartInput = z.object({ artifactId: id, pageCount: z.number().int().min(1).max(10_000) });

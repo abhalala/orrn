@@ -14,7 +14,9 @@ import {
 import { normalizeModules } from "@orrn/domain";
 import { atomicBatch } from "../../lib/atomic";
 import { auditInsert } from "../../lib/audit";
+import { limitsPatchSql } from "../../lib/companySettings";
 import { COMPANY_MODULES } from "../../lib/modules";
+import { limitProblems, PLANT_LIMIT_KEYS, PLANT_LIMITS, setLimits, type PlantLimitKey } from "../../lib/plantLimits";
 import { platformGuard } from "../../index";
 import { auditListInput, listAudit } from "../audit";
 
@@ -123,6 +125,7 @@ export const companiesProcedures = {
           status: company.status,
           plan: company.plan,
           modules: company.modules,
+          settings: company.settings,
           createdAt: company.createdAt,
           updatedAt: company.updatedAt,
           memberCount,
@@ -134,6 +137,8 @@ export const companiesProcedures = {
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
       }
+      // Only the limits leave; the rest of the plant's settings are not this page's business.
+      const { settings, ...rest } = row;
 
       const grants = await ctx.db
         .select({
@@ -151,7 +156,7 @@ export const companiesProcedures = {
         .orderBy(desc(impersonationGrant.createdAt))
         .limit(20);
 
-      return { company: row, recentGrants: grants };
+      return { company: { ...rest, limits: setLimits(settings) }, recentGrants: grants };
     }),
 
   companiesSuspend: platformGuard("platform.company.manage")
@@ -258,6 +263,74 @@ export const companiesProcedures = {
       ]);
 
       return { success: true, modules };
+    }),
+
+  /**
+   * The plant's limits (limits brief, section A; Limits section of /admin/companies/$id). `limits` names
+   * only the keys to change: a whole number from 1 to the key's hard ceiling sets it, `null` removes it
+   * ("Use default"). Unknown keys, values below 1, fractions and values above the ceiling are refused and
+   * nothing is written. Written per key in SQL against the row as it is (`limitsPatchSql`), with one audit
+   * row of the old and new values; a call that changes nothing writes nothing.
+   */
+  companiesSetLimits: platformGuard("platform.company.manage")
+    .input(
+      z.object({
+        companyId: z.string().min(1).max(64),
+        limits: z
+          .record(z.string().max(40), z.number().nullable())
+          .refine((r) => Object.keys(r).length <= PLANT_LIMIT_KEYS.length * 2, "Too many limits"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const problems = limitProblems(input.limits);
+      if (problems.length > 0) {
+        const words = problems.map((p) =>
+          p.problem === "unknown"
+            ? `Unknown limit: ${p.key}`
+            : p.problem === "above_ceiling"
+              ? `${p.key} can be at most ${PLANT_LIMITS[p.key as PlantLimitKey].ceiling}`
+              : `${p.key} must be a whole number of at least 1`,
+        );
+        throw new TRPCError({ code: "BAD_REQUEST", message: words.join(". ") });
+      }
+      const target = await ctx.db
+        .select({ id: company.id, settings: company.settings })
+        .from(company)
+        .where(eq(company.id, input.companyId))
+        .get();
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+
+      const before = setLimits(target.settings);
+      const change: Record<string, number | null> = {};
+      const from: Record<string, number | null> = {};
+      const to: Record<string, number | null> = {};
+      for (const key of PLANT_LIMIT_KEYS) {
+        if (!(key in input.limits)) continue;
+        const next = input.limits[key] ?? null;
+        const was = before[key] ?? null;
+        if (next === was) continue;
+        change[key] = next;
+        from[key] = was;
+        to[key] = next;
+      }
+      if (Object.keys(change).length === 0) return { limits: before };
+
+      await atomicBatch(ctx.db, [
+        ctx.db.update(company).set({ settings: limitsPatchSql(change) }).where(eq(company.id, input.companyId)),
+        auditInsert(
+          { ...ctx, companyId: input.companyId },
+          {
+            action: "platform.company.limits.update",
+            subjectType: "company",
+            subjectId: input.companyId,
+            meta: { from, to },
+          },
+        ),
+      ]);
+      const after = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, input.companyId)).get();
+      return { limits: setLimits(after?.settings ?? {}) };
     }),
 
   /**

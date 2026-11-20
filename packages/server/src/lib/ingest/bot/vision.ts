@@ -18,7 +18,7 @@
  * (`visionPageKey`). `outcome` has no value for tables, so "recipe" means one or more valid tables
  * and "no_target" means a page with no table.
  */
-import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, checkCaps, countCalls } from "./caps";
+import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, type CapValues, checkCaps, countCalls } from "./caps";
 import { costOfResponse } from "./cost";
 import { canonicalShapeModel, getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
 import type { Next } from "./escalate";
@@ -77,6 +77,8 @@ export type VisionPage = {
 export type RunVisionArgs = {
   env: ShapeEnv;
   store: BotRunStore;
+  /** The plant's caps (`effectiveLimits`); left out, the defaults in `caps.ts`. */
+  caps?: CapValues | undefined;
   companyId: string;
   userId: string | null;
   /** The page key (`visionPageKey`) this read belongs to, stored in `ingest_bot_run.block_id`. */
@@ -224,7 +226,7 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
   const model = plan.model;
 
   const base = { companyId: args.companyId, blockId: args.blockId, candidateId: null, purpose: "vision" as const, attempt: plan.attempt, createdBy: args.userId };
-  const capReason = await checkCaps({ store: args.store, companyId: args.companyId, history, nowMs: now() });
+  const capReason = await checkCaps({ store: args.store, companyId: args.companyId, history, nowMs: now(), caps: args.caps });
   if (capReason) {
     const runId = await args.store.insertRun({ ...base, model, outcome: "capped", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0, createdAtMs: now(), errorCodes: [`cap:${capReason}`] });
     return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", tables: null, errors: [`cap:${capReason}`], costMicroUsd: 0, runId, capReason };
