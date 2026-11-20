@@ -26,19 +26,33 @@ const CODES = [`${STAMP}V1`, `${STAMP}V2`, `${STAMP}V3`];
 const HEADERS = ["Series", "Section code", "Min weight (kg/12ft)", "Max weight (kg/12ft)", "Name", "Width (mm)", "Thickness (mm)", "Leg (mm)", "Status", "Notes"];
 const ROWS = CODES.map((code, i) => [SERIES, code, (1.1 + i / 10).toFixed(1), (1.4 + i / 10).toFixed(1), `Vision test ${code}`, "30", "1.5", "", "active", ""]);
 const FILE = `vision-${STAMP}.pdf`;
+const UNSEEN = "9876";
+const DENSE_FILE = `vision-dense-${STAMP}.pdf`;
+const DENSE_ROWS = Array.from({ length: 130 }, (_, i) => [SERIES, `${STAMP}D${i}`, (1 + i / 100).toFixed(2), (2 + i / 100).toFixed(2), `Dense ${i}`, "40", "2", "", "active", ""]);
 
-/** A small, valid PDF with lines of text on each page (synthetic; offsets computed so the xref is right). */
-function makePdf(pages: string[][]): Buffer {
+const pdfText = (text: string) => text.replace(/[()\\]/g, "");
+
+/** One text line per entry, 14 pt apart, so every value the scripted model answers is in the page text (section 11.5). */
+function linesPage(lines: string[]): string {
+  return `BT /F1 10 Tf 14 TL 40 800 Td ${lines.map((line) => `(${pdfText(line)}) '`).join(" ")} ET`;
+}
+
+/** A dense table: each cell its own text item at its column, `leading` pt apart (a page the browser cuts into bands). */
+function gridPage(rows: string[][], size: number, leading: number): string {
+  const cells = rows.flatMap((row, r) => row.map((cell, c) => `1 0 0 1 ${20 + c * 57} ${830 - r * leading} Tm (${pdfText(cell)}) Tj`));
+  return `BT /F1 ${size} Tf ${cells.join(" ")} ET`;
+}
+
+/** A small, valid PDF, one content stream per page (synthetic; offsets computed so the xref is right). */
+function makePdf(pages: string[]): Buffer {
   const objects: string[] = [];
   const pageIds: number[] = [];
   const font = 3 + pages.length * 2;
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-  pages.forEach((lines, i) => {
+  pages.forEach((stream, i) => {
     const pageId = 3 + i * 2;
     const contentId = pageId + 1;
     pageIds.push(pageId);
-    // One text line per entry, 14 pt apart, so every value the scripted model answers is in the page text (section 11.5).
-    const stream = `BT /F1 10 Tf 14 TL 40 800 Td ${lines.map((line) => `(${line.replace(/[()\\]/g, "")}) '`).join(" ")} ET`;
     objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentId} 0 R >>`;
     objects[contentId] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
   });
@@ -62,20 +76,22 @@ async function fakeModel(api: APIRequestContext, body: unknown) {
   expect(res.ok(), `/dev/ingest-bot answered ${res.status()}`).toBe(true);
 }
 
-let candidateId: string | null = null;
+const candidateIds: string[] = [];
 
 test.afterAll(async () => {
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
   try {
     await fakeModel(api, { action: "clear" });
-    if (!candidateId) return;
+    if (candidateIds.length === 0) return;
     const signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
     expect(signIn.ok()).toBe(true);
-    const got = await api.get(`${API_URL}/trpc/ingest.candidate.get?input=${encodeURIComponent(JSON.stringify({ candidateId }))}`);
-    const detail = got.ok() ? ((await got.json()).result.data as { state: string; serverSeq: number }) : null;
-    if (detail && detail.state !== "discarded" && detail.state !== "merged") {
-      const res = await api.post(`${API_URL}/trpc/ingest.candidate.discard`, { data: { candidateId, expectSeq: detail.serverSeq } });
-      expect(res.ok(), `discard answered ${res.status()}: ${await res.text()}`).toBe(true);
+    for (const candidateId of candidateIds) {
+      const got = await api.get(`${API_URL}/trpc/ingest.candidate.get?input=${encodeURIComponent(JSON.stringify({ candidateId }))}`);
+      const detail = got.ok() ? ((await got.json()).result.data as { state: string; serverSeq: number }) : null;
+      if (detail && detail.state !== "discarded" && detail.state !== "merged") {
+        const res = await api.post(`${API_URL}/trpc/ingest.candidate.discard`, { data: { candidateId, expectSeq: detail.serverSeq } });
+        expect(res.ok(), `discard answered ${res.status()}: ${await res.text()}`).toBe(true);
+      }
     }
   } finally {
     await api.dispose();
@@ -95,12 +111,13 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
     action: "install",
     responses: [
       // Prompt v3 row objects: each row carries its own confidence.
-      { tables: [{ title: "Sections", headers: HEADERS, rows: ROWS.map((cells, i) => ({ cells, confidence: [0.96, 0.5, 0.93][i] })) }] },
+      // Row 3's width is not in the PDF's text (the PDF says 30), so the digit check marks it (section 11.5).
+      { tables: [{ title: "Sections", headers: HEADERS, rows: ROWS.map((cells, i) => ({ cells: i === 2 ? cells.map((c, j) => (j === 5 ? UNSEEN : c)) : cells, confidence: [0.96, 0.5, 0.93][i] })) }] },
       { tables: [] },
     ],
   });
   await openPortal(page);
-  await page.locator("input[type='file']").setInputFiles({ name: FILE, mimeType: "application/pdf", buffer: makePdf([[`Synthetic page one ${STAMP}`, HEADERS.join(" "), ...ROWS.map((r) => r.join(" "))], [`Synthetic page two ${STAMP}`]]) });
+  await page.locator("input[type='file']").setInputFiles({ name: FILE, mimeType: "application/pdf", buffer: makePdf([linesPage([`Synthetic page one ${STAMP}`, HEADERS.join(" "), ...ROWS.map((r) => r.join(" "))]), linesPage([`Synthetic page two ${STAMP}`])]) });
   await page.getByRole("button", { name: /^Add \d+ files?$/ }).click();
 
   // Page 1 is read; page 2 has no table, so the strip sends the person to the file page.
@@ -127,7 +144,8 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(importLink).toBeVisible({ timeout: 60_000 });
   await importLink.click();
   await expect(page).toHaveURL(/\/ingest\/review\//);
-  candidateId = new URL(page.url()).pathname.split("/").pop() ?? null;
+  const candidateId = new URL(page.url()).pathname.split("/").pop() ?? null;
+  if (candidateId) candidateIds.push(candidateId);
 
   const bar = page.getByTestId("decision-bar");
   const check = page.getByTestId("vision-check");
@@ -137,11 +155,16 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(image).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
 
-  // The row the model rated low comes first, marked in words; the blank Leg cell is marked.
-  const first = check.getByTestId("vision-row").first();
-  await expect(first).toContainText(CODES[1]!);
-  await expect(first).toContainText("Look first");
-  await expect(first.getByText("Blank").first()).toBeVisible();
+  // The row whose digits are not in the PDF's text comes first, its cell marked in words; then the row rated low. The
+  // blank Leg cell is marked.
+  const rows = check.getByTestId("vision-row");
+  await expect(rows.first()).toContainText(CODES[2]!);
+  await expect(rows.first()).toHaveAttribute("data-unseen", "true");
+  await expect(rows.first().locator("td[data-unseen]")).toContainText(UNSEEN);
+  await expect(rows.first()).toContainText("These digits are not in the PDF's text. Check them against the page.");
+  await expect(rows.nth(1)).toContainText(CODES[1]!);
+  await expect(rows.nth(1)).toContainText("Look first");
+  await expect(rows.nth(1).getByText("Blank").first()).toBeVisible();
 
   // The rows are checked before anything is approved: wait for the check, then Approve waits on the tick.
   await expect(bar).toHaveAttribute("data-state", "ready", { timeout: 90_000 });
@@ -160,4 +183,59 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(approve).not.toHaveAttribute("aria-disabled", "true");
   await approve.click();
   await expect(bar).toHaveAttribute("data-state", "approved", { timeout: 30_000 });
+});
+
+test("a dense text PDF page is cut into bands before any call, read band by band, and merged into one table", async ({ page, request: api }) => {
+  // 132 text lines (a title, the column names, 130 rows): past bandRowThreshold, so the browser cuts 3 bands of at most
+  // bandMaxRows. The scripted answers are band 1, 2 and 3, in order; bands 2 and 3 are one table as wide as band 1's.
+  const part = (from: number, to: number) => DENSE_ROWS.slice(from, to).map((cells) => ({ cells, confidence: 0.9 }));
+  await fakeModel(api, {
+    action: "install",
+    responses: [
+      { tables: [{ title: "Dense sections", headers: HEADERS, rows: part(0, 44) }] },
+      { tables: [{ title: null, headers: HEADERS, rows: part(44, 88) }] },
+      { tables: [{ title: null, headers: HEADERS, rows: part(88, 130) }] },
+    ],
+  });
+  const bandCalls: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("ingest.vision.bandTickets")) bandCalls.push(r.postData() ?? "");
+  });
+  await openPortal(page);
+  const pdf = makePdf([gridPage([[`Dense ${STAMP}`], HEADERS, ...DENSE_ROWS], 5, 6)]);
+  await page.locator("input[type='file']").setInputFiles({ name: DENSE_FILE, mimeType: "application/pdf", buffer: pdf });
+  await page.getByRole("button", { name: /^Add \d+ files?$/ }).click();
+
+  // The page is read in bands and the file finishes: its one table is an import.
+  let id: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get(`${API_URL}/trpc/ingest.candidate.list?input=${encodeURIComponent(JSON.stringify({}))}`, { headers: { origin: WEB_ORIGIN } });
+        if (!res.ok()) return null;
+        const items = (await res.json()).result.data.items as { id: string; fileName: string }[];
+        id = items.find((c) => c.fileName === DENSE_FILE)?.id ?? null;
+        return id;
+      },
+      { timeout: 120_000 },
+    )
+    .not.toBeNull();
+  candidateIds.push(id!);
+  expect(bandCalls.length).toBeGreaterThan(0);
+  // tRPC batches its body as { "0": input }.
+  const sent = JSON.parse(bandCalls[0]!) as Record<string, unknown>;
+  expect(sent["0"] ?? sent).toMatchObject({ page: 1, bands: 3 });
+
+  // The review lists band 1's rows, then band 2's, then band 3's: one table of 130 rows, none lost or doubled.
+  await page.goto(`/ingest/review/${id}`);
+  const check = page.getByTestId("vision-check");
+  await expect(check).toBeVisible({ timeout: 30_000 });
+  const rows = check.getByTestId("vision-row");
+  await expect(rows).toHaveCount(130, { timeout: 30_000 });
+  await expect(rows.first()).toContainText(`${STAMP}D0`);
+  await expect(rows.nth(44)).toContainText(`${STAMP}D44`);
+  await expect(rows.nth(88)).toContainText(`${STAMP}D88`);
+  await expect(rows.last()).toContainText(`${STAMP}D129`);
+  // The whole page image went too, for the check against the page.
+  await expect(check.getByTestId("vision-page-image")).toBeVisible({ timeout: 30_000 });
 });
