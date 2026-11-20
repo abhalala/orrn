@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8463 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7125,7 +7125,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (654)
+### ingest (662)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7187,6 +7187,14 @@ Please check, Lalubhai:
 | `upload.error.partsMissing` | Some parts of the file did not arrive. Add the same file again to send them. | फ़ाइल के कुछ हिस्से नहीं पहुंचे। उन्हें भेजने के लिए वही फ़ाइल फिर डालें। |
 | `upload.error.digest` | The saved file did not match the file you chose. Add it again. | सेव हुई फ़ाइल आपकी चुनी फ़ाइल से मेल नहीं खाई। इसे फिर डालें। |
 | `upload.error.ranOut` | The upload took too long and stopped. Add the same file again. | अपलोड में बहुत देर लगी और वह रुक गया। वही फ़ाइल फिर डालें। |
+| `upload.error.checkRunning` | This file is still being checked. Wait a minute, then try again. | इस फ़ाइल की जांच अभी चल रही है। एक मिनट रुकें, फिर कोशिश करें। |
+| `upload.error.checkFailed` | orrn could not check this file after it arrived. Remove it from the list and add it again. | फ़ाइल पहुंचने के बाद orrn उसकी जांच नहीं कर सका। इसे सूची से हटाएं और फिर डालें। |
+| `upload.error.someoneElse` | Someone else is sending this file now. Try again when they finish. | कोई और अभी यह फ़ाइल भेज रहा है। उनका काम पूरा होने पर फिर कोशिश करें। |
+| `upload.refused.tooBigKind` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
+| `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. Godseye staff can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। Godseye स्टाफ़ इसे बढ़ा सकता है। |
+| `upload.refused.fileTooBigMax` | {name} is too big. The largest file orrn can take is {size}. | {name} बहुत बड़ी है। orrn में सबसे बड़ी फ़ाइल {size} की हो सकती है। |
+| `upload.refused.storageFull` | This plant's file storage is full ({size}). Godseye staff can raise it. | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। Godseye स्टाफ़ इसे बढ़ा सकता है। |
+| `upload.refused.storageFullMax` | This plant's file storage is full ({size}). | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
