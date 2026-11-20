@@ -20,6 +20,12 @@
  * - rawRowsPerFile 1,000,000: five times the default. Browser memory at this size is not measured yet;
  *   the per-block and blocks-per-file bounds (50,000 x 50) still apply.
  * - openRowsPerPlant 2,000,000: about seven times the default staged rows waiting in D1.
+ * - uploadFileMiB 2,048 (2 GiB), default the same: the largest raw file. The whole-file SHA-256 check of a chunked
+ *   upload runs in one request (`upload-parts.ts` `confirmWhole`); at the slowest rate measured on local workerd
+ *   (550 MiB/s, 16 KiB chunks, machine under load) 2 GiB takes under 4 s against the 30 s CPU default, a margin of
+ *   about 8x before any edge slowdown. Staff can only lower it. Fix round 2026-11-20, VISION-BUILD-REPORT.md.
+ * - vaultQuotaGiB 1,024 (1 TiB), default 50: raw bytes the plant keeps in the vault, counted from D1 rows (stored
+ *   files plus uploads begun in the last day), never from R2 listings.
  */
 import { VISION_PARAMS } from "@orrn/ingest";
 
@@ -37,6 +43,8 @@ export const PLANT_LIMIT_KEYS = [
   "filesPerUpload",
   "rawRowsPerFile",
   "openRowsPerPlant",
+  "uploadFileMiB",
+  "vaultQuotaGiB",
 ] as const;
 export type PlantLimitKey = (typeof PLANT_LIMIT_KEYS)[number];
 
@@ -50,7 +58,17 @@ export const PLANT_LIMITS: Readonly<Record<PlantLimitKey, PlantLimitDef>> = {
   filesPerUpload: { default: INGEST_LIMITS.filesPerUpload, ceiling: 100 },
   rawRowsPerFile: { default: INGEST_LIMITS.rawRowsPerFile, ceiling: 1_000_000 },
   openRowsPerPlant: { default: INGEST_LIMITS.openRowsPerPlant, ceiling: 2_000_000 },
+  /** MiB (1,048,576 bytes). */
+  uploadFileMiB: { default: 2_048, ceiling: 2_048 },
+  /** GiB (1,073,741,824 bytes). */
+  vaultQuotaGiB: { default: 50, ceiling: 1_024 },
 };
+
+export const MIB = 1024 * 1024;
+export const GIB = 1024 * MIB;
+
+/** The largest raw file any plant may send, in bytes (the `uploadFileMiB` ceiling). */
+export const UPLOAD_FILE_CEILING_BYTES = PLANT_LIMITS.uploadFileMiB.ceiling * MIB;
 
 /** The most pages in one batch (the plant's `visionPagesPerBatch` is clamped to it). */
 export const VISION_PAGES_CEILING = PLANT_LIMITS.visionPagesPerBatch.ceiling;

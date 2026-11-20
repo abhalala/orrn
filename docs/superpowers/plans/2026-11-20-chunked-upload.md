@@ -143,3 +143,16 @@ read"). Phones keep the same readers.
 
 If the owner wants files past those sizes read in the browser, the next step is a CSV-only DuckDB lane: the wasm on
 an R2 custom domain, lazy loaded on the import page, rows streamed in `rowsPerPut` batches, desktop only.
+
+## 12. New plant limits (fix round 2026-11-20, for the Godseye Limits tab)
+
+Two keys added to `PLANT_LIMIT_KEYS` in `packages/server/src/lib/plantLimits.ts`, stored, written and resolved like
+the others (`companiesSetLimits`, `effectiveLimits`), whole numbers from 1 to the ceiling. `uploadFileMiB`: the
+largest raw file per upload, in MiB (1,048,576 bytes), default 2,048 (2 GiB), ceiling 2,048, so staff can only lower
+it; the ceiling is the size the whole-file SHA-256 check finishes in one request with margin (section 10).
+`vaultQuotaGiB`: the plant's storage quota, the raw bytes kept in the vault, in GiB (1,073,741,824 bytes), default 50,
+ceiling 1,024 (1 TiB); counted from D1 (`ingest_artifact.size_bytes` of stored files plus uploads begun in the last
+day), never from R2 listings. Both are checked in `artifact.begin`. `PLANT_LIMITS[key]` carries the default and
+ceiling; `MIB`, `GIB` and `UPLOAD_FILE_CEILING_BYTES` are exported beside them. The web's `NAME_KEYS` and `HINT_KEYS`
+(`company-limits-tab.tsx`) are `Record<PlantLimitKey, ...>`, so the web type-check fails until the two keys get names
+and hints there.
