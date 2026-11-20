@@ -21,9 +21,10 @@
  *   the per-block and blocks-per-file bounds (50,000 x 50) still apply.
  * - openRowsPerPlant 2,000,000: about seven times the default staged rows waiting in D1.
  * - uploadFileMiB 2,048 (2 GiB), default the same: the largest raw file. The whole-file SHA-256 check of a chunked
- *   upload runs in one request (`upload-parts.ts` `confirmWhole`); at the slowest rate measured on local workerd
- *   (550 MiB/s, 16 KiB chunks, machine under load) 2 GiB takes under 4 s against the 30 s CPU default, a margin of
- *   about 8x before any edge slowdown. Staff can only lower it. Fix round 2026-11-20, VISION-BUILD-REPORT.md.
+ *   upload runs in one request (`upload-parts.ts` `confirmWhole`, `stream-digest.ts`); at the slowest rate measured
+ *   on local workerd (1,696 MiB/s, 16 KiB chunks, machine under load) 2 GiB takes about 1.2 s against the 30 s CPU
+ *   limit (pinned in alchemy.run.ts), 25x under it. Staff can only lower it. Plan 2026-11-20-chunked-upload.md
+ *   section 10.
  * - vaultQuotaGiB 1,024 (1 TiB), default 50: raw bytes the plant keeps in the vault, counted from D1 rows (stored
  *   files plus uploads begun in the last day), never from R2 listings.
  */

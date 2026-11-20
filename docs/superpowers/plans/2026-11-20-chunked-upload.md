@@ -13,7 +13,7 @@ through the Worker; a file of one part keeps the single signed PUT (R2 checks it
 | Multipart has no whole-object checksum: `R2MultipartOptions` and `R2UploadPartOptions` take no `sha256`; the completed ETag is an MD5 of part MD5s | workers-types 4.20260518.1 `index.d.ts` (R2MultipartOptions, R2UploadPartOptions); r2/objects/upload-objects/#etags |
 | `uploadPart` takes a `ReadableStream` only of known length (a request body with Content-Length, or the readable half of a `FixedLengthStream`); a TransformStream output throws | r2/api/workers/workers-api-reference (put and uploadPart) |
 | The binding has no `listParts` and no list of open multipart uploads; `resumeMultipartUpload` checks nothing | workers-types (R2Bucket, R2MultipartUpload); workers-api-reference |
-| Unfinished multipart uploads are aborted by R2 after 7 days (error 10024 NoSuchUpload after that) | workers-api-reference (R2MultipartUpload definition); r2/api/error-codes |
+| Unfinished multipart uploads are aborted by R2 after 7 days by default (error 10024 NoSuchUpload after that); the vault now sets a 1-day abort rule (section 13) | workers-api-reference (R2MultipartUpload definition); r2/api/error-codes |
 | `crypto.DigestStream(algorithm)` is a WritableStream that keeps no data and resolves `.digest` at close | workers/runtime-apis/web-crypto/#constructors; workers-types `DigestStream` |
 | `bucket.get(key, { range })` takes an `R2Range` (offset, length, suffix) or a `Headers` with Range | workers-api-reference (R2GetOptions, ranged reads) |
 | pdfjs 6.4.299 has `PDFDataRangeTransport` and `getDocument({ range, rangeChunkSize, disableAutoFetch, disableStream })` | `apps/web/node_modules/pdfjs-dist/types/src/display/api.d.ts` |
@@ -30,8 +30,9 @@ All under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`), company 
 
 | Key | Written by | Body |
 |---|---|---|
-| `upload/plan.json` | Worker, `artifact.uploadStart` | `{ v: 1, uploadId, artifactId, userId, size, partSize, partCount, parts: string[] (hex SHA-256 per part), createdAt }` |
-| `upload/<uploadId>/<n>` | Worker, part route, after the part's digest matched | empty; `customMetadata.etag` |
+| `upload/plan.json` | Worker, `artifact.uploadStart` | `{ v: 1, uploadId, artifactId, userId, size, partSize, partCount, parts: string[] (hex SHA-256 per part), createdAt }`; `customMetadata.uploadId` too, so the part route reads only the head |
+| `upload/<uploadId>/p<n>` | Worker, part route, after the part's digest matched | empty; `customMetadata.etag`; one marker per part, replaced by a later PUT of the same part, deleted by a PUT whose digest does not match |
+| `upload/check.json` | Worker, whole-file check | `{ at, userId }`, created only when absent: one check at a time |
 | `raw` | R2 multipart complete | the file; `customMetadata.upload = "parts"` set at create |
 
 The session is held on the server (the plan object), not in the client: a session carrying every part digest cannot
@@ -54,14 +55,26 @@ purposes, the read route only `ingest-read`.
 - `uploadStart({ artifactId, parts: string[] })`: checks the count against the size; reuses the plan when its digests
   are the same (resume) and answers the part numbers already done; a plan with other digests is aborted and replaced;
   else `createMultipartUpload` and a new plan. When the raw object is there already every part is done.
-- `uploadTickets({ artifactId, parts: number[] })`: at most 8 tickets a call, digests from the plan.
+- `uploadTickets({ artifactId, parts: number[] })`: up to 8 part numbers asked, tickets issued for the first 2 (a
+  ticket issued far ahead of its part runs out on a slow line), digests from the plan. A plan of another person that is
+  still fresh is not replaced with other parts ("Someone else is sending this file now. Try again when they finish.");
+  anyone may remove it first with `uploadAbort`.
 - `uploadComplete({ artifactId })`: every part recorded, else "Some parts of the file have not arrived. Add the same
   file again to send them."; `complete` with the recorded ETags; then the object is streamed once through
-  `DigestStream` and must give the artifact's SHA-256 and size. A mismatch deletes the object and the plan and says "The
-  file does not match its digest". On a match the artifact is `stored` and the plan and markers go. Idempotent: an
-  object already there but not yet checked is checked again, never completed again.
+  `DigestStream` and must give the artifact's SHA-256 and size. The check takes `upload/check.json` first; a second
+  complete while it runs gets CONFLICT "This file is still being checked. Try again in a minute.". A mismatch, or a lock
+  older than 5 minutes (a check the CPU limit killed), deletes the object and the upload folder, marks the file
+  `read_state = failed` with the sentence as `read_error`, and the call fails; the check is not run again until the
+  file is added again. On a match the artifact is `stored` (a PDF or photo marked failed by an earlier check goes back
+  to `kept_unread`); the object is headed again and must still have the ETag that was hashed. R2 InvalidPart on
+  complete (two PUTs of one part crossed) deletes the part markers, keeps the plan and the multipart upload, and says
+  "Some parts of the file have not arrived...". A NoSuchUpload on complete first checks whether another complete
+  already stored the file. Idempotent: an object already there but not yet checked is checked again, never completed
+  again.
 - `uploadAbort({ artifactId })`: aborts the multipart upload, deletes the plan and markers, and a raw object of parts
-  that is not yet stored. Called when a file is taken off the upload strip while it is saving (there is no artifact
+  that is not yet stored. Refused (CONFLICT, the check sentence) while a whole-file check runs. Discarding the last
+  live sheet of a file whose bytes are not stored does the same (`abortIfAbandoned`, called from
+  `candidate.discard`). Called when a file is taken off the upload strip while it is saving (there is no artifact
   discard procedure; the strip's remove is the discard).
 - `commitRaw`: an object with `customMetadata.upload = "parts"` is stored only through the check of `uploadComplete`.
 
@@ -73,14 +86,18 @@ broken client and fall to the generic action words):
 - "The upload ran out. Add the same file again."
 - "This file is sent in one piece"
 - "The part list does not match this file"
+- "This file is still being checked. Try again in a minute." (CONFLICT, try again)
+- "orrn could not check this file after it arrived. Remove it and add it again." (BAD_REQUEST, not retried)
+- "Someone else is sending this file now. Try again when they finish." (CONFLICT)
 
 ## 6. Part route `PUT /files/ingest/part?ticket=...`
 
 Ticket checked; Content-Length must equal the ticket's part size; the plan must still name the ticket's upload id
-(else 409). The marker of that part is deleted first, the body runs through a tap into `DigestStream` and into a
-`FixedLengthStream` that `uploadPart` reads; the digest is compared when the part is in. A match writes the marker
-(200); a mismatch answers 400 "The part does not match its digest" and leaves the part missing. NoSuchUpload (the 7
-day abort) answers 410 and clears the plan, so the browser starts the upload again.
+(else 409), read from the plan's head only (no plan body, no marker listing). The body runs through a tap into
+`DigestStream` and into a `FixedLengthStream` that `uploadPart` reads; the digest is compared when the part is in. A
+match writes the part's marker `p<n>` (200); a mismatch deletes that marker and answers 400 "The part does not match
+its digest", so the part is missing. NoSuchUpload (the 1-day abort) answers 410 and clears the plan, so the browser
+starts the upload again.
 
 ## 7. Read route Range
 
@@ -113,6 +130,44 @@ R2).
 - `crypto.DigestStream` on workerd (Miniflare, Apple Silicon): 256 MiB in 88 ms, 1 GiB in 357 ms. The whole-file check
   of `uploadComplete` runs in one request under the 30 s CPU default, so on this machine it would cover tens of GiB. Not
   measured on the Cloudflare edge, whose CPUs may be slower.
+- Fix round, 2026-11-20, same machine with other lanes running (load 2 to 9), wall time from outside the Worker, best of
+  two, synthetic `ReadableStream` inside the Worker through `streamSha256` (`stream-digest.ts`):
+  - with the old JS counter step per chunk: 16 KiB chunks 1 GiB in 1,860 ms (550 MiB/s); 64 KiB chunks 1 GiB 567 ms,
+    2 GiB 2,067 ms, 4 GiB 5,688 ms (720 to 1,800 MiB/s). The per-chunk JS step dominated at small chunks.
+  - piped straight into `DigestStream` (shipped): 16 KiB chunks 1 GiB in 604 ms (1,696 MiB/s); 64 KiB chunks 1 GiB in
+    383 ms, 2 GiB in 763 ms (2,685 MiB/s). Generating the stream alone took 58 to 326 ms of that.
+  - a 512 MiB object in local R2: read only 772 ms, read and hashed 927 ms (local disk bound; waiting on R2 is not CPU
+    time on the edge).
+  - Ceiling: 2 GiB (`uploadFileMiB`), against `limits.cpu_ms` 30,000 (Workers Paid default, pinned in
+    `alchemy.run.ts`; the account is on Workers Paid, which allows up to 300,000). At the slowest shipped rate 2 GiB is
+    about 1.2 s, 25x under the limit; the edge would have to be 8x slower than this laptop before the 3x margin is
+    gone. Not measured on the edge.
+
+## 13. Unfinished uploads (fix round 2026-11-20)
+
+- The vault bucket carries one lifecycle rule (`alchemy.run.ts`): `abortMultipartUploadsTransition` after 86,400 s,
+  prefix "" (no delete transition; raw files are kept forever). Alchemy 0.91.2 `R2Bucket` supports `lifecycle` and
+  PUTs `/accounts/<id>/r2/buckets/<name>/lifecycle`, which replaces the bucket's rules, R2's default 7-day abort
+  rule included. It applies on the next deploy of each stage.
+- A plan is resumed only within 20 hours (`PLAN_RESUME_MS`).
+- The daily cron (`sweepUnfinishedUploads`): files still `pending` whose row is older than a day lose their plan,
+  markers and any unchecked object made from parts; a file sent in one piece whose commit never came is marked stored.
+  Rows stay `pending` otherwise (the approve gate refuses a file whose bytes are not stored).
+- The storage quota counts stored files plus `pending` rows touched in the last day; a re-add of a file touches its row
+  under the quota check.
+
+## 14. What the web needs from this round
+
+- `company-limits-tab.tsx`: names and hints for `uploadFileMiB` (MiB) and `vaultQuotaGiB` (GiB); both type-check
+  failures go away with them.
+- `upload.ts` `problemFromError`: call `beginRefusalWords(error)` from `errors.ts` first; it gives the key and the
+  values (name, limit or size) for the no-vault refusal by kind and the size and storage refusals.
+- `artifactUploadComplete` may answer CONFLICT "This file is still being checked..." (mapped, retry) and BAD_REQUEST
+  "orrn could not check this file..." (mapped, no retry: the file must be added again).
+- `artifactUploadStart` may answer CONFLICT "Someone else is sending this file now..." (mapped).
+- `artifactUploadTickets` answers at most 2 tickets however many are asked; the current loop already asks again for a
+  part with no ticket. The "7 days" comment in `upload-parts.ts` (web) is now 1 day.
+
 - Browser incremental SHA-256 (pure JS, bun): 600 MiB in about 3 s.
 - The local stack (`ingest.spec.ts`, "files over one part"): a padded 16 MiB + 70 KB PDF goes up in two parts with a
   wrong part refused (400), the whole file checked, and a range read answers 206 with the range headers exposed; a 17.5
