@@ -216,6 +216,13 @@ export const ingestBlock = sqliteTable(
      */
     follows: text("follows", { mode: "json" }).$type<{ ordinal: number; gapRows: number; continues: boolean }>(),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Who set the vision tick and when (release 2 fix round, security L2; migration 0053). Null while the
+     * tick is not set: every statement that clears `model_checked` clears these too. No foreign key, so a
+     * removed user does not block the block row.
+     */
+    modelCheckedBy: text("model_checked_by"),
+    modelCheckedAt: integer("model_checked_at", { mode: "timestamp_ms" }),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAtCol(),
