@@ -4,6 +4,15 @@
  * page; a person ticks each model-read table against its page before approval.
  */
 
+import type {
+  BlockVisionView,
+  VisionNotReadReason as ServerNotReadReason,
+  VisionPageState as ServerPageState,
+  VisionPageView as ServerPageView,
+  VisionStartOut as ServerStartOut,
+} from "@orrn/server/lib/ingest/types";
+
+/** The server's lists, copied as values (nothing from the server reaches the bundle); the checks below keep them equal. */
 export const VISION_PAGE_STATES = ["waiting", "ready", "read", "not_read", "typed", "skipped"] as const;
 export type VisionPageState = (typeof VISION_PAGE_STATES)[number];
 
@@ -13,32 +22,38 @@ export const VISION_NOT_READ_REASONS = [
 ] as const;
 export type VisionNotReadReason = (typeof VISION_NOT_READ_REASONS)[number];
 
-export type VisionPageView = {
-  page: number;
-  state: VisionPageState;
-  reason: VisionNotReadReason | null;
-  canRetry: boolean;
-  next: "retry" | "manual" | "done" | null;
-  attempts: number;
-  blockIds: string[];
-  tables: number;
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const statesMatch: Same<VisionPageState, ServerPageState> = true;
+const reasonsMatch: Same<VisionNotReadReason, ServerNotReadReason> = true;
+void statesMatch;
+void reasonsMatch;
+
+/**
+ * Contract section 11.3: a page read in bands carries `bands { total, read }` while banding. Optional here until the
+ * server's page view has it.
+ */
+export type VisionBands = { total: number; read: number };
+
+export type VisionPageView = Omit<ServerPageView, "next"> & {
+  /** Section 11.3: "band" when a scan or photo must be cut into bands and read band by band. */
+  next: ServerPageView["next"] | "band";
+  bands?: VisionBands | null;
+  /** Section 11.3: the headers of the whole-page read, sent with `next: "band"`. */
+  headers?: string[] | null;
 };
 
-export type VisionPageTicket = { page: number; url: string; ticket: string; expiresAt: number };
+export type VisionPageTicket = ServerStartOut["uploads"][number];
 
-export type VisionStartOut = { pageCount: number; planned: number; uploads: VisionPageTicket[] };
+export type VisionStartOut = ServerStartOut;
 
 export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
 
-/** `BlockView.vision`: where a model-read (or typed) block came from. `lowRows` lowest confidence first, then by index. */
-export type BlockVision = {
-  page: number;
-  table: number;
-  pageCount: number;
-  rowConfidence: number[];
-  lowRows: number[];
-  typed?: boolean;
-};
+/**
+ * `BlockView.vision`: where a model-read (or typed) block came from. `lowRows` lowest confidence first, then by index.
+ * `unseen` (section 11.5): `[row, col]` cells whose digits are not in the PDF's text layer; optional until the server
+ * sends it, and missing means no marks.
+ */
+export type BlockVision = BlockVisionView & { unseen?: [number, number][] };
 
 export type VisionReadUrlIn = { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number };
 

@@ -59,42 +59,64 @@ export function visionFileActions(pages: readonly VisionPageView[], settled: boo
   return { carryOn: waiting || due, needsBytes: waiting, finish: settled };
 }
 
-export type VisionCell = { text: string; blank: boolean };
+export type VisionCell = {
+  text: string;
+  blank: boolean;
+  /** Section 11.5: a digit run of this cell is not in the PDF's text layer. */
+  unseen: boolean;
+};
 
 export type VisionRowView = {
   id: string;
   rowIndex: number;
   /** The row's number as a person counts (1 is the first row under the column names). */
   n: number;
+  /** A cell of this row holds digits that are not in the PDF's text. */
+  unseen: boolean;
   low: boolean;
   confidence: number | null;
   cells: VisionCell[];
 };
 
 /**
- * The rows of a table read from a page, rows the model was not sure of first (lowest first, as `lowRows` lists them),
- * then the rest in page order. A cell with no text is marked blank. `rows` are the staged rows (their `raw` cells), so a
- * cell a person fixed shows as fixed, and a rate the viewer may not see stays masked as the server sent it.
+ * The rows of a table read from a page, in the order of contract section 11.5: rows with a cell whose digits are not in
+ * the PDF's text first (page order), then rows the model rated under `lowConfidence` (lowest first, as `lowRows` lists
+ * them), then the rest in page order. Confidence only orders the list; it says nothing about a row being right. A cell
+ * with no text is marked blank. `rows` are the staged rows (their `raw` cells), so a cell a person fixed shows as fixed,
+ * and a rate the viewer may not see stays masked as the server sent it. Cell text is data and is only ever shown as text.
  */
 export function visionRows(
   rows: readonly { id: string; rowIndex: number; raw: readonly string[] }[],
-  vision: Pick<BlockVision, "lowRows" | "rowConfidence">,
+  vision: Pick<BlockVision, "lowRows" | "rowConfidence" | "unseen">,
   width: number,
 ): VisionRowView[] {
   const lowOrder = new Map<number, number>();
   vision.lowRows.forEach((rowIndex, i) => lowOrder.set(rowIndex, i));
+  const unseen = new Map<number, Set<number>>();
+  for (const mark of vision.unseen ?? []) {
+    if (!Array.isArray(mark) || mark.length !== 2) continue;
+    const [row, col] = mark;
+    if (!unseen.has(row)) unseen.set(row, new Set());
+    unseen.get(row)!.add(col);
+  }
   const low = (rowIndex: number) => lowOrder.has(rowIndex) || (vision.rowConfidence[rowIndex] ?? 1) < VISION_PARAMS.lowConfidence;
   const views = rows.map((row): VisionRowView => {
+    const marked = unseen.get(row.rowIndex);
     const cells: VisionCell[] = Array.from({ length: Math.max(width, row.raw.length) }, (_, col) => {
       const text = row.raw[col] ?? "";
-      return { text, blank: text.trim() === "" };
+      return { text, blank: text.trim() === "", unseen: marked?.has(col) === true };
     });
-    return { id: row.id, rowIndex: row.rowIndex, n: row.rowIndex + 1, low: low(row.rowIndex), confidence: vision.rowConfidence[row.rowIndex] ?? null, cells };
+    return {
+      id: row.id, rowIndex: row.rowIndex, n: row.rowIndex + 1, unseen: cells.some((c) => c.unseen), low: low(row.rowIndex),
+      confidence: vision.rowConfidence[row.rowIndex] ?? null, cells,
+    };
   });
-  const rank = (v: VisionRowView) => (lowOrder.has(v.rowIndex) ? lowOrder.get(v.rowIndex)! : v.low ? lowOrder.size : Number.POSITIVE_INFINITY);
+  const group = (v: VisionRowView) => (v.unseen ? 0 : v.low ? 1 : 2);
+  const rank = (v: VisionRowView) => (lowOrder.has(v.rowIndex) ? lowOrder.get(v.rowIndex)! : lowOrder.size);
   return views.sort((a, b) => {
-    if (a.low !== b.low) return a.low ? -1 : 1;
-    if (a.low && b.low) return rank(a) - rank(b) || (a.confidence ?? 1) - (b.confidence ?? 1) || a.rowIndex - b.rowIndex;
+    const g = group(a) - group(b);
+    if (g !== 0) return g;
+    if (group(a) === 1) return rank(a) - rank(b) || (a.confidence ?? 1) - (b.confidence ?? 1) || a.rowIndex - b.rowIndex;
     return a.rowIndex - b.rowIndex;
   });
 }

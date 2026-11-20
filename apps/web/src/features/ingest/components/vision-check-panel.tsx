@@ -25,7 +25,7 @@ const EDITABLE = new Set(["ready", "held", "needs_confirm", "needs_shape"]);
 
 /**
  * The check of a table read from a page (import portal release 2): the page image beside the rows the model read
- * (stacked under 768 px), rows it was not sure of first and marked, blank cells marked, "Fix this cell" per row, then a
+ * (stacked under 768 px), marked rows first (digits not in the PDF's text, then rows rated low), blank cells marked, "Fix this cell" per row, then a
  * real checkbox "I checked these rows against the page" and Approve after it. Keyboard order: the rows, the tick, Approve.
  * A table typed by hand from a page shows the page and its rows and needs no tick.
  */
@@ -67,7 +67,7 @@ export function VisionCheckPanel({
   const url = image.data?.url ?? null;
   const ticked = candidate.block.modelChecked;
   const approve = bar.vision?.approve ?? null;
-  const lowCount = rows.filter((r) => r.low).length;
+  const lowCount = rows.filter((r) => r.low || r.unseen).length;
 
   return (
     <section aria-labelledby={headingId} data-testid="vision-check" className="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-card p-4 sm:p-5">
@@ -204,10 +204,15 @@ export function VisionCheckPanel({
 function RowLine({ row, masked, canFix, fixing, onFix }: { row: VisionRowView; masked: boolean[]; canFix: boolean; fixing: boolean; onFix: () => void }) {
   const { say } = useSay();
   return (
-    <tr data-testid="vision-row" data-low={row.low || undefined} className={row.low ? "border-b border-border bg-tone-amber-tint/60" : "border-b border-border"}>
+    <tr
+      data-testid="vision-row"
+      data-low={row.low || undefined}
+      data-unseen={row.unseen || undefined}
+      className={row.low || row.unseen ? "border-b border-border bg-tone-amber-tint/60" : "border-b border-border"}
+    >
       <th scope="row" className="px-2 py-2 text-left align-top font-medium whitespace-nowrap">
         <span className="font-mono tabular-nums">{say("ingest.vision.rowName", { n: row.n })}</span>
-        {row.low ? <span className="ml-2 inline-block rounded-sm bg-tone-amber-tint px-1.5 text-[12px] font-semibold text-tone-amber-ink">{say("ingest.vision.lowMark")}</span> : null}
+        {row.low || row.unseen ? <span className="ml-2 inline-block rounded-sm bg-tone-amber-tint px-1.5 text-[12px] font-semibold text-tone-amber-ink">{say("ingest.vision.lowMark")}</span> : null}
       </th>
       {row.cells.map((cell, col) =>
         masked[col] ? (
@@ -217,6 +222,11 @@ function RowLine({ row, masked, canFix, fixing, onFix }: { row: VisionRowView; m
         ) : cell.blank ? (
           <td key={col} className="px-2 py-2 align-top">
             <span className="rounded-sm border border-dashed border-control px-1.5 text-[12px] text-muted-foreground">{say("ingest.vision.blank")}</span>
+          </td>
+        ) : cell.unseen ? (
+          <td key={col} data-unseen className="px-2 py-2 align-top break-words">
+            <span className="rounded-sm bg-tone-red-tint px-1 font-semibold text-tone-red-ink">{cell.text}</span>
+            <span className="mt-1 block max-w-[24ch] text-[12px] leading-snug text-tone-red-ink">{say("ingest.vision.unseenMark")}</span>
           </td>
         ) : (
           <td key={col} className="px-2 py-2 align-top break-words">

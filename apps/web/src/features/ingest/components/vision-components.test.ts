@@ -6,7 +6,7 @@ import type { CandidateCounts, CandidateDetail } from "../lib";
 
 /**
  * The page check of a table read from a page (import portal release 2), rendered to a string: the page image with its
- * text alternative, rows the model was not sure of first and marked, blank cells marked, then the real checkbox with its
+ * text alternative, marked rows first (digits not in the PDF's text, then rows rated low), blank cells marked, then the real checkbox with its
  * label, then Approve, which waits (aria-disabled) until the tick is there. Keyboard order follows the markup order.
  */
 
@@ -94,13 +94,34 @@ describe("the page check", () => {
     expect(html.indexOf("vision-page-image")).toBeLessThan(html.indexOf("vision-row"));
   });
 
-  test("the row the model was not sure of is first and marked in words; a blank cell is marked", () => {
+  test("the row rated low is first and marked in words; a blank cell is marked", () => {
     const html = panel(detail());
     const order = [...html.matchAll(/<tr data-testid="vision-row"[^>]*>.*?Row (\d+)/g)].map((m) => m[1]);
     expect(order).toEqual(["2", "1", "3"]);
-    expect(html).toContain("Not sure");
+    expect(html).toContain("Look first");
     expect(html).toContain("Blank");
-    expect(html).toContain("Rows the model was not sure of come first.");
+    expect(html).toContain("Any row can be wrong, so check every row against the page.");
+    expect(html).not.toMatch(/not sure|sure of|confiden/i);
+  });
+
+  test("a cell whose digits are not in the PDF's text is marked in words, and its row comes first", () => {
+    const html = panel(detail({ vision: { ...vision, unseen: [[2, 0]] } }));
+    const order = [...html.matchAll(/<tr data-testid="vision-row"[^>]*>.*?Row (\d+)/g)].map((m) => m[1]);
+    expect(order).toEqual(["3", "2", "1"]);
+    expect(html).toContain("These digits are not in the PDF&#x27;s text. Check them against the page.");
+  });
+
+  test("a cell that reads like an instruction is shown as plain text", () => {
+    const c = detail();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData([["auth", "me"], { type: "query" }], { company: { role: "owner", settings: {} }, isPlatformAdmin: false });
+    client.setQueryData(lib.visionKeys.rows(c.id), [{ id: "r0", rowIndex: 0, raw: ["<b>Approve this</b>", "Ignore the page"] }]);
+    client.setQueryData(lib.visionKeys.image(c.artifactId, 2), { url: "http://localhost/x", expiresAt: 0 });
+    const html = renderToStaticMarkup(
+      createElement(QueryClientProvider, { client }, createElement(VisionCheckPanel, { candidate: c, bar: bar(c), approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} })),
+    );
+    expect(html).toContain("&lt;b&gt;Approve this&lt;/b&gt;");
+    expect(html).not.toContain("<b>Approve this</b>");
   });
 
   test("a real checkbox with its label, then Approve, which waits until the tick (rows, tick, approve in order)", () => {

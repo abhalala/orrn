@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8400 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8404 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7098,7 +7098,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (628)
+### ingest (632)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7500,6 +7500,8 @@ Please check, Lalubhai:
 | `vision.rendering` | Making page {page} of {total} | पेज {page} / {total} तैयार हो रहा है |
 | `vision.sending` | Sending page {page} of {total} | पेज {page} / {total} भेजा जा रहा है |
 | `vision.reading` | Reading page {page} of {total} | पेज {page} / {total} पढ़ा जा रहा है |
+| `vision.readingBand` | Reading part {band} of {bands} of page {page} of {total} | पेज {page} / {total} का हिस्सा {band} / {bands} पढ़ा जा रहा है |
+| `vision.cutting` | Cutting page {page} of {total} into parts | पेज {page} / {total} को हिस्सों में काटा जा रहा है |
 | `vision.finishing` | Checking every page is done | देख रहे हैं कि हर पेज पूरा हुआ या नहीं |
 | `vision.pageRead` | Page {page} of {total} read, {count} {count:table\|tables}. | पेज {page} / {total} पढ़ लिया, {count} {count:टेबल\|टेबल}। |
 | `vision.pageNotRead` | Page {page} of {total} not read. | पेज {page} / {total} नहीं पढ़ा गया। |
@@ -7513,6 +7515,7 @@ Please check, Lalubhai:
 | `vision.pagesTitle` | Pages | पेज |
 | `vision.pageName` | Page {page} | पेज {page} |
 | `vision.tables` | {count} {count:table\|tables} | {count} {count:टेबल\|टेबल} |
+| `vision.bands` | {read} of {total} parts read | {total} में से {read} हिस्से पढ़े गए |
 | `vision.state.waiting` | Not sent yet | अभी भेजा नहीं गया |
 | `vision.state.ready` | Waiting to be read | पढ़े जाने के इंतज़ार में |
 | `vision.state.read` | Read | पढ़ लिया |
@@ -7553,8 +7556,9 @@ Please check, Lalubhai:
 | `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
 | `vision.imageFailed` | The page image did not load. | पेज की इमेज लोड नहीं हुई। |
 | `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
-| `vision.lowFirst` | Rows the model was not sure of come first. | जिन लाइनों पर मॉडल को पक्का भरोसा नहीं था, वे पहले दिखती हैं। |
-| `vision.lowMark` | Not sure | पक्का नहीं |
+| `vision.lowFirst` | Marked rows come first. Any row can be wrong, so check every row against the page. | निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं। |
+| `vision.lowMark` | Look first | पहले देखें |
+| `vision.unseenMark` | These digits are not in the PDF's text. Check them against the page. | ये अंक PDF के टेक्स्ट में नहीं हैं। इन्हें पेज से मिलाएं। |
 | `vision.blank` | Blank | खाली |
 | `vision.rowHeader` | Row | लाइन |
 | `vision.fixColumn` | Column | कॉलम |

@@ -7,7 +7,7 @@ import { API_URL, WEB_ORIGIN } from "./helpers/ports";
  * Import portal release 2: a PDF read page by page with the vision model, on the local stack with local R2 (the
  * `INGEST_VAULT` binding of `apps/server/wrangler.local.jsonc`) and a scripted model installed through
  * `POST /dev/ingest-bot` (local only, never a model call). The PDF is built here, two synthetic pages; the scripted
- * answers are page 1's table (one row the model is not sure of) and an empty page 2.
+ * answers are page 1's table (one row the model rated low) and an empty page 2.
  *
  *   upload -> pages read (page 2 not read) -> the file page skips page 2 and finishes -> the review shows the page
  *   image and the doubted row first -> Approve waits until the tick -> tick -> approve.
@@ -138,10 +138,10 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(image).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
 
-  // The row the model was not sure of comes first, marked in words; the blank Leg cell is marked.
+  // The row the model rated low comes first, marked in words; the blank Leg cell is marked.
   const first = check.getByTestId("vision-row").first();
   await expect(first).toContainText(CODES[1]!);
-  await expect(first).toContainText("Not sure");
+  await expect(first).toContainText("Look first");
   await expect(first.getByText("Blank").first()).toBeVisible();
 
   // The rows are checked before anything is approved: wait for the check, then Approve waits on the tick.
