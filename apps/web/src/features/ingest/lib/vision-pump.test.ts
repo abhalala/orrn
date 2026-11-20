@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { PAGE_READS_PER_PASS, finishFile, pageResultWords, runVisionPump, visionProgressWords, type VisionProgress } from "./vision-pump";
+import { PAGE_READS_PER_PASS, finishFile, runVisionPump, type VisionProgress } from "./vision-pump";
+import { pageResultWords, visionProgressWords } from "./vision-words";
 import type { VisionApi } from "./vision-api";
 import type { PageSource } from "./vision-render";
 import type { VisionPageView, VisionPageState, VisionStartOut } from "./vision-types";

@@ -9,15 +9,18 @@ import type { ReadProgress, SheetHints } from "./reader-protocol";
 import { planReput, rememberFile, type ReputAction, type StoredBlock } from "./reput";
 import { settleHeaders } from "./settle";
 import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
+import type { VisionProgress } from "./vision-pump";
 
 /**
  * Where a file is in the upload. The screen shows the step with these keys:
  * `hashing`, `reading` (`ingest.read.reading` with sheet and rows), `asking` (the header step: `ask` holds what it shows),
  * `saving` (`ingest.read.uploading`),
- * `sending` (rows going to the server), `done`, `kept` (a PDF or photo: stored, not read), `seenBefore` (`ingest.drop.seenBefore`), `refused`
+ * `sending` (rows going to the server), `pages` (a PDF or photo read page by page: `pages` holds the step), `pagesLeft` (some pages
+ * are not read: the person reads, types or skips them on the file page), `done`, `kept` (a PDF or photo: stored, not read),
+ * `seenBefore` (`ingest.drop.seenBefore`), `refused`
  * (`problem` holds the key and variables) and `failed` (`ingest.read.failed`).
  */
-export type UploadStep = "queued" | "hashing" | "reading" | "asking" | "saving" | "sending" | "done" | "kept" | "seenBefore" | "refused" | "failed";
+export type UploadStep = "queued" | "hashing" | "reading" | "asking" | "saving" | "sending" | "pages" | "pagesLeft" | "done" | "kept" | "seenBefore" | "refused" | "failed";
 
 export type UploadItem = {
   id: string;
@@ -36,6 +39,12 @@ export type UploadItem = {
   notStored: boolean;
   /** The rebuild copy of the rows could not be saved (it was tried twice). The import itself went through. */
   canonicalMissing?: boolean;
+  /** While `pages`: the vision pump's latest step ("Reading page 2 of 5"). */
+  pages?: VisionProgress | null;
+  /** `pagesLeft`: how many pages are not read yet. */
+  pagesLeft?: number;
+  /** `kept` because the browser could not open the pages (a broken PDF, a photo type it cannot draw). */
+  keptWhy?: "cannotOpen" | null;
   /** While `asking`: the table waiting on the person ("Which row has the column names?"). */
   ask?: HeaderAskView | null;
   /** What the reader left out, so the person sees it (rule 8.1): blank rows crossed inside a table, repeated headers, titles, notes. */
@@ -144,6 +153,12 @@ type Hooks = {
    * the tables that changed.
    */
   reput?: { sha256: string; stored: StoredBlock[]; action: ReputAction };
+  /**
+   * Read a PDF or photo page by page (vision read, when `status.visionReady`). Called after the raw bytes are stored. It
+   * answers `done` (every page settled and the file finished), `left` (some pages wait on the person) or `kept` (the
+   * server or the browser cannot read it now: the file is finished as kept, with today's words).
+   */
+  vision?: (input: { artifactId: string; file: File; kind: ArtifactKind; onItem: (patch: Partial<UploadItem>) => void; signal?: AbortSignal }) => Promise<"done" | "left" | "kept">;
 };
 
 /** The file is not the one the import came from, or the change cannot be made on it. */
@@ -224,8 +239,19 @@ export async function uploadOneFile(
       onItem({ step: "seenBefore", seenOn: begin.uploadedAt, notStored: false });
       return { artifactId, step: "seenBefore" };
     }
+    if (hooks.vision) {
+      const outcome = await hooks.vision({ artifactId, file, kind: found.kind, onItem, signal });
+      if (outcome === "done") {
+        onItem({ step: "done", pages: null });
+        return { artifactId, step: "done" };
+      }
+      if (outcome === "left") {
+        onItem({ step: "pagesLeft", pages: null });
+        return { artifactId, step: "pagesLeft" };
+      }
+    }
     await api.artifactComplete({ artifactId });
-    onItem({ step: "kept", notStored: false });
+    onItem({ step: "kept", notStored: false, pages: null });
     return { artifactId, step: "kept" };
   }
 

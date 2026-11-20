@@ -46,3 +46,14 @@ export type VisionReadUrlIn = { artifactId: string; what: "raw" } | { artifactId
 export function isSettled(state: VisionPageState): boolean {
   return state === "read" || state === "typed" || state === "skipped";
 }
+
+/** `IngestStatus.visionReady`: storage and a model client are both there, so PDFs and photos are read page by page. */
+export function visionReadyOf(status: unknown): boolean {
+  return (status as { visionReady?: unknown } | null | undefined)?.visionReady === true;
+}
+
+/** `BlockView.vision`, or null for a block a parser read from a sheet. */
+export function blockVisionOf(block: unknown): BlockVision | null {
+  const vision = (block as { vision?: unknown } | null | undefined)?.vision;
+  return vision && typeof vision === "object" ? (vision as BlockVision) : null;
+}

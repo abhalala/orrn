@@ -13,6 +13,7 @@ import {
 import type { HeaderAskView } from "./header-step";
 import type { PlantUnits } from "./plant-units";
 import type { UploadItem } from "./upload";
+import { visionProgressWords, visionShare } from "./vision-words";
 import type { ArtifactSummary, CandidateSummary } from "./types";
 
 /**
@@ -444,7 +445,14 @@ export function uploadStrip(
         words = { key: "ingest.read.failed" };
         break;
       case "kept":
-        words = { key: "ingest.kept.added" };
+        words = item.keptWhy === "cannotOpen" ? { key: "ingest.vision.cannotOpen" } : { key: "ingest.kept.added" };
+        break;
+      case "pages":
+        words = item.pages ? visionProgressWords(item.pages) : { key: "ingest.vision.opening" };
+        progress = item.pages ? visionShare(item.pages) : null;
+        break;
+      case "pagesLeft":
+        words = { key: "ingest.vision.someLeft", vars: { count: item.pagesLeft ?? 0 } };
         break;
       case "asking":
       case "done":
@@ -459,7 +467,7 @@ export function uploadStrip(
       : null;
     const actions: ("retry" | "open" | "review")[] = [];
     if (item.step === "failed") actions.push("retry");
-    if (item.step === "seenBefore" && item.artifactId) actions.push("open");
+    if ((item.step === "seenBefore" || item.step === "pagesLeft") && item.artifactId) actions.push("open");
     if (found && found.firstCandidateId) actions.push("review");
     return {
       kind: "upload",

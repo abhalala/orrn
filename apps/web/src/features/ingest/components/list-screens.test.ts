@@ -549,7 +549,7 @@ describe("unfinished and kept files (design check minors 6, 7, 8)", () => {
   });
 
   test("a kept file reads 'added 11 Nov' in mid-line, and says it was kept before storage was turned off only when it is off", () => {
-    const files = [{ id: "k1", name: "scan.pdf", size: "470 KB", date: "11 Nov" }];
+    const files = [{ id: "k1", name: "scan.pdf", size: "470 KB", date: "11 Nov", reading: false }];
     const on = render(createElement(KeptFiles, { files }));
     expect(on).toContain("added 11 Nov");
     expect(on).not.toContain("Added 11 Nov");

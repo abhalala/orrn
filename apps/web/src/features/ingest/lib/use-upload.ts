@@ -10,6 +10,9 @@ import type { HeaderReply } from "./header-step";
 import { hashFile, ReadError, readFile } from "./reader-client";
 import { ingestApi } from "./trpc-api";
 import { uploadOneFile, type UploadItem } from "./upload";
+import { visionApi } from "./vision-api";
+import { uploadVisionHook } from "./vision-read";
+import { visionReadyOf } from "./vision-types";
 
 /** The upload screen's state: add files, watch each one. At most 20 files per batch, one file at a time. */
 export function useIngestUpload(): {
@@ -25,6 +28,8 @@ export function useIngestUpload(): {
   const qc = useQueryClient();
   const status = useIngestStatus();
   const limits = status.data?.limits ?? DEFAULT_LIMITS;
+  // PDFs and photos are read page by page only where storage and the model are both there; else they are kept as before.
+  const visionReady = visionReadyOf(status.data);
   const [items, setItems] = useState<UploadItem[]>([]);
   const files = useRef(new Map<string, { file: File; note?: string }>());
   const running = useRef<{ id: string; ctl: AbortController } | null>(null);
@@ -75,7 +80,7 @@ export function useIngestUpload(): {
   }, []);
 
   const next = items.find((i) => i.step === "queued");
-  const busy = items.some((i) => i.step === "hashing" || i.step === "reading" || i.step === "saving" || i.step === "sending");
+  const busy = items.some((i) => i.step === "hashing" || i.step === "reading" || i.step === "saving" || i.step === "sending" || i.step === "pages");
   const nextId = next?.id;
 
   useEffect(() => {
@@ -88,6 +93,7 @@ export function useIngestUpload(): {
       onItem: (p) => patch(nextId, p),
       signal: ctl.signal,
       note: entry.note,
+      vision: visionReady ? uploadVisionHook(visionApi) : undefined,
       ask: (view) =>
         new Promise<HeaderReply>((resolve, reject) => {
           waiting.current.set(nextId, { resolve, reject });
@@ -105,7 +111,7 @@ export function useIngestUpload(): {
         // Wake the effect for the next queued file.
         setTick((t) => t + 1);
       });
-  }, [nextId, limits, patch, qc, tick]);
+  }, [nextId, limits, patch, qc, tick, visionReady]);
 
   return { items, add, retry, remove, answerHeader, busy };
 }

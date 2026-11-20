@@ -341,6 +341,26 @@ describe("review: upload fixes", () => {
     expect((calls[0]!.input as { kind: string }).kind).toBe("pdf_text");
   });
 
+  // Import portal release 2: where the plant can read pages, the PDF goes to the vision read after the raw bytes.
+  test("with the vision read on, a PDF is read page by page after its raw upload, and kept only when the read says so", async () => {
+    for (const [outcome, step, last] of [["done", "done", "commitRaw"], ["left", "pagesLeft", "commitRaw"], ["kept", "kept", "complete"]] as const) {
+      const { api, calls } = fakeApi();
+      const t = track();
+      const asked: string[] = [];
+      const out = await uploadOneFile(file("Packing list.pdf"), { api, reader: reader([]), fetch: fakeFetch().fn }, {
+        onItem: t.onItem,
+        vision: async (input) => {
+          asked.push(`${input.artifactId}:${input.kind}`);
+          return outcome;
+        },
+      });
+      expect({ outcome, step: out.step }).toEqual({ outcome, step });
+      expect(asked).toHaveLength(1);
+      // The file is finished by the vision read (complete once every page is settled), not here, unless it stays kept.
+      expect({ outcome, last: calls.at(-1)?.name }).toEqual({ outcome, last });
+    }
+  });
+
   test("with no storage the server refuses and the screen says so in its own words", async () => {
     const refuse = Object.assign(new Error("PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on."), { data: { code: "PRECONDITION_FAILED" } });
     const { api, calls } = fakeApi({ artifactBegin: async () => { throw refuse; } });

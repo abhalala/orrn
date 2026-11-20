@@ -19,6 +19,12 @@ import {
 } from "./model";
 import type { PlantUnits } from "./plant-units";
 import type { CandidateDetail, CandidateSummary } from "./types";
+import { blockVisionOf } from "./vision-types";
+
+/** A block read from a page image (by the model, or typed by a person from the page): no header pick, no put again. */
+export function isFromPage(block: { readBy: "parser" | "model"; vision?: unknown }): boolean {
+  return block.readBy === "model" || blockVisionOf(block) !== null;
+}
 
 /**
  * The review page's decision bar and panels (work order 3.3, M7, M10, M11, M12, M15). The screen draws what this
@@ -70,8 +76,16 @@ export type DecisionBar = {
   fit: Words | null;
   /** The amber reason line of a held import, and the server's own English for it. */
   reason: { code: string; detail: string | null } | null;
-  /** A ready import with open questions: "Answer 1 question to approve." as a link that scrolls to what is open. */
-  blocked: { words: Words; to: "question" | "rows" } | null;
+  /**
+   * A ready import with open questions: "Answer 1 question to approve." as a link that scrolls to what is open. `tick`: a
+   * table read from a page waits on the person's check against the page (the link goes to the checkbox under the rows).
+   */
+  blocked: { words: Words; to: "question" | "rows" | "tick" } | null;
+  /**
+   * A table read from a page (vision read). `needsTick`: it is not ticked yet, so Approve waits. `approve`: the button the
+   * check panel shows after its checkbox (keyboard order: rows, tick, approve), whether or not the tick is there yet.
+   */
+  vision: { needsTick: boolean; approve: BarButton | null } | null;
   buttons: BarButton[];
   overflow: OverflowItem[];
   /** The heading of the overflow menu button: "More for {name}" with the title in `name`. */
@@ -90,7 +104,12 @@ export function firstOpen(questions: readonly Pick<QuestionView, "answered">[], 
 const MOVING = new Set(["processing", "merging"]);
 
 export function decisionBar(
-  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number; noDateLines?: number; periodConfirmed?: { fy: string | null; asOf: string | null } | null },
+  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & {
+    rowsOwnOrder?: number;
+    noDateLines?: number;
+    periodConfirmed?: { fy: string | null; asOf: string | null } | null;
+    block?: { readBy: "parser" | "model"; modelChecked: boolean; vision?: unknown };
+  },
   ctx: BarContext,
 ): DecisionBar {
   const { can } = ctx;
@@ -154,6 +173,12 @@ export function decisionBar(
   const buttons: BarButton[] = [];
   const overflow: OverflowItem[] = [];
   let blocked: DecisionBar["blocked"] = null;
+  // A table the model read from a page is approved only once a person ticked it against the page (a typed one needs none).
+  const fromPage = c.block ? isFromPage(c.block) : false;
+  const tickable = fromPage && c.block?.readBy === "model" && blockVisionOf(c.block)?.typed !== true;
+  const needsTick = tickable && c.block?.modelChecked !== true;
+  let visionApprove: BarButton | null = null;
+  const tickFirst = { words: { key: "ingest.vision.tickFirst" }, to: "tick" as const };
   const discard: OverflowItem = { id: "discard", words: { key: "ingest.action.discard" } };
 
   switch (c.state) {
@@ -168,7 +193,11 @@ export function decisionBar(
                 : { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
           to: firstOpen(questionList(withYearQuestion(c), c.target), c.counts.ambiguous + c.counts.conflict),
         };
-      } else if (allowed.approve) buttons.push(approveBtn);
+      } else if (allowed.approve) {
+        visionApprove = approveBtn;
+        if (needsTick) blocked = tickFirst;
+        else buttons.push(approveBtn);
+      }
       if (allowed.hold) buttons.push(holdBtn);
       break;
     case "needs_confirm":
@@ -190,7 +219,12 @@ export function decisionBar(
     case "held":
       if (allowed.release) buttons.push({ id: "release", words: { key: "ingest.action.release" }, variant: "primary", mode: "write" });
       // Only with nothing open: the server refuses an approval while a question or a row waits.
-      if (allowed.approve) buttons.push({ id: "approveAsIs", words: { key: "ingest.action.approveAsIs" }, variant: "secondary", mode: "write" });
+      if (allowed.approve) {
+        const asIs: BarButton = { id: "approveAsIs", words: { key: "ingest.action.approveAsIs" }, variant: "secondary", mode: "write" };
+        visionApprove = asIs;
+        if (needsTick) blocked = tickFirst;
+        else buttons.push(asIs);
+      }
       break;
     case "approved":
       if (allowed.hold) buttons.push(holdBtn);
@@ -203,7 +237,8 @@ export function decisionBar(
       break;
   }
   // "Wrong columns? Pick the row" (rule 7.2): only while no row of the table is written, and for a person who may upload.
-  if (can.upload && c.counts.written === 0 && (c.state === "ready" || c.state === "held" || c.state === "needs_confirm" || c.state === "needs_shape")) {
+  // A table read from a page has no header row to pick: a cell is fixed instead (the server refuses the repick too).
+  if (!fromPage && can.upload && c.counts.written === 0 && (c.state === "ready" || c.state === "held" || c.state === "needs_confirm" || c.state === "needs_shape")) {
     overflow.push({ id: "repick", words: { key: "ingest.action.repick" } });
   }
   if (allowed.discard && !MOVING.has(c.state)) overflow.push(discard);
@@ -217,6 +252,7 @@ export function decisionBar(
     fit: fitWords(c, diff.name),
     reason: c.state === "held" && c.reasonCode ? { code: c.reasonCode, detail: c.reasonDetail } : null,
     blocked,
+    vision: tickable ? { needsTick, approve: visionApprove } : null,
     buttons,
     overflow,
     moreFor: c.target
