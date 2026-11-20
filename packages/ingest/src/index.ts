@@ -25,3 +25,4 @@ export * from "./readers/csv";
 export * from "./readers/sql";
 export * from "./readers/pdf-text";
 export * from "./header";
+export * from "./vision-params";
