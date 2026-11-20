@@ -17,6 +17,7 @@ let QueryClientProvider: typeof import("@tanstack/react-query").QueryClientProvi
 let renderToStaticMarkup: typeof import("react-dom/server").renderToStaticMarkup;
 let lib: typeof import("../lib");
 let VisionCheckPanel: typeof import("./vision-check-panel").VisionCheckPanel;
+let DecisionBarCard: typeof import("./decision-bar").DecisionBarCard;
 
 beforeAll(async () => {
   const root = new URL("../../../../", import.meta.url).pathname;
@@ -40,6 +41,7 @@ beforeAll(async () => {
   renderToStaticMarkup = renderer.renderToStaticMarkup;
   lib = await server.ssrLoadModule("/src/features/ingest/lib/index.ts");
   VisionCheckPanel = (await server.ssrLoadModule("/src/features/ingest/components/vision-check-panel.tsx")).VisionCheckPanel;
+  DecisionBarCard = (await server.ssrLoadModule("/src/features/ingest/components/decision-bar.tsx")).DecisionBarCard;
 }, 30_000);
 
 afterAll(async () => {
@@ -86,6 +88,57 @@ const bar = (c: CandidateDetail) => lib.decisionBar(c, { can: { merge: true, upl
 function panel(c: CandidateDetail): string {
   return render(createElement(VisionCheckPanel, { candidate: c, bar: bar(c), approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} }), c);
 }
+
+/** The decision bar and the page check as the review screen draws them, in that order. */
+function screen(c: CandidateDetail): string {
+  const b = bar(c);
+  const act = { busy: false, pending: null, failed: () => null } as never;
+  return render(
+    createElement(
+      "div",
+      null,
+      createElement(DecisionBarCard, {
+        candidate: c, bar: b, act, onPress: () => {}, onDiscard: () => {}, onIgnore: () => {}, onGoToFirstOpen: () => {},
+        editorOpen: false, editorId: "editor", botWorking: false, year: null, after: null, barRef: () => {},
+      }),
+      createElement(VisionCheckPanel, { candidate: c, bar: b, approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} }),
+    ),
+    c,
+  );
+}
+
+const approveButtons = (html: string) => [...html.matchAll(/<button[^>]*>(?:<[^>]+>)*Approve(?: as it is)?(?:<[^>]+>)*<\/button>/g)].map((m) => m[0]);
+
+describe("the review screen of a table read from a page", () => {
+  test("after the tick there is one Approve, in the page check after the tick; the bar says the table is checked", () => {
+    const html = screen(detail({ modelChecked: true }));
+    const approves = approveButtons(html);
+    expect(approves).toHaveLength(1);
+    expect(approves[0]).toContain('data-testid="vision-approve"');
+    expect(approves[0]).not.toContain('aria-disabled="true"');
+    // Keyboard order on the whole screen: the rows, then the tick, then Approve, and no Approve before the rows.
+    const firstApprove = html.indexOf(approves[0]!);
+    expect(html.lastIndexOf('data-testid="vision-row"')).toBeLessThan(html.indexOf('data-testid="vision-tick"'));
+    expect(html.indexOf('data-testid="vision-tick"')).toBeLessThan(firstApprove);
+    expect(html.indexOf('data-testid="vision-row"')).toBeLessThan(firstApprove);
+    expect(html).toContain("Checked against the page.");
+  });
+
+  test("before the tick the one Approve waits, and the bar links to the tick", () => {
+    const html = screen(detail());
+    const approves = approveButtons(html);
+    expect(approves).toHaveLength(1);
+    expect(approves[0]).toContain('aria-disabled="true"');
+    expect(html).toContain("Tick that you checked");
+  });
+
+  test("a held table, ticked: one Approve as it is, after the tick", () => {
+    const html = screen(detail({ modelChecked: true }, { state: "held", reasonCode: "owner_hold" }));
+    const approves = approveButtons(html);
+    expect(approves).toHaveLength(1);
+    expect(approves[0]).toContain('data-testid="vision-approve"');
+  });
+});
 
 describe("the page check", () => {
   test("the page image has its text alternative, and sits before the rows", () => {

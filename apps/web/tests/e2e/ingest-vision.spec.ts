@@ -181,6 +181,10 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await tick.click();
   await expect(tick).toBeChecked({ timeout: 30_000 });
   await expect(approve).not.toHaveAttribute("aria-disabled", "true");
+  // After the tick the screen still has one Approve, the page check's, after the tick (decision 9).
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(1);
+  await expect(bar.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+  await expect(bar.getByText("Checked against the page.")).toBeVisible();
   await approve.click();
   await expect(bar).toHaveAttribute("data-state", "approved", { timeout: 30_000 });
 });

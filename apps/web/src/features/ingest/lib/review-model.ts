@@ -83,7 +83,8 @@ export type DecisionBar = {
   blocked: { words: Words; to: "question" | "rows" | "tick" } | null;
   /**
    * A table read from a page (vision read). `needsTick`: it is not ticked yet, so Approve waits. `approve`: the button the
-   * check panel shows after its checkbox (keyboard order: rows, tick, approve), whether or not the tick is there yet.
+   * check panel shows after its checkbox (keyboard order: rows, tick, approve), whether or not the tick is there yet. It is
+   * the only Approve of such a table: `buttons` (the bar and its sticky copy) never carry it, ticked or not.
    */
   vision: { needsTick: boolean; approve: BarButton | null } | null;
   buttons: BarButton[];
@@ -195,8 +196,9 @@ export function decisionBar(
         };
       } else if (allowed.approve) {
         visionApprove = approveBtn;
+        // A table the model read has one Approve: the panel's, after the tick (keyboard order rows, tick, Approve).
         if (needsTick) blocked = tickFirst;
-        else buttons.push(approveBtn);
+        else if (!tickable) buttons.push(approveBtn);
       }
       if (allowed.hold) buttons.push(holdBtn);
       break;
@@ -223,7 +225,7 @@ export function decisionBar(
         const asIs: BarButton = { id: "approveAsIs", words: { key: "ingest.action.approveAsIs" }, variant: "secondary", mode: "write" };
         visionApprove = asIs;
         if (needsTick) blocked = tickFirst;
-        else buttons.push(asIs);
+        else if (!tickable) buttons.push(asIs);
       }
       break;
     case "approved":

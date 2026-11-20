@@ -26,11 +26,11 @@ describe("review of a table read from a page: the tick gates Approve", () => {
     expect(bar.vision).toEqual({ needsTick: true, approve: expect.objectContaining({ id: "approve" }) });
   });
 
-  test("ticked: Approve is back in the bar and the panel's Approve may be pressed", () => {
+  test("ticked: the panel's Approve may be pressed, and the bar still has none (one Approve, after the tick)", () => {
     const bar = decisionBar(detail({ readBy: "model", modelChecked: true, vision }), ctx);
-    expect(ids(bar)).toContain("approve");
+    expect(ids(bar)).not.toContain("approve");
     expect(bar.blocked).toBeNull();
-    expect(bar.vision?.needsTick).toBe(false);
+    expect(bar.vision).toEqual({ needsTick: false, approve: expect.objectContaining({ id: "approve" }) });
   });
 
   test("open questions still come first: the tick does not unlock an import with a question open", () => {
@@ -41,10 +41,14 @@ describe("review of a table read from a page: the tick gates Approve", () => {
     expect(bar.blocked?.to).toBe("question");
   });
 
-  test("a held import read from a page offers Approve as it is only after the tick", () => {
+  test("a held import read from a page offers Approve as it is only after the tick, and only in the panel", () => {
     const held = { state: "held", reasonCode: "owner_hold" };
-    expect(ids(decisionBar(detail({ readBy: "model", modelChecked: false, vision }, held), ctx))).not.toContain("approveAsIs");
-    expect(ids(decisionBar(detail({ readBy: "model", modelChecked: true, vision }, held), ctx))).toContain("approveAsIs");
+    const before = decisionBar(detail({ readBy: "model", modelChecked: false, vision }, held), ctx);
+    const after = decisionBar(detail({ readBy: "model", modelChecked: true, vision }, held), ctx);
+    expect(ids(before)).not.toContain("approveAsIs");
+    expect(ids(after)).not.toContain("approveAsIs");
+    expect(after.vision?.approve?.id).toBe("approveAsIs");
+    expect(after.vision?.needsTick).toBe(false);
   });
 
   test("a typed page needs no tick, and a sheet read by the parser never shows the check", () => {
