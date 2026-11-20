@@ -239,3 +239,42 @@ test("a dense text PDF page is cut into bands before any call, read band by band
   // The whole page image went too, for the check against the page.
   await expect(check.getByTestId("vision-page-image")).toBeVisible({ timeout: 30_000 });
 });
+
+test("\"Read this file\" reads a kept PDF back from the vault by range requests, page by page", async ({ page, request: api }) => {
+  // Kept first, over the API (begin, the signed PUT, commitRaw, complete), so the file waits on "Read this file".
+  await openPortal(page);
+  const ctx = page.context().request;
+  const call = async <T,>(path: string, input: unknown): Promise<T> => {
+    const res = await ctx.post(`${API_URL}/trpc/${path}`, { headers: { origin: WEB_ORIGIN }, data: input });
+    expect(res.ok(), `${path} returned ${res.status()}: ${await res.text()}`).toBe(true);
+    return (await res.json()).result.data as T;
+  };
+  const name = `vision-back-${STAMP}.pdf`;
+  const pdf = makePdf([linesPage([`Synthetic read back ${STAMP}`, HEADERS.join(" "), ...ROWS.map((r) => r.join(" "))])]);
+  const { createHash } = await import("node:crypto");
+  const begin = await call<{ artifactId: string; upload: { url: string } | null }>("ingest.artifact.begin", {
+    sha256: createHash("sha256").update(pdf).digest("hex"), fileName: name, sizeBytes: pdf.length, contentType: "application/pdf", kind: "pdf_text",
+  });
+  test.skip(!begin.upload, "no local vault on this stack");
+  const put = await ctx.put(begin.upload!.url, { data: pdf, headers: { origin: WEB_ORIGIN, "content-type": "application/pdf" } });
+  expect(put.status(), await put.text()).toBe(200);
+  await call("ingest.artifact.commitRaw", { artifactId: begin.artifactId });
+  await call("ingest.artifact.complete", { artifactId: begin.artifactId });
+
+  await fakeModel(api, { action: "install", responses: [{ tables: [{ title: "Sections", headers: HEADERS, rows: ROWS.map((cells) => ({ cells, confidence: 0.95 })) }] }] });
+  const ranged: number[] = [];
+  page.on("response", (r) => {
+    if (r.url().includes("/files/ingest/read") && r.request().headers()["range"]) ranged.push(r.status());
+  });
+  await page.goto(`/ingest/files/${begin.artifactId}`);
+  await page.getByRole("button", { name: "Read this file" }).click();
+  // Its one page is read and the file finishes: the table is an import of the file.
+  const importLink = page.locator('main a[href*="/ingest/review/"]').first();
+  await expect(importLink).toBeVisible({ timeout: 90_000 });
+  await expect(page.locator("main").getByText(/^3 rows, 1 table, added on /)).toBeVisible();
+  // The stored bytes came back in ranges (206), never as one whole download.
+  expect(ranged.length).toBeGreaterThan(0);
+  expect(ranged.every((s) => s === 206)).toBe(true);
+  const candidateId = ((await importLink.getAttribute("href")) ?? "").split("/").pop();
+  if (candidateId) candidateIds.push(candidateId);
+});
