@@ -6,8 +6,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 
+import { VISION_PARAMS } from "@orrn/ingest";
+
 import {
-  capLine,
+  canFinishOf,
   emptyTypedTable,
   isVisualKind,
   KEPT_UNREAD,
@@ -22,6 +24,9 @@ import {
   visionProgressWords,
   visionShare,
   pageResultWords,
+  readRangesWords,
+  useIngestStatus,
+  visionBatch,
   type ArtifactDetail,
   type TypedTable,
   type VisionPageRow,
@@ -34,7 +39,10 @@ import { ActionError, chipTone, InlineNotice, ProgressBar } from "./shared";
  * The file page of a PDF or photo (import portal release 2). A file kept before the read existed offers "Read this file":
  * the raw bytes come back by a signed read, the pages are rendered in this browser and read one by one. A file being read
  * lists its pages, each with its state and, when not read, why, with "Read again", "Type this page" and "Skip this page".
- * "Finish" once every page is read, typed or skipped. The cap line says which pages were read of a long file.
+ * "Finish" once every page is read, typed or skipped. A long file is read in batches (contract section 12): the panel
+ * says which pages are read and which are not yet, and "Read next pages" carries on (after a day cap, from the capped
+ * page; else the next batch). "Finish without pages N to M" leaves the rest not read; a file full of tables offers
+ * "Skip the rest and finish".
  */
 export function VisionFilePanel({
   artifact,
@@ -65,7 +73,11 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
   const actions = useVisionPageActions(artifact.id, total);
   const [typing, setTyping] = useState<number | null>(null);
   const file = visionFileActions(pages, pagesQ.data?.settled ?? false);
-  const cap = pagesQ.data ? capLine(pagesQ.data.pageCount, pagesQ.data.planned) : null;
+  const status = useIngestStatus();
+  const batchSize = status.data?.visionPagesPerBatch ?? VISION_PARAMS.maxPagesPerFile;
+  const batch = pagesQ.data && !kept ? visionBatch(pagesQ.data, batchSize) : null;
+  const readLine = batch ? readRangesWords(batch.readRanges, say) : null;
+  const canFinish = pagesQ.data ? canFinishOf(pagesQ.data) : false;
   const running = read.phase === "running";
 
   // Each step of a pass, and each page's answer, is said once in the screen's status region.
@@ -89,7 +101,10 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
           {say("ingest.vision.pagesTitle")}
         </h2>
         <Muted>{say("ingest.vision.readFileNote")}</Muted>
-        {cap ? <p className="m-0 text-[14px] leading-6 text-tone-amber-ink">{words(cap)}</p> : null}
+        {readLine ? <p data-testid="vision-read-ranges" className="m-0 text-[14px] leading-6">{readLine}</p> : null}
+        {batch?.restLine ? <p data-testid="vision-rest" className="m-0 text-[14px] leading-6 text-tone-amber-ink">{words(batch.restLine)}</p> : null}
+        {batch?.dayCapLine ? <p data-testid="vision-day-cap" className="m-0 text-[14px] leading-6 text-tone-amber-ink">{words(batch.dayCapLine)}</p> : null}
+        {batch?.fullLine ? <p data-testid="vision-full" className="m-0 text-[14px] leading-6 text-tone-amber-ink">{words(batch.fullLine)}</p> : null}
       </div>
 
       {running ? <ProgressBar value={read.progress ? visionShare(read.progress) : null} label={read.progress ? words(visionProgressWords(read.progress)) : say("ingest.vision.opening")} /> : null}
@@ -98,7 +113,23 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
       <ActionError error={read.error} />
       <ActionError error={actions.error} />
 
-      {kept || file.carryOn ? (
+      {!kept && batch?.readNext ? (
+        <Can do="ingest.upload">
+          <div className="flex flex-col gap-2">
+            <Muted>{words(batch.readNext.note)}</Muted>
+            <div className="flex flex-wrap gap-3">
+              <ActionButton
+                busy={running || actions.busy}
+                working={running}
+                className="max-sm:w-full"
+                onClick={() => void read.run({ needsBytes: batch.readNext!.needsBytes || file.needsBytes, pages, next: true })}
+              >
+                {say("ingest.vision.readNext")}
+              </ActionButton>
+            </div>
+          </div>
+        </Can>
+      ) : kept || file.carryOn ? (
         <Can do="ingest.upload">
           <div className="flex flex-wrap gap-3">
             <ActionButton busy={running} working={running} className="max-sm:w-full" onClick={() => void read.run({ needsBytes: kept || file.needsBytes, pages })}>
@@ -160,7 +191,29 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
       ) : null}
 
       {!kept && pagesQ.data ? (
-        file.finish ? (
+        batch?.skipRest ? (
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <Muted>{say("ingest.vision.skipRestNote")}</Muted>
+            <Can do="ingest.upload">
+              <div>
+                <ActionButton busy={actions.busy || running} working={actions.pending === "finishRest"} className="max-sm:w-full" onClick={() => void actions.finishRest()}>
+                  {say("ingest.vision.skipRest")}
+                </ActionButton>
+              </div>
+            </Can>
+          </div>
+        ) : batch?.finishEarly ? (
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <Muted>{words(batch.finishEarly.note)}</Muted>
+            <Can do="ingest.upload">
+              <div>
+                <ActionButton variant="secondary" busy={actions.busy || running} working={actions.pending === "finishRest"} className="max-sm:w-full" onClick={() => void actions.finishRest()}>
+                  {words(batch.finishEarly.label)}
+                </ActionButton>
+              </div>
+            </Can>
+          </div>
+        ) : file.finish && canFinish ? (
           <div className="flex flex-col gap-2 border-t border-border pt-4">
             <Muted>{say("ingest.vision.finishNote")}</Muted>
             <Can do="ingest.upload">
@@ -171,7 +224,7 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
               </div>
             </Can>
           </div>
-        ) : !file.carryOn ? (
+        ) : !file.carryOn && !batch?.readNext ? (
           <Muted>{say("ingest.vision.notDone")}</Muted>
         ) : null
       ) : null}
