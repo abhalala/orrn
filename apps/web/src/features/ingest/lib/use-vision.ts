@@ -8,9 +8,10 @@ import { ingestApi } from "./trpc-api";
 import type { ArtifactKind, CandidateDetail, StagedRowView } from "./types";
 import { useRunAction } from "./use-run-action";
 import { visionApi } from "./vision-api";
-import { finishFile, PAGE_CALLS_PER_PASS, type VisionProgress } from "./vision-pump";
+import { openForModel } from "./vision-model";
+import { batchStart, finishFile, PAGE_CALLS_PER_PASS, type VisionProgress } from "./vision-pump";
 import { readVisualBytes, type VisualReadOutcome } from "./vision-read";
-import type { VisionPageView, VisionPagesOut } from "./vision-types";
+import { canFinishOf, type VisionPageView, type VisionPagesOut } from "./vision-types";
 
 /**
  * Hooks of the vision read: the file page's pages and its "Read this file" pass, the page image of the review, and the
@@ -86,7 +87,7 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
   progress: VisionProgress | null;
   outcome: VisualReadOutcome | null;
   error: unknown;
-  run: (opts: { needsBytes: boolean; pages?: readonly VisionPageView[] }) => Promise<void>;
+  run: (opts: { needsBytes: boolean; pages?: readonly VisionPageView[]; next?: boolean }) => Promise<void>;
 } {
   const qc = useQueryClient();
   const [phase, setPhase] = useState<FileReadPhase>("idle");
@@ -98,7 +99,7 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
   useEffect(() => () => ctl.current?.abort(), []);
 
   const run = useCallback(
-    async ({ needsBytes, pages }: { needsBytes: boolean; pages?: readonly VisionPageView[] }) => {
+    async ({ needsBytes, pages, next }: { needsBytes: boolean; pages?: readonly VisionPageView[]; next?: boolean }) => {
       if (flight.current) return;
       flight.current = true;
       ctl.current = new AbortController();
@@ -107,7 +108,8 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
       setError(null);
       setOutcome(null);
       try {
-        const api = visionApi();
+        // "Read next pages" (contract section 12): the pump carries on from the first open page or plans the next batch.
+        const api = next ? batchStart(visionApi(), artifactId) : visionApi();
         const withBytes = async () => {
           setProgress({ phase: "opening" });
           const link = await api.readUrl({ artifactId, what: "raw" });
@@ -119,15 +121,18 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
         if (needsBytes) {
           await withBytes();
         } else {
-          const due = (pages ?? []).filter((p) => p.state === "ready").map((p) => p.page);
+          // Carry on: the pages due. Read next pages after a day cap: every page the model can still take, in order.
+          const due = (pages ?? []).filter((p) => (next ? openForModel(p) : p.state === "ready")).map((p) => p.page).sort((a, b) => a - b);
           const total = (pages ?? []).length;
           for (const page of due) {
-            await readOnePage(artifactId, page, (p) => setProgress(p), total, signal);
+            const view = await readOnePage(artifactId, page, (p) => setProgress(p), total, signal);
+            // A day cap stops the pass: later pages would only be capped too.
+            if (view.reason === "cap_day_calls" || view.reason === "cap_day_cost") break;
           }
           const after = await api.pages({ artifactId });
           // A page the server wants in bands is cut from the file's own pixels, so the bytes come back for it.
           if (after.pages.some((p) => p.next === "band")) await withBytes();
-          else if (after.settled) await finishFile(api, artifactId);
+          else if (canFinishOf(after)) await finishFile(api, artifactId);
         }
         setPhase("done");
       } catch (e) {
@@ -189,6 +194,13 @@ export function useVisionPageActions(artifactId: string, total: number) {
       }),
     finish: () =>
       runner.run("finish", async () => {
+        await finishFile(visionApi(), artifactId);
+        await after();
+      }),
+    /** Finish without the rest (contract section 12): open planned pages skipped, pages past the plan left not read. */
+    finishRest: () =>
+      runner.run("finishRest", async () => {
+        await visionApi().finishRest({ artifactId });
         await finishFile(visionApi(), artifactId);
         await after();
       }),
