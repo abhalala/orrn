@@ -33,6 +33,29 @@ const ANSWER_LOCKED = /^A sheet of this file is approved\. Its answers cannot ch
 const DOES_NOT_ASK = /^This import does not ask that/i;
 const NOTHING_TO_IMPORT = /^Nothing in this sheet can be imported/i;
 
+/**
+ * The vision read's server sentences (contract section 8b), matched by their text before anything else: "Its rows
+ * cannot change now" starts like the columns sentence above, and the PRECONDITION_FAILED ones would otherwise fall to
+ * the generic refusal with English under it. Each has plain words under `ingest.vision.error.*`.
+ */
+export const VISION_SENTENCES: readonly (readonly [RegExp, string])[] = [
+  [/^Upload this page first/i, "ingest.vision.error.uploadFirst"],
+  [/^Some pages are not read yet/i, "ingest.vision.error.notSettled"],
+  [/^This table was read from a page/i, "ingest.vision.error.fromPage"],
+  [/^Only a table read from a page is checked against it/i, "ingest.vision.error.onlyFromPage"],
+  [/^This page is past the pages read for this file/i, "ingest.vision.error.pastPages"],
+  [/^This page is already read/i, "ingest.vision.error.pageRead"],
+  [/^This file is not being read page by page/i, "ingest.vision.error.notPageByPage"],
+  [/^Only PDFs and photos are read page by page/i, "ingest.vision.error.onlyVisual"],
+  [/^Rows of this sheet are already written\. Its rows cannot change/i, "ingest.vision.error.rowsWritten"],
+  [/^PDFs and photos need file storage/i, "ingest.vision.error.noStorage"],
+  [/^PDFs and photos are kept, not read, in this release/i, "ingest.vision.error.notRead"],
+  [/^The original file is not saved yet/i, "ingest.vision.error.notSaved"],
+  [/^This file is already read/i, "ingest.vision.error.fileRead"],
+  [/^Check these rows against the page first/i, "ingest.vision.error.checkFirst"],
+  [/^Import file not found/i, "ingest.vision.error.fileGone"],
+];
+
 const messageOf = (error: unknown): string => {
   const message = (error as { message?: unknown } | null | undefined)?.message;
   return typeof message === "string" ? message.trim().slice(0, 400) : "";
@@ -40,6 +63,8 @@ const messageOf = (error: unknown): string => {
 
 export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
+  const said = messageOf(error);
+  for (const [sentence, key] of VISION_SENTENCES) if (sentence.test(said)) return { key, retry: false };
   if (NO_DATE_NONE.test(messageOf(error))) return { key: "ingest.error.noDateNone", retry: false };
   if (ANSWER_LOCKED.test(messageOf(error))) return { key: "ingest.error.answerLocked", retry: false };
   if (DOES_NOT_ASK.test(messageOf(error))) return { key: "ingest.error.doesNotAsk", retry: false };

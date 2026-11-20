@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8398 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7098,7 +7098,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (539)
+### ingest (626)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7493,7 +7493,94 @@ Please check, Lalubhai:
 | `reason.customer_missing` | Not merged. Customer {name} is not in orrn. Add the customer, then press Check again. | मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर "फिर से जांचें" दबाएं। |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
-| `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
+| `vision.check` | Checked against the page. | पेज से मिलाकर देख ली गईं। |
+| `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to 20 files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में 20 फ़ाइलें तक। |
+| `vision.keptNote` | Open a file to read its pages. | पेज पढ़ने के लिए फ़ाइल खोलें। |
+| `vision.opening` | Opening the pages | पेज खोले जा रहे हैं |
+| `vision.rendering` | Making page {page} of {total} | पेज {page} / {total} तैयार हो रहा है |
+| `vision.sending` | Sending page {page} of {total} | पेज {page} / {total} भेजा जा रहा है |
+| `vision.reading` | Reading page {page} of {total} | पेज {page} / {total} पढ़ा जा रहा है |
+| `vision.finishing` | Checking every page is done | देख रहे हैं कि हर पेज पूरा हुआ या नहीं |
+| `vision.pageRead` | Page {page} of {total} read, {count} {count:table\|tables}. | पेज {page} / {total} पढ़ लिया, {count} {count:टेबल\|टेबल}। |
+| `vision.pageNotRead` | Page {page} of {total} not read. | पेज {page} / {total} नहीं पढ़ा गया। |
+| `vision.pageTyped` | Page {page} of {total} typed. | पेज {page} / {total} टाइप कर दिया। |
+| `vision.pageSkipped` | Page {page} of {total} skipped. | पेज {page} / {total} छोड़ दिया। |
+| `vision.someLeft` | {count} {count:page is\|pages are} not read. Open the file to read, type or skip {count:it\|them}. | {count} {count:पेज\|पेज} नहीं पढ़े गए। फ़ाइल खोलकर {count:उसे\|उन्हें} पढ़ें, टाइप करें या छोड़ें। |
+| `vision.cannotOpen` | orrn could not open the pages of this file in this browser. The file is kept. | orrn इस ब्राउज़र में इस फ़ाइल के पेज नहीं खोल पाया। फ़ाइल रख ली गई है। |
+| `vision.readFile` | Read this file | यह फ़ाइल पढ़ें |
+| `vision.readFileNote` | orrn reads each page with the model. You check every table against its page before anything is imported. | orrn हर पेज मॉडल से पढ़वाता है। कुछ भी इम्पोर्ट होने से पहले आप हर टेबल को उसके पेज से मिलाते हैं। |
+| `vision.carryOn` | Carry on reading | पढ़ना जारी रखें |
+| `vision.pagesTitle` | Pages | पेज |
+| `vision.pageName` | Page {page} | पेज {page} |
+| `vision.tables` | {count} {count:table\|tables} | {count} {count:टेबल\|टेबल} |
+| `vision.state.waiting` | Not sent yet | अभी भेजा नहीं गया |
+| `vision.state.ready` | Waiting to be read | पढ़े जाने के इंतज़ार में |
+| `vision.state.read` | Read | पढ़ लिया |
+| `vision.state.not_read` | Not read | नहीं पढ़ा गया |
+| `vision.state.typed` | Typed | टाइप किया |
+| `vision.state.skipped` | Skipped | छोड़ा गया |
+| `vision.reason.no_table` | No table found on this page. | इस पेज पर कोई टेबल नहीं मिली। |
+| `vision.reason.refused` | The model would not read this page. | मॉडल ने यह पेज पढ़ने से मना कर दिया। |
+| `vision.reason.invalid` | The model's answer did not fit the page, twice. | मॉडल का जवाब दो बार पेज से मेल नहीं खाया। |
+| `vision.reason.too_long` | This page has too many rows to read at once. | इस पेज पर एक बार में पढ़ने के लिए बहुत ज़्यादा लाइनें हैं। |
+| `vision.reason.error` | The model could not be reached. | मॉडल से संपर्क नहीं हो पाया। |
+| `vision.reason.cap_page` | This page was tried as many times as allowed. | यह पेज जितनी बार हो सकता था, उतनी बार आज़माया जा चुका है। |
+| `vision.reason.cap_day_calls` | The model has read as many pages as allowed today. Try again tomorrow. | मॉडल आज जितने पेज पढ़ सकता था, पढ़ चुका है। कल फिर कोशिश करें। |
+| `vision.reason.cap_day_cost` | Today's spend on the model is used up. Try again tomorrow. | मॉडल पर आज का खर्च पूरा हो गया। कल फिर कोशिश करें। |
+| `vision.reason.page_too_large` | This page image is too large. | इस पेज की इमेज बहुत बड़ी है। |
+| `vision.reason.unsupported_page` | This page image cannot be read. | इस पेज की इमेज पढ़ी नहीं जा सकती। |
+| `vision.reason.too_many_tables` | This file already holds as many tables as one file may. | इस फ़ाइल में पहले ही उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। |
+| `vision.readAgain` | Read again | फिर से पढ़ें |
+| `vision.typePage` | Type this page | यह पेज टाइप करें |
+| `vision.skipPage` | Skip this page | यह पेज छोड़ें |
+| `vision.actionFor` | {action}, page {page} | {action}, पेज {page} |
+| `vision.finish` | Finish | पूरा करें |
+| `vision.finishNote` | Every page is read, typed or skipped. Finish to check the tables. | हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। टेबल जांचने के लिए पूरा करें। |
+| `vision.notDone` | Read, type or skip each page, then finish. | हर पेज पढ़ें, टाइप करें या छोड़ें, फिर पूरा करें। |
+| `vision.cap` | Pages 1 to {max} of {total} were read. The rest are not read in this release. | {total} में से पेज 1 से {max} तक पढ़े गए। बाकी इस रिलीज़ में नहीं पढ़े जाते। |
+| `vision.type.title` | Type page {page} | पेज {page} टाइप करें |
+| `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। एक लाइन कॉलम के नामों की, फिर हर रो की एक लाइन। |
+| `vision.type.tableTitle` | Table name (if the page has one) | टेबल का नाम (अगर पेज पर है) |
+| `vision.type.header` | Column {n} name | कॉलम {n} का नाम |
+| `vision.type.cell` | Row {row}, column {col} | रो {row}, कॉलम {col} |
+| `vision.type.addRow` | Add a row | रो जोड़ें |
+| `vision.type.addColumn` | Add a column | कॉलम जोड़ें |
+| `vision.type.removeRow` | Remove row {row} | रो {row} हटाएं |
+| `vision.type.save` | Save the table | टेबल सेव करें |
+| `vision.type.needHeader` | Give every column a name. | हर कॉलम को नाम दें। |
+| `vision.type.needRow` | Type at least one row. | कम से कम एक रो टाइप करें। |
+| `vision.pageHeading` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
+| `vision.imageFailed` | The page image did not load. | पेज की इमेज लोड नहीं हुई। |
+| `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
+| `vision.lowFirst` | Rows the model was not sure of come first. | जिन लाइनों पर मॉडल को पक्का भरोसा नहीं था, वे पहले दिखती हैं। |
+| `vision.lowMark` | Not sure | पक्का नहीं |
+| `vision.blank` | Blank | खाली |
+| `vision.rowName` | Row {n} | लाइन {n} |
+| `vision.typed` | Typed by hand from page {page}. | पेज {page} से हाथ से टाइप किया गया। |
+| `vision.tick` | I checked these rows against the page | मैंने ये लाइनें पेज से मिलाकर देख लीं |
+| `vision.tickNote` | Look at each row on the page. Fix a cell that is wrong, then tick. | पेज पर हर लाइन देखें। जो सेल गलत हो उसे सुधारें, फिर टिक करें। |
+| `vision.tickFirst` | Tick that you checked the rows against the page, then approve. | टिक करें कि आपने लाइनें पेज से मिला लीं, फिर मंज़ूर करें। |
+| `vision.fixCell` | Fix this cell | यह सेल सुधारें |
+| `vision.fixCellName` | Fix row {row}, {column} | लाइन {row}, {column} सुधारें |
+| `vision.fixLabel` | Row {row}, {column} | लाइन {row}, {column} |
+| `vision.fixSave` | Save the cell | सेल सेव करें |
+| `vision.fixed` | Cell saved. Check the rows again, then tick. | सेल सेव हो गया। लाइनें फिर से देखें, फिर टिक करें। |
+| `vision.error.uploadFirst` | This page is not sent yet. Read the file again. | यह पेज अभी भेजा नहीं गया। फ़ाइल फिर से पढ़ें। |
+| `vision.error.notSettled` | Some pages are not read yet. Read, type or skip each page first. | कुछ पेज अभी पढ़े नहीं गए। पहले हर पेज पढ़ें, टाइप करें या छोड़ें। |
+| `vision.error.fromPage` | This table was read from a page. Fix a cell or discard it. | यह टेबल एक पेज से पढ़ी गई थी। कोई सेल सुधारें या इसे हटा दें। |
+| `vision.error.onlyFromPage` | Only a table read from a page is checked against it. | सिर्फ़ पेज से पढ़ी गई टेबल ही उस पेज से मिलाई जाती है। |
+| `vision.error.pastPages` | This page is past the pages read for this file. | यह पेज इस फ़ाइल के पढ़े जाने वाले पेजों से आगे है। |
+| `vision.error.pageRead` | This page is already read. | यह पेज पहले ही पढ़ा जा चुका है। |
+| `vision.error.notPageByPage` | This file is not being read page by page. | यह फ़ाइल पेज दर पेज नहीं पढ़ी जा रही है। |
+| `vision.error.onlyVisual` | Only PDFs and photos are read page by page. | सिर्फ़ PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। |
+| `vision.error.rowsWritten` | Rows of this sheet are already written. Its rows cannot change now. | इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसकी लाइनें नहीं बदल सकतीं। |
+| `vision.error.noStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए सेट नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
+| `vision.error.notRead` | orrn cannot read PDFs and photos on this plant yet. The file is kept. | orrn इस प्लांट पर अभी PDF और फ़ोटो नहीं पढ़ सकता। फ़ाइल रख ली गई है। |
+| `vision.error.notSaved` | The original file is not saved yet. Upload the same file again, then approve. | असली फ़ाइल अभी सेव नहीं हुई है। वही फ़ाइल फिर से अपलोड करें, फिर मंज़ूर करें। |
+| `vision.error.fileRead` | This file is already read. | यह फ़ाइल पहले ही पढ़ी जा चुकी है। |
+| `vision.error.checkFirst` | Check these rows against the page first. | पहले इन लाइनों को पेज से मिलाकर देखें। |
+| `vision.error.fileGone` | This file is no longer there. | यह फ़ाइल अब नहीं है। |
 | `rate.hidden` | Hidden | छिपा है |
 | `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
 | `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |

@@ -29,6 +29,7 @@ import { guPrintingPrinters } from "./gu-more/printing-printers";
 import { guPrintingQueue } from "./gu-more/printing-queue";
 import { guSettings } from "./gu-more/settings";
 import { guShell } from "./gu-more/shell";
+import { guIngest } from "./ingest/gu";
 import { foundryRefusalGu } from "./native/foundry-refusal.gu";
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
@@ -1861,6 +1862,7 @@ export const gu = mergeGu(
   guPrintingLabels,
   guPrintingPrinters,
   guPrintingQueue,
+  guIngest,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1879,4 +1881,5 @@ export const gu = mergeGu(
   typeof guPressBoard &
   typeof guPrintingLabels &
   typeof guPrintingPrinters &
-  typeof guPrintingQueue satisfies GuMessages;
+  typeof guPrintingQueue &
+  typeof guIngest satisfies GuMessages;
