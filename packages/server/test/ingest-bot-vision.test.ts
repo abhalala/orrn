@@ -15,7 +15,7 @@ import {
   type RunVisionArgs,
   type VisionAttemptResult,
 } from "../src/lib/ingest/bot";
-import { haiku, sonnet } from "./ingest-bot-fixture";
+import { sonnet } from "./ingest-bot-fixture";
 
 const table = (over: Record<string, unknown> = {}) => ({
   title: "Stock as on 31.10.2025",
@@ -64,18 +64,18 @@ describe("vision read", () => {
     expect(client.calls).toHaveLength(0);
   });
 
-  test("scanned PDF pages start on Haiku, photos on Sonnet", () => {
-    expect(visionStartModel("pdf_scan")).toBe("claude-haiku-5-5");
+  test("owner decision: scanned PDF pages and photos both start on Sonnet (Haiku is never asked for a page)", () => {
+    expect(visionStartModel("pdf_scan")).toBe("claude-sonnet-5-5");
     expect(visionStartModel("image")).toBe("claude-sonnet-5-5");
   });
 
   test("the page goes out as a base64 image block with the vision purpose; no fallbacks field", async () => {
-    const client = new FakeShapeClient([haiku(answer(table()))]);
+    const client = new FakeShapeClient([sonnet(answer(table()))]);
     const a = args({ client });
     const r = ran(await runVisionAttempt(a));
-    expect(r).toMatchObject({ outcome: "recipe", model: "claude-haiku-5-5", next: "done", attempt: 1 });
+    expect(r).toMatchObject({ outcome: "recipe", model: "claude-sonnet-5-5", next: "done", attempt: 1 });
     const call = client.calls[0]!;
-    expect(call).toMatchObject({ purpose: "vision", model: "claude-haiku-5-5", maxTokens: 8_000 });
+    expect(call).toMatchObject({ purpose: "vision", model: "claude-sonnet-5-5", maxTokens: 16_000 });
     expect("fallbacks" in call).toBe(false);
     const parts = call.messages[0]!.content as { type: string; source?: { type: string; media_type: string; data: string } }[];
     expect(parts[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: toBase64(new Uint8Array([1, 2, 3, 250, 251, 252])) } });
@@ -85,7 +85,7 @@ describe("vision read", () => {
   });
 
   test("rows under 0.7 confidence are listed lowest first", async () => {
-    const client = new FakeShapeClient([haiku(answer(table()))]);
+    const client = new FakeShapeClient([sonnet(answer(table()))]);
     const r = ran(await runVisionAttempt(args({ client })));
     expect(LOW_CONFIDENCE).toBe(0.7);
     expect(r.tables![0]!.lowConfidenceRows).toEqual([2, 1]);
@@ -107,33 +107,40 @@ describe("vision read", () => {
     expect((a.store as MemoryBotRunStore).rows[0]).toMatchObject({ outcome: "error", model: "claude-sonnet-5-5", errorCodes: ["client:bad_model"] });
   });
 
-  test("an invalid Haiku answer escalates to Sonnet with the error codes; Sonnet invalid is manual", async () => {
+  test("owner decision: an invalid Sonnet answer gets one Sonnet retry with the error codes; a second invalid answer is manual", async () => {
     const bad = answer(table({ rowConfidence: [0.9] }));
-    const client = new FakeShapeClient([haiku(bad), sonnet(bad)]);
+    const client = new FakeShapeClient([sonnet(bad), sonnet(bad)]);
     const a = args({ client });
     const first = ran(await runVisionAttempt(a));
-    expect(first).toMatchObject({ outcome: "invalid", next: "escalate", errors: ["vision:confidence_count:0"] });
+    expect(first).toMatchObject({ outcome: "invalid", model: "claude-sonnet-5-5", next: "retry", errors: ["vision:confidence_count:0"] });
     const second = ran(await runVisionAttempt(a));
     expect(second).toMatchObject({ outcome: "invalid", model: "claude-sonnet-5-5", next: "manual", attempt: 2 });
     const text = (client.calls[1]!.messages[0]!.content as { type: string; text?: string }[]).map((p) => p.text ?? "").join("\n");
     expect(text).toContain("vision:confidence_count:0");
     expect(await runVisionAttempt(a)).toMatchObject({ status: "skipped", reason: "attempts_exhausted" });
+    expect(client.calls.every((c) => c.model === "claude-sonnet-5-5")).toBe(true);
   });
 
-  test("a Haiku refusal escalates to Sonnet; a Sonnet refusal is manual", async () => {
-    const client = new FakeShapeClient([fakeRefusal(), fakeRefusal({ modelUsed: "claude-sonnet-5-5" })]);
+  test("owner decision: a Sonnet refusal is manual with no retry; an old Haiku refusal still escalates to Sonnet once", async () => {
+    const client = new FakeShapeClient([fakeRefusal({ modelUsed: "claude-sonnet-5-5" })]);
     const a = args({ client });
-    expect(ran(await runVisionAttempt(a))).toMatchObject({ outcome: "refused", next: "escalate" });
-    expect(ran(await runVisionAttempt(a))).toMatchObject({ outcome: "refused", next: "manual" });
+    expect(ran(await runVisionAttempt(a))).toMatchObject({ outcome: "refused", model: "claude-sonnet-5-5", next: "manual" });
+    expect(await runVisionAttempt(a)).toMatchObject({ status: "skipped", reason: "attempts_exhausted" });
+
+    // A page whose history holds a Haiku refusal from before the decision goes to Sonnet once.
+    const store = new MemoryBotRunStore();
+    await store.insertRun({ companyId: "co1", blockId: "page1", candidateId: null, purpose: "vision", model: "claude-haiku-5-5", attempt: 1, outcome: "refused", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0, createdBy: null, createdAtMs: Date.UTC(2026, 10, 10, 12), errorCodes: ["output:refusal"] });
+    const old = args({ store, client: new FakeShapeClient([fakeRefusal({ modelUsed: "claude-sonnet-5-5" })]) });
+    expect(ran(await runVisionAttempt(old))).toMatchObject({ outcome: "refused", model: "claude-sonnet-5-5", next: "manual", attempt: 2 });
   });
 
   test("a page with no table is a final answer", async () => {
-    const r = ran(await runVisionAttempt(args({ client: new FakeShapeClient([haiku(answer())]) })));
+    const r = ran(await runVisionAttempt(args({ client: new FakeShapeClient([sonnet(answer())]) })));
     expect(r).toMatchObject({ outcome: "no_target", next: "manual", tables: null });
   });
 
   test("a done page is not read twice; caps apply", async () => {
-    const a = args({ client: new FakeShapeClient([haiku(answer(table()))]) });
+    const a = args({ client: new FakeShapeClient([sonnet(answer(table()))]) });
     await runVisionAttempt(a);
     expect(await runVisionAttempt(a)).toMatchObject({ reason: "already_done" });
 
@@ -152,7 +159,7 @@ describe("vision read", () => {
     for (let i = 0; i < 4; i++) {
       await store.insertRun({ companyId: "co1", blockId: "page1", candidateId: null, purpose: "shape", model: "claude-haiku-5-5", attempt: i + 1, outcome: "invalid", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0, createdBy: null, createdAtMs: Date.UTC(2026, 10, 10, 12), errorCodes: null });
     }
-    const r = ran(await runVisionAttempt(args({ store, client: new FakeShapeClient([haiku(answer(table()))]) })));
+    const r = ran(await runVisionAttempt(args({ store, client: new FakeShapeClient([sonnet(answer(table()))]) })));
     expect(r.outcome).toBe("recipe");
   });
 
@@ -162,7 +169,18 @@ describe("vision read", () => {
     const row = (attempt: number, model: string, outcome: BotRunHistoryRow["outcome"]): BotRunHistoryRow => ({ attempt, model, outcome });
     expect(planVision([row(1, H, "invalid")], H)).toMatchObject({ next: "escalate", model: S, carryErrors: true });
     expect(planVision([row(1, H, "refused")], H)).toMatchObject({ next: "escalate", model: S, carryErrors: false });
-    expect(planVision([row(1, S, "invalid")], S)).toMatchObject({ next: "manual" });
+    // Owner decision: a Sonnet start gets one Sonnet retry on invalid, then manual; a Sonnet refusal is manual.
+    expect(planVision([row(1, S, "invalid")], S)).toMatchObject({ next: "retry", model: S, carryErrors: true });
+    expect(planVision([row(1, S, "invalid"), row(2, S, "invalid")], S)).toMatchObject({ next: "manual" });
+    expect(planVision([row(1, S, "refused")], S)).toMatchObject({ next: "manual" });
+    expect(planVision([row(1, S, "no_target")], S)).toMatchObject({ next: "manual" });
+    expect(planVision([row(1, S, "error")], S)).toMatchObject({ next: "retry", model: S, carryErrors: false });
+    expect(planVision([row(1, S, "error"), row(2, S, "error")], S)).toMatchObject({ next: "manual" });
+    expect(planVision([row(1, S, "invalid"), row(2, S, "error")], S)).toMatchObject({ next: "retry", model: S, carryErrors: true });
+    expect(planVision([row(1, S, "invalid"), row(2, S, "error"), row(3, S, "invalid")], S)).toMatchObject({ next: "manual" });
+    expect(planVision([row(1, S, "invalid"), row(2, S, "capped")], S)).toMatchObject({ next: "retry", model: S });
+    // Old Haiku history keeps its old meaning: escalate once, then Sonnet's failure is manual.
+    expect(planVision([row(1, H, "invalid"), row(2, S, "invalid")], S)).toMatchObject({ next: "manual" });
     expect(planVision([row(1, H, "error")], H)).toMatchObject({ next: "retry", model: H });
     expect(planVision([row(1, H, "error"), row(2, H, "error")], H)).toMatchObject({ next: "manual" });
     // A failed Sonnet escalation retries on Sonnet, never back on Haiku (it would loop H invalid, S error).

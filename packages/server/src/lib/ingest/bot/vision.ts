@@ -1,22 +1,28 @@
 /**
- * Vision read (slice 2, plan B6 "Vision read"): one page image in, tables out.
+ * Vision read (import portal release 2, contract docs/superpowers/plans/2026-11-20-vision-read.md):
+ * one page image in, tables out.
  *
- * The browser downscales a photo or a scanned PDF page to a 1600 px JPEG and stores it in R2.
- * The Worker reads one page per call and sends it here as a base64 image block. Haiku reads
- * `pdf_scan` pages, Sonnet reads `image` photos, and Sonnet is the escalation for an invalid
- * Haiku answer. The same interface, caps, cost and run store as the shape bot are used.
+ * The browser renders a PDF page or downscales a photo to `VISION_PARAMS.longSidePx` as a JPEG and
+ * stores it in R2. The Worker (`lib/ingest/vision.ts`, `ingest.vision.readPage`) reads one page per
+ * call and sends it here as a base64 image block. Owner's decision: every page (photo, scanned PDF,
+ * text PDF) starts on Sonnet 5.5; Haiku is never asked for a page. An invalid Sonnet answer gets one
+ * retry on Sonnet with its validation codes, then a person handles the page. Old run rows from Haiku
+ * keep their old meaning (a Haiku failure escalates to Sonnet once). The same interface, caps, cost
+ * and run store as the shape bot are used.
  *
  * The model's tables are text only. Each table becomes a block that goes through the normal fit,
  * bot and dry run, and approval needs the person's "I checked these rows against the page" tick.
- * Rows below 0.7 confidence are shown first. Nothing here writes a row.
+ * Rows below `VISION_PARAMS.lowConfidence` are shown first. Nothing here writes a row.
  *
- * Run rows use the same `ingest_bot_run` table with purpose "vision". `outcome` has no value for
- * tables, so "recipe" means one or more valid tables and "no_target" means a page with no table.
+ * Run rows use the same `ingest_bot_run` table with purpose "vision" and `block_id` the page key
+ * (`visionPageKey`). `outcome` has no value for tables, so "recipe" means one or more valid tables
+ * and "no_target" means a page with no table.
  */
 import { type BotOutcome, type BotRunHistoryRow, type BotRunStore, checkCaps, countCalls } from "./caps";
 import { costOfResponse } from "./cost";
 import { canonicalShapeModel, getShapeClient, HAIKU, MAX_TOKENS, SONNET, type ShapeClientError, type ShapeEnv, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
 import type { Next } from "./escalate";
+import { VISION_PARAMS } from "@orrn/ingest";
 import { safeErrorCodes } from "./prompt";
 import { schemaErrorCodes, visionOutput, type VisionOutput } from "./schema";
 
@@ -24,16 +30,16 @@ export const VISION_PAGE_KINDS = ["pdf_scan", "image"] as const;
 export type VisionPageKind = (typeof VISION_PAGE_KINDS)[number];
 
 /** Rows under this confidence are shown to the person first. */
-export const LOW_CONFIDENCE = 0.7;
-export const MAX_PAGE_BYTES = 4_500_000;
-export const MAX_TABLES = 5;
+export const LOW_CONFIDENCE: number = VISION_PARAMS.lowConfidence;
+export const MAX_PAGE_BYTES: number = VISION_PARAMS.maxPageBytes;
+export const MAX_TABLES: number = VISION_PARAMS.tablesPerPage;
 export const MAX_ROWS_PER_TABLE = 500;
 export const VISION_MAX_COLUMNS = 200;
 export const MAX_CELL_CHARS = 200;
 const PAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export type VisionTable = VisionOutput["tables"][number] & {
-  /** Row indexes with confidence under 0.7, lowest first. */
+  /** Row indexes with confidence under `LOW_CONFIDENCE`, lowest first. */
   lowConfidenceRows: number[];
 };
 
@@ -63,14 +69,14 @@ export type RunVisionArgs = {
   store: BotRunStore;
   companyId: string;
   userId: string | null;
-  /** The block this read belongs to: `ingest_bot_run.block_id` is required, so lane A supplies one. */
+  /** The page key (`visionPageKey`) this read belongs to, stored in `ingest_bot_run.block_id`. */
   blockId: string;
-  /** `pdf_scan` goes to Haiku first, `image` (a photo) to Sonnet first. */
+  /** `image` for a photo, `pdf_scan` for any PDF page. Both start on Sonnet. */
   pageKind: VisionPageKind;
   page: VisionPage;
   /** Vision needs the bytes in R2 first. False when there is no R2: refused with `vault_required`. */
   vaultReady: boolean;
-  /** Off in the first portal release: PDFs and photos are kept, not read (`kept_unread`). */
+  /** Only `ingest.vision.readPage` passes true; any other caller is refused with `kept_unread`. */
   visualReads?: boolean;
   holeVersionSinceMs?: number;
   previousErrors?: string[];
@@ -96,15 +102,24 @@ export type VisionAttemptResult =
       capReason?: "block_calls" | "day_calls" | "day_cost";
     };
 
-export function visionStartModel(kind: VisionPageKind): ShapeModelId {
-  return kind === "image" ? SONNET : HAIKU;
+/** Owner's decision (release 2): every page starts on Sonnet, whatever its kind. */
+export function visionStartModel(_kind: VisionPageKind): ShapeModelId {
+  return SONNET;
 }
 
 const isHaiku = (model: string) => model.startsWith("claude-haiku");
 
 type VisionPlan = { next: Next; model: ShapeModelId | null; attempt: number; carryErrors: boolean };
 
-/** Haiku's invalid or refused answer goes to Sonnet once. Sonnet's failure is manual. */
+/**
+ * What the next call of a page is (contract section 2).
+ *
+ * - Sonnet start: an invalid answer gets ONE retry on Sonnet with its codes; a second invalid answer
+ *   is manual. A refusal is manual. A page with no table is manual. A transport error repeats the
+ *   same model, at most 2 errors in a row, then manual.
+ * - Old history with a Haiku run keeps its old meaning: Haiku's invalid or refused answer goes to
+ *   Sonnet once, and Sonnet's failure after that is manual.
+ */
 export function planVision(history: readonly BotRunHistoryRow[], start: ShapeModelId): VisionPlan {
   const calls = history.filter((h) => h.outcome !== "capped");
   const attempt = countCalls(history) + 1;
@@ -113,6 +128,7 @@ export function planVision(history: readonly BotRunHistoryRow[], start: ShapeMod
   if (last.outcome === "recipe") return { next: "done", model: null, attempt, carryErrors: false };
   if (last.outcome === "no_target") return { next: "manual", model: null, attempt, carryErrors: false };
   const real = calls.filter((h) => h.outcome !== "error");
+  const oldHaiku = calls.some((h) => isHaiku(h.model));
   if (last.outcome === "error") {
     let trailing = 0;
     for (let i = calls.length - 1; i >= 0 && calls[i]!.outcome === "error"; i--) trailing++;
@@ -124,6 +140,11 @@ export function planVision(history: readonly BotRunHistoryRow[], start: ShapeMod
     return { next: "retry", model, attempt, carryErrors: prev?.outcome === "invalid" };
   }
   if (isHaiku(last.model)) return { next: "escalate", model: SONNET, attempt, carryErrors: last.outcome === "invalid" };
+  if (oldHaiku) return { next: "manual", model: null, attempt, carryErrors: false };
+  if (last.outcome === "invalid") {
+    const invalid = real.filter((h) => h.outcome === "invalid").length;
+    if (invalid < 2) return { next: "retry", model: SONNET, attempt, carryErrors: true };
+  }
   return { next: "manual", model: null, attempt, carryErrors: false };
 }
 
