@@ -344,3 +344,26 @@ that line). `group.held` stays, as the work order says, for segment labels; no m
   server marks `kept_unread`. `unfinishedFiles` lists files a closed page left half way.
 - `usePlantUnits` reads `me.company.units`, the set the plant formatter provider holds. `plantUnitsFor(settings)` is for tests.
 - `server-codes.test.ts` reads the server's ingest sources and fails when a row reason has no words.
+
+## Reading PDFs and photos page by page (import portal release 2)
+
+Contract: `docs/superpowers/plans/2026-11-20-vision-read.md`. Words: `ingest.vision.*` (en, hi, and a partial gu in
+`packages/i18n/src/ingest/gu.ts`).
+
+- `status.visionReady` (`visionReadyOf`) turns it on. Without it a PDF or photo is kept exactly as before, with the old words.
+- `vision-render.ts`: `openVisualSource(file, kind)` gives `{ pageCount, render(page), close }`. pdfjs and its worker load by
+  dynamic `import()` inside `openPdf` only. Sizes and quality come from `VISION_PARAMS` (`pdfCanvasSize`, `photoCanvasSize`);
+  `plannedPages`, `capLine` for the 30 page cap.
+- `vision-pump.ts`: `runVisionPump(artifactId, source, { api, onProgress })`: `vision.start` with the file's whole page count,
+  render and PUT each ticket (a 403 asks start again), `readPage` per page while `next === "retry"` (at most
+  `PAGE_READS_PER_PASS`), then `artifact.complete` once `vision.pages` is settled. `vision-words.ts` words each step.
+- `vision-read.ts`: `readVisualBytes` (open, pump, close) and the upload's `vision` hook. A file the browser cannot open, or a
+  plant that cannot read now (no storage, no model), stays kept.
+- Upload steps: `pages` (bar and words from the pump), `pagesLeft` (link to the file page). Each page's answer is said once.
+- File page (`vision-file-panel.tsx`): `useVisionPages`, `useVisionFileRead` ("Read this file" fetches the raw bytes by
+  `vision.readUrl`), `useVisionPageActions` (read again, skip, type, finish), `visionPageRow`, `visionFileActions`.
+- Review (`vision-check-panel.tsx`): `usePageImage` (asked again after 8 minutes and on focus), `useVisionRows` (every staged row),
+  `visionRows` (doubted rows first, blank cells marked), `useVisionCheckActions` (tick, fix a cell). `decisionBar` keeps
+  Approve out of the bar until the tick and says `vision.tickFirst` (`blocked.to === "tick"`); `bar.vision.approve` is the
+  Approve the panel draws after its checkbox. `isFromPage(block)` hides the header pick and the put again.
+- Server sentences of the contract's section 8b are matched by text first in `errors.ts` (`VISION_SENTENCES`).
