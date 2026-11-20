@@ -131,9 +131,10 @@ type PdfPage = {
   render: (o: { canvas: HTMLCanvasElement; canvasContext: CanvasRenderingContext2D; viewport: unknown; background?: string }) => { promise: Promise<void> };
   cleanup: () => void;
 };
-type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage>; destroy: () => Promise<void> };
+type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage>; destroy?: () => Promise<void> };
+type PdfTask = { promise: Promise<PdfDoc>; destroy?: () => Promise<void> };
 type PdfJs = {
-  getDocument: (o: { data: Uint8Array }) => { promise: Promise<PdfDoc> };
+  getDocument: (o: { data: Uint8Array }) => PdfTask;
   GlobalWorkerOptions: { workerSrc: string };
   Util: { transform: (a: number[], b: number[]) => number[] };
 };
@@ -170,8 +171,9 @@ function loadPdfJs(): Promise<PdfJs> {
 export async function openPdf(bytes: ArrayBuffer): Promise<PageSource> {
   const pdfjs = await loadPdfJs();
   let doc: PdfDoc;
+  const task = pdfjs.getDocument({ data: new Uint8Array(bytes) });
   try {
-    doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+    doc = await task.promise;
   } catch {
     throw new RenderError("cannot_open");
   }
@@ -215,7 +217,9 @@ export async function openPdf(bytes: ArrayBuffer): Promise<PageSource> {
       return out;
     },
     close() {
-      void doc.destroy();
+      // pdfjs 6 frees a document through its loading task; older builds through the document. Never throws.
+      const free = task.destroy ? task.destroy.bind(task) : doc.destroy?.bind(doc);
+      void free?.().catch(() => undefined);
     },
   };
 }
