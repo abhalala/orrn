@@ -1347,8 +1347,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - **One allow/deny constant.** `packages/server/src/lib/buddy/decisions.ts` `BUDDY_DECISIONS` decides every router
   (allow, deny, or `ingest` per procedure), the denied paths with reasons, input guards (`unless`, e.g. `format: "csv"`)
   and `pending` paths of unmerged lanes. Lookups use own keys and fail closed. `buddy-registry.test.ts` fails when a new
-  router or ingest procedure has no decision, or when a query that writes, signs a link, prints or exports is allowed:
-  add the decision in the same change.
+  router or ingest procedure has no decision: add the decision in the same change. The queries that write, sign a
+  link, print or export were found by a one-off review (2026-11-20) and are pinned as denied in that test; no test
+  can find a new one, so a new query with a side effect needs its own deny entry by hand.
 - **MCP (`POST /mcp`).** `lib/buddy/mcp.ts`, JSON-RPC 2.0, tools `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`. Bearer
   is a grant token (`orrnb_…`, only its SHA-256 is stored); `contextFromGrant` builds a ctx with `via: "buddy"` and the
   grant's sign-in method, so `assertStrongSignIn` judges the grant like the session that made it. A request with an
@@ -1358,7 +1359,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - **Drafts.** The person confirms in orrn (`buddy.drafts.confirm`, a browser session, never the MCP token). Confirm
   re-checks the decision and the input guard, claims the row with a conditional UPDATE (concurrent confirms run once,
   a decided draft replays its view), runs the real procedure as the person and audits `buddy.draft.*`; the real
-  procedure's audit row gets `meta.buddyDraftId` (`withBuddyMeta` in `lib/audit.ts`). Drafts live 24 h.
+  procedure's audit row gets `meta.buddyDraftId` (`withBuddyMeta` in `lib/audit.ts`) when the procedure hands its
+  own ctx to the audit helper; one that passes a narrowed copy of ctx drops it (the `buddy.draft.confirm` row still
+  names the draft). Drafts live 24 h.
 - **Limits.** Rows, not counters: 60 tool calls a minute per grant, 20 drafts an hour per grant, 30 chat turns an
   hour per person and plant (`tool: "chat"` rows in `buddy_call`, no chat text stored). Results over 32 KB are cut.
 - **Chat (`POST /buddy/chat`).** `lib/buddy/chat.ts` proxies one turn to Hermes `POST /v1/responses` (`stream`,

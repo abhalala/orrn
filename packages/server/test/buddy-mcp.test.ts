@@ -3,7 +3,7 @@
  *
  * Pins: a grant reaches only its own plant; a role without the action is forbidden (and the gate refuses
  * a role outside BUDDY_ROLES); denied paths are not found; buddy.* is unreachable; revoked or expired
- * grants are refused; rate limits; one buddy_call row per call; the 32 KB cap; the secure sign-in gate
+ * grants are refused; rate limits; one buddy_call row per call; the 32 KB cap, the 256 KB body and the batch of 20; the secure sign-in gate
  * judges a grant like the session that made it; the MCP module imports no write code.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -335,6 +335,20 @@ describe("limits and the cap (§7)", () => {
     expect(JSON.stringify(arr.data).length).toBeLessThanOrEqual(RESULT_CAP_BYTES);
     const text = capResult("x".repeat(100_000));
     expect(text.truncated).toBe(true);
+  });
+
+  test("a body over 256 KB is 413; a batch of more than 20 or none is 400; a batch of 20 answers each", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const big = await mcpRequest(env, token, { jsonrpc: "2.0", id: 1, method: "ping", params: { pad: "x".repeat(256 * 1024) } });
+    expect(big.status).toBe(413);
+    const ping = (id: number) => ({ jsonrpc: "2.0", id, method: "ping" });
+    expect((await mcpRequest(env, token, Array.from({ length: 21 }, (_, i) => ping(i)))).status).toBe(400);
+    expect((await mcpRequest(env, token, [])).status).toBe(400);
+    const ok = await mcpRequest(env, token, Array.from({ length: 20 }, (_, i) => ping(i)));
+    expect(ok.status).toBe(200);
+    const answers = (await ok.json()) as { id: number }[];
+    expect(answers.map((a) => a.id)).toEqual(Array.from({ length: 20 }, (_, i) => i));
   });
 });
 
