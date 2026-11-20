@@ -1,7 +1,9 @@
 import { errorCodeOf } from "./pump";
 import { ticketUrl, UploadPutError } from "./upload";
 import type { VisionApi } from "./vision-api";
-import type { PageSource } from "./vision-render";
+import { VISION_PARAMS } from "@orrn/ingest";
+
+import type { BandHow, PageSource } from "./vision-render";
 import { isSettled, type VisionPageTicket, type VisionPageView, type VisionPagesOut, type VisionStartOut } from "./vision-types";
 
 /**
@@ -16,10 +18,13 @@ export const PAGE_READS_PER_PASS = 4;
 /** Times one pass asks `vision.start` again for fresh tickets (expired, or a page the server says is missing). */
 export const START_AGAINS = 3;
 
+/** Model calls one page may take in one pass: a whole read and each band, each with the server's own 4-call cap. */
+export const PAGE_CALLS_PER_PASS = PAGE_READS_PER_PASS * (1 + VISION_PARAMS.maxBandsPerPage);
+
 export type VisionProgress =
   | { phase: "opening" }
-  | { phase: "rendering" | "sending"; page: number; total: number }
-  | { phase: "reading"; page: number; total: number }
+  | { phase: "rendering" | "sending" | "cutting"; page: number; total: number }
+  | { phase: "reading"; page: number; total: number; band?: { index: number; total: number } }
   | { phase: "page"; page: number; total: number; view: VisionPageView }
   | { phase: "finishing" };
 
@@ -76,7 +81,69 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
   const total = start.planned;
   const stored = new Set<number>();
 
+  /**
+   * Cuts a page into bands and sends them (section 11.3): `vision.bandTickets` with the band count fixes the cut on the
+   * server, then each band image the server lacks goes to its ticket; stale tickets are asked for once more. False when
+   * the bands did not all go.
+   */
+  const sendBands = async (page: number, blobs: readonly Blob[]): Promise<boolean> => {
+    let tickets = await api.bandTickets({ artifactId, page, bands: blobs.length });
+    for (let round = 0; round < 2; round += 1) {
+      let stale = false;
+      for (const t of [...tickets.uploads].sort((a, b) => a.band - b.band)) {
+        aborted(signal);
+        const body = blobs[t.band - 1];
+        if (!body) return false;
+        progress({ phase: "sending", page, total });
+        const res = await send(ticketUrl(t), { method: "PUT", headers: { "content-type": body.type || VISION_PARAMS.pageContentType }, body });
+        if (res.ok || res.status === 409) continue;
+        if (STALE_TICKET.has(res.status)) {
+          stale = true;
+          continue;
+        }
+        throw new UploadPutError(res.status);
+      }
+      if (!stale) return true;
+      tickets = await api.bandTickets({ artifactId, page, bands: blobs.length });
+    }
+    return false;
+  };
+
+  /** The band images of a page (null when it is read whole or cannot be cut on blank rows). */
+  const cutPage = async (page: number, how: BandHow): Promise<Blob[] | null> => {
+    if (!source.bands) return null;
+    progress({ phase: "cutting", page, total });
+    return source.bands(page, how).catch(() => null);
+  };
+
+  /**
+   * Sends the bands of a page again when the server says a band image is missing (a closed tab): the same count the
+   * server holds, cut by the text layer first and the ink projection second.
+   */
+  const resendBands = async (page: number, count: number): Promise<boolean> => {
+    for (const how of ["text", "ink"] as const) {
+      const blobs = await cutPage(page, how);
+      if (blobs && blobs.length === count) return sendBands(page, blobs);
+    }
+    return false;
+  };
+
+  /**
+   * A text PDF page past the row threshold goes as bands (counted from the text layer before any call). Its whole image
+   * still goes too, for the person who checks the rows against the page. A band step that fails leaves the page whole.
+   */
+  const bandTextPage = async (page: number): Promise<void> => {
+    const blobs = await cutPage(page, "text");
+    if (!blobs) return;
+    try {
+      await sendBands(page, blobs);
+    } catch (error) {
+      if ((error as { name?: string } | null)?.name === "AbortError") throw error;
+    }
+  };
+
   const putPage = async (ticket: VisionPageTicket): Promise<"stored" | "stale"> => {
+    await bandTextPage(ticket.page);
     progress({ phase: "rendering", page: ticket.page, total });
     const body = await source.render(ticket.page);
     aborted(signal);
@@ -135,22 +202,55 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
 
   for (let page = 1; page <= total; page += 1) {
     let view: VisionPageView | null = null;
-    for (let read = 0; read < PAGE_READS_PER_PASS; read += 1) {
+    let band: number | undefined;
+    let cut = false;
+    let resent = false;
+    // Reads per run key in this pass: the whole page and each band have their own cap on the server.
+    const keyReads = new Map<string, number>();
+    for (let call = 0; call < PAGE_CALLS_PER_PASS; call += 1) {
       aborted(signal);
-      progress({ phase: "reading", page, total });
+      const bands = view?.bands ?? null;
+      const index = band ?? bands?.next ?? null;
+      const key = bands && index ? `b${index}` : "page";
+      const done = keyReads.get(key) ?? 0;
+      if (done >= PAGE_READS_PER_PASS) break;
+      keyReads.set(key, done + 1);
+      progress(bands && index ? { phase: "reading", page, total, band: { index, total: bands.total } } : { phase: "reading", page, total });
       try {
-        view = await api.readPage({ artifactId, page });
+        view = await api.readPage(band ? { artifactId, page, band } : { artifactId, page });
+        band = undefined;
       } catch (error) {
-        // The server has no image of this page (a ticket lost in a closed tab): send it again, then read.
+        band = undefined;
+        // The server has no image of this page or of one of its bands (a ticket lost in a closed tab): send it again.
         if (errorCodeOf(error) === "BAD_REQUEST" && UPLOAD_FIRST.test(messageOf(error))) {
-          start = await startAgain();
-          stored.delete(page);
-          await sendPages(start.uploads.filter((t) => t.page === page));
+          if (!view?.bands) {
+            start = await startAgain();
+            const again = start.uploads.filter((t) => t.page === page);
+            if (again.length > 0) {
+              stored.delete(page);
+              await sendPages(again);
+              continue;
+            }
+          }
+          // No whole-page ticket for it: the page is cut into bands (`vision.start` leaves those out).
+          const now = view?.bands ? view : (await api.pages({ artifactId })).pages.find((p) => p.page === page);
+          if (!now?.bands || resent || !(await resendBands(page, now.bands.total))) break;
+          resent = true;
           continue;
         }
         // Another tab moved the file: read the page again, which answers its stored view.
         if (errorCodeOf(error) === "CONFLICT") continue;
         throw error;
+      }
+      if (view.next === "band") {
+        // A scan or photo too dense to read whole: cut it on blank rows, send the bands, read band 1 first. A page the
+        // browser cannot cut stays as it is, and the file page offers Type and Skip for it.
+        if (cut) break;
+        cut = true;
+        const blobs = await cutPage(page, "ink");
+        if (!blobs || !(await sendBands(page, blobs).catch(() => false))) break;
+        band = 1;
+        continue;
       }
       if (view.next !== "retry") break;
     }

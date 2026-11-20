@@ -8,7 +8,7 @@ import { ingestApi } from "./trpc-api";
 import type { ArtifactKind, CandidateDetail, StagedRowView } from "./types";
 import { useRunAction } from "./use-run-action";
 import { visionApi } from "./vision-api";
-import { finishFile, PAGE_READS_PER_PASS, type VisionProgress } from "./vision-pump";
+import { finishFile, PAGE_CALLS_PER_PASS, type VisionProgress } from "./vision-pump";
 import { readVisualBytes, type VisualReadOutcome } from "./vision-read";
 import type { VisionPageView, VisionPagesOut } from "./vision-types";
 
@@ -19,7 +19,7 @@ import type { VisionPageView, VisionPagesOut } from "./vision-types";
 
 export const visionKeys = {
   pages: (artifactId: string) => ["ingest", "artifact", artifactId, "vision"] as const,
-  image: (artifactId: string, page: number) => ["ingest", "vision-image", artifactId, page] as const,
+  image: (artifactId: string, page: number, band?: number) => (band ? (["ingest", "vision-image", artifactId, page, band] as const) : (["ingest", "vision-image", artifactId, page] as const)),
   rows: (candidateId: string) => ["ingest", "rows", candidateId, "vision-all"] as const,
 };
 
@@ -37,10 +37,10 @@ export function useVisionPages(artifactId: string, enabled: boolean): UseQueryRe
 }
 
 /** The signed link of one page image (`vision.readUrl` page), asked again before it runs out. */
-export function usePageImage(artifactId: string, page: number | null): UseQueryResult<{ url: string; expiresAt: number }> {
+export function usePageImage(artifactId: string, page: number | null, band?: number): UseQueryResult<{ url: string; expiresAt: number }> {
   return useQuery({
-    queryKey: visionKeys.image(artifactId, page ?? 0),
-    queryFn: () => visionApi().readUrl({ artifactId, what: "page", page: page! }),
+    queryKey: visionKeys.image(artifactId, page ?? 0, band),
+    queryFn: () => visionApi().readUrl(band ? { artifactId, what: "page", page: page!, band } : { artifactId, what: "page", page: page! }),
     enabled: page !== null,
     staleTime: PAGE_LINK_FRESH_MS,
     refetchInterval: PAGE_LINK_FRESH_MS,
@@ -108,13 +108,16 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
       setOutcome(null);
       try {
         const api = visionApi();
-        if (needsBytes) {
+        const withBytes = async () => {
           setProgress({ phase: "opening" });
           const link = await api.readUrl({ artifactId, what: "raw" });
           const res = await fetch(link.url, { signal });
           if (!res.ok) throw Object.assign(new Error(`read failed (${res.status})`), { data: { code: res.status === 404 ? "NOT_FOUND" : "UNKNOWN" } });
           const file = await res.blob();
           setOutcome(await readVisualBytes({ api, artifactId, file, kind, signal, onProgress: setProgress }));
+        };
+        if (needsBytes) {
+          await withBytes();
         } else {
           const due = (pages ?? []).filter((p) => p.state === "ready").map((p) => p.page);
           const total = (pages ?? []).length;
@@ -122,7 +125,9 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
             await readOnePage(artifactId, page, (p) => setProgress(p), total, signal);
           }
           const after = await api.pages({ artifactId });
-          if (after.settled) await finishFile(api, artifactId);
+          // A page the server wants in bands is cut from the file's own pixels, so the bytes come back for it.
+          if (after.pages.some((p) => p.next === "band")) await withBytes();
+          else if (after.settled) await finishFile(api, artifactId);
         }
         setPhase("done");
       } catch (e) {
@@ -144,9 +149,11 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
 /** One page, read again while the answer says retry (at most the server's per-page cap in one go). */
 async function readOnePage(artifactId: string, page: number, onProgress: (p: VisionProgress) => void, total: number, signal?: AbortSignal): Promise<VisionPageView> {
   let view: VisionPageView | null = null;
-  for (let i = 0; i < PAGE_READS_PER_PASS; i += 1) {
+  // A page read in bands takes one call per band, each band with its own cap: PAGE_CALLS_PER_PASS covers them.
+  for (let i = 0; i < PAGE_CALLS_PER_PASS; i += 1) {
     if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    onProgress({ phase: "reading", page, total });
+    const bands = view?.bands ?? null;
+    onProgress(bands?.next ? { phase: "reading", page, total, band: { index: bands.next, total: bands.total } } : { phase: "reading", page, total });
     view = await visionApi().readPage({ artifactId, page });
     if (view.next !== "retry") break;
   }

@@ -68,7 +68,9 @@ export function visionPageRow(view: VisionPageView, canUpload: boolean): VisionP
 export function visionFileActions(pages: readonly VisionPageView[], settled: boolean): { carryOn: boolean; needsBytes: boolean; finish: boolean } {
   const waiting = pages.some((p) => p.state === "waiting");
   const due = pages.some((p) => p.state === "ready");
-  return { carryOn: waiting || due, needsBytes: waiting, finish: settled };
+  // A page the server wants in bands is cut from the file's pixels, so it needs the bytes too.
+  const toCut = pages.some((p) => p.next === "band");
+  return { carryOn: waiting || due, needsBytes: waiting || toCut, finish: settled };
 }
 
 export type VisionCell = {

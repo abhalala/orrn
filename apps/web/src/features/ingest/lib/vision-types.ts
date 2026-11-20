@@ -10,6 +10,7 @@ import type {
   VisionPageState as ServerPageState,
   VisionPageView as ServerPageView,
   VisionStartOut as ServerStartOut,
+  VisionBandTicketsOut as ServerBandTicketsOut,
 } from "@orrn/server/lib/ingest/types";
 
 /** The server's lists, copied as values (nothing from the server reaches the bundle); the checks below keep them equal. */
@@ -29,16 +30,12 @@ void statesMatch;
 void reasonsMatch;
 
 /**
- * Contract section 11.3: a page read in bands carries `bands { total, read }` while banding. Optional here until the
- * server's page view has it.
+ * One page (contract sections 7 and 11.3). `next: "band"`: a scan or photo read whole was too dense, so the browser cuts
+ * it into bands. `bands { total, read, next }` while the page is read in bands; `bandHeaders` with `next: "band"`.
  */
-export type VisionBands = { total: number; read: number };
-
-export type VisionPageView = Omit<ServerPageView, "next"> & {
-  /** Section 11.3: "band" when a scan or photo must be cut into bands and read band by band. */
-  next: ServerPageView["next"] | "band";
-  bands?: VisionBands | null;
-};
+export type VisionPageView = ServerPageView;
+export type VisionBands = NonNullable<ServerPageView["bands"]>;
+export type VisionBandTicketsOut = ServerBandTicketsOut;
 
 export type VisionPageTicket = ServerStartOut["uploads"][number];
 
@@ -54,7 +51,7 @@ export type VisionPagesOut = { pageCount: number; planned: number; pages: Vision
  */
 export type BlockVision = Omit<BlockVisionView, "unseen" | "bands"> & { unseen?: BlockVisionView["unseen"]; bands?: BlockVisionView["bands"] };
 
-export type VisionReadUrlIn = { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number };
+export type VisionReadUrlIn = { artifactId: string; what: "raw" } | { artifactId: string; what: "page"; page: number; band?: number };
 
 /** A page is settled once it is read, typed by a person or skipped. */
 export function isSettled(state: VisionPageState): boolean {

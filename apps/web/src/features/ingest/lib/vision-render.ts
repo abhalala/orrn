@@ -240,7 +240,9 @@ export async function openPhoto(blob: Blob): Promise<PageSource> {
     async text() {
       return null;
     },
-    async bands() {
+    async bands(_page, how) {
+      // A photo has no text layer: it is cut only when the server asks for bands.
+      if (how !== "ink") return null;
       const size = bandCanvasSize(bitmap.width, bitmap.height);
       const { canvas, ctx } = canvasOf(size.width, size.height);
       ctx.imageSmoothingQuality = "high";

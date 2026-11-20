@@ -144,13 +144,18 @@ describe("a page read in bands (section 11.3)", () => {
   test("a page waiting on its bands offers type and skip, and says how many parts are read", () => {
     const row = visionPageRow(page({ next: "band" }), true);
     expect(row.actions).toEqual(["type", "skip"]);
-    const part = visionPageRow(page({ bands: { total: 3, read: 1 } }), true);
+    const part = visionPageRow(page({ bands: { total: 3, read: 1, next: 2 } }), true);
     expect(part.actions).toEqual(["type", "skip"]);
     expect(part.bands).toEqual({ key: "ingest.vision.bands", vars: { read: 1, total: 3 } });
   });
 
+  test("a page the server wants in bands asks for the file's bytes on Carry on reading", () => {
+    expect(visionFileActions([page({ next: "band" })], false)).toEqual({ carryOn: true, needsBytes: true, finish: false });
+    expect(visionFileActions([page({ next: "retry", bands: { total: 2, read: 1, next: 2 } })], false)).toEqual({ carryOn: true, needsBytes: false, finish: false });
+  });
+
   test("a read page shows no parts line and no actions; a viewer who cannot upload gets no actions", () => {
-    const read = visionPageRow(page({ state: "read", next: "done", bands: { total: 3, read: 3 } }), true);
+    const read = visionPageRow(page({ state: "read", next: "done", bands: { total: 3, read: 3, next: null } }), true);
     expect(read.bands).toBeNull();
     expect(read.actions).toEqual([]);
     expect(visionPageRow(page({ next: "band" }), false).actions).toEqual([]);

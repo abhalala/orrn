@@ -4,17 +4,20 @@ import { PAGE_READS_PER_PASS, finishFile, runVisionPump, type VisionProgress } f
 import { pageResultWords, visionProgressWords } from "./vision-words";
 import type { VisionApi } from "./vision-api";
 import type { PageSource } from "./vision-render";
-import type { VisionPageView, VisionPageState, VisionStartOut } from "./vision-types";
+import type { VisionBandTicketsOut, VisionPageView, VisionPageState, VisionStartOut } from "./vision-types";
 
 const ARTIFACT = "art-1";
 
 const view = (page: number, state: VisionPageState, over: Partial<VisionPageView> = {}): VisionPageView => ({
-  page, state, reason: null, canRetry: false, next: state === "read" ? "done" : null, attempts: 1, blockIds: [], tables: state === "read" ? 1 : 0, ...over,
+  page, state, reason: null, canRetry: false, next: state === "read" ? "done" : null, attempts: 1, blockIds: [], tables: state === "read" ? 1 : 0,
+  bands: null, bandHeaders: null, ...over,
 });
 
 const ticket = (page: number, n = 1) => ({ page, url: `/files/ingest/upload?ticket=t${page}-${n}`, ticket: `t${page}-${n}`, expiresAt: Date.now() + 600_000 });
 
 type Call = string;
+
+const bandTicket = (page: number, band: number, n = 1) => ({ band, url: `/files/ingest/upload?ticket=p${page}b${band}-${n}`, ticket: `p${page}b${band}-${n}`, expiresAt: Date.now() + 600_000 });
 
 function fakeSource(pageCount: number, calls: Call[]): PageSource {
   return {
@@ -29,7 +32,9 @@ function fakeSource(pageCount: number, calls: Call[]): PageSource {
 
 type Script = {
   start?: (n: number) => VisionStartOut;
-  readPage?: (page: number, n: number) => VisionPageView | Error;
+  readPage?: (page: number, n: number, band?: number) => VisionPageView | Error;
+  bandTickets?: (page: number, bands: number, n: number) => VisionBandTicketsOut | Error;
+  pagesView?: () => VisionPageView[];
   settled?: boolean;
   complete?: () => Promise<unknown>;
 };
@@ -37,6 +42,7 @@ type Script = {
 function fakeApi(calls: Call[], script: Script = {}): VisionApi {
   let starts = 0;
   const reads = new Map<number, number>();
+  const bandCalls = new Map<number, number>();
   const pages: VisionPageView[] = [];
   return {
     async start(input) {
@@ -44,18 +50,27 @@ function fakeApi(calls: Call[], script: Script = {}): VisionApi {
       calls.push(`start:${input.pageCount}`);
       return script.start?.(starts) ?? { pageCount: input.pageCount, planned: Math.min(input.pageCount, 30), uploads: [1, 2].filter((p) => p <= input.pageCount).map((p) => ticket(p)) };
     },
-    async readPage({ page }) {
+    async readPage({ page, band }) {
       const n = (reads.get(page) ?? 0) + 1;
       reads.set(page, n);
-      calls.push(`read:${page}`);
-      const out = script.readPage?.(page, n) ?? view(page, "read");
+      calls.push(band ? `read:${page}:b${band}` : `read:${page}`);
+      const out = script.readPage?.(page, n, band) ?? view(page, "read");
       if (out instanceof Error) throw out;
       pages[page - 1] = out;
       return out;
     },
+    async bandTickets({ page, bands }) {
+      const n = (bandCalls.get(page) ?? 0) + 1;
+      bandCalls.set(page, n);
+      calls.push(`bands:${page}:${bands}`);
+      const out = script.bandTickets?.(page, bands, n) ?? { page, total: bands, uploads: Array.from({ length: bands }, (_, i) => bandTicket(page, i + 1, n)) };
+      if (out instanceof Error) throw out;
+      return out;
+    },
     async pages() {
       calls.push("pages");
-      return { pageCount: pages.length, planned: pages.length, pages, settled: script.settled ?? true };
+      const list = script.pagesView?.() ?? pages;
+      return { pageCount: list.length, planned: list.length, pages: list, settled: script.settled ?? true };
     },
     async skipPage({ page }) {
       return view(page, "skipped");
@@ -247,3 +262,94 @@ describe("vision pump: page text for the digit check (section 11.5)", () => {
     expect(calls).toContain("put:x1-2:application/json");
   });
 });
+
+describe("vision pump: dense pages in bands (section 11.3)", () => {
+  const blobs = (k: number) => Array.from({ length: k }, (_, i) => new Blob([`band ${i + 1}`], { type: "image/jpeg" }));
+  const banded = (calls: Call[], pageCount: number, cut: Partial<Record<"text" | "ink", number | null>>): PageSource => ({
+    ...fakeSource(pageCount, calls),
+    async bands(page, how) {
+      calls.push(`cut:${page}:${how}`);
+      const k = cut[how];
+      return k ? blobs(k) : null;
+    },
+  });
+  const one = (pages: number[]) => () => ({ pageCount: pages.length, planned: pages.length, uploads: pages.map((p) => ticket(p)) });
+
+  test("a scan answered next band is cut on blank rows, its bands sent, band 1 read first, then the rest", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, {
+      start: one([1]),
+      readPage: (_p, n, band) => {
+        if (n === 1) return view(1, "ready", { next: "band", bandHeaders: ["Code"] });
+        if (band === 1) return view(1, "ready", { next: "retry", bands: { total: 3, read: 1, next: 2 } });
+        if (n === 3) return view(1, "ready", { next: "retry", bands: { total: 3, read: 2, next: 3 } });
+        return view(1, "read", { bands: null });
+      },
+    });
+    const out = await runVisionPump(ARTIFACT, banded(calls, 1, { ink: 3 }), { api, fetch: fakeFetch(calls) });
+    expect(out.completed).toBe(true);
+    const at = (c: string) => calls.indexOf(c);
+    expect(calls).toContain("cut:1:text");
+    expect(at("cut:1:ink")).toBeGreaterThan(at("read:1"));
+    expect(at("bands:1:3")).toBeGreaterThan(at("cut:1:ink"));
+    for (const k of [1, 2, 3]) expect(at(`put:p1b${k}-1:image/jpeg`)).toBeGreaterThan(at("bands:1:3"));
+    expect(at("read:1:b1")).toBeGreaterThan(at("put:p1b3-1:image/jpeg"));
+    expect(calls.filter((c) => c.startsWith("read:1")).length).toBe(4);
+  });
+
+  test("a scan the browser cannot cut stays as it is (Type and Skip on the file page), and the pass goes on", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, { start: one([1, 2]), readPage: (p) => (p === 1 ? view(1, "ready", { next: "band" }) : view(2, "read")), settled: false });
+    const out = await runVisionPump(ARTIFACT, banded(calls, 2, { ink: null }), { api, fetch: fakeFetch(calls) });
+    expect(calls.filter((c) => c === "read:1").length).toBe(1);
+    expect(calls.some((c) => c.startsWith("bands:"))).toBe(false);
+    expect(calls).toContain("read:2");
+    expect(out.settled).toBe(false);
+  });
+
+  test("a dense text PDF page goes as bands, counted from the text layer before any call, and its whole image too", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, { start: one([1]), readPage: () => view(1, "read") });
+    await runVisionPump(ARTIFACT, banded(calls, 1, { text: 2 }), { api, fetch: fakeFetch(calls) });
+    const at = (c: string) => calls.indexOf(c);
+    expect(at("bands:1:2")).toBeGreaterThan(at("cut:1:text"));
+    expect(at("put:p1b2-1:image/jpeg")).toBeLessThan(at("read:1"));
+    expect(calls).toContain("put:t1-1:image/jpeg");
+    expect(at("bands:1:2")).toBeLessThan(at("put:t1-1:image/jpeg"));
+  });
+
+  test("a stale band ticket asks for the missing ones again; a band image the server lacks is sent again once", async () => {
+    const calls: Call[] = [];
+    let reads = 0;
+    const api = fakeApi(calls, {
+      // Once the page is cut into bands, vision.start hands no whole-page ticket for it.
+      start: (n) => ({ pageCount: 1, planned: 1, uploads: n === 1 ? [ticket(1)] : [] }),
+      bandTickets: (page, bands, n) => ({ page, total: bands, uploads: n === 1 ? [bandTicket(1, 1, 1), bandTicket(1, 2, 1)] : [bandTicket(1, 2, n)] }),
+      readPage: () => {
+        reads += 1;
+        if (reads === 1) return trpcErrorObj("BAD_REQUEST", "Upload this page first");
+        return view(1, "read");
+      },
+      pagesView: () => [view(1, "ready", { bands: { total: 2, read: 0, next: 1 } })],
+    });
+    await runVisionPump(ARTIFACT, banded(calls, 1, { text: 2 }), { api, fetch: fakeFetch(calls, (u) => (u.includes("p1b2-1") ? 403 : 200)) });
+    expect(calls).toContain("put:p1b2-2:image/jpeg");
+    // The missing band went again after the server said so, with the same count, and no whole page went again.
+    expect(calls.filter((c) => c === "bands:1:2").length).toBe(3);
+    expect(calls.indexOf("pages")).toBeLessThan(calls.lastIndexOf("bands:1:2"));
+    expect(calls.filter((c) => c.startsWith("put:t1")).length).toBe(1);
+    expect(calls.filter((c) => c === "read:1").length).toBe(2);
+  });
+
+  test("the read of one band is worded with its part", () => {
+    expect(visionProgressWords({ phase: "reading", page: 2, total: 5, band: { index: 1, total: 3 } })).toEqual({
+      key: "ingest.vision.readingBand",
+      vars: { page: 2, total: 5, band: 1, bands: 3 },
+    });
+    expect(visionProgressWords({ phase: "cutting", page: 2, total: 5 })).toEqual({ key: "ingest.vision.cutting", vars: { page: 2, total: 5 } });
+  });
+});
+
+function trpcErrorObj(code: string, message: string): Error {
+  return Object.assign(new Error(message), { data: { code } });
+}

@@ -13,8 +13,12 @@ export function visionProgressWords(p: VisionProgress): Words {
       return { key: "ingest.vision.rendering", vars: { page: p.page, total: p.total } };
     case "sending":
       return { key: "ingest.vision.sending", vars: { page: p.page, total: p.total } };
+    case "cutting":
+      return { key: "ingest.vision.cutting", vars: { page: p.page, total: p.total } };
     case "reading":
-      return { key: "ingest.vision.reading", vars: { page: p.page, total: p.total } };
+      return p.band
+        ? { key: "ingest.vision.readingBand", vars: { page: p.page, total: p.total, band: p.band.index, bands: p.band.total } }
+        : { key: "ingest.vision.reading", vars: { page: p.page, total: p.total } };
     case "page":
       return pageResultWords(p.view, p.total);
     case "finishing":
@@ -40,6 +44,7 @@ export function pageResultWords(view: Pick<VisionPageView, "page" | "state" | "t
 export function visionShare(p: VisionProgress): number | null {
   switch (p.phase) {
     case "opening":
+    case "cutting":
       return null;
     case "rendering":
     case "sending":

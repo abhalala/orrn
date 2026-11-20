@@ -49,7 +49,7 @@ export { useRowsBrowser } from "./use-rows-browser";
 export * from "./vision-types";
 export * from "./vision-words";
 export * from "./vision-bands";
-export { runVisionPump, finishFile, openPages, PAGE_READS_PER_PASS, START_AGAINS, type VisionProgress, type VisionPumpDeps, type VisionPumpResult } from "./vision-pump";
+export { runVisionPump, finishFile, openPages, PAGE_READS_PER_PASS, PAGE_CALLS_PER_PASS, START_AGAINS, type VisionProgress, type VisionPumpDeps, type VisionPumpResult } from "./vision-pump";
 export { plannedPages, pageNumbers, capLine, pdfCanvasSize, photoCanvasSize, isVisualKind, RenderError, type PageSource } from "./vision-render";
 export { readVisualBytes, uploadVisionHook, cannotReadNow, type VisualReadOutcome } from "./vision-read";
 export { visionApi, setVisionApiForTests, type VisionApi } from "./vision-api";
