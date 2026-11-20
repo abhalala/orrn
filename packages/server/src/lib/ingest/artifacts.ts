@@ -40,6 +40,7 @@ import {
 } from "./core";
 import { guessArtifactPeriod } from "./period";
 import { visionAllSettled } from "./vision";
+import { goesInParts, madeFromParts, partCountFor, RAW_PART_BYTES, uploadComplete } from "./upload-parts";
 import { canonicalKey, CANONICAL_MAX_BYTES, digestKey, ingestVault, issueTicket, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
@@ -59,9 +60,6 @@ import {
 
 const OPEN_STATES_EXCLUDED = ["merged", "discarded"] as const;
 
-function mb(n: number): number {
-  return Math.round(n / 1024 / 1024);
-}
 
 /** Rows staged in candidates that are neither merged nor discarded (plan A9, 300,000 per plant). */
 export async function openStagedRows(ctx: Pick<IngestCtx, "db" | "companyId">): Promise<number> {
@@ -121,18 +119,18 @@ export async function beginArtifact(
   ctx: IngestCtx,
   input: { sha256: string; fileName: string; sizeBytes: number; contentType: string | null; kind: ArtifactKind; note?: string },
 ): Promise<ArtifactBeginOut> {
-  const limit = INGEST_LIMITS.maxFileBytes[input.kind];
-  if (input.sizeBytes > limit) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${input.fileName} is too big. The limit for this kind of file is ${mb(limit)} MB.` });
-  }
+  // No size refusal by kind (limits brief part B): a file over one part goes to the vault in parts.
   // M-2: the kind the browser sends must agree with the file's name and type.
   if (!kindFits(input.kind, input.fileName, input.contentType)) throw new TRPCError({ code: "BAD_REQUEST", message: KIND_MISMATCH });
   const ready = vaultReady();
   // A PDF or photo is only kept in this release, so with no vault there is nothing to keep it in.
   const keptOnly = isKeptUnread(input.kind);
   if (keptOnly && !ready) throw new TRPCError({ code: "PRECONDITION_FAILED", message: KEPT_UNREAD_NO_STORAGE });
-  const ticketFor = (artifactId: string) =>
-    issueTicket(ctx, {
+  const inParts = goesInParts(input.sizeBytes);
+  const partsOut = inParts ? { partSize: RAW_PART_BYTES, partCount: partCountFor(input.sizeBytes) } : null;
+  /** The single signed PUT for a file of one part; null for a file that goes in parts (`parts` says how). */
+  const ticketFor = async (artifactId: string): Promise<ArtifactBeginOut["upload"]> =>
+    inParts ? null : issueTicket(ctx, {
       purpose: "ingest-raw",
       companyId: ctx.companyId,
       userId: ctx.session.user.id,
@@ -184,7 +182,8 @@ export async function beginArtifact(
       { code: "CONFLICT", message: "This file is being read in another tab. Reload and try again." },
     );
     let upload: ArtifactBeginOut["upload"] = null;
-    if (existing.vaultState !== "stored" && ready) {
+    const needsBytes = existing.vaultState !== "stored" && ready;
+    if (needsBytes) {
       upload = await ticketFor(existing.id);
       if (existing.vaultState === "not_stored") {
         await ctx.db
@@ -193,13 +192,14 @@ export async function beginArtifact(
           .where(and(eq(ingestArtifact.id, existing.id), eq(ingestArtifact.companyId, ctx.companyId)));
       }
     }
-    return { artifactId: existing.id, existing: false, uploadedAt: existing.createdAt.getTime(), upload };
+    return { artifactId: existing.id, existing: false, uploadedAt: existing.createdAt.getTime(), upload, parts: needsBytes ? partsOut : null };
   }
   if (existing) {
     // The same bytes again: open the existing artifact. When its bytes are not in the vault yet and
     // the vault is ready now, hand out a ticket to attach them (plan A2, "No R2").
     let upload: ArtifactBeginOut["upload"] = null;
-    if (existing.vaultState !== "stored" && ready && existing.sizeBytes === input.sizeBytes) {
+    const sendsBytes = existing.vaultState !== "stored" && ready && existing.sizeBytes === input.sizeBytes;
+    if (sendsBytes) {
       upload = await ticketFor(existing.id);
       if (existing.vaultState === "not_stored") {
         await ctx.db
@@ -208,7 +208,7 @@ export async function beginArtifact(
           .where(and(eq(ingestArtifact.id, existing.id), eq(ingestArtifact.companyId, ctx.companyId)));
       }
     }
-    return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload };
+    return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload, parts: sendsBytes ? partsOut : null };
   }
 
   if (!keptOnly && (await openStagedRows(ctx)) >= (await effectiveLimits(ctx)).openRowsPerPlant) {
@@ -248,7 +248,7 @@ export async function beginArtifact(
     }
     throw e;
   }
-  return { artifactId: id, existing: false, uploadedAt: at.getTime(), upload: ready ? await ticketFor(id) : null };
+  return { artifactId: id, existing: false, uploadedAt: at.getTime(), upload: ready ? await ticketFor(id) : null, parts: ready ? partsOut : null };
 }
 
 /** A failed read, or a read that found no table (a scan or photo the browser cannot read), may run again. */
@@ -289,6 +289,8 @@ export async function commitRaw(ctx: IngestCtx, artifactId: string): Promise<{ v
   if (!bucket) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File storage is not set up for this plant yet" });
   const head = await bucket.head(rawKey(ctx.companyId, a.sha256));
   if (!head) throw new TRPCError({ code: "BAD_REQUEST", message: "The file has not arrived yet. Try again." });
+  // An object made from parts counts as stored only once its whole SHA-256 is checked.
+  if (madeFromParts(head)) return uploadComplete(ctx, artifactId);
   if (head.size !== a.sizeBytes) throw new TRPCError({ code: "BAD_REQUEST", message: "The stored file size does not match" });
   await ctx.db
     .update(ingestArtifact)

@@ -80,7 +80,7 @@ export function dieFileSigningReady(): boolean {
  * Purposes an HMAC key is derived for. The ingest ones sign Infinity Portal upload tickets (plan A2)
  * and, with `ingest-read`, the signed read of a raw file or page image (vision read, contract section 8).
  */
-export type HmacPurpose = "orrn-die-files" | "orrn-die-upload" | "ingest-raw" | "ingest-canonical" | "ingest-page" | "ingest-read";
+export type HmacPurpose = "orrn-die-files" | "orrn-die-upload" | "ingest-raw" | "ingest-canonical" | "ingest-page" | "ingest-read" | "ingest-part";
 
 /**
  * HMAC key for one purpose. Throws PRECONDITION_FAILED when ORRN_MASTER_KEY is missing. Exported so

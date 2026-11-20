@@ -13,6 +13,7 @@ import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/vault";
+import { handleIngestPart } from "@orrn/server/lib/ingest/upload-parts";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
@@ -53,7 +54,9 @@ app.use(
     origin: (origin) => resolveCorsOrigin(env, origin),
     // PUT: the signed die-file and import uploads (`/files/dies/upload`, `/files/ingest/upload`), straight from the browser.
     allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
+    // Range: "Read this file" reads a large PDF back in pieces (`/files/ingest/read`, 206).
+    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company", "Range"],
+    exposeHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
     credentials: true,
   }),
 );
@@ -164,6 +167,9 @@ app.put("/files/ingest/upload", (c) => handleIngestUpload(c.req.raw));
 // ticket is refused here and a read ticket is refused by the upload route. Raw files go out as an
 // octet-stream attachment, page images as inline JPEG, both sandboxed.
 app.get("/files/ingest/read", (c) => handleIngestRead(c.req.raw));
+// Chunked raw upload (limits brief part B): one part of a file over 16 MiB, signed by `ingest.artifact.uploadTickets`
+// (purpose `ingest-part` only, 10 minutes). The part's SHA-256 is checked as it streams into R2.
+app.put("/files/ingest/part", (c) => handleIngestPart(c.req.raw));
 
 app.use(
   "/trpc/*",

@@ -35,14 +35,6 @@ export type IngestCtx = Pick<Context, "request" | "impersonation" | "ingestSourc
 
 /** Plan A9. One object so the browser and the server read the same numbers. */
 export const INGEST_LIMITS = {
-  maxFileBytes: {
-    sheet: 20 * 1024 * 1024,
-    csv: 50 * 1024 * 1024,
-    sql: 100 * 1024 * 1024,
-    pdf_text: 25 * 1024 * 1024,
-    pdf_scan: 25 * 1024 * 1024,
-    image: 10 * 1024 * 1024,
-  } satisfies Record<ArtifactKind, number>,
   filesPerUpload: 20,
   blocksPerFile: 50,
   columnsPerBlock: 200,
@@ -84,8 +76,13 @@ export type ArtifactBeginOut = {
   existing: boolean;
   /** When the artifact was first uploaded (ms), for "You uploaded this file on {date}". */
   uploadedAt: number;
-  /** Null when the vault is off or the bytes are already stored. */
+  /** The single signed PUT. Null when the vault is off, the bytes are already stored, or the file goes in parts. */
   upload: UploadTicketOut | null;
+  /**
+   * Set when the bytes go to the vault in parts (a file over one part, limits brief part B): `artifact.uploadStart`,
+   * `uploadTickets`, the part PUTs, then `uploadComplete`. Null otherwise.
+   */
+  parts: { partSize: number; partCount: number } | null;
 };
 
 /** One block the browser read (A1). The server recomputes kinds and the header key from it. */

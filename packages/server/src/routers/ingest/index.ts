@@ -35,6 +35,8 @@ import {
   answerSetInput,
   artifactIdInput,
   beginInput,
+  uploadStartInput,
+  uploadTicketsInput,
   candidateIdInput,
   candidateListInput,
   candidateSeqInput,
@@ -104,6 +106,7 @@ import {
   visionFixCell,
 } from "../../lib/ingest/candidates";
 import { dryRunStep } from "../../lib/ingest/dryrun";
+import { uploadAbort, uploadComplete, uploadStart, uploadTickets, type PartTicketOut, type UploadStartOut } from "../../lib/ingest/upload-parts";
 import { visionBandTickets, visionFinishRest, visionNextBatch, visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
 import { mergeEngine } from "../../lib/ingest/engines";
 import type { IngestCtx } from "../../lib/ingest/types";
@@ -125,6 +128,13 @@ export const ingestRouter = router({
     commitRaw: U.input(artifactIdInput).mutation(
       ({ ctx, input }): Promise<{ vaultState: ArtifactSummary["vaultState"] }> => commitRaw(ix(ctx), input.artifactId),
     ),
+    /** Chunked upload (limits brief part B): a file over one part goes to the vault in parts, each checked by its digest. */
+    uploadStart: U.input(uploadStartInput).mutation(({ ctx, input }): Promise<UploadStartOut> => uploadStart(ix(ctx), input)),
+    uploadTickets: U.input(uploadTicketsInput).mutation(({ ctx, input }): Promise<{ tickets: PartTicketOut[] }> => uploadTickets(ix(ctx), input)),
+    uploadComplete: U.input(artifactIdInput).mutation(
+      ({ ctx, input }): Promise<{ vaultState: ArtifactSummary["vaultState"] }> => uploadComplete(ix(ctx), input.artifactId),
+    ),
+    uploadAbort: U.input(artifactIdInput).mutation(({ ctx, input }): Promise<{ aborted: boolean }> => uploadAbort(ix(ctx), input.artifactId)),
     putBlocks: U.input(putBlocksInput).mutation(
       ({ ctx, input }): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[]; header: HeaderAnswer[] }> =>
         putBlocks(ix(ctx), input),

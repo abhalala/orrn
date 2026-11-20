@@ -186,11 +186,18 @@ describe("artifact.begin", () => {
     expect(again.upload).toBeNull();
   });
 
-  test("a file over its kind's limit is refused", async () => {
+  test("no size refusal by kind (limits brief part B): a photo over the old 10 MB limit begins and goes in parts", async () => {
     const p = await plant();
-    await expect(
-      p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "big.png", sizeBytes: 11 * 1024 * 1024, contentType: "image/png", kind: "image" }),
-    ).rejects.toThrow(/too big/);
+    workersEnv.INGEST_VAULT = new FakeR2();
+    const out = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "big.png", sizeBytes: 21 * 1024 * 1024, contentType: "image/png", kind: "image" });
+    expect(out.existing).toBe(false);
+    expect(out.upload).toBeNull();
+    expect(out.parts).toEqual({ partSize: 16 * 1024 * 1024, partCount: 2 });
+    // A sheet over the old 20 MB limit, with no vault: begun, read from D1 staged rows, nothing to send.
+    delete workersEnv.INGEST_VAULT;
+    const sheet = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "big.xlsx", sizeBytes: 21 * 1024 * 1024, contentType: null, kind: "sheet" });
+    expect(sheet.upload).toBeNull();
+    expect(sheet.parts).toBeNull();
   });
 });
 

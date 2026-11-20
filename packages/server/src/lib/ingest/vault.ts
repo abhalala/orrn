@@ -12,7 +12,9 @@
  *   the three upload purposes and the read route only `ingest-read`.
  * - The raw PUT passes the ticket's SHA-256 to R2 (`sha256` put option), so R2 itself refuses bytes that
  *   do not match the digest. Checked on Miniflare: a wrong digest is refused with code 10037.
- * - No procedure deletes vault objects. Discarding an artifact keeps its bytes.
+ * - A file over one part goes in parts (`upload-parts.ts`): each part checked by its SHA-256 as it streams, the whole
+ *   file checked after complete. Only a mismatch or an unfinished upload taken off the strip deletes a raw object;
+ *   discarding an import keeps its bytes.
  */
 import { createDb } from "@orrn/db";
 import { VISION_PARAMS } from "@orrn/ingest";
@@ -277,14 +279,29 @@ export async function handleIngestRead(request: Request, opts: { bucket?: R2Buck
   if (!bucket) return text("File storage is not set up", 503);
   const ticket = await readIngestReadTicket(new URL(request.url).searchParams.get("ticket") ?? "", opts.now ?? Date.now());
   if (!ticket) return text("Link expired or not valid", 403);
-  const object = await bucket.get(ticket.key);
-  if (!object) return text("Not found", 404);
   const headers = new Headers({
     "cache-control": "private, max-age=600",
     "x-content-type-options": "nosniff",
     "content-security-policy": "default-src 'none'; sandbox",
     "referrer-policy": "no-referrer",
+    "accept-ranges": "bytes",
   });
+  // A range read (a large PDF read back page by page): one `bytes=` range answers 206; several or a malformed one, the whole object.
+  const wanted = parseByteRange(request.headers.get("range"));
+  let range: { offset: number; length: number; size: number } | null = null;
+  if (wanted) {
+    const head = await bucket.head(ticket.key);
+    if (!head) return text("Not found", 404);
+    const r = resolveByteRange(wanted, head.size);
+    if (!r) {
+      headers.set("content-range", `bytes */${head.size}`);
+      headers.set("content-type", "text/plain; charset=utf-8");
+      return new Response("Range not satisfiable", { status: 416, headers });
+    }
+    range = { ...r, size: head.size };
+  }
+  const object = await bucket.get(ticket.key, range ? { range: { offset: range.offset, length: range.length } } : undefined);
+  if (!object) return text("Not found", 404);
   if (ticket.as === "raw") {
     headers.set("content-type", "application/octet-stream");
     headers.set("content-disposition", "attachment");
@@ -292,5 +309,39 @@ export async function handleIngestRead(request: Request, opts: { bucket?: R2Buck
     headers.set("content-type", VISION_PARAMS.pageContentType);
     headers.set("content-disposition", "inline");
   }
+  if (range) {
+    headers.set("content-range", `bytes ${range.offset}-${range.offset + range.length - 1}/${range.size}`);
+    headers.set("content-length", String(range.length));
+    return new Response(object.body, { status: 206, headers });
+  }
+  headers.set("content-length", String(object.size));
   return new Response(object.body, { status: 200, headers });
+}
+
+type ByteRange = { start: number; end: number | null } | { suffix: number };
+
+/** One `bytes=a-b`, `bytes=a-` or `bytes=-n` range, or null (none, several, or malformed: the whole object is sent). */
+export function parseByteRange(header: string | null): ByteRange | null {
+  if (!header) return null;
+  const m = /^\s*bytes=(\d{0,15})-(\d{0,15})\s*$/i.exec(header);
+  if (!m) return null;
+  const [, a, b] = m as unknown as [string, string, string];
+  if (a === "" && b === "") return null;
+  if (a === "") return Number(b) > 0 ? { suffix: Number(b) } : null;
+  const start = Number(a);
+  const end = b === "" ? null : Number(b);
+  if (end !== null && end < start) return null;
+  return { start, end };
+}
+
+/** The range within an object of `size` bytes, or null when it is past the end (416). */
+export function resolveByteRange(r: ByteRange, size: number): { offset: number; length: number } | null {
+  if ("suffix" in r) {
+    if (size === 0) return null;
+    const length = Math.min(r.suffix, size);
+    return { offset: size - length, length };
+  }
+  if (r.start >= size) return null;
+  const end = Math.min(r.end ?? size - 1, size - 1);
+  return { offset: r.start, length: end - r.start + 1 };
 }
