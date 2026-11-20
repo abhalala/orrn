@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8458 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8459 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7125,7 +7125,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (651)
+### ingest (652)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7150,6 +7150,7 @@ Please check, Lalubhai:
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.uploadingParts` | Saving the original file: {done} of {total} parts | असली फ़ाइल सेव कर रहे हैं: {total} में से {done} हिस्से |
 | `read.tooLargeToRead` | {name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} सेव हो गई। यह इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
+| `read.tooLargeNotSaved` | {name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |

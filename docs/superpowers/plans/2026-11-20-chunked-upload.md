@@ -65,6 +65,15 @@ purposes, the read route only `ingest-read`.
   discard procedure; the strip's remove is the discard).
 - `commitRaw`: an object with `customMetadata.upload = "parts"` is stored only through the check of `uploadComplete`.
 
+Server sentences, verbatim (the web maps the first three in `errors.ts` `UPLOAD_SENTENCES`; the last two mean a
+broken client and fall to the generic action words):
+
+- "Some parts of the file have not arrived. Add the same file again to send them."
+- "The file does not match its digest"
+- "The upload ran out. Add the same file again."
+- "This file is sent in one piece"
+- "The part list does not match this file"
+
 ## 6. Part route `PUT /files/ingest/part?ticket=...`
 
 Ticket checked; Content-Length must equal the ticket's part size; the plan must still name the ticket's upload id
@@ -129,7 +138,7 @@ are settled and the rows sent (`upload.ts`, `ReadBlock.rows`), so a 1,000,000-ro
 parses it. A DuckDB lane would have to send rows to `putRows` batch by batch as it scans.
 
 Fallback in place (B.4): CSV and SQL are read as streams, and a CSV stops at the rows per file. CSV or SQL text past
-200 M characters, and a workbook past 60 MB, are kept in the vault with plain words ("too large for this browser to
+150 M characters, and a workbook past 40 MB (twice the old upload limits; chosen, not measured in the reader worker), are kept in the vault with plain words ("too large for this browser to
 read"). Phones keep the same readers.
 
 If the owner wants files past those sizes read in the browser, the next step is a CSV-only DuckDB lane: the wasm on

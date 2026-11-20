@@ -33,6 +33,7 @@ export const ingestEn = {
     // chunked upload (limits brief part B)
     uploadingParts: "Saving the original file: {done} of {total} parts",
     tooLargeToRead: "{name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files.",
+    tooLargeNotSaved: "{name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files.",
     failed: "orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again.",
     canonicalMissing: "The file was imported. The backup copy of its rows could not be saved, which does not change this import.",
     sending: "Sending {done} of {total} rows",

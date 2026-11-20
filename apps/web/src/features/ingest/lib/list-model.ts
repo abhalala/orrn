@@ -451,7 +451,7 @@ export function uploadStrip(
           item.keptWhy === "cannotOpen"
             ? { key: "ingest.vision.cannotOpen" }
             : item.keptWhy === "tooLargeToRead"
-              ? { key: "ingest.read.tooLargeToRead", vars: { name: item.name } }
+              ? { key: item.notStored ? "ingest.read.tooLargeNotSaved" : "ingest.read.tooLargeToRead", vars: { name: item.name } }
               : { key: "ingest.kept.added" };
         break;
       case "pages":

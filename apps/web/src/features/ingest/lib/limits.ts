@@ -104,10 +104,12 @@ export function fileSizeProblem(file: { name: string; size: number; type?: strin
 /**
  * How much this browser reads (limits brief part B.4). Past these the file is kept in the vault, not refused, and the
  * screen says it is too large to read in this browser. A workbook is opened whole by the sheet library (several times
- * its size in memory); CSV and SQL text is held as one string for the readers.
+ * its size in memory); CSV and SQL text is held as one string, then as rows, for the readers. Twice the old upload
+ * limits (sheet 20 MB; CSV 50 MB and SQL 100 MB of text), chosen, not measured in the reader worker: a 515 MB text read
+ * and split alone took a WebKit tab to about 2 GB (plan 2026-11-20-chunked-upload.md section 11).
  */
-export const BROWSER_SHEET_MAX_BYTES = 60 * MB;
-export const BROWSER_TEXT_MAX_CHARS = 200 * MB;
+export const BROWSER_SHEET_MAX_BYTES = 40 * MB;
+export const BROWSER_TEXT_MAX_CHARS = 150 * MB;
 
 /** Why a read file is refused (too many rows), or null. */
 export function rowCountProblem(name: string, rawRows: number, limits: IngestLimits = DEFAULT_LIMITS): FileProblem | null {

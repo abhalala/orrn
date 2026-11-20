@@ -230,6 +230,17 @@ describe("the upload strip (M3, M6)", () => {
     expect(failed).toMatchObject({ actions: ["retry"], words: { key: "ingest.read.failed" } });
   });
 
+  test("chunked upload: parts saved show a bar, a file too large to read says so (saved or not), upload refusals keep their words", () => {
+    const [saving] = uploadStrip([item({ step: "saving", saved: { parts: 3, total: 12 } })], [], { count: String, date: String });
+    expect(saving).toMatchObject({ words: { key: "ingest.read.uploadingParts", vars: { done: "3", total: "12" } }, progress: 0.25 });
+    const [kept] = uploadStrip([item({ step: "kept", keptWhy: "tooLargeToRead", name: "big.xlsx" })], []);
+    expect(kept).toMatchObject({ words: { key: "ingest.read.tooLargeToRead", vars: { name: "big.xlsx" } } });
+    const [notSaved] = uploadStrip([item({ step: "kept", keptWhy: "tooLargeToRead", name: "big.xlsx", notStored: true })], []);
+    expect(notSaved).toMatchObject({ words: { key: "ingest.read.tooLargeNotSaved", vars: { name: "big.xlsx" } } });
+    const [ranOut] = uploadStrip([item({ step: "failed", problem: { key: "ingest.upload.error.ranOut" } })], []);
+    expect(ranOut).toMatchObject({ actions: ["retry"], words: { key: "ingest.upload.error.ranOut" } });
+  });
+
   test("an import being checked shows in the strip with a Checking rows chip and a bar, not in a segment", () => {
     const list = [cand({ id: "p", state: "processing", counts: { total: 100, create: 40, unchanged: 10 } })];
     const strip = uploadStrip([], list);
