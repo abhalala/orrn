@@ -32,6 +32,13 @@ jobs:
       # Google sign-in. Optional: without both the sign-in screens hide Google. Set the pair together.
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # orrn buddy (Hermes). Optional: without all four HERMES_* the bubble is hidden and /buddy/chat answers 404.
+      HERMES_BASE_URL: ${{ secrets.HERMES_BASE_URL }}
+      HERMES_ACCESS_CLIENT_ID: ${{ secrets.HERMES_ACCESS_CLIENT_ID }}
+      HERMES_ACCESS_CLIENT_SECRET: ${{ secrets.HERMES_ACCESS_CLIENT_SECRET }}
+      HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
+      # Company slugs that may connect the buddy (v1: fourcubesllp). Not a secret.
+      BUDDY_COMPANIES: ${{ vars.BUDDY_COMPANIES }}
       # Native passkeys. Optional, not secrets (a repo variable or a secret works): without them the apps hide their passkey button.
       # The Apple Team ID and the Android release certificate SHA-256 (the Android passkey origin is derived from it; a given hash must agree).
       ORRN_APPLE_TEAM_ID: ${{ vars.ORRN_APPLE_TEAM_ID || secrets.ORRN_APPLE_TEAM_ID }}

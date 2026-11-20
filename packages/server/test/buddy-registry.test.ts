@@ -129,6 +129,14 @@ describe("every router and every ingest procedure has a decision", () => {
     expect(decideBuddyPath("__proto__").kind).toBe("deny");
     expect(decideBuddyPath("constructor.x").kind).toBe("deny");
   });
+
+  test("the pending release 2 decisions apply at run time, so the page tick is denied the day it merges", async () => {
+    const { decideBuddyPath } = await load();
+    // decideBuddyPath is what the registry stores per procedure; a pending entry wins over the router once the path exists.
+    expect(decideBuddyPath("ingest.vision.check").kind).toBe("deny");
+    expect(decideBuddyPath("ingest.vision.start").kind).toBe("deny");
+    expect(decideBuddyPath("ingest.vision.readPage").kind).toBe("allow");
+  });
 });
 
 describe("the decisions themselves", () => {

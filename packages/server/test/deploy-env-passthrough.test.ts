@@ -48,10 +48,12 @@ describe("deploy env reaches alchemy through turbo", () => {
     for (const n of ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "MODEL_ACCESS_CLIENT_ID", "MODEL_ACCESS_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
   });
 
-  test("the buddy's five names pass through (design 2026-11-18, §6)", () => {
+  test("the buddy's five names pass through and both workflows set them (design 2026-11-18, §6)", () => {
+    const names = ["HERMES_BASE_URL", "HERMES_ACCESS_CLIENT_ID", "HERMES_ACCESS_CLIENT_SECRET", "HERMES_API_KEY", "BUDDY_COMPANIES"];
     const allowed = passThrough();
-    for (const n of ["HERMES_BASE_URL", "HERMES_ACCESS_CLIENT_ID", "HERMES_ACCESS_CLIENT_SECRET", "HERMES_API_KEY", "BUDDY_COMPANIES"]) {
-      expect(allowed.has(n)).toBe(true);
+    for (const n of names) expect(allowed.has(n)).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
+      expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(names));
     }
   });
 
