@@ -34,6 +34,7 @@ import {
   INGEST_LIMITS,
   KEPT_UNREAD_NO_STORAGE,
   VISION_ALREADY_READ,
+  VISION_FILE_FULL,
   VISION_KINDS_ONLY,
   VISION_NOT_READING,
   VISION_NOT_STORED,
@@ -55,8 +56,58 @@ import {
 // Page index (contract section 5)
 // ---------------------------------------------------------------------------
 
-/** `bands`: page number to the bands it is cut into (contract section 11.3), set once by `vision.bandTickets`. */
-export type PagesIndex = { v: 1; pageCount: number; planned: number; skipped: number[]; startedBy: string; startedAt: number; bands?: Record<string, number> };
+/**
+ * `bands`: page number to the bands it is cut into (contract section 11.3), set once by `vision.bandTickets`.
+ * Batches (contract section 12): `planned` is the last page in the plan and grows by `vision.nextBatch`;
+ * `batches` lists each planned range `[from, to]` (missing in an index written before batches: read as
+ * `[[1, planned]]`). `restNotRead`: a person chose to finish with pages past the plan not read
+ * (`vision.finishRest`); `vision.nextBatch` clears it.
+ */
+export type PagesIndex = {
+  v: 1;
+  pageCount: number;
+  planned: number;
+  skipped: number[];
+  startedBy: string;
+  startedAt: number;
+  bands?: Record<string, number>;
+  batches?: [number, number][];
+  restNotRead?: { by: string; at: number };
+};
+
+/** The planned ranges of an index, old ones included. */
+export const batchesOf = (index: PagesIndex): [number, number][] => (Array.isArray(index.batches) && index.batches.length > 0 ? index.batches : [[1, index.planned]]);
+
+/** Keys a page may hold under `pages/`: image, text, tables, and up to 4 bands with their tables. */
+const KEYS_PER_PAGE = 3 + 2 * VISION_PARAMS.maxBandsPerPage;
+/** R2 answers at most 1,000 keys a list call; every listing here asks for that many and follows the cursor. */
+export const LIST_LIMIT = 1000;
+
+/**
+ * Every key under `prefix`, one list call per 1,000 keys, following the cursor. `maxKeys` bounds the calls
+ * (the keys the plan can hold), so a listing never runs away; past it the rest reads as missing.
+ */
+export async function listKeys(bucket: R2Bucket, prefix: string, maxKeys: number): Promise<Set<string>> {
+  const keys = new Set<string>();
+  const calls = Math.ceil(Math.max(1, maxKeys) / LIST_LIMIT) + 1;
+  let cursor: string | undefined;
+  for (let i = 0; i < calls; i++) {
+    const listed = await bucket.list({ prefix, limit: LIST_LIMIT, ...(cursor ? { cursor } : {}) });
+    for (const o of listed.objects) keys.add(o.key);
+    if (!listed.truncated) break;
+    cursor = listed.cursor;
+  }
+  return keys;
+}
+
+/** The `pages/` keys of a file: every planned page's keys, or one page's only (`pages/<n>.` and `pages/<n>/`). */
+async function pageKeys(bucket: R2Bucket, ctx: Pick<IngestCtx, "companyId">, a: ArtifactRow, planned: number, only?: number): Promise<Set<string>> {
+  const prefix = `${artifactPrefix(ctx.companyId, a.sha256)}/pages/`;
+  if (only === undefined) return listKeys(bucket, prefix, planned * KEYS_PER_PAGE + 1);
+  // The dot and the slash keep page 1 from matching pages 10 to 19.
+  const [own, bands] = await Promise.all([listKeys(bucket, `${prefix}${only}.`, 3), listKeys(bucket, `${prefix}${only}/`, 2 * VISION_PARAMS.maxBandsPerPage)]);
+  return new Set([...own, ...bands]);
+}
 
 /** The bands a page is cut into, or 0 when it is read whole. */
 const bandsOf = (index: PagesIndex, page: number): number => {
@@ -354,34 +405,27 @@ type FileFacts = {
 async function loadFacts(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow, index: { index: PagesIndex; etag: string }, only?: number): Promise<FileFacts> {
   const planned = index.index.planned;
   const pages = only !== undefined ? [only] : Array.from({ length: planned }, (_, i) => i + 1);
-  const prefix = `${artifactPrefix(ctx.companyId, a.sha256)}/pages/`;
-  const keys = new Set<string>();
-  let cursor: string | undefined;
-  for (let i = 0; i < 10; i++) {
-    const listed = await bucket.list({ prefix, ...(cursor ? { cursor } : {}) });
-    for (const o of listed.objects) keys.add(o.key);
-    if (!listed.truncated) break;
-    cursor = listed.cursor;
-  }
-  // The page keys and, for a page cut into bands, its band keys. Up to 30 x 5 keys: the IN list is cut
-  // into parts under D1's 100 bound parameters.
-  const runKeys = pages.flatMap((p) => [visionPageKey(a.id, p), ...Array.from({ length: bandsOf(index.index, p) }, (_, k) => visionBandKey(a.id, p, k + 1))]);
+  const keys = await pageKeys(bucket, ctx, a, planned, only);
   type RunRow = { blockId: string; attempt: number; model: string; outcome: string; errorCodes: string[] | null; createdAt: Date };
-  const runs: RunRow[] = [];
-  for (let i = 0; i < runKeys.length; i += 90) {
-    const part = runKeys.slice(i, i + 90);
-    runs.push(
-      ...((await ctx.db
-        .select({ blockId: ingestBotRun.blockId, attempt: ingestBotRun.attempt, model: ingestBotRun.model, outcome: ingestBotRun.outcome, errorCodes: ingestBotRun.errorCodes, createdAt: ingestBotRun.createdAt })
-        .from(ingestBotRun)
-        .where(and(eq(ingestBotRun.companyId, ctx.companyId), eq(ingestBotRun.purpose, "vision"), inArray(ingestBotRun.blockId, part)))
-        .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt))) as RunRow[]),
-    );
+  const cols = { blockId: ingestBotRun.blockId, attempt: ingestBotRun.attempt, model: ingestBotRun.model, outcome: ingestBotRun.outcome, errorCodes: ingestBotRun.errorCodes, createdAt: ingestBotRun.createdAt };
+  // One page: its page key and band keys (at most 5, one IN list). The whole file: every run key of the
+  // artifact (`<id>:p...`) by one range on `block_id`, which the block index serves at any page count.
+  const keyFilter =
+    only !== undefined
+      ? inArray(ingestBotRun.blockId, [visionPageKey(a.id, only), ...Array.from({ length: bandsOf(index.index, only) }, (_, k) => visionBandKey(a.id, only, k + 1))])
+      : and(sql`${ingestBotRun.blockId} >= ${`${a.id}:p`}`, sql`${ingestBotRun.blockId} < ${`${a.id}:q`}`);
+  const runs = (await ctx.db
+    .select(cols)
+    .from(ingestBotRun)
+    .where(and(eq(ingestBotRun.companyId, ctx.companyId), eq(ingestBotRun.purpose, "vision"), keyFilter))
+    .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt))) as RunRow[];
+  const byKey = new Map<string, BotRunHistoryRow[]>();
+  for (const r of runs) {
+    const list = byKey.get(r.blockId) ?? [];
+    list.push({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome as never), errorCodes: r.errorCodes });
+    byKey.set(r.blockId, list);
   }
-  const historyOf = (key: string) =>
-    runs
-      .filter((r) => r.blockId === key)
-      .map((r) => ({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome as never), errorCodes: r.errorCodes }));
+  const historyOf = (key: string): BotRunHistoryRow[] => byKey.get(key) ?? [];
   const blocks = await ctx.db
     .select({ id: ingestBlock.id, ordinal: ingestBlock.ordinal, readBy: ingestBlock.readBy, readerFacts: ingestBlock.readerFacts })
     .from(ingestBlock)
@@ -492,6 +536,7 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
       startedBy: ctx.session.user.id,
       startedAt: now().getTime(),
     };
+    body.batches = [[1, body.planned]];
     const put = await bucket.put(pagesIndexKey(ctx.companyId, a.sha256), JSON.stringify(body), {
       httpMetadata: { contentType: "application/json" },
       customMetadata: { companyId: ctx.companyId, artifactId: a.id },
@@ -520,50 +565,115 @@ export async function visionStart(ctx: IngestCtx, input: { artifactId: string; p
       if ((await loadArtifact(ctx, a.id)).readState !== "reading") throw e;
     });
   }
-  const prefix = `${artifactPrefix(ctx.companyId, a.sha256)}/pages/`;
-  const listed = await bucket.list({ prefix });
-  const have = new Set(listed.objects.map((o) => o.key));
+  return planTickets(ctx, a, index.index, await pageKeys(bucket, ctx, a, index.index.planned), 1, index.index.planned);
+}
+
+/**
+ * Upload tickets for pages `from` to `to` with no image yet (a page cut into bands sends its bands
+ * through `vision.bandTickets`), and for a text PDF the page text tickets (contract section 11.5).
+ */
+async function planTickets(ctx: IngestCtx, a: ArtifactRow, index: PagesIndex, have: Set<string>, from: number, to: number): Promise<VisionStartOut> {
+  const ticket = (key: string, size: number, contentType: string, fileName: string) =>
+    issueTicket(ctx, { purpose: "ingest-page", companyId: ctx.companyId, userId: ctx.session.user.id, artifactId: a.id, sha256: a.sha256, key, size, exactSize: false, contentType, fileName });
   const uploads: VisionStartOut["uploads"] = [];
-  for (let p = 1; p <= index.index.planned; p++) {
-    const key = pageKey(ctx.companyId, a.sha256, p);
-    // A page cut into bands sends its bands instead (`vision.bandTickets`).
-    if (have.has(key) || bandsOf(index.index, p) > 0) continue;
-    const t = await issueTicket(ctx, {
-      purpose: "ingest-page",
-      companyId: ctx.companyId,
-      userId: ctx.session.user.id,
-      artifactId: a.id,
-      sha256: a.sha256,
-      key,
-      size: VISION_PARAMS.maxPageBytes,
-      exactSize: false,
-      contentType: VISION_PARAMS.pageContentType,
-      fileName: `${p}.jpg`,
-    });
-    uploads.push({ page: p, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
-  }
-  // A text PDF page also sends its pdfjs text for the digit check (contract section 11.5).
   const texts: VisionStartOut["texts"] = [];
-  if (a.kind === "pdf_text") {
-    for (let p = 1; p <= index.index.planned; p++) {
-      const key = pageTextKey(ctx.companyId, a.sha256, p);
-      if (have.has(key)) continue;
-      const t = await issueTicket(ctx, {
-        purpose: "ingest-page",
-        companyId: ctx.companyId,
-        userId: ctx.session.user.id,
-        artifactId: a.id,
-        sha256: a.sha256,
-        key,
-        size: VISION_PARAMS.maxPageTextBytes,
-        exactSize: false,
-        contentType: "application/json",
-        fileName: `${p}.text.json`,
-      });
+  for (let p = from; p <= to; p++) {
+    const key = pageKey(ctx.companyId, a.sha256, p);
+    if (!have.has(key) && bandsOf(index, p) === 0) {
+      const t = await ticket(key, VISION_PARAMS.maxPageBytes, VISION_PARAMS.pageContentType, `${p}.jpg`);
+      uploads.push({ page: p, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
+    }
+    const textKey = pageTextKey(ctx.companyId, a.sha256, p);
+    if (a.kind === "pdf_text" && !have.has(textKey)) {
+      const t = await ticket(textKey, VISION_PARAMS.maxPageTextBytes, "application/json", `${p}.text.json`);
       texts.push({ page: p, url: t.url, ticket: t.ticket, expiresAt: t.expiresAt });
     }
   }
-  return { pageCount: index.index.pageCount, planned: index.index.planned, uploads, texts };
+  return { pageCount: index.pageCount, planned: index.planned, uploads, texts };
+}
+
+// ---------------------------------------------------------------------------
+// Batches (contract section 12)
+// ---------------------------------------------------------------------------
+
+/**
+ * A page the model can still take today or later: no image yet, an answer or rebuild due, or stopped
+ * by a day cap. A page only a person can settle (typed or skipped: manual reasons, `cap_page`, a page
+ * waiting to be cut) never holds the next batch back.
+ */
+export function openForModel(v: VisionPageView): boolean {
+  if (isSettled(v)) return false;
+  if (v.state === "waiting") return v.next !== "band";
+  if (v.state === "ready") return v.next !== "band";
+  return v.state === "not_read" && (v.reason === "cap_day_calls" || v.reason === "cap_day_cost");
+}
+
+const isFull = (a: ArtifactRow, facts: FileFacts) => Math.max(a.blockCount ?? 0, facts.blockRows.length) >= INGEST_LIMITS.blocksPerFile;
+
+/**
+ * "Read next pages": plans pages `planned + 1` to `planned + visionPagesPerBatch` (the plant's value now)
+ * and hands their tickets. While the plan still holds a page the model can take, nothing is planned and
+ * the missing tickets of the plan come back instead, so a second click or a second tab plans nothing
+ * twice. A file holding `blocksPerFile` tables is refused in plain words. Clears `restNotRead`.
+ */
+export async function visionNextBatch(ctx: IngestCtx, input: { artifactId: string }): Promise<VisionStartOut> {
+  const { a, bucket, index } = await readingFile(ctx, input.artifactId);
+  if (!shapeBotReady(anthropicEnv())) throw new TRPCError({ code: "PRECONDITION_FAILED", message: KEPT_UNREAD_NOT_READ });
+  const facts = await loadFacts(ctx, bucket, a, index);
+  const have = await pageKeys(bucket, ctx, a, index.index.planned);
+  if (facts.pages.some(openForModel) || index.index.planned >= index.index.pageCount) {
+    return planTickets(ctx, a, index.index, have, 1, index.index.planned);
+  }
+  if (isFull(a, facts)) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_FILE_FULL });
+  const from = index.index.planned + 1;
+  const to = Math.min(index.index.pageCount, index.index.planned + (await effectiveLimits(ctx)).visionPagesPerBatch);
+  const body: PagesIndex = { ...index.index, planned: to, batches: [...batchesOf(index.index), [from, to]] };
+  delete body.restNotRead;
+  const put = await bucket.put(pagesIndexKey(ctx.companyId, a.sha256), JSON.stringify(body), {
+    onlyIf: { etagMatches: index.etag },
+    httpMetadata: { contentType: "application/json" },
+    customMetadata: { companyId: ctx.companyId, artifactId: a.id },
+  });
+  // Another tab planned or changed the plan in between: its plan stands.
+  if (!put) throw new TRPCError(MOVED);
+  await guardedBatch(ctx.db, [
+    auditInsert(ctx, { action: "ingest.vision.batch", subjectType: "ingest_artifact", subjectId: a.id, meta: { from, to, pageCount: body.pageCount } }),
+  ]);
+  return planTickets(ctx, a, body, have, from, to);
+}
+
+/**
+ * "Finish" with pages left: every planned page not yet read, typed or skipped is skipped, and pages past
+ * the plan are marked not read, in one write of the plan. `artifact.complete` then goes through. Used
+ * when a person stops after a batch, and when the file is full.
+ */
+export async function visionFinishRest(ctx: IngestCtx, input: { artifactId: string }): Promise<VisionPagesOut> {
+  const { a, bucket, index } = await readingFile(ctx, input.artifactId);
+  const facts = await loadFacts(ctx, bucket, a, index);
+  const open = facts.pages.filter((v) => !isSettled(v)).map((v) => v.page);
+  const past = index.index.planned < index.index.pageCount;
+  if (open.length > 0 || (past && !index.index.restNotRead)) {
+    const body: PagesIndex = {
+      ...index.index,
+      skipped: [...new Set([...index.index.skipped, ...open])].sort((x, y) => x - y),
+      ...(past ? { restNotRead: { by: ctx.session.user.id, at: now().getTime() } } : {}),
+    };
+    const put = await bucket.put(pagesIndexKey(ctx.companyId, a.sha256), JSON.stringify(body), {
+      onlyIf: { etagMatches: index.etag },
+      httpMetadata: { contentType: "application/json" },
+      customMetadata: { companyId: ctx.companyId, artifactId: a.id },
+    });
+    if (!put) throw new TRPCError(MOVED);
+    await guardedBatch(ctx.db, [
+      auditInsert(ctx, {
+        action: "ingest.vision.rest",
+        subjectType: "ingest_artifact",
+        subjectId: a.id,
+        meta: { skipped: open, notRead: past ? [index.index.planned + 1, index.index.pageCount] : null },
+      }),
+    ]);
+  }
+  return visionPages(ctx, input);
 }
 
 /** Every planned page with its state. A file not started yet (kept, or read before release 2) has no pages. */
@@ -572,16 +682,23 @@ export async function visionPages(ctx: IngestCtx, input: { artifactId: string })
   if (!isVisualKind(a.kind)) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_KINDS_ONLY });
   const bucket = ingestVault();
   const index = bucket ? await loadIndex(bucket, ctx, a) : null;
-  if (!bucket || !index) return { pageCount: 0, planned: 0, pages: [], settled: false };
+  if (!bucket || !index) return { pageCount: 0, planned: 0, pages: [], settled: false, full: false, restNotRead: false, canFinish: false };
   const f = await loadFacts(ctx, bucket, a, index);
-  return { pageCount: f.index.pageCount, planned: f.index.planned, pages: f.pages, settled: f.pages.every(isSettled) };
+  const settled = f.pages.every(isSettled);
+  const restNotRead = Boolean(f.index.restNotRead);
+  return { pageCount: f.index.pageCount, planned: f.index.planned, pages: f.pages, settled, full: isFull(a, f), restNotRead, canFinish: settled && canEnd(f.index) };
 }
+
+/** Pages past the plan do not hold the file open only when there are none or a person left them not read. */
+const canEnd = (index: PagesIndex) => index.planned >= index.pageCount || Boolean(index.restNotRead);
 
 /** Contract section 4: whether every planned page of a visual file is read, typed or skipped. */
 export async function visionAllSettled(ctx: IngestCtx, a: ArtifactRow): Promise<boolean> {
   const bucket = ingestVault();
   const index = bucket ? await loadIndex(bucket, ctx, a) : null;
   if (!bucket || !index) return false;
+  // Batches (section 12): pages past the plan are read by "Read next pages" or left by `vision.finishRest`.
+  if (!canEnd(index.index)) return false;
   return (await loadFacts(ctx, bucket, a, index)).pages.every(isSettled);
 }
 
@@ -1050,6 +1167,8 @@ export async function visionReadUrl(
   // The key is built here from the caller's company and the artifact row loaded under it.
   const a = await loadArtifact(ctx, input.artifactId);
   const bucket = needVault();
+  // Gate 5 (chunked upload): the raw file is signed for reading only once its whole SHA-256 is checked.
+  if (input.what === "raw" && a.vaultState !== "stored") throw new TRPCError({ code: "NOT_FOUND", message: "Import file not found" });
   const key =
     input.what === "raw"
       ? rawKey(ctx.companyId, a.sha256)

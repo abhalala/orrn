@@ -104,7 +104,7 @@ import {
   visionFixCell,
 } from "../../lib/ingest/candidates";
 import { dryRunStep } from "../../lib/ingest/dryrun";
-import { visionBandTickets, visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
+import { visionBandTickets, visionFinishRest, visionNextBatch, visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
 import { mergeEngine } from "../../lib/ingest/engines";
 import type { IngestCtx } from "../../lib/ingest/types";
 
@@ -167,6 +167,10 @@ export const ingestRouter = router({
    */
   vision: router({
     start: U.input(visionStartInput).mutation(({ ctx, input }): Promise<VisionStartOut> => visionStart(ix(ctx), input)),
+    /** Batches (contract section 12): plan the next pages and hand their tickets. */
+    nextBatch: U.input(artifactIdInput).mutation(({ ctx, input }): Promise<VisionStartOut> => visionNextBatch(ix(ctx), input)),
+    /** Skip the planned pages not settled and leave the pages past the plan not read, so the file can finish. */
+    finishRest: U.input(artifactIdInput).mutation(({ ctx, input }): Promise<VisionPagesOut> => visionFinishRest(ix(ctx), input)),
     readPage: U.input(visionReadPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionReadPage(ix(ctx), input)),
     bandTickets: U.input(visionBandTicketsInput).mutation(({ ctx, input }): Promise<VisionBandTicketsOut> => visionBandTickets(ix(ctx), input)),
     pages: R.input(artifactIdInput).query(({ ctx, input }): Promise<VisionPagesOut> => visionPages(ix(ctx), input)),

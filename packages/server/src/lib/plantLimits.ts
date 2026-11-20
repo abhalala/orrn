@@ -13,8 +13,9 @@
  * - dayModelCalls 3,000: ten times the default; a 100-page dense scan at 4 bands and a retry each is 1,000.
  * - dayModelCostCents 5,000 (50 USD): ten times the default.
  * - blockModelCalls 10: the attempt ladder stops a block well before this.
- * - visionPagesPerBatch 80: `vision.start` lists the file's `pages/` keys once, and R2 returns at most 1,000
- *   keys a call. A page has up to 11 keys there (image, text, tables, 4 bands with their tables): 80 x 11 = 880.
+ * - visionPagesPerBatch 80: one batch's tickets and reads stay a few minutes of work per click. The page
+ *   listings follow the R2 cursor at 1,000 keys a call (contract section 12), so this ceiling no longer
+ *   guards the listing; a file may have up to `VISION_FILE_MAX_PAGES` pages, read batch by batch.
  * - filesPerUpload 100: five times the default; the browser reads each file in turn.
  * - rawRowsPerFile 1,000,000: five times the default. Browser memory at this size is not measured yet;
  *   the per-block and blocks-per-file bounds (50,000 x 50) still apply.
@@ -51,8 +52,11 @@ export const PLANT_LIMITS: Readonly<Record<PlantLimitKey, PlantLimitDef>> = {
   openRowsPerPlant: { default: INGEST_LIMITS.openRowsPerPlant, ceiling: 2_000_000 },
 };
 
-/** The highest page number any vision call may name (zod bound; the plant's plan is checked in the handler). */
+/** The most pages in one batch (the plant's `visionPagesPerBatch` is clamped to it). */
 export const VISION_PAGES_CEILING = PLANT_LIMITS.visionPagesPerBatch.ceiling;
+
+/** The highest page number any vision call may name (zod bound; the file's plan is checked in the handler). */
+export const VISION_FILE_MAX_PAGES = 10_000;
 
 export type PlantLimits = Record<PlantLimitKey, number>;
 
