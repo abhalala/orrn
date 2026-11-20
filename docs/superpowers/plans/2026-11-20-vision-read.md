@@ -246,7 +246,9 @@ Rules:
 - "Someone who can see prices must check this table." (section 7, fix round decision 6)
 - Reused as they are: `KEPT_UNREAD_NO_STORAGE`, `KEPT_UNREAD_NOT_READ`, "The original file is not saved yet. Upload
   the same file again, then approve.", "This file is already read", "Check these rows against the page first",
-  `MOVED`, "Import file not found".
+  `MOVED`, "Import file not found", and the two row limits the vision procedures now share with uploads (S3):
+  "<file> has more than <n> rows. Split it and try again." (`fileRowsFull`) and "Too many rows are waiting.
+  Merge or discard older imports first." (`OPEN_ROWS_FULL`), both PRECONDITION_FAILED.
 
 A new sentence needs a line here and a web mapping in the same change.
 

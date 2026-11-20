@@ -14,8 +14,8 @@ import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { plant, type Plant } from "./ingest-portal-helpers";
 import { fakeResponse, FakeShapeClient, setShapeClientForTests, VISION_WORST_COST_MICRO, type ShapeModelClient, type ShapeResponse } from "../src/lib/ingest/bot";
-import { pageKey, pagesIndexKey, pageTablesKey, rawKey } from "../src/lib/ingest/vault";
-import { visionPageKey } from "@orrn/ingest";
+import { bandKey, pageKey, pagesIndexKey, pageTablesKey, rawKey } from "../src/lib/ingest/vault";
+import { visionBandKey, visionPageKey } from "@orrn/ingest";
 
 let env: TestEnv;
 let mf: Miniflare;
@@ -120,6 +120,20 @@ describe("the claim before each vision call", () => {
     expect((await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId })).blockCount).toBe(1);
   });
 
+  test("two tabs that start at the same moment (both past the in-flight check) still pay for one call", async () => {
+    const f = await startedPdf(1);
+    const client = new GateClient([answer("First"), answer("Second")]);
+    setShapeClientForTests(client);
+    const both = Promise.all([read(f, 1), read(f, 1)]);
+    await until(() => client.calls >= 1);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(client.calls).toBe(1);
+    client.release();
+    await both;
+    expect(client.calls).toBe(1);
+    expect((await f.p.owner.ingest.artifact.get({ artifactId: f.artifactId })).blockCount).toBe(1);
+  });
+
   test("near the day cost cap, a second page read while the first is in flight is capped, not paid", async () => {
     // The first claim books the worst case; the second one would take the day past the cap.
     const cents = Math.ceil((VISION_WORST_COST_MICRO * 1.5) / 10_000);
@@ -156,6 +170,29 @@ describe("the claim before each vision call", () => {
     expect(await read(f, 1)).toMatchObject({ state: "read" });
     expect(client.calls).toHaveLength(1);
     expect(await outcomes(f, 1)).toEqual(["pending", "recipe"]);
+  });
+});
+
+describe("the claim on a band", () => {
+  test("two tabs read one band at once: one call is paid, the other tab waits with no call", async () => {
+    const f = await startedPdf(1);
+    await f.p.owner.ingest.vision.bandTickets({ artifactId: f.artifactId, page: 1, bands: 2 });
+    for (const k of [1, 2]) await bucket.put(bandKey(f.p.companyId, f.sha, 1, k), JPEG, { httpMetadata: { contentType: "image/jpeg" } });
+    const client = new GateClient([answer("Band one", 2), answer("Band one again", 2)]);
+    setShapeClientForTests(client);
+    const tabA = read(f, 1);
+    await until(() => client.calls === 1);
+    const tabB = await read(f, 1);
+    expect(tabB).toMatchObject({ page: 1, bands: { total: 2, read: 0 } });
+    expect(client.calls).toBe(1);
+    client.release();
+    expect(await tabA).toMatchObject({ bands: { total: 2, read: 1, next: 2 } });
+    expect(client.calls).toBe(1);
+    const runs = await env.d1
+      .prepare("select outcome from ingest_bot_run where company_id = ? and block_id = ?")
+      .bind(f.p.companyId, visionBandKey(f.artifactId, 1, 1))
+      .all<{ outcome: string }>();
+    expect(runs.results.map((r) => r.outcome)).toEqual(["recipe"]);
   });
 });
 

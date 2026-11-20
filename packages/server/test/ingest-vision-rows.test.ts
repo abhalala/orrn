@@ -15,8 +15,9 @@ import { Miniflare } from "miniflare";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
-import { plant, type Plant } from "./ingest-portal-helpers";
+import { plant, putBlocksPicked, type Plant } from "./ingest-portal-helpers";
 import { fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
+import { INGEST_LIMITS } from "../src/lib/ingest/types";
 import { bandKey, pageKey, pageTablesKey, rawKey } from "../src/lib/ingest/vault";
 
 let env: TestEnv;
@@ -197,4 +198,24 @@ describe("S2: nothing left to rebuild", () => {
     expect(await pageView(f, 1)).toMatchObject({ state: "not_read", reason: "error", next: "manual" });
     expect(await read(f, 1)).toMatchObject({ state: "not_read", reason: "error", next: "manual" });
   });
+});
+
+describe("decision 1: 200 tables a file on the sheet path too", () => {
+  test("200 sheets go through in one put, 201 are refused, and a re-put that changes all 200 lands", async () => {
+    expect(INGEST_LIMITS.blocksPerFile).toBe(200);
+    const p = await plant(env);
+    const sha = createHash("sha256").update(randomUUID()).digest("hex");
+    const begin = await p.owner.ingest.artifact.begin({ sha256: sha, fileName: "book.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const sheets = (n: number, headers: string[]) =>
+      Array.from({ length: n }, (_, ordinal) => ({ ordinal, sheetName: `Sheet${ordinal + 1}`, title: null, headerRow: 0, headerRows: 1, headers, rowCount: 1, sample: [["S1", "1", "3"]] }));
+    await expect(putBlocksPicked(p.owner, { artifactId: begin.artifactId, blocks: sheets(201, BH) })).rejects.toThrow();
+    const first = await putBlocksPicked(p.owner, { artifactId: begin.artifactId, blocks: sheets(200, BH) });
+    expect(first.blocks).toHaveLength(200);
+    const again = await putBlocksPicked(p.owner, { artifactId: begin.artifactId, blocks: sheets(200, ["Section", "Bundles", "Weight"]) });
+    expect(again.blocks).toHaveLength(200);
+    const got = await p.owner.ingest.artifact.get({ artifactId: begin.artifactId });
+    expect(got.blockCount).toBe(200);
+    const heads = await env.d1.prepare("select count(*) as n from ingest_block where artifact_id = ? and headers like '%Weight%'").bind(begin.artifactId).first<{ n: number }>();
+    expect(Number(heads!.n)).toBe(200);
+  }, 60_000);
 });
