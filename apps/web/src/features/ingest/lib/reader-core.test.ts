@@ -246,6 +246,29 @@ describe("dispatch by kind", () => {
   });
 });
 
+describe("browser memory (limits brief part B.4)", () => {
+  const fileOf = (text: string) => new File([text], "x");
+  const limits = { ...READ_LIMITS, maxRawRows: 4 };
+
+  test("a CSV is read as a stream; rows past the plant's limit stop the read with too_many_rows", async () => {
+    expect((await readFileBlocks(fileOf("a,b\n1,2\n3,4\n"), "csv", deps({ limits })))[0]!.rows).toEqual([["1", "2"], ["3", "4"]]);
+    await expect(readFileBlocks(fileOf("a,b\n1,2\n3,4\n5,6\n7,8\n9,9\n"), "csv", deps({ limits }))).rejects.toMatchObject({ failure: { code: "too_many_rows" } });
+  });
+
+  test("a newline inside quotes does not count as a row", async () => {
+    const text = 'a,b\n"x\ny\nz\nw",2\n3,4\n';
+    const blocks = await readFileBlocks(fileOf(text), "csv", deps({ limits }));
+    expect(blocks[0]!.rows.length).toBe(2);
+  });
+
+  test("CSV and SQL text past what this browser holds, and a workbook past its size, stop with too_large_to_read", async () => {
+    const browser = { sheetBytes: 10, textChars: 8 };
+    await expect(readFileBlocks(fileOf("a,b\n1,2\n3,4\n"), "csv", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
+    await expect(readFileBlocks(fileOf("id,n\n1,a\n2,b\n"), "sql", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
+    await expect(readFileBlocks(new File([new Uint8Array(11)], "b.xlsx"), "sheet", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
+  });
+});
+
 describe("sha256", () => {
   test("hex of the bytes", async () => {
     expect(await sha256OfBuffer(new TextEncoder().encode("abc").buffer as ArrayBuffer)).toBe(

@@ -52,3 +52,13 @@ describe("refusal lines", () => {
     expect(KNOWN_REFUSAL_CODES).toContain("baki_mismatch");
   });
 });
+
+describe("chunked upload sentences (limits brief part B)", () => {
+  // Verbatim from packages/server/src/lib/ingest/upload-parts.ts: a new sentence there needs a line here and in UPLOAD_SENTENCES.
+  const said = (code: string, message: string) => Object.assign(new Error(message), { data: { code } });
+  test("each server sentence has words of its own and can be tried again", () => {
+    expect(ingestErrorWords(said("BAD_REQUEST", "Some parts of the file have not arrived. Add the same file again to send them."), "action")).toEqual({ key: "ingest.upload.error.partsMissing", retry: true });
+    expect(ingestErrorWords(said("BAD_REQUEST", "The file does not match its digest"), "action")).toEqual({ key: "ingest.upload.error.digest", retry: true });
+    expect(ingestErrorWords(said("BAD_REQUEST", "The upload ran out. Add the same file again."), "action")).toEqual({ key: "ingest.upload.error.ranOut", retry: true });
+  });
+});

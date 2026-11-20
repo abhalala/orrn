@@ -21,12 +21,13 @@ describe("file kinds", () => {
     expect(detectFileKind("export", "application/pdf")?.kind).toBe("pdf_text");
     expect(detectFileKind("export", "application/octet-stream")).toBeNull();
   });
-  test("each kind has its MB limit from plan A9", () => {
-    expect(detectFileKind("a.xlsx")?.limitMb).toBe(20);
-    expect(detectFileKind("a.csv")?.limitMb).toBe(50);
-    expect(detectFileKind("a.sql")?.limitMb).toBe(100);
-    expect(detectFileKind("a.pdf")?.limitMb).toBe(25);
-    expect(detectFileKind("a.png")?.limitMb).toBe(10);
+  test("no kind carries a size limit any more (limits brief part B): the kind is all detection gives", () => {
+    expect(detectFileKind("a.xlsx")).toEqual({ kind: "sheet" });
+    expect(detectFileKind("a.csv")).toEqual({ kind: "csv" });
+    expect(detectFileKind("a.sql")).toEqual({ kind: "sql" });
+    expect(detectFileKind("a.pdf")).toEqual({ kind: "pdf_text" });
+    expect(detectFileKind("a.png")).toEqual({ kind: "image" });
+    expect("maxFileBytes" in DEFAULT_LIMITS).toBe(false);
   });
   test("the default limits are the plan A9 numbers", () => {
     expect(DEFAULT_LIMITS.filesPerUpload).toBe(20);
@@ -44,16 +45,14 @@ describe("file kinds", () => {
 });
 
 describe("file size problems", () => {
-  test("at the limit passes, one byte over is refused with name and limit", () => {
+  test("no file is refused for its size: the old limits and far past them pass (limits brief part B)", () => {
     expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) })).toBeNull();
-    expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) + 1 })).toEqual({
-      key: "ingest.drop.tooBig",
-      vars: { name: "a.xlsx", limit: 20 },
-    });
-    expect(fileSizeProblem({ name: "a.csv", size: mb(50) })).toBeNull();
-    expect(fileSizeProblem({ name: "a.sql", size: mb(100) + 1 })?.vars?.limit).toBe(100);
-    expect(fileSizeProblem({ name: "a.pdf", size: mb(25) + 1 })?.vars?.limit).toBe(25);
-    expect(fileSizeProblem({ name: "a.jpg", size: mb(10) + 1 })?.vars?.limit).toBe(10);
+    expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.csv", size: mb(50) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.sql", size: mb(100) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.pdf", size: mb(25) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.jpg", size: mb(10) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.csv", size: mb(5000) })).toBeNull();
   });
   test("an unknown type cannot be read", () => {
     expect(fileSizeProblem({ name: "a.docx", size: 10 })).toEqual({ key: "ingest.drop.wrongType", vars: { name: "a.docx" } });

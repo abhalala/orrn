@@ -82,7 +82,7 @@ export type ArtifactBeginOut = {
    * Set when the bytes go to the vault in parts (a file over one part, limits brief part B): `artifact.uploadStart`,
    * `uploadTickets`, the part PUTs, then `uploadComplete`. Null otherwise.
    */
-  parts: { partSize: number; partCount: number } | null;
+  parts?: { partSize: number; partCount: number } | null;
 };
 
 /** One block the browser read (A1). The server recomputes kinds and the header key from it. */

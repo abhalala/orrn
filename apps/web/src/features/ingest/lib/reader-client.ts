@@ -69,9 +69,15 @@ function ask<T extends WorkerResponse["type"]>(
   });
 }
 
-/** SHA-256 hex of the raw bytes, computed in the reader worker with `crypto.subtle`. */
+/** SHA-256 hex of the raw bytes, computed in the reader worker one slice at a time. */
 export async function hashFile(file: File, signal?: AbortSignal): Promise<string> {
-  return (await ask({ type: "hash", file }, "hashed", { signal })).sha256;
+  return (await hashFileWithParts(file, signal)).sha256;
+}
+
+/** The whole SHA-256 and, for a file over one part, each part's (chunked upload), in one pass in the reader worker. */
+export async function hashFileWithParts(file: File, signal?: AbortSignal): Promise<{ sha256: string; parts: string[] | null }> {
+  const out = await ask({ type: "hash", file }, "hashed", { signal });
+  return { sha256: out.sha256, parts: out.parts ?? null };
 }
 
 /** Reads a file into blocks in the module worker. Progress goes to `onProgress` (plan A4). Rejects with `ReadError`. */

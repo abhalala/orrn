@@ -57,6 +57,8 @@ export type ReadBlock = { input: WireBlockInput; rows: string[][]; meta?: BlockM
 
 export type ReadFailure =
   | { code: "no_text_layer" }
+  /** The file is larger than this browser can hold to read (limits brief part B.4). It stays in the vault; nothing is refused. */
+  | { code: "too_large_to_read" }
   | { code: "too_many_rows"; rows: number }
   | { code: "too_many_columns"; sheet: string | null; columns: number }
   | { code: "too_many_blocks"; blocks: number }
@@ -66,6 +68,7 @@ export type ReadFailure =
 
 export type WorkerResponse =
   | { id: number; type: "progress"; progress: ReadProgress }
-  | { id: number; type: "hashed"; sha256: string }
+  /** `parts`: the SHA-256 of each part for a file over one part (chunked upload), else null. */
+  | { id: number; type: "hashed"; sha256: string; parts?: string[] | null }
   | { id: number; type: "blocks"; kind: ArtifactKind; blocks: ReadBlock[]; rawRows: number }
   | { id: number; type: "failed"; failure: ReadFailure };

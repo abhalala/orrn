@@ -181,16 +181,16 @@ describe("uploadOneFile", () => {
     expect(t.item.sent).toEqual({ rows: 1201, total: 1201 });
   });
 
-  test("a file over its limit is refused before it is read or hashed", async () => {
+  test("a file over the old limit is not refused: it is hashed and begun like any other (limits brief part B)", async () => {
     const { api, calls } = fakeApi();
     let hashed = false;
     const big = sized("dump.xlsx", 20 * 1024 * 1024 + 1);
     const t = track();
-    const out = await uploadOneFile(big, { api, reader: reader([], { hash: async () => ((hashed = true), "x") }) }, { onItem: t.onItem });
-    expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.tooBig", vars: { name: "dump.xlsx", limit: 20 } });
-    expect(hashed).toBe(false);
-    expect(calls).toEqual([]);
+    const out = await uploadOneFile(big, { api, reader: reader([block(0, 2)], { hash: async () => ((hashed = true), "a".repeat(64)) }), fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("done");
+    expect(t.item.problem).toBeNull();
+    expect(hashed).toBe(true);
+    expect(calls[0]).toMatchObject({ name: "begin", input: { sizeBytes: 20 * 1024 * 1024 + 1, kind: "sheet" } });
   });
 
   test("an unknown file type is refused as unreadable", async () => {
@@ -259,11 +259,12 @@ describe("uploadOneFile", () => {
     expect(calls[0]!.input).toMatchObject({ note: "October book" });
   });
 
-  test("limits come from the server when given", async () => {
+  test("limits come from the server when given (rows per file), and no size limit refuses the file", async () => {
     const t = track();
-    const limits = { ...DEFAULT_LIMITS, maxFileBytes: { ...DEFAULT_LIMITS.maxFileBytes, sheet: 10 } };
-    const out = await uploadOneFile(file("a.xlsx", 40), { api: fakeApi().api, reader: reader([]), limits }, { onItem: t.onItem });
+    const limits = { ...DEFAULT_LIMITS, rawRowsPerFile: 1 };
+    const out = await uploadOneFile(file("a.xlsx", 40), { api: fakeApi().api, reader: reader([block(0, 2)]), limits, fetch: fakeFetch().fn }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
+    expect(t.item.problem?.key).toBe("ingest.drop.tooManyRows");
   });
 });
 
@@ -273,10 +274,11 @@ describe("helpers", () => {
     expect(ticketUrl({ url: "https://a.test/files/ingest/upload", ticket: "a b" })).toBe("https://a.test/files/ingest/upload?ticket=a+b");
   });
   test("begin errors that are plain refusals", () => {
-    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
-    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50, 40_000)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "40,000" } });
-    expect(problemFromError(new Error("File is too big"), "a.csv", 50)).toEqual({ key: "ingest.drop.tooBig", vars: { name: "a.csv", limit: 50 } });
-    expect(problemFromError(new Error("boom"), "a.csv", 50)).toBeNull();
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv")).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 40_000)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "40,000" } });
+    // The server no longer refuses a file for its size; an old "too big" sentence is not a plain refusal any more.
+    expect(problemFromError(new Error("File is too big"), "a.csv")).toBeNull();
+    expect(problemFromError(new Error("boom"), "a.csv")).toBeNull();
   });
 });
 

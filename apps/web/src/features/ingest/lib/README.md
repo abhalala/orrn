@@ -79,7 +79,7 @@ has a `step`:
 | `sending` | bar from `item.sent` (rows sent of total) |
 | `done` | link to `/ingest/files/$artifactId` and the file's candidates; if `item.notStored`, `ingest.vault.off` |
 | `seenBefore` | `ingest.drop.seenBefore` with `date = item.seenOn` (ms; `uploadStrip` formats it); "Open it" to the artifact |
-| `refused` | `t(item.problem.key, item.problem.vars)`. These are `ingest.drop.tooBig`, `ingest.drop.tooManyRows`, `ingest.drop.openLimit` |
+| `refused` | `t(item.problem.key, item.problem.vars)`. These are `ingest.drop.tooManyRows`, `ingest.drop.openLimit` |
 | `failed` | `ingest.read.failed`; the Retry button calls `retry(id)` |
 
 Check a file before adding it with `fileSizeProblem(file, limits)` if you want to refuse it in the drop zone;

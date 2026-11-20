@@ -123,13 +123,20 @@ function isGone(error: unknown): boolean {
   return /10024|NoSuchUpload|does not exist|InvalidPart|10025/i.test(String((error as Error)?.message ?? error));
 }
 
+/** `crypto.DigestStream` (workerd), reached through a cast: the web build type-checks this file without Workers types. */
+type DigestStreamLike = WritableStream<Uint8Array> & { readonly digest: Promise<ArrayBuffer> };
+function newDigestStream(): DigestStreamLike {
+  const C = (crypto as unknown as { DigestStream: new (algorithm: string) => DigestStreamLike }).DigestStream;
+  return new C("SHA-256");
+}
+
 // ---------------------------------------------------------------------------
 // Whole-file check
 // ---------------------------------------------------------------------------
 
 /** SHA-256 of a stream, hex, through `crypto.DigestStream` (never buffered). */
 export async function streamSha256(body: ReadableStream): Promise<{ sha256: string; bytes: number }> {
-  const digest = new crypto.DigestStream("SHA-256");
+  const digest = newDigestStream();
   let bytes = 0;
   const counter = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, c) {
@@ -349,7 +356,7 @@ export async function readPartTicket(text: string, at: number = Date.now()): Pro
 
 /** A stream of known length (for `uploadPart`) whose bytes also run into `DigestStream`. */
 function digestTap(body: ReadableStream<Uint8Array>, length: number): { stream: ReadableStream; done: Promise<string> } {
-  const digest = new crypto.DigestStream("SHA-256");
+  const digest = newDigestStream();
   const writer = digest.getWriter();
   const fixed = new FixedLengthStream(length);
   const tap = new TransformStream<Uint8Array, Uint8Array>({

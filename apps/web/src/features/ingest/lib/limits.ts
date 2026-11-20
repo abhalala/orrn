@@ -9,14 +9,6 @@ const MB = 1024 * 1024;
  * The type is the server's, so a number added there fails the build here until it is copied.
  */
 export const DEFAULT_LIMITS: IngestLimits = {
-  maxFileBytes: {
-    sheet: 20 * MB,
-    csv: 50 * MB,
-    sql: 100 * MB,
-    pdf_text: 25 * MB,
-    pdf_scan: 25 * MB,
-    image: 10 * MB,
-  },
   filesPerUpload: 20,
   blocksPerFile: 50,
   columnsPerBlock: 200,
@@ -47,8 +39,11 @@ export const BLOCKS_PER_CALL = DEFAULT_LIMITS.blocksPerFile;
 /** `rows.list` pages. */
 export const ROWS_PER_PAGE = DEFAULT_LIMITS.rowsPerPage;
 
-/** What the file is, from its name and type. A PDF is `pdf_text` until the reader finds no text layer. */
-export type DetectedKind = { kind: ArtifactKind; limitMb: number } | null;
+/**
+ * What the file is, from its name and type. A PDF is `pdf_text` until the reader finds no text layer. No kind has a
+ * size limit (limits brief part B): a file over one part goes to the vault in parts.
+ */
+export type DetectedKind = { kind: ArtifactKind } | null;
 
 const EXT_KIND: Record<string, ArtifactKind> = {
   xlsx: "sheet", xlsm: "sheet", xls: "sheet",
@@ -58,11 +53,7 @@ const EXT_KIND: Record<string, ArtifactKind> = {
   jpg: "image", jpeg: "image", png: "image", webp: "image", heic: "image",
 };
 
-export function limitMbFor(kind: ArtifactKind, limits: IngestLimits = DEFAULT_LIMITS): number {
-  return limits.maxFileBytes[kind] / MB;
-}
-
-export function detectFileKind(name: string, contentType?: string | null, limits: IngestLimits = DEFAULT_LIMITS): DetectedKind {
+export function detectFileKind(name: string, contentType?: string | null, _limits?: IngestLimits): DetectedKind {
   const ext = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
   let kind: ArtifactKind | undefined = ext ? EXT_KIND[ext] : undefined;
   if (!kind && contentType) {
@@ -72,7 +63,7 @@ export function detectFileKind(name: string, contentType?: string | null, limits
     else if (type === "application/pdf") kind = "pdf_text";
     else if (type.startsWith("image/")) kind = "image";
   }
-  return kind ? { kind, limitMb: limitMbFor(kind, limits) } : null;
+  return kind ? { kind } : null;
 }
 
 /** The accept attribute for the file picker. */
@@ -81,7 +72,6 @@ export const ACCEPT_FILES =
   "text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export type FileProblemKey =
-  | "ingest.drop.tooBig"
   | "ingest.drop.tooManyRows"
   | "ingest.drop.openLimit"
   | "ingest.drop.wrongType"
@@ -93,23 +83,31 @@ export type FileProblemKey =
   | "ingest.error.busy"
   | "ingest.error.conflict"
   | "ingest.error.notFound"
-  | "ingest.error.load";
+  | "ingest.error.load"
+  | "ingest.upload.error.partsMissing"
+  | "ingest.upload.error.digest"
+  | "ingest.upload.error.ranOut";
 
 /** `key` is a dictionary key and `vars` its variables, ready for `t(key, vars)`. */
 export type FileProblem = { key: FileProblemKey; vars?: Record<string, string | number> };
 
-/** Why a picked file is refused before it is read, or null. Unknown types fail later, at reading. */
-export function fileSizeProblem(
-  file: { name: string; size: number; type?: string },
-  limits: IngestLimits = DEFAULT_LIMITS,
-): FileProblem | null {
+/**
+ * Why a picked file is refused before it is read, or null. Only a type orrn does not take: no file is refused for its
+ * size (limits brief part B). A file too large for this browser to read is kept in the vault with plain words.
+ */
+export function fileSizeProblem(file: { name: string; size: number; type?: string }, limits: IngestLimits = DEFAULT_LIMITS): FileProblem | null {
   const found = detectFileKind(file.name, file.type, limits);
   if (!found) return { key: "ingest.drop.wrongType", vars: { name: file.name } };
-  if (file.size > found.limitMb * MB) {
-    return { key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } };
-  }
   return null;
 }
+
+/**
+ * How much this browser reads (limits brief part B.4). Past these the file is kept in the vault, not refused, and the
+ * screen says it is too large to read in this browser. A workbook is opened whole by the sheet library (several times
+ * its size in memory); CSV and SQL text is held as one string for the readers.
+ */
+export const BROWSER_SHEET_MAX_BYTES = 60 * MB;
+export const BROWSER_TEXT_MAX_CHARS = 200 * MB;
 
 /** Why a read file is refused (too many rows), or null. */
 export function rowCountProblem(name: string, rawRows: number, limits: IngestLimits = DEFAULT_LIMITS): FileProblem | null {

@@ -7,7 +7,7 @@ import { useIngestStatus } from "./queries";
 import { ingestErrorWords } from "./errors";
 import type { FileProblemKey } from "./limits";
 import type { HeaderReply } from "./header-step";
-import { hashFile, ReadError, readFile } from "./reader-client";
+import { hashFileWithParts, ReadError, readFile } from "./reader-client";
 import { ingestApi } from "./trpc-api";
 import { uploadOneFile, type UploadItem } from "./upload";
 import { visionApi } from "./vision-api";
@@ -37,7 +37,11 @@ export function useIngestUpload(): {
   const waiting = useRef(new Map<string, { resolve: (reply: HeaderReply) => void; reject: (error: unknown) => void }>());
   const [tick, setTick] = useState(0);
 
+  /** Where each file is, for remove: a file taken off while it is saving in parts has its upload aborted. */
+  const where = useRef(new Map<string, { artifactId: string | null; step: UploadItem["step"] | null }>());
   const patch = useCallback((id: string, p: Partial<UploadItem>) => {
+    const was = where.current.get(id) ?? { artifactId: null, step: null };
+    where.current.set(id, { artifactId: p.artifactId ?? was.artifactId, step: p.step ?? was.step });
     setItems((all) => all.map((i) => (i.id === id ? { ...i, ...p } : i)));
   }, []);
 
@@ -73,6 +77,10 @@ export function useIngestUpload(): {
 
   const remove = useCallback((id: string) => {
     if (running.current?.id === id) running.current.ctl.abort();
+    // The discard of a file mid-upload: the unfinished parts upload goes on the server too (best effort).
+    const at = where.current.get(id);
+    where.current.delete(id);
+    if (at?.step === "saving" && at.artifactId) void ingestApi().artifactUploadAbort({ artifactId: at.artifactId }).catch(() => undefined);
     waiting.current.get(id)?.reject(new DOMException("Cancelled", "AbortError"));
     waiting.current.delete(id);
     files.current.delete(id);
@@ -89,7 +97,7 @@ export function useIngestUpload(): {
     if (!entry) return;
     const ctl = new AbortController();
     running.current = { id: nextId, ctl };
-    void uploadOneFile(entry.file, { api: ingestApi(), limits, reader: { hash: hashFile, read: readFile } }, {
+    void uploadOneFile(entry.file, { api: ingestApi(), limits, reader: { hash: hashFileWithParts, read: readFile } }, {
       onItem: (p) => patch(nextId, p),
       signal: ctl.signal,
       note: entry.note,

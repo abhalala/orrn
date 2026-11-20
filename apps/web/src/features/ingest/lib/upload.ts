@@ -1,6 +1,6 @@
 import type { IngestApi } from "./api";
 import {
-  BLOCKS_PER_CALL, chunk, countText, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
+  BLOCKS_PER_CALL, chunk, countText, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
 } from "./limits";
 import type { HeaderAskView, HeaderReply } from "./header-step";
@@ -10,6 +10,8 @@ import { planReput, rememberFile, type ReputAction, type StoredBlock } from "./r
 import { settleHeaders } from "./settle";
 import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
 import type { VisionProgress } from "./vision-pump";
+import { hashFileParts } from "./sha256";
+import { sendParts } from "./upload-parts";
 
 /**
  * Where a file is in the upload. The screen shows the step with these keys:
@@ -43,8 +45,13 @@ export type UploadItem = {
   pages?: VisionProgress | null;
   /** `pagesLeft`: how many pages are not read yet. */
   pagesLeft?: number;
-  /** `kept` because the browser could not open the pages (a broken PDF, a photo type it cannot draw). */
-  keptWhy?: "cannotOpen" | null;
+  /**
+   * `kept` because the browser could not open the pages (a broken PDF, a photo type it cannot draw), or because the file
+   * is too large for this browser to read (it is in the vault; limits brief part B.4).
+   */
+  keptWhy?: "cannotOpen" | "tooLargeToRead" | null;
+  /** While `saving` a file that goes in parts: parts stored and in all. */
+  saved?: { parts: number; total: number } | null;
   /** While `asking`: the table waiting on the person ("Which row has the column names?"). */
   ask?: HeaderAskView | null;
   /** What the reader left out, so the person sees it (rule 8.1): blank rows crossed inside a table, repeated headers, titles, notes. */
@@ -74,7 +81,8 @@ export function readNotes(blocks: readonly { input: { sheetName: string | null }
 
 /** What the upload needs from the reader: injected so tests can use a fake. */
 export type UploadReader = {
-  hash: (file: File, signal?: AbortSignal) => Promise<string>;
+  /** The SHA-256, or the SHA-256 with each part's for a file over one part (one pass in the worker). */
+  hash: (file: File, signal?: AbortSignal) => Promise<string | { sha256: string; parts: string[] | null }>;
   /** `maxRawRows`: the plant's rows per file (`ingest.status` limits); the reader stops past it. */
   read: (file: File, opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[]; maxRawRows?: number }) => Promise<ReadResult>;
 };
@@ -121,16 +129,18 @@ async function put(f: typeof fetch, upload: UploadTicketOut, body: Blob, content
   if (!res.ok) throw new UploadPutError(res.status);
 }
 
-/** Read failures the bytes themselves cause: the same file will fail again, so the server is told. */
-const REPORTED_FAILURES = new Set(["too_many_rows", "too_many_columns", "too_many_blocks", "no_text_layer"]);
+/**
+ * Read failures the bytes themselves cause: the same file will fail again in this browser, so the server is told. A file
+ * too large to read here (`too_large_to_read`) is marked failed with that reason and stays in the vault.
+ */
+const REPORTED_FAILURES = new Set(["too_many_rows", "too_many_columns", "too_many_blocks", "no_text_layer", "too_large_to_read"]);
 
-/** A begin error that is a plain refusal, as the screen's problem line, or null. */
-export function problemFromError(error: unknown, name: string, limitMb: number | null, openRows: number = DEFAULT_LIMITS.openRowsPerPlant): FileProblem | null {
+/** A begin error that is a plain refusal, as the screen's problem line, or null. No file is refused for its size. */
+export function problemFromError(error: unknown, name: string, openRows: number = DEFAULT_LIMITS.openRowsPerPlant): FileProblem | null {
   const message = String((error as { message?: unknown } | null)?.message ?? "");
   if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit", vars: { limit: countText(openRows) } };
   // The server's own refusal when a PDF or photo cannot be stored: nothing is kept without storage.
   if (/need file storage/i.test(message)) return { key: "ingest.drop.keptNoStorage", vars: { name } };
-  if (/too big|larger than|exceeds/i.test(message) && limitMb !== null) return { key: "ingest.drop.tooBig", vars: { name, limit: limitMb } };
   return null;
 }
 
@@ -197,13 +207,13 @@ export async function uploadOneFile(
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   const sniffed = sniffKind(head, named.kind);
   if (!sniffed || !(isReadableKind(sniffed) || isKeptKind(sniffed))) return wrongType();
-  const found = { kind: sniffed, limitMb: limitMbFor(sniffed, limits) };
-  if (file.size > found.limitMb * 1024 * 1024) {
-    return refuse({ key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } });
-  }
+  // No size refusal by kind (limits brief part B): a file over one part goes to the vault in parts.
+  const found = { kind: sniffed };
 
   onItem({ step: "hashing", kind: found.kind, problem: null });
-  const sha256 = await reader.hash(file, signal);
+  const hashed = await reader.hash(file, signal);
+  const sha256 = typeof hashed === "string" ? hashed : hashed.sha256;
+  let partDigests = typeof hashed === "string" ? null : hashed.parts;
   if (hooks.reput && hooks.reput.sha256 !== sha256) throw new ReputError("other_file");
 
   let begin;
@@ -213,7 +223,7 @@ export async function uploadOneFile(
       ...(hooks.note ? { note: hooks.note } : {}),
     });
   } catch (error) {
-    const problem = problemFromError(error, file.name, found.limitMb, limits.openRowsPerPlant);
+    const problem = problemFromError(error, file.name, limits.openRowsPerPlant);
     if (problem) return refuse(problem);
     throw error;
   }
@@ -222,6 +232,15 @@ export async function uploadOneFile(
   rememberFile(artifactId, file);
 
   const saveRaw = async () => {
+    if (begin.parts) {
+      // Over one part: each part PUT with its digest, the missing ones only on a resume, then the whole-file check.
+      onItem({ step: "saving", saved: { parts: 0, total: begin.parts.partCount } });
+      partDigests ??= (await hashFileParts(file, { partSize: begin.parts.partSize, signal })).parts;
+      if (!partDigests || partDigests.length !== begin.parts.partCount) throw new Error("part digests do not match the part count");
+      await sendParts({ api, file, artifactId, partSize: begin.parts.partSize, parts: partDigests, fetch: send, signal, onProgress: (saved) => onItem({ saved }) });
+      onItem({ saved: null });
+      return;
+    }
     if (!begin.upload) return;
     onItem({ step: "saving" });
     try {
@@ -271,7 +290,7 @@ export async function uploadOneFile(
     }
   }
   await saveRaw();
-  const notStored = begin.upload === null && !begin.existing;
+  const notStored = begin.upload === null && !begin.parts && !begin.existing;
   onItem({ notStored });
 
   onItem({ step: "reading" });
@@ -284,6 +303,11 @@ export async function uploadOneFile(
     // about the file, and marking the artifact failed would block the same bytes for good.
     if (error instanceof ReadError && REPORTED_FAILURES.has(error.failure.code)) {
       await reportReadFailure(api, artifactId, error.failure.code);
+    }
+    if (error instanceof ReadError && error.failure.code === "too_large_to_read") {
+      // The file is in the vault (or noted as not stored); this browser cannot hold it to read. Not a refusal.
+      onItem({ step: "kept", keptWhy: "tooLargeToRead", progress: null });
+      return { artifactId, step: "kept" };
     }
     if (error instanceof ReadError && error.failure.code === "too_many_rows") {
       return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name, limit: countText(limits.rawRowsPerFile) } });

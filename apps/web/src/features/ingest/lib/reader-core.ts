@@ -1,4 +1,4 @@
-import { clipCell, DEFAULT_LIMITS, WIRE_CELL_MAX_CHARS } from "./limits";
+import { BROWSER_SHEET_MAX_BYTES, BROWSER_TEXT_MAX_CHARS, clipCell, DEFAULT_LIMITS, WIRE_CELL_MAX_CHARS } from "./limits";
 import type { EngineBlock, EngineHints, PdfItem, ReaderEngine } from "./reader-engine";
 import { FACTS_MAX, type BlockMeta, type ReadBlock, type ReadFailure, type ReadProgress, type SheetHints, type WireBlockInput } from "./reader-protocol";
 import type { ArtifactKind } from "./types";
@@ -310,6 +310,8 @@ function checkRawRows(rows: number, limits: ReadLimits): void {
 export type ReadDeps = {
   engine: ReaderEngine;
   limits?: ReadLimits;
+  /** What this browser reads at most (limits brief part B.4); tests pass small numbers. */
+  browser?: { sheetBytes: number; textChars: number };
   onProgress?: Progress;
   /** Loaded on demand, only for the kind of file being read. */
   loadXlsx?: () => Promise<XlsxLike>;
@@ -402,11 +404,14 @@ export async function readCsvText(text: string, deps: ReadDeps, sheetName: strin
 export async function readSqlChunks(chunks: AsyncIterable<string>, totalBytes: number | null, deps: ReadDeps): Promise<ReadBlock[]> {
   const limits = deps.limits ?? READ_LIMITS;
   const reader = deps.engine.createSqlReader();
+  const maxChars = deps.browser?.textChars ?? BROWSER_TEXT_MAX_CHARS;
   let chars = 0;
   for await (const chunk of chunks) {
     cancelled(deps);
-    reader.push(chunk);
     chars += chunk.length;
+    // The rows of the dump are held as they are read: past this the tab would run out of memory.
+    if (chars > maxChars) throw new ReadStop({ code: "too_large_to_read" });
+    reader.push(chunk);
     deps.onProgress?.({ phase: "table", sheet: null, rowsRead: chars, rowsTotal: totalBytes });
   }
   const tables = reader.finish();
@@ -461,6 +466,35 @@ export async function readPdfBytes(buffer: ArrayBuffer, deps: ReadDeps): Promise
   return finishBlocks(pieces, limits);
 }
 
+/**
+ * A CSV read as a stream (limits brief part B.4): the text is gathered chunk by chunk while its rows are counted (a
+ * newline outside quotes ends a row), so a file past the plant's rows per file stops at that row, never read whole, and
+ * text past what this browser holds stops with `too_large_to_read`. The text then goes to the CSV reader as before.
+ */
+export async function readCsvChunks(chunks: AsyncIterable<string>, _totalBytes: number | null, deps: ReadDeps, hints?: readonly SheetHints[]): Promise<ReadBlock[]> {
+  const limits = deps.limits ?? READ_LIMITS;
+  const maxChars = deps.browser?.textChars ?? BROWSER_TEXT_MAX_CHARS;
+  const parts: string[] = [];
+  let chars = 0;
+  let rows = 0;
+  let quoted = false;
+  for await (const chunk of chunks) {
+    cancelled(deps);
+    chars += chunk.length;
+    if (chars > maxChars) throw new ReadStop({ code: "too_large_to_read" });
+    for (let i = 0; i < chunk.length; i++) {
+      const c = chunk.charCodeAt(i);
+      if (c === 34) quoted = !quoted;
+      else if (c === 10 && !quoted) rows += 1;
+    }
+    // One more than the limit allows for a last line with no newline after it.
+    if (rows > limits.maxRawRows + 1) throw new ReadStop({ code: "too_many_rows", rows });
+    parts.push(chunk);
+    deps.onProgress?.({ phase: "open", sheet: null, rowsRead: rows, rowsTotal: null });
+  }
+  return readCsvText(parts.join(""), deps, null, hints);
+}
+
 /** Text chunks of a file, decoded as UTF-8, for the SQL reader. */
 export async function* textChunks(file: Pick<Blob, "stream">): AsyncGenerator<string> {
   const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
@@ -484,9 +518,11 @@ export async function readFileBlocks(
 ): Promise<ReadBlock[]> {
   switch (kind) {
     case "sheet":
+      // The sheet library opens a workbook whole, several times its size in memory: past this the file stays in the vault.
+      if (file.size > (deps.browser?.sheetBytes ?? BROWSER_SHEET_MAX_BYTES)) throw new ReadStop({ code: "too_large_to_read" });
       return readSheetBytes(await file.arrayBuffer(), deps, hints);
     case "csv":
-      return readCsvText(await file.text(), deps, null, hints);
+      return readCsvChunks(textChunks(file), file.size, deps, hints);
     case "sql":
       return readSqlChunks(textChunks(file), file.size, deps);
     case "pdf_text":

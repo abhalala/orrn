@@ -428,8 +428,9 @@ export function uploadStrip(
         break;
       }
       case "saving":
-        words = { key: "ingest.read.uploading" };
-        progress = null;
+        // A file that goes in parts says how many are stored (limits brief part B).
+        words = item.saved ? { key: "ingest.read.uploadingParts", vars: { done: count(item.saved.parts), total: count(item.saved.total) } } : { key: "ingest.read.uploading" };
+        progress = item.saved?.total ? item.saved.parts / item.saved.total : null;
         break;
       case "sending":
         progress = item.sent?.total ? item.sent.rows / item.sent.total : null;
@@ -442,10 +443,16 @@ export function uploadStrip(
         words = item.problem ? { key: item.problem.key, vars: item.problem.vars } : null;
         break;
       case "failed":
-        words = { key: "ingest.read.failed" };
+        // The chunked upload's own refusals have words of their own; anything else keeps the read words.
+        words = item.problem?.key.startsWith("ingest.upload.") ? { key: item.problem.key } : { key: "ingest.read.failed" };
         break;
       case "kept":
-        words = item.keptWhy === "cannotOpen" ? { key: "ingest.vision.cannotOpen" } : { key: "ingest.kept.added" };
+        words =
+          item.keptWhy === "cannotOpen"
+            ? { key: "ingest.vision.cannotOpen" }
+            : item.keptWhy === "tooLargeToRead"
+              ? { key: "ingest.read.tooLargeToRead", vars: { name: item.name } }
+              : { key: "ingest.kept.added" };
         break;
       case "pages":
         words = item.pages ? visionProgressWords(item.pages) : { key: "ingest.vision.opening" };
