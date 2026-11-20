@@ -4,12 +4,12 @@
  * with no Bun stand-in and no buffering at a process boundary. Synthetic bytes only.
  */
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Miniflare } from "miniflare";
 
-const STREAM_DIGEST = fileURLToPath(new URL("../src/lib/ingest/stream-digest.ts", import.meta.url));
+const STREAM_DIGEST = join(import.meta.dir, "../src/lib/ingest/stream-digest.ts");
 
 /** The Worker under test: each route runs one function of `stream-digest.ts` against the request body or the bucket. */
 const WORKER = `
@@ -51,8 +51,7 @@ export default {
 let mf: Miniflare;
 
 beforeAll(async () => {
-  const dir = fileURLToPath(new URL(".", import.meta.url));
-  const path = `${dir}.stream-worker-${process.pid}.ts`;
+  const path = join(import.meta.dir, `.stream-worker-${process.pid}.ts`);
   await Bun.write(path, WORKER);
   try {
     const out = await Bun.build({ entrypoints: [path], format: "esm", target: "browser" });
