@@ -21,7 +21,7 @@ Four spec files are in no group and the script warns about each: `ingest-shots` 
 runs by hand with `SHOTS=1`; `label-photo-import`, `label-studio` and `printing-labels` are not in any group either, so no gate runs them.
 
 `buddy` (group C, no saved wall time yet) talks to the fake Hermes that `playwright.config.ts` starts on the API port
-plus 80; the API gets `BUDDY_FAKE_HERMES_PORT`, so an API you started yourself needs it too. It runs serially on the
+plus 150 (or `BUDDY_FAKE_HERMES_PORT`); the API gets `BUDDY_FAKE_HERMES_PORT`, so an API you started yourself needs it too. It runs serially on the
 demo owner's grant and disconnects Hermes before and after, so the floating button shows only while it runs.
 
 `a11y-app` is the signed-in axe sweep (every nav screen, desktop and 375 px, light and dark, en plus hi for Today, Pack, Scan and

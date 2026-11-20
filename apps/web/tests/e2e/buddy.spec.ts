@@ -15,9 +15,9 @@ import { ownerApi } from "./helpers/owner-api";
  * after a run that died half way): the floating button shows for the owner only while this file runs.
  */
 
-/** Same rule as playwright.config.ts: the fake listens on the API port + 80. */
+/** Same rule as playwright.config.ts: the fake listens on the API port + 150. */
 const API_PORT = Number(new URL(API_URL).port);
-const FAKE_HERMES = `http://127.0.0.1:${Number(process.env.BUDDY_FAKE_HERMES_PORT) || API_PORT + 80}`;
+const FAKE_HERMES = `http://127.0.0.1:${Number(process.env.BUDDY_FAKE_HERMES_PORT) || API_PORT + 150}`;
 const SIZES = [
   { name: "phone", width: 375, height: 812 },
   { name: "tablet", width: 820, height: 1180 },
