@@ -5,7 +5,7 @@
  */
 import { periodRequired, recipeSchema } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 
 import {
   ingestAnswer,
@@ -22,7 +22,7 @@ import {
 import { auditInsert } from "../audit";
 import { now } from "../clock";
 import { effectiveLimits } from "../effectiveLimits";
-import { GIB, MIB, PLANT_LIMITS } from "../plantLimits";
+import { MIB, PLANT_LIMITS } from "../plantLimits";
 import { createId } from "../id";
 import { pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { shapeBot } from "./engines";
@@ -41,7 +41,7 @@ import {
 } from "./core";
 import { guessArtifactPeriod } from "./period";
 import { visionAllSettled } from "./vision";
-import { goesInParts, madeFromParts, partCountFor, RAW_PART_BYTES, UNFINISHED_UPLOAD_MS, uploadComplete } from "./upload-parts";
+import { goesInParts, madeFromParts, partCountFor, quotaGuard, RAW_PART_BYTES, storageFullWords, uploadComplete } from "./upload-parts";
 import { canonicalKey, CANONICAL_MAX_BYTES, digestKey, ingestVault, issueTicket, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
@@ -90,36 +90,6 @@ export function fileTooBigWords(fileName: string, limitMiB: number): string {
     : `${fileName} is too big. The largest file for this plant is ${sizeWords(limitMiB)}. Godseye staff can raise it.`;
 }
 
-/** The plant's storage quota (`vaultQuotaGiB`) would be passed. */
-export function storageFullWords(quotaGiB: number): string {
-  return quotaGiB >= PLANT_LIMITS.vaultQuotaGiB.ceiling
-    ? `This plant's file storage is full (${quotaGiB} GB).`
-    : `This plant's file storage is full (${quotaGiB} GB). Godseye staff can raise it.`;
-}
-
-/**
- * Raw bytes the plant holds in the vault, from D1 (never an R2 listing): stored files, plus uploads begun or resumed
- * in the last day. An older unfinished upload holds no parts: the lifecycle rule aborts them after 1 day.
- */
-export function vaultBytesSql(companyId: string, at: Date): SQL {
-  const since = new Date(at.getTime() - UNFINISHED_UPLOAD_MS);
-  return sql`(select coalesce(sum(${ingestArtifact.sizeBytes}), 0) from ${ingestArtifact} where ${ingestArtifact.companyId} = ${companyId} and (${ingestArtifact.vaultState} = 'stored' or (${ingestArtifact.vaultState} = 'pending' and ${ingestArtifact.updatedAt} >= ${since.getTime()})))`;
-}
-
-/**
- * Fails the batch when the statements before it took the plant past its quota: a no-op update of the file's own row
- * that matches only while the plant's bytes are within the quota, then the abort (D1 batches take builder statements
- * with bound values; a raw statement with values does not prepare in a batch).
- */
-function quotaGuard(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string, at: Date, quotaGiB: number): SqliteBatchItem[] {
-  return [
-    ctx.db
-      .update(ingestArtifact)
-      .set({ updatedAt: at })
-      .where(and(eq(ingestArtifact.id, artifactId), eq(ingestArtifact.companyId, ctx.companyId), sql`${vaultBytesSql(ctx.companyId, at)} <= ${quotaGiB * GIB}`)),
-    ingestAbortUnlessChanged(ctx.db),
-  ];
-}
 
 
 /** Rows staged in candidates that are neither merged nor discarded (plan A9, 300,000 per plant). */

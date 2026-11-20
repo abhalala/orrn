@@ -63,8 +63,8 @@ purposes, the read route only `ingest-read`.
   file again to send them."; `complete` with the recorded ETags; then the object is streamed once through
   `DigestStream` and must give the artifact's SHA-256 and size. The check takes `upload/check.json` first; a second
   complete while it runs gets CONFLICT "This file is still being checked. Try again in a minute.". A mismatch, or a lock
-  older than 5 minutes (a check the CPU limit killed), deletes the object and the upload folder, marks the file
-  `read_state = failed` with the sentence as `read_error`, and the call fails; the check is not run again until the
+  older than 5 minutes (a check the CPU limit killed), deletes the object and the upload folder, marks the file (a PDF
+  or photo; a sheet, CSV or SQL file keeps its read state and tables) `read_state = failed` with the sentence as `read_error`, and the call fails; the check is not run again until the
   file is added again. On a match the artifact is `stored` (a PDF or photo marked failed by an earlier check goes back
   to `kept_unread`); the object is headed again and must still have the ETag that was hashed. R2 InvalidPart on
   complete (two PUTs of one part crossed) deletes the part markers, keeps the plan and the multipart upload, and says
@@ -138,8 +138,9 @@ R2).
     383 ms, 2 GiB in 763 ms (2,685 MiB/s). Generating the stream alone took 58 to 326 ms of that.
   - a 512 MiB object in local R2: read only 772 ms, read and hashed 927 ms (local disk bound; waiting on R2 is not CPU
     time on the edge).
-  - Ceiling: 2 GiB (`uploadFileMiB`), against `limits.cpu_ms` 30,000 (Workers Paid default, pinned in
-    `alchemy.run.ts`; the account is on Workers Paid, which allows up to 300,000). At the slowest shipped rate 2 GiB is
+  - Ceiling: 2 GiB (`uploadFileMiB`), against the 30,000 ms CPU default per request on Workers Paid (no
+    `limits.cpu_ms` override in `alchemy.run.ts`; the account is on Workers Paid, which allows up to 300,000; an
+    override would also cap the daily cron, whose default for a daily trigger is 15 minutes, so none is set). At the slowest shipped rate 2 GiB is
     about 1.2 s, 25x under the limit; the edge would have to be 8x slower than this laptop before the 3x margin is
     gone. Not measured on the edge.
 
@@ -148,9 +149,11 @@ R2).
 - The vault bucket carries one lifecycle rule (`alchemy.run.ts`): `abortMultipartUploadsTransition` after 86,400 s,
   prefix "" (no delete transition; raw files are kept forever). Alchemy 0.91.2 `R2Bucket` supports `lifecycle` and
   PUTs `/accounts/<id>/r2/buckets/<name>/lifecycle`, which replaces the bucket's rules, R2's default 7-day abort
-  rule included. It applies on the next deploy of each stage.
+  rule included. It applies on the next deploy of each stage that has the vault. Check after promotion, read only:
+  `cf r2 buckets lifecycle get <bucket>` should list `abort-unfinished-uploads-1d`.
 - A plan is resumed only within 20 hours (`PLAN_RESUME_MS`).
-- The daily cron (`sweepUnfinishedUploads`): files still `pending` whose row is older than a day lose their plan,
+- The daily cron (`sweepUnfinishedUploads`): files still `pending` whose row crossed the one-day line in the last two
+  days (newest first, at most 500 a run) lose their plan,
   markers and any unchecked object made from parts; a file sent in one piece whose commit never came is marked stored.
   Rows stay `pending` otherwise (the approve gate refuses a file whose bytes are not stored).
 - The storage quota counts stored files plus `pending` rows touched in the last day; a re-add of a file touches its row
@@ -164,7 +167,8 @@ R2).
   values (name, limit or size) for the no-vault refusal by kind and the size and storage refusals.
 - `artifactUploadComplete` may answer CONFLICT "This file is still being checked..." (mapped, retry) and BAD_REQUEST
   "orrn could not check this file..." (mapped, no retry: the file must be added again).
-- `artifactUploadStart` may answer CONFLICT "Someone else is sending this file now..." (mapped).
+- `artifactUploadStart` may answer CONFLICT "Someone else is sending this file now..." (mapped), and the storage
+  refusal (PRECONDITION_FAILED, the same words as `begin`) when a new multipart upload would pass the quota.
 - `artifactUploadTickets` answers at most 2 tickets however many are asked; the current loop already asks again for a
   part with no ticket. The "7 days" comment in `upload-parts.ts` (web) is now 1 day.
 

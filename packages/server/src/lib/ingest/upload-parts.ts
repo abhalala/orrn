@@ -15,15 +15,16 @@
  *   then answers 410 and the browser starts again. The daily cron clears what is left (`sweepUnfinishedUploads`).
  */
 import { TRPCError } from "@trpc/server";
-import { and, eq, lt, ne } from "drizzle-orm";
+import { and, desc, eq, gte, lt, ne, sql, type SQL } from "drizzle-orm";
 
 import { ingestArtifact, ingestCandidate } from "@orrn/db/schema/ingest";
 
-import type { OrrnDb } from "../atomic";
+import type { OrrnDb, SqliteBatchItem } from "../atomic";
+import { effectiveLimits } from "../effectiveLimits";
 import { now } from "../clock";
 import { base64url, dieFileSigningReady, fromBase64url, hex, hmacKey, apiOrigin } from "../dieFiles";
-import { UPLOAD_FILE_CEILING_BYTES } from "../plantLimits";
-import { loadArtifact, type ArtifactRow } from "./core";
+import { GIB, PLANT_LIMITS, UPLOAD_FILE_CEILING_BYTES } from "../plantLimits";
+import { guardedBatch, ingestAbortUnlessChanged, loadArtifact, type ArtifactRow } from "./core";
 import { digestTap, streamSha256 } from "./stream-digest";
 import { isVisualKind, type ArtifactSummary, type IngestCtx } from "./types";
 import { artifactPrefix, ingestVault, INGEST_TICKET_TTL_MS, rawKey, vaultReady } from "./vault";
@@ -42,6 +43,8 @@ export const RAW_PLAN_MAX_PARTS = Math.ceil(UPLOAD_FILE_CEILING_BYTES / RAW_PART
 export const PLAN_RESUME_MS = 20 * 60 * 60 * 1000;
 /** An upload begun longer ago than this holds no part in R2 (lifecycle rule) and is cleared by the daily cron. */
 export const UNFINISHED_UPLOAD_MS = 24 * 60 * 60 * 1000;
+/** The daily sweep looks at rows that crossed the one-day line within this window (each is seen on two runs). */
+export const SWEEP_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 /** Part tickets asked for in one call (the zod bound). */
 export const PART_TICKETS_PER_CALL = 8;
 /**
@@ -146,6 +149,37 @@ async function clearUpload(bucket: R2Bucket, companyId: string, sha256: string):
   } while (cursor);
 }
 
+/** The plant's storage quota (`vaultQuotaGiB`) would be passed. */
+export function storageFullWords(quotaGiB: number): string {
+  return quotaGiB >= PLANT_LIMITS.vaultQuotaGiB.ceiling
+    ? `This plant's file storage is full (${quotaGiB} GB).`
+    : `This plant's file storage is full (${quotaGiB} GB). Godseye staff can raise it.`;
+}
+
+/**
+ * Raw bytes the plant holds in the vault, from D1 (never an R2 listing): stored files, plus uploads begun or resumed
+ * in the last day. An older unfinished upload holds no parts: the lifecycle rule aborts them after 1 day.
+ */
+export function vaultBytesSql(companyId: string, at: Date): SQL {
+  const since = new Date(at.getTime() - UNFINISHED_UPLOAD_MS);
+  return sql`(select coalesce(sum(${ingestArtifact.sizeBytes}), 0) from ${ingestArtifact} where ${ingestArtifact.companyId} = ${companyId} and (${ingestArtifact.vaultState} = 'stored' or (${ingestArtifact.vaultState} = 'pending' and ${ingestArtifact.updatedAt} >= ${since.getTime()})))`;
+}
+
+/**
+ * Fails the batch when the statements before it took the plant past its quota: a no-op update of the file's own row
+ * that matches only while the plant's bytes are within the quota, then the abort (D1 batches take builder statements
+ * with bound values; a raw statement with values does not prepare in a batch).
+ */
+export function quotaGuard(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string, at: Date, quotaGiB: number): SqliteBatchItem[] {
+  return [
+    ctx.db
+      .update(ingestArtifact)
+      .set({ updatedAt: at })
+      .where(and(eq(ingestArtifact.id, artifactId), eq(ingestArtifact.companyId, ctx.companyId), sql`${vaultBytesSql(ctx.companyId, at)} <= ${quotaGiB * GIB}`)),
+    ingestAbortUnlessChanged(ctx.db),
+  ];
+}
+
 function needBucket(): R2Bucket {
   const bucket = ingestVault();
   if (!bucket || !vaultReady()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File storage is not set up for this plant yet" });
@@ -193,17 +227,22 @@ async function takeCheck(ctx: IngestCtx, bucket: R2Bucket, sha256: string): Prom
  * One failed whole-file check (a wrong digest, or a check that never finished): the object and the upload folder go,
  * the file is marked failed with plain words, and the check is not run again until the file is added again.
  */
-async function failWhole(ctx: IngestCtx, bucket: R2Bucket, a: { id: string; sha256: string }, words: string): Promise<never> {
+async function failWhole(ctx: IngestCtx, bucket: R2Bucket, a: Pick<ArtifactRow, "id" | "sha256" | "kind">, words: string): Promise<never> {
   const key = rawKey(ctx.companyId, a.sha256);
   const plan = await readPlan(bucket, ctx.companyId, a.sha256);
   if (plan) await bucket.resumeMultipartUpload(key, plan.uploadId).abort().catch(() => undefined);
   const head = await bucket.head(key);
   if (madeFromParts(head)) await bucket.delete(key);
   await clearUpload(bucket, ctx.companyId, a.sha256);
-  await ctx.db
-    .update(ingestArtifact)
-    .set({ readState: "failed", readError: words, updatedAt: now() })
-    .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored")));
+  // A PDF or photo is only its bytes, so the file is marked failed. A sheet, CSV or SQL file was read in the browser:
+  // its tables stay, and marking it failed would make the next add read it again and drop them. With the object gone
+  // the check cannot run again either way; the next complete says the upload ran out.
+  if (isVisualKind(a.kind)) {
+    await ctx.db
+      .update(ingestArtifact)
+      .set({ readState: "failed", readError: words, updatedAt: now() })
+      .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored")));
+  }
   throw new TRPCError({ code: "BAD_REQUEST", message: words });
 }
 
@@ -283,6 +322,22 @@ export async function uploadStart(ctx: IngestCtx, input: { artifactId: string; p
   }
   // Another person's upload of this file still running is not replaced; they, or anyone, may remove it first (L7).
   if (plan && fresh0 && plan.userId !== ctx.session.user.id) throw new TRPCError({ code: "CONFLICT", message: SOMEONE_ELSE_SENDING });
+  // A new multipart upload holds bytes from now: the file counts against the plant's quota again (security M1), even
+  // when its row is older than a day and had dropped out of the count.
+  const at = now();
+  const quotaGiB = (await effectiveLimits(ctx)).vaultQuotaGiB;
+  await guardedBatch(
+    ctx.db,
+    [
+      ctx.db
+        .update(ingestArtifact)
+        .set({ updatedAt: at })
+        .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored"))),
+      ingestAbortUnlessChanged(ctx.db),
+      ...quotaGuard(ctx, a.id, at, quotaGiB),
+    ],
+    { code: "PRECONDITION_FAILED", message: storageFullWords(quotaGiB) },
+  );
   if (plan) {
     await bucket.resumeMultipartUpload(key, plan.uploadId).abort().catch(() => undefined);
     await clearUpload(bucket, ctx.companyId, a.sha256);
@@ -441,13 +496,23 @@ export async function abortIfAbandoned(ctx: Pick<IngestCtx, "db" | "companyId">,
  * has aborted their parts by then; the plan, the markers and any object made from parts that was never checked go.
  * A file sent in one piece whose commit never came (the bytes are there, checked by R2 against the signed SHA-256)
  * is marked stored, so its bytes count against the plant's quota. The row stays `pending` otherwise: the approve
- * gate keeps refusing a file whose bytes are not stored. At most `limit` files a run.
+ * gate keeps refusing a file whose bytes are not stored. Only rows that crossed the one-day line in the last
+ * `SWEEP_WINDOW_MS` are looked at, newest first, at most `limit` a run: a row the sweep cannot resolve stays `pending`,
+ * and an unbounded query would pick the same old rows every day and never reach new ones.
  */
-export async function sweepUnfinishedUploads(db: OrrnDb, bucket: R2Bucket, at: Date, limit = 200): Promise<{ cleared: number; stored: number }> {
+export async function sweepUnfinishedUploads(db: OrrnDb, bucket: R2Bucket, at: Date, limit = 500): Promise<{ cleared: number; stored: number }> {
+  const line = at.getTime() - UNFINISHED_UPLOAD_MS;
   const rows = await db
     .select({ id: ingestArtifact.id, companyId: ingestArtifact.companyId, sha256: ingestArtifact.sha256, sizeBytes: ingestArtifact.sizeBytes })
     .from(ingestArtifact)
-    .where(and(eq(ingestArtifact.vaultState, "pending"), lt(ingestArtifact.updatedAt, new Date(at.getTime() - UNFINISHED_UPLOAD_MS))))
+    .where(
+      and(
+        eq(ingestArtifact.vaultState, "pending"),
+        lt(ingestArtifact.updatedAt, new Date(line)),
+        gte(ingestArtifact.updatedAt, new Date(line - SWEEP_WINDOW_MS)),
+      ),
+    )
+    .orderBy(desc(ingestArtifact.updatedAt))
     .limit(limit);
   let cleared = 0;
   let stored = 0;

@@ -584,6 +584,58 @@ describe("fix round: part markers, the whole-file check and who may restart", ()
   });
 });
 
+describe("fix round: review of the fix (quota at uploadStart, sweep window, a sheet's failed check)", () => {
+  test("M1: a new multipart upload on a row that dropped out of the count is checked against the quota again", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    await env.caller({ platformRole: "support" }).platform.companiesSetLimits({ companyId: pl.companyId, limits: { vaultQuotaGiB: 1 } });
+    const f = await begun(pl, bigFile());
+    // The row as if begun two days ago: uncounted. Then the plant fills up with another file.
+    await env.db.update(ingestArtifact).set({ updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) }).where(eq(ingestArtifact.id, f.artifactId));
+    await pl.owner.ingest.artifact.begin({ sha256: hex(new TextEncoder().encode(randomUUID())), fileName: "full.pdf", sizeBytes: 1024 * 1024 * 1024 - 1000, contentType: "application/pdf", kind: "pdf_scan" });
+    await expect(f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) })).rejects.toThrow(
+      "This plant's file storage is full (1 GB). Godseye staff can raise it.",
+    );
+    expect(await raw.head(uploadPlanKey(pl.companyId, f.sha256))).toBeNull();
+  });
+
+  test("N7: the sweep looks only at rows that crossed the one-day line lately, newest first", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const old = await begun();
+    await sendAll(old, [1]);
+    const recent = await begun();
+    await sendAll(recent, [1]);
+    const at = new Date(Date.now() + 10 * day);
+    const set = (id: string, ms: number) => env.db.update(ingestArtifact).set({ updatedAt: new Date(ms) }).where(eq(ingestArtifact.id, id));
+    // Outside the two-day window: left alone, so dead rows never crowd out new ones.
+    await set(old.artifactId, at.getTime() - 9 * day);
+    await set(recent.artifactId, at.getTime() - 1.5 * day);
+    await sweepUnfinishedUploads(env.db, vault(), at, 1);
+    expect(await raw.head(uploadPlanKey(recent.p.companyId, recent.sha256))).toBeNull();
+    expect(await raw.head(uploadPlanKey(old.p.companyId, old.sha256))).not.toBeNull();
+  });
+
+  test("decision 4: a sheet whose whole-file check fails keeps its tables and is not read again on the next add", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    const named = bigFile();
+    const sha256 = hex(named);
+    const b = await pl.owner.ingest.artifact.begin({ sha256, fileName: "big.csv", sizeBytes: named.length, contentType: "text/csv", kind: "csv" });
+    const sheet = { ordinal: 0, sheetName: "S0", title: null, headerRow: 0, headerRows: 1, headers: ["Name", "GSTIN", "City"], rowCount: 1, sample: [["A", "", "X"]] };
+    const put = await putBlocksPicked(pl.owner, { artifactId: b.artifactId, blocks: [sheet] });
+    const f = { p: pl, bytes: named, sha256, artifactId: b.artifactId, begin: b, parts: partsOf(named) };
+    const otherParts = partsOf(bigFile());
+    await pl.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: otherParts.map(hex) });
+    for (const t of await ticketsFor(f, [1, 2])) await putPart(t.url, otherParts[t.part - 1]!);
+    await expect(pl.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(DIGEST_MISMATCH);
+    expect((await artifactRow(f)).readState).not.toBe("failed");
+    await expect(pl.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).rejects.toThrow(UPLOAD_RAN_OUT);
+    const again = await pl.owner.ingest.artifact.begin({ sha256, fileName: "big.csv", sizeBytes: named.length, contentType: "text/csv", kind: "csv" });
+    expect(again.existing).toBe(true);
+    expect((await pl.owner.ingest.candidate.get({ candidateId: put.candidates[0]!.id })).id).toBe(put.candidates[0]!.id);
+  });
+});
+
 describe("fix round: limits on file size and storage (decision 3)", () => {
   const MiB = 1024 * 1024;
   const begin = (pl: Plant, sizeBytes: number, kind: "pdf_scan" | "csv" | "sheet" = "pdf_scan") =>

@@ -275,9 +275,6 @@ export const server = await Worker("server", {
   adopt: true,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
-  // The Workers Paid default, pinned: the whole-file SHA-256 check of a chunked upload runs in one request, and the
-  // largest file per upload (`uploadFileMiB` ceiling, 2 GiB) is chosen to hash well inside it (plantLimits.ts).
-  limits: { cpu_ms: 30_000 },
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
   // Purelymail SMTP is the sender until then (packages/auth/src/smtp.ts).
   // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.
