@@ -363,7 +363,13 @@ Contract: `docs/superpowers/plans/2026-11-20-vision-read.md`. Words: `ingest.vis
 - File page (`vision-file-panel.tsx`): `useVisionPages`, `useVisionFileRead` ("Read this file" fetches the raw bytes by
   `vision.readUrl`), `useVisionPageActions` (read again, skip, type, finish), `visionPageRow`, `visionFileActions`.
 - Review (`vision-check-panel.tsx`): `usePageImage` (asked again after 8 minutes and on focus), `useVisionRows` (every staged row),
-  `visionRows` (doubted rows first, blank cells marked), `useVisionCheckActions` (tick, fix a cell). `decisionBar` keeps
+  `visionRows` (rows with a cell whose digits are not in the PDF's text first, then rows under `lowConfidence`, then the rest;
+  blank and unseen cells marked; confidence only orders, it never says a row is right), `useVisionCheckActions` (tick, fix a cell). `decisionBar` keeps
   Approve out of the bar until the tick and says `vision.tickFirst` (`blocked.to === "tick"`); `bar.vision.approve` is the
   Approve the panel draws after its checkbox. `isFromPage(block)` hides the header pick and the put again.
+- Section 11 (EVAL): `vision-bands.ts` is pure. `planTextBands` (text layer picks the line boundary, ink projection picks the
+  blank row) and `planScanBands` (ink lines) cut a page into `bandCountFor` bands with edges covering every pixel row once
+  and no cut through ink; the header strip (first line as wide as the table) goes on bands 2..k of a text PDF.
+  `pageTextJson` gives the page text whole or null. `PageSource.text` and `PageSource.bands` draw them; the pump sends
+  `start.texts` before any page is read. `waitsOnBands` pages offer Type and Skip.
 - Server sentences of the contract's section 8b are matched by text first in `errors.ts` (`VISION_SENTENCES`).

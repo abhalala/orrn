@@ -76,6 +76,7 @@ export const guIngest = {
       },
       pageHeading: "પેજ {page} / {count}",
       pageAlt: "{file} નું પેજ {page} / {count}",
+      partAlt: "{file} નું પેજ {page} / {count}, ભાગ {part} / {parts}",
       imageFailed: "પેજની ઇમેજ લોડ થઈ નહીં.",
       rowsHeading: "પેજ પરથી વાંચેલી લાઇન",
       lowFirst: "નિશાનીવાળી લાઇન પહેલાં દેખાય છે. કોઈ પણ લાઇન ખોટી હોઈ શકે, એટલે દરેક લાઇન પેજ સાથે મેળવો.",

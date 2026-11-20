@@ -564,6 +564,7 @@ export const ingestEn = {
     // the review of a table read from a page
     pageHeading: "Page {page} of {count}",
     pageAlt: "Page {page} of {count} of {file}",
+    partAlt: "Page {page} of {count} of {file}, part {part} of {parts}",
     imageFailed: "The page image did not load.",
     rowsHeading: "Rows read from the page",
     lowFirst: "Marked rows come first. Any row can be wrong, so check every row against the page.",

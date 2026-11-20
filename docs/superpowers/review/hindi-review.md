@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8404 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8405 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7098,7 +7098,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (632)
+### ingest (633)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7554,6 +7554,7 @@ Please check, Lalubhai:
 | `vision.type.needRow` | Type at least one row. | कम से कम एक रो टाइप करें। |
 | `vision.pageHeading` | Page {page} of {count} | पेज {page} / {count} |
 | `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
+| `vision.partAlt` | Page {page} of {count} of {file}, part {part} of {parts} | {file} का पेज {page} / {count}, हिस्सा {part} / {parts} |
 | `vision.imageFailed` | The page image did not load. | पेज की इमेज लोड नहीं हुई। |
 | `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
 | `vision.lowFirst` | Marked rows come first. Any row can be wrong, so check every row against the page. | निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं। |

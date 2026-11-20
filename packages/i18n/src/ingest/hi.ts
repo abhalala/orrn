@@ -563,6 +563,7 @@ export const ingestHi = {
     // the review of a table read from a page
     pageHeading: "पेज {page} / {count}",
     pageAlt: "{file} का पेज {page} / {count}",
+    partAlt: "{file} का पेज {page} / {count}, हिस्सा {part} / {parts}",
     imageFailed: "पेज की इमेज लोड नहीं हुई।",
     rowsHeading: "पेज से पढ़ी गई लाइनें",
     lowFirst: "निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं।",

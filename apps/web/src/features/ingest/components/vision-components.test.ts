@@ -156,6 +156,29 @@ describe("the page check", () => {
     expect(panel(detail({}, { counts: counts({ written: 1 }) }))).not.toContain("Fix this cell");
   });
 
+  test("a page cut into bands with no whole image shows its bands in order, each with a text alternative", () => {
+    const c = detail({ vision: { ...vision, bands: 2 } });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData([["auth", "me"], { type: "query" }], { company: { role: "owner", settings: {} }, isPlatformAdmin: false });
+    client.setQueryData(lib.visionKeys.rows(c.id), staged);
+    // The whole page answered NOT_FOUND (kept as an error on mount); the two bands are there.
+    client.setQueryDefaults(lib.visionKeys.image(c.artifactId, 2), { retryOnMount: false });
+    void client.prefetchQuery({ queryKey: lib.visionKeys.image(c.artifactId, 2), queryFn: () => Promise.reject(new Error("Import file not found")), retry: false });
+    client.setQueryData(lib.visionKeys.image(c.artifactId, 2, 1), { url: "http://localhost/b1", expiresAt: 0 });
+    client.setQueryData(lib.visionKeys.image(c.artifactId, 2, 2), { url: "http://localhost/b2", expiresAt: 0 });
+    return new Promise<void>((done) =>
+      setTimeout(() => {
+        const html = renderToStaticMarkup(
+          createElement(QueryClientProvider, { client }, createElement(VisionCheckPanel, { candidate: c, bar: bar(c), approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} })),
+        );
+        expect(html).toContain('alt="Page 2 of 3 of scan.pdf, part 1 of 2"');
+        expect(html).toContain('alt="Page 2 of 3 of scan.pdf, part 2 of 2"');
+        expect(html.indexOf("part 1 of 2")).toBeLessThan(html.indexOf("part 2 of 2"));
+        done();
+      }, 20),
+    );
+  });
+
   test("a sheet read by the parser draws nothing here", () => {
     expect(panel(detail({ readBy: "parser", vision: null }))).toBe("");
   });

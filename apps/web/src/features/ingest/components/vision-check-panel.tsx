@@ -85,6 +85,13 @@ export function VisionCheckPanel({
               className="h-auto w-full rounded-card border border-border bg-white"
               onError={() => setImageFailed(url)}
             />
+          ) : image.isError && (vision.bands ?? 0) > 1 ? (
+            // A page cut into bands may have no whole image (a dense text PDF resumed in another tab): its bands, in order.
+            <div className="flex flex-col gap-1">
+              {Array.from({ length: vision.bands! }, (_, i) => (
+                <BandImage key={i} artifactId={candidate.artifactId} page={vision.page} band={i + 1} total={vision.bands!} alt={say("ingest.vision.partAlt", { ...pageVars, file: candidate.fileName, part: i + 1, parts: vision.bands! })} />
+              ))}
+            </div>
           ) : image.isError || (url && imageFailed === url) ? (
             <div className="flex flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken p-4">
               <p className="m-0 text-[14px] text-tone-amber-ink">{say("ingest.vision.imageFailed")}</p>
@@ -198,6 +205,32 @@ export function VisionCheckPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** One band image of a page read in bands, asked again like the page image; a failed band says so and offers retry. */
+function BandImage({ artifactId, page, band, alt }: { artifactId: string; page: number; band: number; total: number; alt: string }) {
+  const { say } = useSay();
+  const image = usePageImage(artifactId, page, band);
+  const [failed, setFailed] = useState<string | null>(null);
+  const url = image.data?.url ?? null;
+  if (url && failed !== url) {
+    return <img data-testid="vision-band-image" src={url} alt={alt} className="h-auto w-full rounded-card border border-border bg-white" onError={() => setFailed(url)} />;
+  }
+  if (image.isError || (url && failed === url)) {
+    return (
+      <div className="flex flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken p-3">
+        <p className="m-0 text-[14px] text-tone-amber-ink">{say("ingest.vision.imageFailed")}</p>
+        <Button variant="secondary" onClick={() => void image.refetch()}>
+          {say("common.retry")}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div aria-busy="true" className="h-40 w-full animate-pulse rounded-card bg-surface-sunken motion-reduce:animate-none">
+      <span className="sr-only">{say("common.loading")}</span>
+    </div>
   );
 }
 
