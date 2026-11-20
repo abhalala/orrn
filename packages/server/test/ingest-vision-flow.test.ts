@@ -46,13 +46,11 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]);
 
 const S = "claude-sonnet-5-5";
 const sonnet = (json: unknown, over = {}) => fakeResponse(json, { modelUsed: S, ...over });
-const table = (over: Record<string, unknown> = {}) => ({
-  title: "Party list",
-  headers: ["Party name", "City"],
-  rows: [["Nova Metals", "Rajkot"], ["Om Alloys", "Surat"], ["Sai Traders", ""]],
-  rowConfidence: [0.95, 0.4, 0.6],
-  ...over,
-});
+/** A table in the friendly form (rows and one confidence per row), sent as prompt v3 row objects. */
+const table = (over: { title?: string | null; headers?: string[]; rows?: string[][]; rowConfidence?: number[] } = {}) => {
+  const t = { title: "Party list", headers: ["Party name", "City"], rows: [["Nova Metals", "Rajkot"], ["Om Alloys", "Surat"], ["Sai Traders", ""]], rowConfidence: [0.95, 0.4, 0.6], ...over };
+  return { title: t.title, headers: t.headers, rows: t.rows.map((cells, i) => ({ cells, confidence: t.rowConfidence[i] ?? 0.9 })) };
+};
 const tables = (...t: unknown[]) => ({ tables: t });
 
 type File = { p: Plant; artifactId: string; sha: string };
@@ -242,13 +240,13 @@ describe("vision.readPage", () => {
 
   test("an invalid answer is retried once on Sonnet with its codes, a second invalid answer is manual", async () => {
     const f = await started(1);
-    const bad = tables(table({ rowConfidence: [0.9] }));
+    const bad = tables(table({ rows: [["Nova Metals"], ["Om Alloys", "Surat"], ["Sai Traders", ""]] }));
     const client = new FakeShapeClient([sonnet(bad), sonnet(bad)]);
     setShapeClientForTests(client);
     expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "ready", next: "retry", attempts: 1 });
     expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "not_read", reason: "invalid", canRetry: false, next: "manual", attempts: 2 });
     const text = (client.calls[1]!.messages[0]!.content as { text?: string }[]).map((p) => p.text ?? "").join("\n");
-    expect(text).toContain("vision:confidence_count:0");
+    expect(text).toContain("vision:row_width:0");
     expect(client.calls.map((c) => c.model)).toEqual([S, S]);
     // Manual: no third call.
     expect(await read(f.p.owner, f.artifactId, 1)).toMatchObject({ state: "not_read", reason: "invalid" });

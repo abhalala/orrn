@@ -24,7 +24,10 @@ export const botOutput = z
   .strict();
 export type BotOutput = z.infer<typeof botOutput>;
 
-/** One table read from a page image. `rowConfidence` has one entry per row, 0 to 1. */
+/**
+ * One table read from a page image (prompt v3, contract section 11.2): each row is an object with its
+ * cells and one confidence from 0 to 1, so a row and its confidence can never fall out of step.
+ */
 export const visionOutput = z
   .object({
     tables: z.array(
@@ -32,8 +35,7 @@ export const visionOutput = z
         .object({
           title: z.string().nullable(),
           headers: z.array(z.string()),
-          rows: z.array(z.array(z.string())),
-          rowConfidence: z.array(z.number()),
+          rows: z.array(z.object({ cells: z.array(z.string()), confidence: z.number() }).strict()),
         })
         .strict(),
     ),

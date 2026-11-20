@@ -38,19 +38,29 @@ export const VISION_MAX_COLUMNS = 200;
 export const MAX_CELL_CHARS = 200;
 const PAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export type VisionTable = VisionOutput["tables"][number] & {
+/**
+ * A checked table as the server keeps it: rows as cell lists and one confidence per row (taken from the
+ * model's row objects), so stored blocks keep `readerFacts.vision.rowConfidence` as before.
+ */
+export type VisionTable = {
+  title: string | null;
+  headers: string[];
+  rows: string[][];
+  rowConfidence: number[];
   /** Row indexes with confidence under `LOW_CONFIDENCE`, lowest first. */
   lowConfidenceRows: number[];
 };
 
+/** Prompt v3 of the EVAL report (contract section 11.2), verbatim. */
 const VISION_INSTRUCTIONS = `You read tables from one page image for an aluminium extrusion plant's ERP.
 
 What you do
 - The image is a scan or a photo of a printed or handwritten page. Find every table on it and copy it as text.
-- For each table give: the title above it if there is one (otherwise null), the headers as printed, every row as printed, and one confidence number from 0 to 1 per row.
+- For each table give: the title above it if there is one (otherwise null), the headers as printed, and every row as printed. Each row is an object with its cells and one confidence number from 0 to 1 for that row.
 - Copy each cell exactly as printed. Do not fix spelling, do not convert units, do not compute totals, do not fill gaps.
 - If a cell is blank or you cannot read it, write an empty string and lower that row's confidence. Never guess a digit.
 - Every row has the same number of cells as there are headers.
+- Read one row at a time. Follow that row across the page by its ruling or its alignment. Never take a value from the row above or below.
 - If the page has no table, answer with an empty list of tables.
 
 Hard rules
@@ -80,6 +90,11 @@ export type RunVisionArgs = {
   visualReads?: boolean;
   holeVersionSinceMs?: number;
   previousErrors?: string[];
+  /**
+   * Band k (2..K) of a page cut into K bands (contract section 11.3): band 1's headers go in the user
+   * text as JSON data, and the answer must be one table exactly that wide.
+   */
+  band?: { index: number; total: number; headers: readonly string[] } | null;
   client?: ShapeModelClient;
   nowMs?: () => number;
 };
@@ -155,25 +170,29 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-/** Checks beyond the schema: shapes the type system cannot say. Returns codes, empty when fine. */
-export function checkVisionTables(out: VisionOutput): string[] {
+/**
+ * Checks beyond the schema: shapes the type system cannot say. Returns codes, empty when fine. A band of
+ * a page (`band.headers` set) must be one table exactly as wide as band 1's headers (`vision:band_width`).
+ */
+export function checkVisionTables(out: VisionOutput, band?: { headers: readonly string[] } | null): string[] {
   const codes: string[] = [];
   if (out.tables.length > MAX_TABLES) codes.push("vision:too_many_tables");
   out.tables.forEach((t, i) => {
     if (t.headers.length === 0) codes.push(`vision:no_headers:${i}`);
     if (t.headers.length > VISION_MAX_COLUMNS) codes.push(`vision:too_many_columns:${i}`);
     if (t.rows.length > MAX_ROWS_PER_TABLE) codes.push(`vision:too_many_rows:${i}`);
-    if (t.rowConfidence.length !== t.rows.length) codes.push(`vision:confidence_count:${i}`);
-    if (t.rowConfidence.some((c) => !(c >= 0 && c <= 1))) codes.push(`vision:confidence_range:${i}`);
-    if (t.rows.some((r) => r.length !== t.headers.length)) codes.push(`vision:row_width:${i}`);
+    if (t.rows.some((r) => !(r.confidence >= 0 && r.confidence <= 1))) codes.push(`vision:confidence_range:${i}`);
+    if (t.rows.some((r) => r.cells.length !== t.headers.length)) codes.push(`vision:row_width:${i}`);
   });
+  if (band && (out.tables.length > 1 || out.tables.some((t) => t.headers.length !== band.headers.length))) codes.push("vision:band_width");
   return codes;
 }
 
 /** Cuts long cells and lists the low confidence rows, lowest first. Call only on a checked answer. */
 export function finishTables(out: VisionOutput): VisionTable[] {
   return out.tables.map((t) => {
-    const lowConfidenceRows = t.rowConfidence
+    const rowConfidence = t.rows.map((r) => r.confidence);
+    const lowConfidenceRows = rowConfidence
       .map((c, i) => ({ c, i }))
       .filter((x) => x.c < LOW_CONFIDENCE)
       .sort((a, b) => a.c - b.c || a.i - b.i)
@@ -181,8 +200,8 @@ export function finishTables(out: VisionOutput): VisionTable[] {
     return {
       title: t.title === null ? null : t.title.slice(0, MAX_CELL_CHARS),
       headers: t.headers.map((h) => h.slice(0, MAX_CELL_CHARS)),
-      rows: t.rows.map((r) => r.map((c) => c.slice(0, MAX_CELL_CHARS))),
-      rowConfidence: t.rowConfidence,
+      rows: t.rows.map((r) => r.cells.map((c) => c.slice(0, MAX_CELL_CHARS))),
+      rowConfidence,
       lowConfidenceRows,
     };
   });
@@ -216,6 +235,13 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
     { type: "image", source: { type: "base64", media_type: args.page.mediaType, data: toBase64(args.page.bytes) } },
     { type: "text", text: "Read the tables on this page and answer with the schema." },
   ];
+  if (args.band) {
+    // The headers are data from the first read: they travel inside a JSON string, never as an instruction.
+    content.push({
+      type: "text",
+      text: `This is band ${args.band.index} of ${args.band.total} of one page. The table's headers are: ${JSON.stringify(JSON.stringify(args.band.headers))}. Copy only the body rows in this band; do not copy the header strip at the top.`,
+    });
+  }
   if (errors.length > 0) {
     content.push({ type: "text", text: `validation_errors: ${JSON.stringify({ errors })}\nYour previous answer failed with these codes. Fix them.` });
   }
@@ -263,7 +289,7 @@ export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttem
         outcome = "invalid";
         codes = schemaErrorCodes(parsed.error);
       } else {
-        const problems = checkVisionTables(parsed.data);
+        const problems = checkVisionTables(parsed.data, args.band ?? null);
         if (problems.length > 0) {
           outcome = "invalid";
           codes = problems;
