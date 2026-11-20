@@ -57,7 +57,13 @@ export function visionPageRow(view: VisionPageView, canUpload: boolean): VisionP
     name: { key: "ingest.vision.pageName", vars: { page: view.page } },
     state: { key: `ingest.vision.state.${view.state}` },
     tone: STATE_TONE[view.state],
-    reason: view.state === "not_read" && view.reason ? { key: `ingest.vision.reason.${view.reason}` } : null,
+    // A page waiting to be cut says why it is not read whole: too many lines for one read.
+    reason:
+      view.state === "not_read" && view.reason
+        ? { key: `ingest.vision.reason.${view.reason}` }
+        : view.next === "band" && !isSettled(view.state)
+          ? { key: "ingest.vision.reason.too_long" }
+          : null,
     tables: view.state === "read" || view.state === "typed" ? { key: "ingest.vision.tables", vars: { count: view.tables } } : null,
     bands: bands ? { key: "ingest.vision.bands", vars: { read: bands.read, total: bands.total } } : null,
     actions,

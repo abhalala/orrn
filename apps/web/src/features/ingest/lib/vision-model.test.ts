@@ -144,6 +144,7 @@ describe("a page read in bands (section 11.3)", () => {
   test("a page waiting on its bands offers type and skip, and says how many parts are read", () => {
     const row = visionPageRow(page({ next: "band" }), true);
     expect(row.actions).toEqual(["type", "skip"]);
+    expect(row.reason).toEqual({ key: "ingest.vision.reason.too_long" });
     const part = visionPageRow(page({ bands: { total: 3, read: 1, next: 2 } }), true);
     expect(part.actions).toEqual(["type", "skip"]);
     expect(part.bands).toEqual({ key: "ingest.vision.bands", vars: { read: 1, total: 3 } });
