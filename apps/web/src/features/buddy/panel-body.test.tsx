@@ -130,6 +130,7 @@ describe("the Buddy panel is a real dialog", () => {
     try {
       const dialog = view.dialog()!;
       expect(dialog.contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).toBe(view.q("buddy-input"));
       const tabbables = Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], textarea"));
       const last = tabbables.at(-1)!;
       last.focus();

@@ -125,6 +125,8 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
             onChange={(e) => setText(e.currentTarget.value)}
             onKeyDown={onKeyDown}
             rows={2}
+            // The box is where the person starts: focus lands here when the panel opens, not on Close.
+            autoFocus
             maxLength={MAX_MESSAGE}
             aria-label={t("buddy.inputLabel")}
             aria-describedby={hintId}
