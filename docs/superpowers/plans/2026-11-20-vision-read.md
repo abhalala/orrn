@@ -387,7 +387,7 @@ file with pages past the plan; only a person's "Finish without pages N to M" doe
   calls. The 300 call cap does not bind. At about 0.07 USD a band call, `checkCaps` allows a call while the day's spend
   is under 5 USD: 71 calls spend 4.97 USD, call 72 goes (5.04 USD), call 73 is capped. A dense batch finishes the next
   plant day with "Read next pages".
-- 100 pages one table each: four batches (30, 30, 30, 10). Whole pages only: 100 calls, about 1 to 3 USD, one day. Dense
+- 100 pages one table each: four batches (30, 30, 30, 10). Whole pages only: 100 calls at about 0.04 USD (section 3), about 4 USD: one plant day if few pages need a retry, else two. Dense
   text at 3 bands: 300 calls, about 21 USD, so about 72 calls a day at 5 USD: five plant days. The day call cap (300)
   is never the wall at 5 USD. The 50-table file limit binds first for any file with more than 50 tables: at one table a
   page, page 51 onward is `too_many_tables`; such a file cannot be read whole in one artifact (owner decision).
