@@ -99,6 +99,38 @@ part ticket scope, read route Range (206, 416, headers). Web: incremental SHA-25
 order and resume, the reader ceilings. Browser: one file just over one part through the local stack (workerd and local
 R2).
 
-## 10. DuckDB-WASM (owner decision, brief section D)
+## 10. Measured after the build
 
-See the section at the end, written after the upload ships.
+- `crypto.DigestStream` on workerd (Miniflare, Apple Silicon): 256 MiB in 88 ms, 1 GiB in 357 ms. The whole-file check
+  of `uploadComplete` runs in one request under the 30 s CPU default, so on this machine it would cover tens of GiB. Not
+  measured on the Cloudflare edge, whose CPUs may be slower.
+- Browser incremental SHA-256 (pure JS, bun): 600 MiB in about 3 s.
+- The local stack (`ingest.spec.ts`, "files over one part"): a padded 16 MiB + 70 KB PDF goes up in two parts with a
+  wrong part refused (400), the whole file checked, and a range read answers 206 with the range headers exposed; a 17.5
+  MB CSV goes up in parts through the screen and is read.
+
+## 11. DuckDB-WASM (owner decision 2026-11-20, brief section D): not adopted now
+
+Tried `@duckdb/duckdb-wasm` 1.33.1-dev57.0 (npm `latest`) in a scratch page, outside the repo (no `bun.lock` change).
+
+| Check | Result |
+|---|---|
+| CSP | The web app sends no Content-Security-Policy (`webEdge.ts` sets only HSTS), so nothing blocks it today. A CSP added later needs `'wasm-unsafe-eval'`, a worker source, and a source for the extension files. |
+| Size | `duckdb-eh.wasm` 35.9 MB (8.1 MB gzip, 5.3 MB brotli), worker 0.77 MB, plus `apache-arrow`. |
+| Hosting | Fails: Workers static assets take at most 25 MiB per file (developers.cloudflare.com/workers/platform/limits/#static-assets), so the wasm cannot ship in `apps/web/dist`. It would need an R2 custom domain or a third-party CDN. The Excel extension is fetched from extensions.duckdb.org unless it is hosted too. |
+| 515 MB CSV, 1,000,000 rows, every cell decoded to a JS string | Chromium (Playwright 1248, headless): 0.3 s start, 2.0 s scan, browser RSS 268 MB to 1,067 MB at peak. WebKit 26.4 (Playwright, the engine of Safari, not Safari itself): 1.7 s start, 1.8 s scan, RSS 342 MB to 1,973 MB at peak. |
+| Same CSV, today's way (`file.text()` and a split into lines, no parse) | Chromium 0.4 s, RSS to 757 MB; WebKit 0.5 s, RSS to 2,052 MB. The table readers would then hold every row again, which is why the stream now stops at `BROWSER_TEXT_MAX_CHARS`. |
+| Excel (synthetic book: a merged title row over four columns, two sheets, date cells) | Fails. In Chromium `read_xlsx` with `header=false` returned only column A (the merged title row set the width), there is no function that lists sheet names, and merges are not reported; dates came back typed only with an explicit range. In WebKit the extension did not load (network error) and the next calls failed with wasm runtime errors. |
+| SQL dumps | Not a fit: DuckDB does not read a MySQL or Postgres dump's INSERT text as a table. |
+| Not measured | Real desktop Safari (needs Remote Automation turned on by the owner), phones, and a large xlsx (the Excel check failed first). |
+
+Even for CSV, its gain needs a different upload path: today every row of a file is held in the tab until the headers
+are settled and the rows sent (`upload.ts`, `ReadBlock.rows`), so a 1,000,000-row file runs out of memory whatever
+parses it. A DuckDB lane would have to send rows to `putRows` batch by batch as it scans.
+
+Fallback in place (B.4): CSV and SQL are read as streams, and a CSV stops at the rows per file. CSV or SQL text past
+200 M characters, and a workbook past 60 MB, are kept in the vault with plain words ("too large for this browser to
+read"). Phones keep the same readers.
+
+If the owner wants files past those sizes read in the browser, the next step is a CSV-only DuckDB lane: the wasm on
+an R2 custom domain, lazy loaded on the import page, rows streamed in `rowsPerPut` batches, desktop only.
