@@ -161,3 +161,90 @@ The buddy is a separate Worker route plus a lazy-loaded web chunk. If Hermes, CP
 - The MCP server library that runs in Workers (official TypeScript SDK streamable HTTP, or a minimal hand-rolled JSON-RPC handler if the SDK needs Node APIs).
 - Wording of descriptions and the skill; trimming rules for large results.
 - Visual details of the bubble within the C2 system.
+
+## 12. Import tools (owner decision 2026-11-20)
+
+The owner was asked how importing by chat or voice should work and chose "Buddy import tools". The buddy helps
+with an import. The person keeps the tick and the Approve. Voice comes later.
+
+This section replaces the blanket `ingest.*` entry of the denylist in §4.2. Each ingest procedure now has its own
+allow or deny decision.
+
+### 12.1 What the buddy can do in an import
+
+| The buddy can | Through | How it runs |
+|---|---|---|
+| List import files and their state | `ingest.status`, `ingest.artifact.list`, `ingest.artifact.get`, `ingest.candidate.list` | query, runs at once |
+| Start reading a file that is already uploaded | `ingest.shape.make` (the layout read of a sheet). When release 2 lands: `ingest.vision.readPage` for a page whose image is already uploaded | draft, the person confirms |
+| Answer the importer's questions | `ingest.answer.set`, `ingest.rows.answerDoubts`, `ingest.period.confirm`, `ingest.candidate.confirmNear`, `ingest.candidate.setTarget`, `ingest.candidate.hold`, `ingest.candidate.release` | draft, the person confirms |
+| Show a candidate's fit and dry run results | `ingest.candidate.get`, `ingest.rows.list`, `ingest.rows.doubts`, `ingest.hole.list`, `ingest.merge.get`, `ingest.provenance.forRecord`; `ingest.dryRun.step` | queries at once; the dry run step is a draft |
+| Hand the person the review page | the MCP tool `orrn_review_link` | builds a link to `/ingest/review/<candidateId>` or `/ingest/files/<artifactId>` on the plant's web host |
+
+A draft from an import tool is an ordinary `buddy_draft` (§4.4). Confirm runs the procedure under the person's own
+browser session, so `can()`, the module gate, the `expectSeq` check and the plant's model caps all apply as in the
+import screen. A draft card for an import also carries the review link, so the person can open the page before they
+confirm.
+
+### 12.2 File upload stays in the browser
+
+The bubble has an "Add a file" button. It opens the normal import upload (`/ingest`). File bytes never go to Hermes,
+vayu or the MCP endpoint. The upload procedures are denylisted on the tool leg.
+
+### 12.3 Never callable by the buddy, not even as a draft
+
+| Path | Why |
+|---|---|
+| `ingest.vision.check` (lands with release 2) | It sets `model_checked`, "I checked these rows against the page". A Confirm in the bubble does not show the page image, so the tick would mean nothing. |
+| `ingest.candidate.approve` | Approve stays a person's act on the review page. |
+| `ingest.merge.start`, `ingest.merge.step`, `ingest.merge.stop` | The final write of an import. |
+| `ingest.hole.retire` | A final change to what the merge left open. |
+| `ingest.candidate.discard` | Discard of an artifact's table. |
+| `ingest.artifact.begin`, `ingest.artifact.commitRaw`, `ingest.artifact.putBlocks`, `ingest.artifact.putRows`, `ingest.artifact.complete` | Upload. File bytes and parsed rows come from the browser only (§12.2). |
+| `ingest.rows.decide`, `ingest.rows.skipNoDate` | Row by row keep or refuse is a check against the file, made on the review page. |
+| `ingest.candidate.repickHeader`, `ingest.shape.save` | The person picks the header row and saves a layout while they see the sheet. |
+| `ingest.vision.start`, `ingest.vision.bandTickets`, `ingest.vision.skipPage`, `ingest.vision.typePage`, `ingest.vision.fixCell`, `ingest.vision.readUrl` (release 2) | They need the page in the browser: the page count from the PDF, page images, or typing against the image. |
+
+The ingest decisions live in the one allow/deny constant of §4.2. A test fails when an `ingest.*` procedure has no
+decision, so a new procedure from release 2 or later cannot become a tool by accident. The release 2 paths are listed
+ahead of the merge; the test accepts a listed path that does not exist yet only from that named list.
+
+### 12.4 Caps
+
+A model call the buddy starts through ingest (`ingest.shape.make`, later `ingest.vision.readPage`) runs only on
+Confirm, under the person's session, through the same procedure. It counts against the same plant caps as a click on
+the import screen. The per-plant limits set in Godseye (release 2) apply with no buddy-specific path.
+
+### 12.5 The `orrn-buddy` skill
+
+The skill text lives in the repo for now at `docs/hermes/skills/orrn-buddy/SKILL.md`. It explains the import flow to
+Hermes in plain words: the steps, what needs a person, and to end every import answer with the review link. The lead
+copies it into CT 230 in delivery step 4.
+
+## 13. Build contract for delivery steps 1 to 3 (2026-11-20)
+
+Fixed names, so the server and web lanes build at the same time.
+
+- **Tables** (one migration, the next number after main): `buddy_link`, `buddy_grant`, `buddy_call`, `buddy_draft`
+  as in §4.1, §4.3, §4.4 and §7. All carry `company_id`.
+- **Which plants:** env `BUDDY_COMPANIES`, a comma list of company slugs (v1: `fourcubesllp`). "Connect Hermes"
+  creates the `buddy_link` row (default profile) and the grant only for a listed plant.
+- **Permission:** plant action `buddy.use`, held by `owner` only; `BUDDY_ROLES = ["owner"]`.
+- **`auth.me.buddy: boolean`:** true when the four `HERMES_*` vars are set, the role can `buddy.use`, the plant is
+  listed, and the person has an active `buddy_link` here.
+- **tRPC `buddy` router (browser session only; denylisted on the tool leg):**
+  - `buddy.status` query: `{ available, listed, connected: { grantId, createdAt, lastUsedAt, expiresAt } | null }`
+  - `buddy.grant.create` mutation: `{ grantId, token }`, the token shown once
+  - `buddy.grant.revoke` mutation `{ grantId }`
+  - `buddy.calls.list` query: the last 100 `buddy_call` rows
+  - `buddy.drafts.listMine` query: pending drafts and the last 20 decided, each
+    `{ id, path, title, lines: { label, value }[], status, createdAt, expiresAt, result, failure, link }`
+  - `buddy.drafts.confirm` `{ draftId }` and `buddy.drafts.reject` `{ draftId }`
+- **Chat:** `POST /buddy/chat`, body `{ conversationId?: string, message: string, screen: string, notes?: string[] }`.
+  The answer is SSE in orrn's own shape, whatever Hermes sends:
+  `{"type":"text","delta":"..."}`, `{"type":"tool","path":"stock.summary"}`, `{"type":"draft","draftId":"..."}`,
+  `{"type":"done","conversationId":"..."}`, `{"type":"error","code":"offline"|"rate_limited"|"error"}`.
+  403 or 404 with no body detail when the person may not use it.
+- **MCP:** `POST /mcp`, JSON-RPC 2.0 over streamable HTTP, bearer = grant token. Tools `orrn_search`,
+  `orrn_describe`, `orrn_call`, `orrn_review_link`.
+- **Fake Hermes:** `apps/server/scripts/fake-hermes.ts`, a Bun server that speaks the Hermes endpoint the proxy uses.
+  Tests and e2e use it, never the network.
