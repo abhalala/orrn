@@ -366,3 +366,47 @@ describe("review: E5 source guard", () => {
     expect(src).not.toMatch(/Math\.(max|min)\(\s*[^)]*\.\.\./);
   });
 });
+
+describe("the CSV stream holds rows, never the whole text (decision 13)", () => {
+  const limits = { ...READ_LIMITS, maxRawRows: 4 };
+  async function* pieces(...parts: string[]): AsyncGenerator<string> {
+    for (const p of parts) yield p;
+  }
+
+  test("with the real engine, the CSV is parsed chunk by chunk: the whole-text reader is never called", async () => {
+    const { engine } = await import("./engine");
+    const strict: ReaderEngine = {
+      ...engine,
+      blocksFromCsv() {
+        throw new Error("the whole text was gathered");
+      },
+    };
+    const { readCsvChunks } = await import("./reader-core");
+    const blocks = await readCsvChunks(pieces("Code,Name\nR1,An", "gle\nR2,Channel\n"), null, { engine: strict });
+    expect(blocks[0]!.rows).toEqual([["R1", "Angle"], ["R2", "Channel"]]);
+  });
+
+  test("the same tables as the whole-text reader, whatever the chunk edges (inside quotes, between CR and LF, inside the first 4,096 characters)", async () => {
+    const { engine } = await import("./engine");
+    const { readCsvChunks } = await import("./reader-core");
+    const filler = Array.from({ length: 300 }, (_, i) => `R${i},"Pipe, ${i}",${i}.5`).join("\r\n");
+    const text = `Code,Name,Weight\r\n"Q1","line one\r\nline two",2\r\n${filler}\r\n`;
+    const whole = await readCsvText(text, { engine, limits: { ...READ_LIMITS } });
+    for (const cut of [5, 22, 23, 24, 31, 4095, 4096, 4097, text.length - 1]) {
+      const streamed = await readCsvChunks(pieces(text.slice(0, cut), text.slice(cut)), null, { engine });
+      expect(streamed.map((b) => b.rows)).toEqual(whole.map((b) => b.rows));
+    }
+  });
+
+  test("an inch mark in an unquoted cell does not hide the rows after it, so the row stop still fires (N7)", async () => {
+    const { engine } = await import("./engine");
+    const { readCsvChunks } = await import("./reader-core");
+    async function* lines(): AsyncGenerator<string> {
+      // Past the first 4,096 characters, where the delimiter is chosen and rows start to count.
+      yield 'Item,Size\nPipe 1",2\n';
+      for (let i = 2; i < 600; i++) yield `Pipe ${i},${i}\n`;
+      throw new Error("read on past the rows per file");
+    }
+    await expect(readCsvChunks(lines(), null, { engine, limits })).rejects.toMatchObject({ failure: { code: "too_many_rows" } });
+  });
+});

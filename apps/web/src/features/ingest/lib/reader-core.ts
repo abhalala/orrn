@@ -467,13 +467,15 @@ export async function readPdfBytes(buffer: ArrayBuffer, deps: ReadDeps): Promise
 }
 
 /**
- * A CSV read as a stream (limits brief part B.4): the text is gathered chunk by chunk while its rows are counted (a
- * newline outside quotes ends a row), so a file past the plant's rows per file stops at that row, never read whole, and
- * text past what this browser holds stops with `too_large_to_read`. The text then goes to the CSV reader as before.
+ * A CSV read as a stream (limits brief part B.4, decision 13). With the engine's CSV reader each chunk is parsed as it
+ * arrives and dropped: only the rows are held, never the whole text. A file past the plant's rows per file stops at that
+ * row (the parser's own count, so an inch mark in an unquoted cell does not hide rows), and text past what this browser
+ * holds stops with `too_large_to_read`. An engine without a CSV reader (a test fake) gathers the text and reads it whole.
  */
 export async function readCsvChunks(chunks: AsyncIterable<string>, _totalBytes: number | null, deps: ReadDeps, hints?: readonly SheetHints[]): Promise<ReadBlock[]> {
   const limits = deps.limits ?? READ_LIMITS;
   const maxChars = deps.browser?.textChars ?? BROWSER_TEXT_MAX_CHARS;
+  const csv = deps.engine.createCsvReader?.();
   const parts: string[] = [];
   let chars = 0;
   let rows = 0;
@@ -481,18 +483,30 @@ export async function readCsvChunks(chunks: AsyncIterable<string>, _totalBytes: 
   for await (const chunk of chunks) {
     cancelled(deps);
     chars += chunk.length;
+    // The rows are held as they are read: past this the tab would run out of memory.
     if (chars > maxChars) throw new ReadStop({ code: "too_large_to_read" });
-    for (let i = 0; i < chunk.length; i++) {
-      const c = chunk.charCodeAt(i);
-      if (c === 34) quoted = !quoted;
-      else if (c === 10 && !quoted) rows += 1;
+    if (csv) {
+      csv.push(chunk);
+      rows = csv.rowCount();
+      if (rows > limits.maxRawRows) throw new ReadStop({ code: "too_many_rows", rows });
+    } else {
+      for (let i = 0; i < chunk.length; i++) {
+        const c = chunk.charCodeAt(i);
+        if (c === 34) quoted = !quoted;
+        else if (c === 10 && !quoted) rows += 1;
+      }
+      // One more than the limit allows for a last line with no newline after it.
+      if (rows > limits.maxRawRows + 1) throw new ReadStop({ code: "too_many_rows", rows });
+      parts.push(chunk);
     }
-    // One more than the limit allows for a last line with no newline after it.
-    if (rows > limits.maxRawRows + 1) throw new ReadStop({ code: "too_many_rows", rows });
-    parts.push(chunk);
     deps.onProgress?.({ phase: "open", sheet: null, rowsRead: rows, rowsTotal: null });
   }
-  return readCsvText(parts.join(""), deps, null, hints);
+  if (!csv) return readCsvText(parts.join(""), deps, null, hints);
+  const matrix = csv.end();
+  checkRawRows(matrix.length, limits);
+  const tables = deps.engine.blocksFromMatrix(matrix, { sheetName: null, hints: hintsFor(hints, null) });
+  deps.onProgress?.({ phase: "sheet", sheet: null, rowsRead: matrix.length, rowsTotal: matrix.length });
+  return finishBlocks(tables.map((block, tableIndex) => ({ sheetName: null, block, tableIndex })), limits);
 }
 
 /** Text chunks of a file, decoded as UTF-8, for the SQL reader. */
