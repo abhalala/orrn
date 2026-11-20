@@ -17,13 +17,14 @@ import {
   type CandidateState,
 } from "@orrn/db/schema/ingest";
 
-import { periodRequired, recipeSchema } from "@orrn/ingest";
+import { periodRequired, recipeSchema, VISION_PARAMS } from "@orrn/ingest";
 
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../atomic";
 import { can } from "../permissions";
 import type {
   ArtifactSummary,
   BlockView,
+  BlockVisionView,
   CandidateCounts,
   CandidateSummary,
   IngestCtx,
@@ -33,6 +34,8 @@ export type ArtifactRow = typeof ingestArtifact.$inferSelect;
 export type BlockRow = typeof ingestBlock.$inferSelect;
 export type CandidateRow = typeof ingestCandidate.$inferSelect;
 export type AnswerRow = typeof ingestAnswer.$inferSelect;
+/** The stored page facts of a model-read or typed block (`readerFacts.vision`, contract section 6). */
+export type StoredVision = NonNullable<NonNullable<BlockRow["readerFacts"]>["vision"]>;
 
 export const NOT_FOUND_ARTIFACT = { code: "NOT_FOUND", message: "Import file not found" } as const;
 export const NOT_FOUND_CANDIDATE = { code: "NOT_FOUND", message: "Import not found" } as const;
@@ -136,6 +139,8 @@ export function candidateCas(
   candidateId: string,
   expectSeq: number,
   set: Partial<typeof ingestCandidate.$inferInsert>,
+  /** One more condition in the statement's own WHERE (AGENTS section 2), e.g. the vision tick on approve. */
+  extra?: SQL,
 ): SqliteBatchItem {
   return ctx.db
     .update(ingestCandidate)
@@ -145,6 +150,7 @@ export function candidateCas(
         eq(ingestCandidate.id, candidateId),
         eq(ingestCandidate.companyId, ctx.companyId),
         eq(ingestCandidate.serverSeq, expectSeq),
+        extra,
       ),
     );
 }
@@ -155,8 +161,17 @@ export function candidateChange(
   candidateId: string,
   expectSeq: number,
   set: Partial<typeof ingestCandidate.$inferInsert>,
+  extra?: SQL,
 ): SqliteBatchItem[] {
-  return [candidateCas(ctx, candidateId, expectSeq, set), ingestAbortUnlessChanged(ctx.db)];
+  return [candidateCas(ctx, candidateId, expectSeq, set, extra), ingestAbortUnlessChanged(ctx.db)];
+}
+
+/**
+ * Contract section 7: no block of this id is a model-read table without the person's tick. Bound to the
+ * block id, so a tick cleared between the read and the write fails the batch.
+ */
+export function modelTickHeld(blockId: string): SQL {
+  return sql`not exists (select 1 from ingest_block b where b.id = ${blockId} and b.read_by = 'model' and b.model_checked = 0)`;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +228,21 @@ export function blockView(b: BlockRow): BlockView {
     lastDataRow: b.headerPick?.lastDataRow ?? null,
     skipRows: (b.headerPick?.skipRows ?? []).slice(0, 1000),
     follows: b.follows ?? null,
+    vision: visionView(b),
   };
+}
+
+/** Contract section 6: the page facts of a model-read or typed block, with its low rows. */
+export function visionView(b: Pick<BlockRow, "readerFacts">): BlockVisionView | null {
+  const v = b.readerFacts?.vision;
+  if (!v) return null;
+  const rowConfidence = Array.isArray(v.rowConfidence) ? v.rowConfidence : [];
+  const lowRows = rowConfidence
+    .map((c, i) => ({ c, i }))
+    .filter((x) => x.c < VISION_PARAMS.lowConfidence)
+    .sort((a, b) => a.c - b.c || a.i - b.i)
+    .map((x) => x.i);
+  return { page: v.page, table: v.table, pageCount: v.pageCount, rowConfidence, lowRows, ...(v.typed ? { typed: true } : {}) };
 }
 
 // ---------------------------------------------------------------------------

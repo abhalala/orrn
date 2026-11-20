@@ -192,7 +192,7 @@ export const ingestBlock = sqliteTable(
     headerPick: text("header_pick", { mode: "json" }).$type<{ by: string; at: number; headerRow: number; headerRows: 1 | 2; lastDataRow?: number | null; skipRows?: number[] }>(),
     /**
      * Round 7 item 2: what the reader said about the table, for the review screen only (nothing is
-     * decided from it): blank rows crossed inside it, the lines it skipped (`skipped_repeat_header`,
+     * decided from it, except the vision page facts below): blank rows crossed inside it, the lines it skipped (`skipped_repeat_header`,
      * `skipped_title`, `after_last_row`; at most 200, text cut to 200, with the true count) and the
      * titles it continues under (`sections`, at most 200, with the true count). Null: none sent.
      */
@@ -202,6 +202,13 @@ export const ingestBlock = sqliteTable(
       warningsTotal: number;
       sections: { row: number; text: string }[];
       sectionsTotal: number;
+      /**
+       * Vision read (contract 2026-11-20-vision-read.md section 6): the page and table a model-read or
+       * typed block came from, the file's page count, one confidence per row (empty when typed),
+       * `tables` the number of tables of that page (the page is read only when all are blocks), and
+       * `typed` when a person entered the table by hand. Absent on a parser block. No migration: JSON.
+       */
+      vision?: { page: number; table: number; pageCount: number; rowConfidence: number[]; tables?: number; typed?: boolean };
     }>(),
     /**
      * Round 8 item 8: the table above this one, as the reader sent it (`continues`: the table above

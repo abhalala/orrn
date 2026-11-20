@@ -64,6 +64,8 @@ export type IngestLimits = typeof INGEST_LIMITS;
 export type IngestStatus = {
   botReady: boolean;
   vaultReady: boolean;
+  /** Vision read (release 2): PDFs and photos can be read page by page (a vault and a model route). */
+  visionReady: boolean;
   limits: IngestLimits;
   activeRunId: string | null;
   botToday: { calls: number; costMicroUsd: number };
@@ -164,6 +166,92 @@ export const isKeptUnread = (kind: ArtifactKind): boolean => (KEPT_UNREAD_KINDS 
 export const KEPT_UNREAD_NO_STORAGE = "PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on.";
 export const KEPT_UNREAD_NOT_READ = "PDFs and photos are kept, not read, in this release. They will be read in a later release.";
 
+/**
+ * Release 2: the same kinds are the visual kinds, read page by page by `ingest.vision.*` (contract
+ * docs/superpowers/plans/2026-11-20-vision-read.md). A visual file stays `kept_unread` until
+ * `vision.start`; without a vault or a model route it stays kept with the words above.
+ */
+export const isVisualKind = isKeptUnread;
+
+/** Vision read refusals, verbatim from contract section 8b (the web maps each in features/ingest/lib/errors.ts). */
+
+export const VISION_UPLOAD_FIRST = "Upload this page first";
+export const VISION_NOT_SETTLED = "Some pages are not read yet. Read, type or skip each page first.";
+export const VISION_REPICK_MODEL = "This table was read from a page. Fix a cell or discard it.";
+export const VISION_CHECK_MODEL_ONLY = "Only a table read from a page is checked against it";
+export const VISION_PAGE_PAST = "This page is past the pages read for this file";
+export const VISION_PAGE_READ = "This page is already read";
+export const VISION_NOT_READING = "This file is not being read page by page";
+export const VISION_KINDS_ONLY = "Only PDFs and photos are read page by page";
+export const VISION_ROWS_WRITTEN = "Rows of this sheet are already written. Its rows cannot change now.";
+/** Reused from `approveCandidate` and `ingest.artifact.*`. */
+export const VISION_NOT_STORED = "The original file is not saved yet. Upload the same file again, then approve.";
+export const VISION_ALREADY_READ = "This file is already read";
+
+/** Contract section 4: the state of one page, derived from the vault, the run rows and the blocks. */
+export const VISION_PAGE_STATES = ["waiting", "ready", "read", "not_read", "typed", "skipped"] as const;
+export type VisionPageState = (typeof VISION_PAGE_STATES)[number];
+
+/** Contract section 4: why a page is `not_read`. `cap_*` pages may be read again (`canRetry`). */
+export const VISION_NOT_READ_REASONS = [
+  "no_table",
+  "refused",
+  "invalid",
+  "too_long",
+  "error",
+  "cap_page",
+  "cap_day_calls",
+  "cap_day_cost",
+  "page_too_large",
+  "unsupported_page",
+  "too_many_tables",
+] as const;
+export type VisionNotReadReason = (typeof VISION_NOT_READ_REASONS)[number];
+
+/**
+ * One page of a file read page by page (contract section 7). `next`: "retry" while `vision.readPage`
+ * should be called again (a retry or a rebuild is due), "manual" when a person types or skips it,
+ * "done" when settled, null when the model was not asked yet or the image is missing. `attempts`:
+ * model calls made for the page. `tables`: tables of the page (blocks when read).
+ */
+export type VisionPageView = {
+  page: number;
+  state: VisionPageState;
+  reason: VisionNotReadReason | null;
+  canRetry: boolean;
+  next: "retry" | "manual" | "done" | null;
+  attempts: number;
+  blockIds: string[];
+  tables: number;
+};
+
+/** `vision.pages`: `pageCount` pages in the file, the first `planned` read (at most `VISION_PARAMS.maxPagesPerFile`). */
+export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
+
+/** `vision.start`: upload tickets for the planned pages that have no image yet. */
+export type VisionStartOut = {
+  pageCount: number;
+  planned: number;
+  uploads: { page: number; url: string; ticket: string; expiresAt: number }[];
+};
+
+/** `vision.readUrl`: a signed GET, 10 minutes. */
+export type VisionReadUrlOut = { url: string; expiresAt: number };
+
+/**
+ * Contract section 6: where a model-read or typed block came from. `lowRows`: rows under
+ * `VISION_PARAMS.lowConfidence`, lowest first, then by index. A typed block has `typed: true`, no
+ * confidences, and needs no tick.
+ */
+export type BlockVisionView = {
+  page: number;
+  table: number;
+  pageCount: number;
+  rowConfidence: number[];
+  lowRows: number[];
+  typed?: boolean;
+};
+
 /** Rule 5.3: how a PDF reader doubted a row's split (packages/ingest RowDoubt codes). */
 export const DOUBT_CODES = ["crosses_column", "cells_joined", "cells_close", "few_columns", "off_column"] as const;
 export type DoubtCode = (typeof DOUBT_CODES)[number];
@@ -260,6 +348,8 @@ export type BlockView = ReaderFacts & {
   sample: string[][];
   readBy: "parser" | "model";
   modelChecked: boolean;
+  /** Vision read: the page this block came from, or null for a block read by code from a sheet. */
+  vision: BlockVisionView | null;
   /** The canonical rows file of this block is in the vault. */
   canonicalStored: boolean;
   /**

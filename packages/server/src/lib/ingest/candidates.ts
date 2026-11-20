@@ -58,6 +58,7 @@ import {
   candidateChange,
   candidateCounts,
   decodeCursor,
+  EDITABLE_STATES,
   encodeCursor,
   guardedBatch,
   ingestAbortUnlessChanged,
@@ -66,6 +67,7 @@ import {
   loadCandidate,
   loadCandidateAt,
   maskCells,
+  modelTickHeld,
   MOVED,
   RATE_FIELDS,
   rateMaskColumns,
@@ -105,6 +107,8 @@ import { vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NOT_READ,
+  VISION_CHECK_MODEL_ONLY,
+  VISION_REPICK_MODEL,
   isKeptUnread,
   type BlockInput,
   type ReaderFacts,
@@ -173,13 +177,13 @@ export async function learnedHoles(ctx: Pick<IngestCtx, "db" | "companyId">): Pr
   return out;
 }
 
-function stateForFit(fit: FitResult): CandidateState {
+export function stateForFit(fit: FitResult): CandidateState {
   if (fit.fit === "exact") return "processing";
   if (fit.fit === "near") return "needs_confirm";
   return "needs_shape";
 }
 
-function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
+export function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
   if (fit.fit === "near" && fit.diff) return { ...fit.diff, name: fit.name };
   if (fit.tie) return { tie: true, alternatives: fit.alternatives };
   return null;
@@ -1051,8 +1055,17 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertNotDerived(c);
   assertState(c, ["needs_shape"], "This sheet does not need the helper");
-  // No PDF or photo goes to a model in this release (owner's decision).
-  if (isKeptUnread((await loadArtifact(ctx, c.artifactId)).kind)) throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
+  // Release 2: a table read from a page (or typed from one) takes the helper like any sheet. A PDF or
+  // photo still kept, or a block of one that did not come from a page, does not.
+  {
+    const art = await loadArtifact(ctx, c.artifactId);
+    if (isKeptUnread(art.kind)) {
+      const b = await loadBlock(ctx, c.blockId);
+      if (art.readState === "kept_unread" || (b.readBy !== "model" && !b.readerFacts?.vision)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
+      }
+    }
+  }
   // Claim the candidate before any model call, so a second tab gets CONFLICT before it spends (A8).
   let seq = input.expectSeq;
   if (shapeBot.botReady()) {
@@ -1298,6 +1311,14 @@ export async function answerDoubts(
  * Plan B7 decisions on rows. The rows re-run from the first decided one (state processing), so the
  * decision passes through the same classification as everything else.
  */
+/** Clears the vision tick of a model-read block (a no-op on any other block). Goes in the batch that changes a row. */
+export function clearModelTick(ctx: Pick<IngestCtx, "db" | "companyId">, blockId: string): SqliteBatchItem {
+  return ctx.db
+    .update(ingestBlock)
+    .set({ modelChecked: false })
+    .where(and(eq(ingestBlock.id, blockId), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model")));
+}
+
 export async function decideRows(
   ctx: IngestCtx,
   input: { candidateId: string; rowIds: string[]; decision: RowDecision; matchId?: string; expectSeq: number },
@@ -1354,7 +1375,7 @@ export async function decideRows(
     // A derived list has no recipe to re-run: a skip lands on the rows at once and the list keeps its
     // state (A12).
     if (input.decision !== "skip") throw new TRPCError({ code: "BAD_REQUEST", message: "Rows of this list can only be skipped" });
-    const derived: SqliteBatchItem[] = [...candidateChange(ctx, c.id, input.expectSeq, {})];
+    const derived: SqliteBatchItem[] = [...candidateChange(ctx, c.id, input.expectSeq, {}), clearModelTick(ctx, c.blockId)];
     for (const r of rows) {
       derived.push(
         ctx.db
@@ -1370,6 +1391,8 @@ export async function decideRows(
   const from = Math.min(...rows.map((r) => r.rowIndex));
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
+    // Contract section 7: a changed row of a model-read table needs the page checked again.
+    clearModelTick(ctx, c.blockId),
   ];
   for (const r of rows) {
     statements.push(
@@ -1682,14 +1705,22 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
         : { field, unit, side, answer: String(a.answer), note: `The person said ${seen} are in ${String(a.answer)}` };
     });
   const statements: SqliteBatchItem[] = [
-    ...candidateChange(ctx, c.id, input.expectSeq, {
-      state: "approved",
-      openQuestions: 0,
-      approvedBy: ctx.session.user.id,
-      approvedAt: now(),
-      reasonCode: null,
-      reasonDetail: null,
-    }),
+    // Contract section 7: the tick is checked in the approve write's own WHERE, so a tick cleared after
+    // the read above fails the batch.
+    ...candidateChange(
+      ctx,
+      c.id,
+      input.expectSeq,
+      {
+        state: "approved",
+        openQuestions: 0,
+        approvedBy: ctx.session.user.id,
+        approvedAt: now(),
+        reasonCode: null,
+        reasonDetail: null,
+      },
+      modelTickHeld(c.blockId),
+    ),
     // Rule 10.2, inside the batch: a re-put or a pick that lands first wins.
     ctx.db
       .update(ingestArtifact)
@@ -1756,7 +1787,15 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       auditInsert(ctx, { action: "ingest.hole.save", subjectType: "ingest_hole", subjectId: v.holeId, meta: { version: v.version, madeBy: v.madeBy } }),
     );
   }
-  await guardedBatch(ctx.db, statements);
+  try {
+    await guardedBatch(ctx.db, statements);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "CONFLICT") {
+      const now2 = await loadBlock(ctx, c.blockId);
+      if (now2.readBy === "model" && !now2.modelChecked) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Check these rows against the page first" });
+    }
+    throw e;
+  }
   return candidateDetail(ctx, c.id);
 }
 
@@ -1909,6 +1948,11 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
 export async function repickHeader(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<{ artifactId: string; ordinal: number }> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   if (c.parentId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the row on the sheet this list came from" });
+  // Contract section 6: a table read from a page has no header row to pick again.
+  {
+    const b = await loadBlock(ctx, c.blockId);
+    if (b.readBy === "model" || b.readerFacts?.vision) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_REPICK_MODEL });
+  }
   const kin = await ctx.db
     .select({ id: ingestCandidate.id, state: ingestCandidate.state, rowsWritten: ingestCandidate.rowsWritten, recipeLocked: ingestCandidate.recipeLocked, target: ingestCandidate.target })
     .from(ingestCandidate)
@@ -2128,3 +2172,29 @@ export async function mergeRunView(ctx: IngestCtx, runId: string): Promise<Merge
 }
 
 export { artifactSummary, MOVED, answerKey };
+
+// ---------------------------------------------------------------------------
+// Vision read: the person's tick (contract section 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * "I checked these rows against the page": sets or clears the tick of a model-read table. Only a block
+ * read from a page takes it, and only while its sheet may still change. The candidate's seq moves, so
+ * a tab that read the old tick gets CONFLICT on approve.
+ */
+export async function visionCheck(ctx: IngestCtx, input: { candidateId: string; expectSeq: number; checked: boolean }): Promise<CandidateDetail> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  const block = await loadBlock(ctx, c.blockId);
+  if (block.readBy !== "model") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_CHECK_MODEL_ONLY });
+  assertState(c, EDITABLE_STATES, "Rows of this import can no longer change");
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, {}),
+    ctx.db
+      .update(ingestBlock)
+      .set({ modelChecked: input.checked })
+      .where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model"))),
+    ingestAbortUnlessChanged(ctx.db),
+    auditInsert(ctx, { action: "ingest.vision.check", subjectType: "ingest_candidate", subjectId: c.id, meta: { checked: input.checked, blockId: block.id } }),
+  ]);
+  return candidateDetail(ctx, c.id);
+}

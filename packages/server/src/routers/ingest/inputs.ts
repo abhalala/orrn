@@ -1,6 +1,6 @@
 /** Zod inputs of the `ingest` router (plan B5). Bounds are plan A9. */
 import { z } from "zod";
-import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS } from "@orrn/ingest";
+import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, VISION_PARAMS } from "@orrn/ingest";
 
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
@@ -237,3 +237,25 @@ export const holeListInput = z.object({ target: z.enum(INGEST_TARGETS).optional(
 export const holeIdInput = z.object({ holeId: id });
 
 export const provenanceInput = z.object({ type: z.string().min(1).max(64), id });
+
+// ---------------------------------------------------------------------------
+// Vision read (contract docs/superpowers/plans/2026-11-20-vision-read.md, section 7)
+// ---------------------------------------------------------------------------
+
+const visionPage = z.number().int().min(1).max(VISION_PARAMS.maxPagesPerFile);
+const visionCell = z.string().max(L.cellChars);
+
+export const visionStartInput = z.object({ artifactId: id, pageCount: z.number().int().min(1).max(10_000) });
+export const visionPageInput = z.object({ artifactId: id, page: visionPage });
+export const visionTypePageInput = z.object({
+  artifactId: id,
+  page: visionPage,
+  title: z.string().max(500).nullable(),
+  headers: z.array(visionCell).min(1).max(50),
+  rows: z.array(z.array(visionCell).max(50)).min(1).max(500),
+});
+export const visionReadUrlInput = z.discriminatedUnion("what", [
+  z.object({ artifactId: id, what: z.literal("raw") }),
+  z.object({ artifactId: id, what: z.literal("page"), page: visionPage }),
+]);
+export const visionCheckInput = z.object({ candidateId: id, expectSeq: seq, checked: z.boolean() });

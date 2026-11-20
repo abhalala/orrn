@@ -38,11 +38,14 @@ import {
   type ArtifactRow,
 } from "./core";
 import { guessArtifactPeriod } from "./period";
+import { visionAllSettled } from "./vision";
 import { canonicalKey, CANONICAL_MAX_BYTES, digestKey, ingestVault, issueTicket, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NO_STORAGE,
   isKeptUnread,
+  isVisualKind,
+  VISION_NOT_SETTLED,
   type ArtifactBeginOut,
   type ArtifactDetail,
   type ArtifactSummary,
@@ -314,6 +317,38 @@ export function capRow(cells: readonly string[]): { raw: string[]; reasons: stri
   return { raw, reasons };
 }
 
+/**
+ * One pending staged row as putRows and the vision read insert it: the row key and id of plan B1,
+ * the cells cut to the caps, every column named (AGENTS section 2, multi-row inserts).
+ */
+export async function stagedRowOf(
+  ctx: Pick<IngestCtx, "companyId">,
+  r: { artifactId: string; ordinal: number; rowIndex: number; cells: readonly string[]; candidateId: string; target: string | null; doubts: RowDoubtView[] | null; at: Date },
+) {
+  const rowKey = await rowKeyOf(r.artifactId, r.ordinal, r.rowIndex);
+  const { raw, reasons } = capRow(r.cells);
+  return {
+    id: await stagedRowIdOf(rowKey, r.target),
+    companyId: ctx.companyId,
+    rowKey,
+    candidateId: r.candidateId,
+    rowIndex: r.rowIndex,
+    raw,
+    values: null,
+    entered: null,
+    state: "pending" as const,
+    reasons: reasons.length ? reasons : null,
+    doubts: r.doubts,
+    matchId: null,
+    diff: null,
+    decision: null,
+    mergeState: "open" as const,
+    committedType: null,
+    committedId: null,
+    updatedAt: r.at,
+  };
+}
+
 type RowDoubtIn = { row: number; code: DoubtCode; line: number; page?: number };
 
 /**
@@ -377,31 +412,18 @@ export async function putRows(
 
   const at = now();
   const rows = await Promise.all(
-    input.rows.map(async (cells, i) => {
-      const rowIndex = input.fromIndex + i;
-      const rowKey = await rowKeyOf(artifact.id, block.ordinal, rowIndex);
-      const { raw, reasons } = capRow(cells);
-      return {
-        id: await stagedRowIdOf(rowKey, primary.target),
-        companyId: ctx.companyId,
-        rowKey,
+    input.rows.map((cells, i) =>
+      stagedRowOf(ctx, {
+        artifactId: artifact.id,
+        ordinal: block.ordinal,
+        rowIndex: input.fromIndex + i,
+        cells,
         candidateId: primary.id,
-        rowIndex,
-        raw,
-        values: null,
-        entered: null,
-        state: "pending" as const,
-        reasons: reasons.length ? reasons : null,
-        doubts: doubts.get(rowIndex) ?? null,
-        matchId: null,
-        diff: null,
-        decision: null,
-        mergeState: "open" as const,
-        committedType: null,
-        committedId: null,
-        updatedAt: at,
-      };
-    }),
+        target: primary.target,
+        doubts: doubts.get(input.fromIndex + i) ?? null,
+        at,
+      }),
+    ),
   );
 
   const statements: SqliteBatchItem[] = [
@@ -433,6 +455,13 @@ export async function completeArtifact(
   const a = await loadArtifact(ctx, input.artifactId);
   // A kept PDF or photo has nothing to read: complete leaves it as it is.
   if (a.readState === "kept_unread") return { canonicalUploads: [] };
+  const visual = isVisualKind(a.kind);
+  // Contract section 4: a PDF or photo read page by page completes once every planned page is read,
+  // typed or skipped. Its rows live in staged rows and its page images are the evidence, so it gets no
+  // canonical uploads.
+  if (visual && a.readState === "reading" && !input.readError && !(await visionAllSettled(ctx, a))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: VISION_NOT_SETTLED });
+  }
   const blocks = await ctx.db
     .select()
     .from(ingestBlock)
@@ -507,7 +536,7 @@ export async function completeArtifact(
     throw new TRPCError({ code: "BAD_REQUEST", message: "This file could not be read." });
   }
 
-  if (!vaultReady()) return { canonicalUploads: [] };
+  if (!vaultReady() || visual) return { canonicalUploads: [] };
   const canonicalUploads = await Promise.all(
     blocks.map(async (b) => {
       const t = await issueTicket(ctx, {
@@ -693,6 +722,8 @@ export async function ingestStatus(ctx: IngestCtx): Promise<IngestStatus> {
   return {
     botReady: shapeBot.botReady(),
     vaultReady: vaultReady(),
+    // Contract section 7: PDFs and photos are read page by page only with a vault and a model route.
+    visionReady: vaultReady() && shapeBot.botReady(),
     limits: INGEST_LIMITS,
     activeRunId: run?.id ?? null,
     botToday: { calls: Number(today?.calls ?? 0), costMicroUsd: Number(today?.cost ?? 0) },

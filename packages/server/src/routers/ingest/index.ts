@@ -25,6 +25,10 @@ import type {
   ProvenanceOut,
   ShapeMakeOut,
   StagedRowView,
+  VisionPagesOut,
+  VisionPageView,
+  VisionReadUrlOut,
+  VisionStartOut,
 } from "../../lib/ingest/types";
 import {
   answerSetInput,
@@ -53,6 +57,11 @@ import {
   setTargetInput,
   shapeMakeInput,
   shapeSaveInput,
+  visionCheckInput,
+  visionPageInput,
+  visionReadUrlInput,
+  visionStartInput,
+  visionTypePageInput,
 } from "./inputs";
 import {
   beginArtifact,
@@ -87,8 +96,10 @@ import {
   saveShape,
   setAnswer,
   setTarget,
+  visionCheck,
 } from "../../lib/ingest/candidates";
 import { dryRunStep } from "../../lib/ingest/dryrun";
+import { visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
 import { mergeEngine } from "../../lib/ingest/engines";
 import type { IngestCtx } from "../../lib/ingest/types";
 
@@ -143,6 +154,20 @@ export const ingestRouter = router({
   shape: router({
     make: U.input(shapeMakeInput).mutation(({ ctx, input }): Promise<ShapeMakeOut> => makeShape(ix(ctx), input)),
     save: U.input(shapeSaveInput).mutation(({ ctx, input }): Promise<CandidateDetail> => saveShape(ix(ctx), input)),
+  }),
+
+  /**
+   * Vision read (release 2): a PDF or photo read page by page with the vision model. The person types or
+   * skips a page that is not read, and ticks each model-read table against its page before approval.
+   */
+  vision: router({
+    start: U.input(visionStartInput).mutation(({ ctx, input }): Promise<VisionStartOut> => visionStart(ix(ctx), input)),
+    readPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionReadPage(ix(ctx), input)),
+    pages: R.input(artifactIdInput).query(({ ctx, input }): Promise<VisionPagesOut> => visionPages(ix(ctx), input)),
+    skipPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionSkipPage(ix(ctx), input)),
+    typePage: U.input(visionTypePageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionTypePage(ix(ctx), input)),
+    readUrl: R.input(visionReadUrlInput).query(({ ctx, input }): Promise<VisionReadUrlOut> => visionReadUrl(ix(ctx), input)),
+    check: R.input(visionCheckInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionCheck(ix(ctx), input)),
   }),
 
   dryRun: router({

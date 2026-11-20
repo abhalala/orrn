@@ -70,6 +70,12 @@ Page (derived, never stored as a column), `VisionPageState`:
 `error`, `cap_page`, `cap_day_calls`, `cap_day_cost`, `page_too_large`, `unsupported_page`, `too_many_tables` (file
 already holds `INGEST_LIMITS.blocksPerFile` blocks). `cap_*` pages may be read again (`canRetry: true`).
 
+`next` (built): `"retry"` only when the next `vision.readPage` makes a model call (after one invalid answer or one
+transport error) or rebuilds blocks from `pages/<n>.tables.json`; `null` for `waiting` and for `ready` with no call
+yet; `"manual"` for `not_read`; `"done"` when settled. A full file (`too_many_tables`) is manual before any call. A
+`recipe` run whose tables object is missing counts as an `error` run for the plan: one is `not_read`/`error` with
+`canRetry: true`, two in a row is `canRetry: false`.
+
 A page is settled when `read`, `typed` or `skipped`. `artifact.complete` on a visual `reading` file refuses until every
 planned page is settled: "Some pages are not read yet. Read, type or skip each page first." It writes the digest as now
 and returns no canonical uploads (the model rows live in staged rows; the page images are the evidence).
@@ -93,8 +99,8 @@ Under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`):
   block is always read from `readerFacts.vision.page`, never from the ordinal), `sheetName` null, `title` the model's title, `headerRow` 0,
   `headerRows` 1, `headerBy` "reader", headers padded and normalized as in `putBlocks`, kinds `inferKinds`, `headerKey`,
   `rowCount = rowsPut = rows`, sample the first 200 rows, `readBy` "model", `modelChecked` false, and
-  `readerFacts.vision = { page: p, table: t, pageCount, rowConfidence: number[] }` (the JSON column's TS type gains
-  the optional `vision` key; no migration).
+  `readerFacts.vision = { page: p, table: t, pageCount, rowConfidence: number[], tables: n }` (`tables`: the number
+  of valid tables of that page; the JSON column's TS type gains the optional `vision` key; no migration).
 - `ingest_candidate` from `fitBlock` over the learned layouts, `stateForFit`, exactly as a parser block.
 - `ingest_staged_row` for every row (`capRow`, `rowKeyOf(artifactId, ordinal, i)`), state pending.
 - the artifact's `blockCount` and `rowCount` grow by the new blocks; audit `ingest.vision.page`.
@@ -103,8 +109,14 @@ Under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`):
   (`{ v: 1, runId, model, tables: VisionTable[] }`). If the batch fails after a `recipe` run (limit, conflict, Worker
   stop), the next `vision.readPage` rebuilds the blocks from that object with no model call. A `recipe` run with no
   block and no tables object is `not_read` with reason `error` and `canRetry: true` (the run is not counted as done).
-- Rows: at most `MAX_ROWS_PER_TABLE` (500) per table and 5 tables, so up to 2,500 rows in one page batch. If a batch of
-  that size breaks a D1 limit, insert one table per batch (each guarded on its own ordinal) rather than lower the caps.
+- Rows: at most `MAX_ROWS_PER_TABLE` (500) per table and 5 tables. Built: one table per `guardedBatch` (at most 500
+  rows, the size `putRows` already writes), each guarded on its own ordinal by the unique index, with the artifact
+  update first (`read_state = 'reading'`, `block_count < blocksPerFile`, and no block of the other kind on the page:
+  a typed table and model tables never share a page) and its abort statement. The room for every missing table of
+  the page is checked before the first. A page is `read` only when its model blocks number `readerFacts.vision.tables`;
+  a page with fewer (a batch stopped after table 0) is `ready` with `next: "retry"`, and the next `vision.readPage`
+  inserts only the missing ordinals from `pages/<n>.tables.json`, with no model call. A rebuild that fails throws (the
+  web stops its loop on an error, never on `retry`).
 
 The block then goes through the normal fit, `shape.make` (no longer refused for a model block), dry run and review.
 `artifact.putBlocks` still refuses a PDF or photo (blocks of a visual file come only from `vision.*`).
@@ -125,7 +137,7 @@ The block then goes through the normal fit, `shape.make` (no longer refused for 
 | `vision.pages` | R | `{ artifactId }` | `VisionPagesOut = { pageCount, planned, pages: VisionPageView[], settled: boolean }` |
 | `vision.skipPage` | U | `{ artifactId, page }` | `VisionPageView` |
 | `vision.typePage` | U | `{ artifactId, page, title: string or null, headers: string[1..50], rows: string[][1..500] }` | `VisionPageView` (state `typed`) |
-| `vision.readUrl` | R | `{ artifactId, what: "raw" }` or `{ artifactId, what: "page", page }` | `{ url, expiresAt }` |
+| `vision.readUrl` (query) | R | `{ artifactId, what: "raw" }` or `{ artifactId, what: "page", page }` | `{ url, expiresAt }` |
 | `vision.check` | R | `{ candidateId, expectSeq, checked: boolean }` | `CandidateDetail` |
 | `vision.fixCell` | U | `{ candidateId, expectSeq, rowIndex, col, text: string max 200 }` | `CandidateDetail` |
 
@@ -219,3 +231,55 @@ blocks and rows from tables, readerFacts.vision, tick enforcement and clearing, 
 read route headers, complete waits for settled pages. Web: render sizing, page cap, pump order, review ordering, tick
 gating. Browser spec `ingest-vision.spec.ts` on the local stack with the fake client (`/dev/ingest-bot`) and local R2
 (`INGEST_VAULT` bucket `orrn-ingest-vault-local` in `apps/server/wrangler.local.jsonc`).
+
+## 11. Lead decisions from EVAL (2026-11-20, `fc/.unslop-build/platform/VISION-EVAL-REPORT.md`)
+
+These override sections 1 to 10 where they disagree.
+
+1. **Page size 2400 px**, JPEG 0.8 (`VISION_PARAMS.longSidePx`). `maxPageBytes` is now 3,700,000: the API image limit
+   is 5 MB and the image goes as base64 (4/3 larger); EVAL's largest 2400 px page was 680 KB.
+2. **Prompt v3 and row objects.** `visionOutput` rows are `{ cells: string[], confidence: number }` (strict);
+   `rowConfidence` is gone. `VISION_INSTRUCTIONS` is the v3 text of the EVAL report, verbatim. `checkVisionTables`
+   checks `row.cells.length` against the headers and `row.confidence` in 0..1 (no `confidence_count`).
+   `finishTables` reads them. Stored `readerFacts.vision.rowConfidence` is still one number per row (taken from the
+   row objects), so `BlockView.vision` is unchanged.
+3. **Bands for dense pages** (`VISION_PARAMS.tiling = "bands"`, `bandRowThreshold` 100, `bandMaxRows` 65,
+   `maxBandsPerPage` 4).
+   - Text PDF: the browser counts row lines from the pdfjs text layer before any call. Past the threshold it cuts the
+     page into k bands (k = ceil(lines / bandMaxRows), at most 4) on gaps between text lines, never through a line,
+     no overlap, and draws the header strip (the text lines above the first body line) on top of bands 2..k. Every
+     band image is `longSidePx` wide.
+   - Scan or photo: the whole page is read first. If the answer holds more than `bandRowThreshold` rows of one table, or
+     is `output:truncated`, `readPage` answers `next: "band"` with the headers. The browser cuts the page image on
+     whitespace gaps (horizontal ink projection on the canvas; a cut row must be blank) and uploads the bands.
+   - Band keys: image `pages/<n>/b<k>.jpg`; run key `visionBandKey(artifactId, n, k)` = `<artifactId>:p<n>:b<k>`. Band 1
+     is read first; bands 2..k are told, in the user text, "This is band k of K of one page. The table's headers are:
+     <JSON of band 1's headers>. Copy only the body rows in this band; do not copy the header strip at the top." The
+     headers text is data from the first read and goes inside a JSON string, never as an instruction.
+   - Procedures: `vision.bandTickets({ artifactId, page, bands: 2..4 })` returns one ticket per band;
+     `vision.readPage({ artifactId, page, band?: 1..4 })` reads one band. A band answer must be one table whose width
+     equals band 1's headers, else invalid (`vision:band_width`) and the normal one retry.
+   - Merge (server, pure function, tested): bands in order, rows concatenated; a first row of band k >= 2 equal to the
+     headers (the strip read as data) is dropped; nothing else is de-duplicated (cuts have no overlap). Tests: no row
+     duplicated or dropped at any band edge, the header row dropped once, widths checked. The merged table becomes one
+     block per page (the page's tables from band 1 other than the banded table are kept as their own blocks).
+   - Page view: `bands: { total, read }` while banding; the page is `read` only when every band is read.
+   - Calls and caps: each run key has its own 4-call cap, so a page with 3 bands plus one retry each never meets the
+     cap on one key. A 30 page file: whole pages only, 30 calls (60 with a retry each). Every page a dense text PDF
+     at 3 bands: 90 calls (180 with a retry each). Every page a dense scan: 1 whole + 3 bands = 120 calls (240 with
+     retries). All under 300 calls. Cost: a band is about 6,000 output tokens (0.06 USD) plus 0.01 USD in, so 90
+     band calls are about 6.30 USD and pass the 5 USD day cap near call 70; such a file finishes the next plant day
+     ("Read again" on `cap_day_cost` pages). Open question for the lead: the plant's CPA route is a subscription, so
+     the 5 USD cap may be set too low for dense files.
+4. **Confidence is not a safety signal.** Rows under 0.7 are still listed early and marked, but no word on any screen
+   says or suggests that a confident row is right. The tick against the page image carries the check.
+   `ingest.vision.check` ("orrn checked these rows against the original page.") is wrong (a person checks); reword.
+5. **Text-layer digit check (brief gate 6), built.** For a text PDF page the browser uploads the page's pdfjs text as
+   `pages/<n>.text.json` (`{ v: 1, items: string[] }`, at most `maxPageTextBytes`, an `ingest-page` ticket with
+   content type `application/json`, issued by `vision.start` for text PDFs). When blocks are made, the server marks
+   a cell when one of its digit runs (`\d+` after removing thousands commas) is not a digit run anywhere in that
+   page's text. Marks go in `readerFacts.vision.unseen: [row, col][]`; `BlockView.vision.unseen` carries them. The
+   text only adds marks; missing text means no marks. Review order: rows with a marked cell first, then rows under
+   0.7, then the rest; marked cells say "These digits are not in the PDF's text. Check them against the page."
+6. **A cell that holds an instruction is data.** It is copied, stored and shown as text and never acted on; a test
+   keeps an instruction-like cell as a plain cell value.
