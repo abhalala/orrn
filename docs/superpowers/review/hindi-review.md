@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8440 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8454 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7125,7 +7125,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (633)
+### ingest (647)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7567,7 +7567,20 @@ Please check, Lalubhai:
 | `vision.finish` | Finish | पूरा करें |
 | `vision.finishNote` | Every page is read, typed or skipped. Finish to check the tables. | हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। टेबल जांचने के लिए पूरा करें। |
 | `vision.notDone` | Read, type or skip each page, then finish. | हर पेज पढ़ें, टाइप करें या छोड़ें, फिर पूरा करें। |
-| `vision.cap` | Pages 1 to {max} of {total} were read. The rest are not read in this release. | {total} में से पेज 1 से {max} तक पढ़े गए। बाकी इस रिलीज़ में नहीं पढ़े जाते। |
+| `vision.cap` | Pages 1 to {max} of {total} are planned so far. | {total} में से पेज 1 से {max} तक अभी तय हैं। |
+| `vision.readNext` | Read next pages | अगले पेज पढ़ें |
+| `vision.readNextNote` | Reads pages {from} to {to}. | पेज {from} से {to} तक पढ़े जाएंगे। |
+| `vision.readRanges` | Pages read: {ranges}. | पढ़े गए पेज: {ranges}। |
+| `vision.range` | {from} to {to} | {from} से {to} |
+| `vision.rangeOne` | {page} | {page} |
+| `vision.restLine` | Pages {from} to {to} of {total} are not read yet. | {total} में से पेज {from} से {to} तक अभी नहीं पढ़े गए। |
+| `vision.dayCostLine` | Today's spend on the model is used up. Read next pages carries on from page {page} tomorrow. | आज मॉडल पर खर्च की सीमा पूरी हो गई। कल अगले पेज पढ़ें दबाने पर पेज {page} से पढ़ना आगे चलेगा। |
+| `vision.dayCallsLine` | The model has read as many pages as allowed today. Read next pages carries on from page {page} tomorrow. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। कल अगले पेज पढ़ें दबाने पर पेज {page} से पढ़ना आगे चलेगा। |
+| `vision.fullLine` | This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported. | इस फ़ाइल में {max} टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल जांची और इम्पोर्ट की जा सकती हैं। |
+| `vision.skipRest` | Skip the rest and finish | बाकी छोड़ें और पूरा करें |
+| `vision.skipRestNote` | Pages not read yet are skipped. The tables read so far stay. | जो पेज अभी नहीं पढ़े गए वे छोड़ दिए जाएंगे। अब तक पढ़ी गई टेबल बनी रहेंगी। |
+| `vision.finishEarly` | Finish without pages {from} to {to} | पेज {from} से {to} के बिना पूरा करें |
+| `vision.finishEarlyNote` | Every page so far is read, typed or skipped. Read the next pages, or finish now and leave pages {from} to {to} not read. | अब तक का हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। अगले पेज पढ़ें, या अभी पूरा करें और पेज {from} से {to} बिना पढ़े छोड़ दें। |
 | `vision.type.title` | Type page {page} | पेज {page} टाइप करें |
 | `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। एक लाइन कॉलम के नामों की, फिर हर रो की एक लाइन। |
 | `vision.type.tableTitle` | Table name (if the page has one) | टेबल का नाम (अगर पेज पर है) |
@@ -7615,6 +7628,7 @@ Please check, Lalubhai:
 | `vision.error.fileRead` | This file is already read. | यह फ़ाइल पहले ही पढ़ी जा चुकी है। |
 | `vision.error.checkFirst` | Check these rows against the page first. | पहले इन लाइनों को पेज से मिलाकर देखें। |
 | `vision.error.fileGone` | This file is no longer there. | यह फ़ाइल अब नहीं है। |
+| `vision.error.fileFull` | This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far. | इस फ़ाइल में पहले से 50 टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल इस्तेमाल करने के लिए इसे पूरा करें। |
 | `rate.hidden` | Hidden | छिपा है |
 | `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
 | `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |

@@ -54,6 +54,17 @@ export const VISION_SENTENCES: readonly (readonly [RegExp, string])[] = [
   [/^This file is already read/i, "ingest.vision.error.fileRead"],
   [/^Check these rows against the page first/i, "ingest.vision.error.checkFirst"],
   [/^Import file not found/i, "ingest.vision.error.fileGone"],
+  [/^This file already holds 50 tables, the most one file can hold/i, "ingest.vision.error.fileFull"],
+];
+
+/**
+ * The chunked upload's server sentences (limits brief part B, `upload-parts.ts` on the server), each with plain words
+ * under `ingest.upload.error.*`.
+ */
+export const UPLOAD_SENTENCES: readonly (readonly [RegExp, string])[] = [
+  [/^Some parts of the file have not arrived/i, "ingest.upload.error.partsMissing"],
+  [/^The file does not match its digest/i, "ingest.upload.error.digest"],
+  [/^The upload ran out/i, "ingest.upload.error.ranOut"],
 ];
 
 const messageOf = (error: unknown): string => {
@@ -65,6 +76,7 @@ export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
   const said = messageOf(error);
   for (const [sentence, key] of VISION_SENTENCES) if (sentence.test(said)) return { key, retry: false };
+  for (const [sentence, key] of UPLOAD_SENTENCES) if (sentence.test(said)) return { key, retry: true };
   if (NO_DATE_NONE.test(messageOf(error))) return { key: "ingest.error.noDateNone", retry: false };
   if (ANSWER_LOCKED.test(messageOf(error))) return { key: "ingest.error.answerLocked", retry: false };
   if (DOES_NOT_ASK.test(messageOf(error))) return { key: "ingest.error.doesNotAsk", retry: false };

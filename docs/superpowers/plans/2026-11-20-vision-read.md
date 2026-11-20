@@ -199,6 +199,7 @@ Rules:
 - "This file is not being read page by page"
 - "Only PDFs and photos are read page by page"
 - "Rows of this sheet are already written. Its rows cannot change now."
+- "This file already holds 50 tables, the most one file can hold. Finish it to use the tables read so far." (section 12)
 - Reused as they are: `KEPT_UNREAD_NO_STORAGE`, `KEPT_UNREAD_NOT_READ`, "The original file is not saved yet. Upload
   the same file again, then approve.", "This file is already read", "Check these rows against the page first",
   `MOVED`, "Import file not found".
