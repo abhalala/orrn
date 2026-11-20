@@ -149,7 +149,8 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(approve).toHaveAttribute("aria-disabled", "true");
   await expect(bar.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
   await expect(bar.getByRole("link", { name: "Tick that you checked the rows against the page, then approve." })).toBeVisible();
-  await approve.click();
+  // Playwright will not click an aria-disabled control, so the click is sent straight to it: nothing is approved.
+  await approve.dispatchEvent("click");
   await expect(bar).toHaveAttribute("data-state", "ready");
 
   const tick = check.getByRole("checkbox", { name: "I checked these rows against the page" });
