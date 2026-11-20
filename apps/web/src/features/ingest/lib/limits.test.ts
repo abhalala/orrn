@@ -60,7 +60,11 @@ describe("file size problems", () => {
   });
   test("raw rows: 200,000 passes, one more is refused", () => {
     expect(rowCountProblem("a.csv", 200_000)).toBeNull();
-    expect(rowCountProblem("a.csv", 200_001)).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv" } });
+    expect(rowCountProblem("a.csv", 200_001)).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv", limit: "200,000" } });
+  });
+  test("raw rows: the plant's own limit from ingest.status, lowered or raised", () => {
+    expect(rowCountProblem("a.csv", 501, { ...DEFAULT_LIMITS, rawRowsPerFile: 500 })).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv", limit: "500" } });
+    expect(rowCountProblem("a.csv", 250_000, { ...DEFAULT_LIMITS, rawRowsPerFile: 300_000 })).toBeNull();
   });
 });
 
@@ -70,6 +74,11 @@ describe("files per upload", () => {
     const { taken, left } = takeFiles(files);
     expect(taken).toHaveLength(MAX_FILES);
     expect(left).toEqual([20, 21, 22]);
+  });
+  test("takes the plant's own number when the status sends one", () => {
+    const files = Array.from({ length: 23 }, (_, i) => i);
+    expect(takeFiles(files, 3)).toEqual({ taken: [0, 1, 2], left: Array.from({ length: 20 }, (_, i) => i + 3) });
+    expect(takeFiles(files, 60).left).toEqual([]);
   });
 });
 

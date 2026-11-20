@@ -65,7 +65,7 @@ function Panel({ artifact, kept, announce }: { artifact: Pick<ArtifactDetail, "i
   const actions = useVisionPageActions(artifact.id, total);
   const [typing, setTyping] = useState<number | null>(null);
   const file = visionFileActions(pages, pagesQ.data?.settled ?? false);
-  const cap = pagesQ.data ? capLine(pagesQ.data.pageCount) : null;
+  const cap = pagesQ.data ? capLine(pagesQ.data.pageCount, pagesQ.data.planned) : null;
   const running = read.phase === "running";
 
   // Each step of a pass, and each page's answer, is said once in the screen's status region.

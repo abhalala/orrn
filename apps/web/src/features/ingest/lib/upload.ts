@@ -1,6 +1,6 @@
 import type { IngestApi } from "./api";
 import {
-  BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
+  BLOCKS_PER_CALL, chunk, countText, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
 } from "./limits";
 import type { HeaderAskView, HeaderReply } from "./header-step";
@@ -75,7 +75,8 @@ export function readNotes(blocks: readonly { input: { sheetName: string | null }
 /** What the upload needs from the reader: injected so tests can use a fake. */
 export type UploadReader = {
   hash: (file: File, signal?: AbortSignal) => Promise<string>;
-  read: (file: File, opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[] }) => Promise<ReadResult>;
+  /** `maxRawRows`: the plant's rows per file (`ingest.status` limits); the reader stops past it. */
+  read: (file: File, opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[]; maxRawRows?: number }) => Promise<ReadResult>;
 };
 
 export type UploadClientDeps = {
@@ -124,9 +125,9 @@ async function put(f: typeof fetch, upload: UploadTicketOut, body: Blob, content
 const REPORTED_FAILURES = new Set(["too_many_rows", "too_many_columns", "too_many_blocks", "no_text_layer"]);
 
 /** A begin error that is a plain refusal, as the screen's problem line, or null. */
-export function problemFromError(error: unknown, name: string, limitMb: number | null): FileProblem | null {
+export function problemFromError(error: unknown, name: string, limitMb: number | null, openRows: number = DEFAULT_LIMITS.openRowsPerPlant): FileProblem | null {
   const message = String((error as { message?: unknown } | null)?.message ?? "");
-  if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit" };
+  if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit", vars: { limit: countText(openRows) } };
   // The server's own refusal when a PDF or photo cannot be stored: nothing is kept without storage.
   if (/need file storage/i.test(message)) return { key: "ingest.drop.keptNoStorage", vars: { name } };
   if (/too big|larger than|exceeds/i.test(message) && limitMb !== null) return { key: "ingest.drop.tooBig", vars: { name, limit: limitMb } };
@@ -212,7 +213,7 @@ export async function uploadOneFile(
       ...(hooks.note ? { note: hooks.note } : {}),
     });
   } catch (error) {
-    const problem = problemFromError(error, file.name, found.limitMb);
+    const problem = problemFromError(error, file.name, found.limitMb, limits.openRowsPerPlant);
     if (problem) return refuse(problem);
     throw error;
   }
@@ -276,7 +277,7 @@ export async function uploadOneFile(
   onItem({ step: "reading" });
   let read: ReadResult;
   try {
-    read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal });
+    read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal, maxRawRows: limits.rawRowsPerFile });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     // Tell the server only about failures the bytes cause. A failed chunk load or a worker crash says nothing
@@ -285,7 +286,7 @@ export async function uploadOneFile(
       await reportReadFailure(api, artifactId, error.failure.code);
     }
     if (error instanceof ReadError && error.failure.code === "too_many_rows") {
-      return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name } });
+      return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name, limit: countText(limits.rawRowsPerFile) } });
     }
     throw error;
   }
@@ -304,7 +305,7 @@ export async function uploadOneFile(
       bySheet.set(h.sheet ?? "", entry);
     }
     const hints = [...bySheet.values()].map((e) => ({ ...e, hints: e.hints.sort((a, b) => a.headerRow - b.headerRow) }));
-    read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal, hints });
+    read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal, hints, maxRawRows: limits.rawRowsPerFile });
     initialHints = plan.hints;
   }
 
@@ -321,7 +322,7 @@ export async function uploadOneFile(
           api,
           artifactId,
           blocks: read.blocks,
-          reread: async (hints) => (await reader.read(file, { signal, hints })).blocks,
+          reread: async (hints) => (await reader.read(file, { signal, hints, maxRawRows: limits.rawRowsPerFile })).blocks,
           ask: async (view) => {
             onItem({ step: "asking", ask: view });
             const reply = hooks.ask ? await hooks.ask(view) : ({ kind: "pick", ...view.preselected } as HeaderReply);

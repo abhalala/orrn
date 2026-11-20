@@ -3,8 +3,10 @@ import type { ArtifactKind, IngestLimits } from "./types";
 const MB = 1024 * 1024;
 
 /**
- * Plan A9. The same numbers as `INGEST_LIMITS` on the server, which `ingest.status` also returns. The type is
- * the server's, so a number added there fails the build here until it is copied.
+ * Plan A9. The same numbers as `INGEST_LIMITS` on the server: the fallback while `ingest.status` loads. The
+ * status sends the plant's own values for the limits staff set in Godseye (files per upload, rows per file,
+ * open rows), so screens read `status.limits` and pass it on; these defaults are used only before it arrives.
+ * The type is the server's, so a number added there fails the build here until it is copied.
  */
 export const DEFAULT_LIMITS: IngestLimits = {
   maxFileBytes: {
@@ -111,8 +113,13 @@ export function fileSizeProblem(
 
 /** Why a read file is refused (too many rows), or null. */
 export function rowCountProblem(name: string, rawRows: number, limits: IngestLimits = DEFAULT_LIMITS): FileProblem | null {
-  if (rawRows > limits.rawRowsPerFile) return { key: "ingest.drop.tooManyRows", vars: { name } };
+  if (rawRows > limits.rawRowsPerFile) return { key: "ingest.drop.tooManyRows", vars: { name, limit: countText(limits.rawRowsPerFile) } };
   return null;
+}
+
+/** A limit as the refusal lines show it: digits grouped in threes ("200,000"). */
+export function countText(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
 }
 
 /** The first `max` picked files; the rest are returned so the screen can say they were left out. */

@@ -43,18 +43,25 @@ describe("page images: sizing", () => {
 
 describe("page images: the page cap", () => {
   test("pages 1 to the cap are read, never more", () => {
-    expect(plannedPages(1)).toBe(1);
-    expect(plannedPages(MAX)).toBe(MAX);
-    expect(plannedPages(MAX + 15)).toBe(MAX);
-    expect(pageNumbers(3)).toEqual([1, 2, 3]);
-    expect(pageNumbers(MAX + 1)).toHaveLength(MAX);
-    expect(pageNumbers(MAX + 1).at(-1)).toBe(MAX);
+    expect(plannedPages(1, MAX)).toBe(1);
+    expect(plannedPages(MAX, MAX)).toBe(MAX);
+    expect(plannedPages(MAX + 15, MAX)).toBe(MAX);
+    expect(pageNumbers(3, MAX)).toEqual([1, 2, 3]);
+    expect(pageNumbers(MAX + 1, MAX)).toHaveLength(MAX);
+    expect(pageNumbers(MAX + 1, MAX).at(-1)).toBe(MAX);
   });
 
   test("the cap line names the pages read and the file's own count, and only past the cap", () => {
-    expect(capLine(MAX)).toBeNull();
-    expect(capLine(2)).toBeNull();
-    expect(capLine(MAX + 15)).toEqual({ key: "ingest.vision.cap", vars: { max: MAX, total: MAX + 15 } });
+    expect(capLine(MAX, MAX)).toBeNull();
+    expect(capLine(2, MAX)).toBeNull();
+    expect(capLine(MAX + 15, MAX)).toEqual({ key: "ingest.vision.cap", vars: { max: MAX, total: MAX + 15 } });
+  });
+
+  test("the cap is the plant's own (lowered or raised in Godseye), not the default", () => {
+    expect(plannedPages(45, 5)).toBe(5);
+    expect(pageNumbers(45, 40)).toHaveLength(40);
+    expect(capLine(45, 5)).toEqual({ key: "ingest.vision.cap", vars: { max: 5, total: 45 } });
+    expect(capLine(45, 60)).toBeNull();
   });
 
   test("PDFs and photos are visual kinds; sheets are not", () => {

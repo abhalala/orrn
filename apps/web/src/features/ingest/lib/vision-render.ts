@@ -10,19 +10,22 @@ import type { ArtifactKind } from "./types";
  * reach a route's static graph and the pure helpers below test without them.
  */
 
-/** Pages read of a file with `pageCount` pages: 1 to `maxPagesPerFile`. */
-export function plannedPages(pageCount: number): number {
-  return Math.max(0, Math.min(Math.floor(pageCount), VISION_PARAMS.maxPagesPerFile));
+/**
+ * Pages read of a file with `pageCount` pages: 1 to `max`, the pages the server planned (`vision.pages`
+ * `planned`) or the plant's pages per batch (`ingest.status` `visionPagesPerBatch`, set in Godseye).
+ */
+export function plannedPages(pageCount: number, max: number): number {
+  return Math.max(0, Math.min(Math.floor(pageCount), Math.floor(max)));
 }
 
 /** The page numbers read, from 1. */
-export function pageNumbers(pageCount: number): number[] {
-  return Array.from({ length: plannedPages(pageCount) }, (_, i) => i + 1);
+export function pageNumbers(pageCount: number, max: number): number[] {
+  return Array.from({ length: plannedPages(pageCount, max) }, (_, i) => i + 1);
 }
 
 /** The cap line ("Pages 1 to 30 of 45 were read."): null when every page of the file is read. */
-export function capLine(pageCount: number): { key: "ingest.vision.cap"; vars: { max: number; total: number } } | null {
-  const planned = plannedPages(pageCount);
+export function capLine(pageCount: number, max: number): { key: "ingest.vision.cap"; vars: { max: number; total: number } } | null {
+  const planned = plannedPages(pageCount, max);
   if (pageCount <= planned) return null;
   return { key: "ingest.vision.cap", vars: { max: planned, total: pageCount } };
 }

@@ -77,10 +77,14 @@ export async function hashFile(file: File, signal?: AbortSignal): Promise<string
 /** Reads a file into blocks in the module worker. Progress goes to `onProgress` (plan A4). Rejects with `ReadError`. */
 export async function readFile(
   file: File,
-  opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[] },
+  opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[]; maxRawRows?: number },
 ): Promise<ReadResult> {
   const found = detectFileKind(file.name, file.type);
   if (!found) throw new ReadError({ code: "unreadable", detail: "unknown file type" });
-  const done = await ask({ type: "read", file, kind: found.kind, ...(opts.hints ? { hints: opts.hints } : {}) }, "blocks", opts);
+  const done = await ask(
+    { type: "read", file, kind: found.kind, ...(opts.hints ? { hints: opts.hints } : {}), ...(opts.maxRawRows !== undefined ? { maxRawRows: opts.maxRawRows } : {}) },
+    "blocks",
+    opts,
+  );
   return { kind: done.kind, blocks: done.blocks, rawRows: done.rawRows };
 }

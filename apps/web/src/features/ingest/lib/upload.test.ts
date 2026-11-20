@@ -206,8 +206,25 @@ describe("uploadOneFile", () => {
     const r = reader([], { read: async () => { throw new ReadError({ code: "too_many_rows", rows: 250_000 }); } });
     const out = await uploadOneFile(file("big.csv"), { api, reader: r, fetch: fakeFetch().fn }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv" } });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv", limit: "200,000" } });
     expect(calls.map((c) => c.name)).not.toContain("putBlocks");
+  });
+
+  test("the plant's rows per file goes to the reader and into the refusal", async () => {
+    const { api } = fakeApi();
+    const t = track();
+    const asked: (number | undefined)[] = [];
+    const r = reader([], {
+      read: async (_f, opts) => {
+        asked.push(opts.maxRawRows);
+        throw new ReadError({ code: "too_many_rows", rows: 600 });
+      },
+    });
+    const limits = { ...DEFAULT_LIMITS, rawRowsPerFile: 500 };
+    const out = await uploadOneFile(file("big.csv"), { api, reader: r, limits, fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("refused");
+    expect(asked).toEqual([500]);
+    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv", limit: "500" } });
   });
 
   test("the open-rows limit from begin is its own message", async () => {
@@ -217,7 +234,7 @@ describe("uploadOneFile", () => {
     const t = track();
     const out = await uploadOneFile(file(), { api, reader: reader([]) }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.openLimit" });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
   });
 
   test("other failures throw so the screen shows Could not read with Retry", async () => {
@@ -256,7 +273,8 @@ describe("helpers", () => {
     expect(ticketUrl({ url: "https://a.test/files/ingest/upload", ticket: "a b" })).toBe("https://a.test/files/ingest/upload?ticket=a+b");
   });
   test("begin errors that are plain refusals", () => {
-    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50)).toEqual({ key: "ingest.drop.openLimit" });
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50, 40_000)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "40,000" } });
     expect(problemFromError(new Error("File is too big"), "a.csv", 50)).toEqual({ key: "ingest.drop.tooBig", vars: { name: "a.csv", limit: 50 } });
     expect(problemFromError(new Error("boom"), "a.csv", 50)).toBeNull();
   });

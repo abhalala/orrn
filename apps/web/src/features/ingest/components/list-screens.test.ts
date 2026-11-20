@@ -218,7 +218,7 @@ describe("files being added", () => {
   });
 
   test("a refused file gives the reason in words", () => {
-    const html = strip([item({ step: "refused", problem: { key: "ingest.drop.tooManyRows", vars: { name: "dies-b-RCQCZ.csv" } } as never })]);
+    const html = strip([item({ step: "refused", problem: { key: "ingest.drop.tooManyRows", vars: { name: "dies-b-RCQCZ.csv", limit: "200,000" } } as never })]);
     expect(html).toContain("has more than 200,000 rows");
   });
 });

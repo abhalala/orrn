@@ -34,7 +34,7 @@ scope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       msg.kind,
       {
         engine,
-        limits: READ_LIMITS,
+        limits: msg.maxRawRows !== undefined ? { ...READ_LIMITS, maxRawRows: msg.maxRawRows } : READ_LIMITS,
         loadXlsx,
         loadPapa,
         onProgress: (progress) => post({ id: msg.id, type: "progress", progress }),

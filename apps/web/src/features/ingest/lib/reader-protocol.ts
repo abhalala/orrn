@@ -16,7 +16,8 @@ export type SheetHints = { sheetName: string | null; hints: EngineHints[] };
 
 export type WorkerRequest =
   | { id: number; type: "hash"; file: File }
-  | { id: number; type: "read"; file: File; kind: ArtifactKind; hints?: SheetHints[] };
+  /** `maxRawRows`: the plant's rows per file; left out, the default in `READ_LIMITS`. */
+  | { id: number; type: "read"; file: File; kind: ArtifactKind; hints?: SheetHints[]; maxRawRows?: number };
 
 /** `putBlocks` takes the region width too; the server's own type does not list it yet, and it ignores what it does not know. */
 export type WireBlockInput = Omit<BlockInput, "headers"> & { headers?: string[]; width?: number; follows?: { ordinal: number; gapRows: number } | null };
