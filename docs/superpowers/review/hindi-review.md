@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8454 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8458 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7125,7 +7125,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (647)
+### ingest (651)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7134,7 +7134,6 @@ Please check, Lalubhai:
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
 | `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में {max} फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
-| `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
 | `drop.tooManyRows` | {name} has more than {limit} rows. Split it and try again. | {name} में {limit} से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
 | `drop.openLimit` | More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में {limit} से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
@@ -7149,6 +7148,8 @@ Please check, Lalubhai:
 | `drop.keptNoStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए चालू नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
+| `read.uploadingParts` | Saving the original file: {done} of {total} parts | असली फ़ाइल सेव कर रहे हैं: {total} में से {done} हिस्से |
+| `read.tooLargeToRead` | {name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} सेव हो गई। यह इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |
@@ -7182,6 +7183,9 @@ Please check, Lalubhai:
 | `skipNoDate.keep` | Keep them | इन्हें रहने दें |
 | `fillChange.title` | Change the answer to Yes? | जवाब बदलकर हां करें? |
 | `fillChange.body` | Lines you skipped with "Skip these lines" come back and are checked again. Lines you skipped one by one stay skipped. | "ये लाइनें छोड़ें" से छोड़ी गई लाइनें वापस आएंगी और फिर से जांची जाएंगी। एक-एक करके छोड़ी गई लाइनें छोड़ी ही रहेंगी। |
+| `upload.error.partsMissing` | Some parts of the file did not arrive. Add the same file again to send them. | फ़ाइल के कुछ हिस्से नहीं पहुंचे। उन्हें भेजने के लिए वही फ़ाइल फिर डालें। |
+| `upload.error.digest` | The saved file did not match the file you chose. Add it again. | सेव हुई फ़ाइल आपकी चुनी फ़ाइल से मेल नहीं खाई। इसे फिर डालें। |
+| `upload.error.ranOut` | The upload took too long and stopped. Add the same file again. | अपलोड में बहुत देर लगी और वह रुक गया। वही फ़ाइल फिर डालें। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |

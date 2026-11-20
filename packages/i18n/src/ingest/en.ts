@@ -13,7 +13,6 @@ export const ingestEn = {
     title: "Drop files here",
     hint: "Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files.",
     choose: "Choose files",
-    tooBig: "{name} is too big. The limit for this kind of file is {limit} MB.",
     tooManyRows: "{name} has more than {limit} rows. Split it and try again.",
     openLimit: "More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again.",
     seenBefore: "You added this file on {date}.",
@@ -31,6 +30,9 @@ export const ingestEn = {
   read: {
     reading: "Reading {sheet} ({rows} rows)",
     uploading: "Saving the original file",
+    // chunked upload (limits brief part B)
+    uploadingParts: "Saving the original file: {done} of {total} parts",
+    tooLargeToRead: "{name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files.",
     failed: "orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again.",
     canonicalMissing: "The file was imported. The backup copy of its rows could not be saved, which does not change this import.",
     sending: "Sending {done} of {total} rows",
@@ -73,6 +75,14 @@ export const ingestEn = {
   fillChange: {
     title: "Change the answer to Yes?",
     body: "Lines you skipped with \"Skip these lines\" come back and are checked again. Lines you skipped one by one stay skipped.",
+  },
+  // chunked upload (limits brief part B): the server's upload refusals (features/ingest/lib/errors.ts UPLOAD_SENTENCES)
+  upload: {
+    error: {
+      partsMissing: "Some parts of the file did not arrive. Add the same file again to send them.",
+      digest: "The saved file did not match the file you chose. Add it again.",
+      ranOut: "The upload took too long and stopped. Add the same file again.",
+    },
   },
   kept: {
     title: "Kept, not read yet",
