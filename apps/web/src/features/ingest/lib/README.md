@@ -353,7 +353,11 @@ Contract: `docs/superpowers/plans/2026-11-20-vision-read.md`. Words: `ingest.vis
 - `status.visionReady` (`visionReadyOf`) turns it on. Without it a PDF or photo is kept exactly as before, with the old words.
 - `vision-render.ts`: `openVisualSource(file, kind)` gives `{ pageCount, render(page), close }`. pdfjs and its worker load by
   dynamic `import()` inside `openPdf` only. Sizes and quality come from `VISION_PARAMS` (`pdfCanvasSize`, `photoCanvasSize`);
-  `plannedPages`, `capLine` for the 30 page cap.
+  `plannedPages`, `capLine` (no longer on a screen; the file page uses the batch lines below).
+- Batches (contract section 12): `batchStart(api, artifactId)` wraps the api for "Read next pages" (carry on from the first
+  open page, or `vision.nextBatch` and read only the new pages); the pump stops at a day cap and never completes a file with
+  pages past the plan (`canFinishOf`). `visionBatch(pages, batchSize)` is the file page's batch state, `openForModel` the
+  server's open-page rule.
 - `vision-pump.ts`: `runVisionPump(artifactId, source, { api, onProgress })`: `vision.start` with the file's whole page count,
   render and PUT each ticket (a 403 asks start again), `readPage` per page while `next === "retry"` (at most
   `PAGE_READS_PER_PASS`), then `artifact.complete` once `vision.pages` is settled. `vision-words.ts` words each step.

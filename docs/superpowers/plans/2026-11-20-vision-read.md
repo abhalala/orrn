@@ -12,7 +12,7 @@ server and web work build against. Change it in the same commit as any code that
 | `VISION_PARAMS.longSidePx` | 1600 | web: photo downscale, PDF render scale (`fitLongSide`, `pdfRenderScale`) |
 | `VISION_PARAMS.jpegQuality` | 0.8 | web: `canvas.toBlob("image/jpeg", q)` |
 | `VISION_PARAMS.tiling` | `"none"` | web and server: one image per page. Bands change page keys; the lead decides. |
-| `VISION_PARAMS.maxPagesPerFile` | 30 | web renders pages 1..30; server refuses a page above it |
+| `VISION_PARAMS.maxPagesPerFile` | 30 | default pages per batch (`visionPagesPerBatch`, section 12); a file is read batch by batch |
 | `VISION_PARAMS.lowConfidence` | 0.7 | server `LOW_CONFIDENCE`, web row order and mark |
 | `VISION_PARAMS.tablesPerPage` | 5 | server `MAX_TABLES`, ordinal stride |
 | `VISION_PARAMS.maxPageBytes` | 4,500,000 | page ticket size, server `MAX_PAGE_BYTES` |
@@ -133,7 +133,7 @@ The block then goes through the normal fit, `shape.make` (no longer refused for 
 | Procedure | Guard | Input | Output |
 |---|---|---|---|
 | `vision.start` | U | `{ artifactId, pageCount: int 1..10000 }` | `VisionStartOut = { pageCount, planned, uploads: { page, url, ticket, expiresAt }[] }` for planned pages with no image yet |
-| `vision.readPage` | U | `{ artifactId, page: int 1..30 }` | `VisionPageView` (below) after at most ONE model call |
+| `vision.readPage` | U | `{ artifactId, page: int 1..10000 }` (the plan is checked in the handler, section 12) | `VisionPageView` (below) after at most ONE model call |
 | `vision.pages` | R | `{ artifactId }` | `VisionPagesOut = { pageCount, planned, pages: VisionPageView[], settled: boolean }` |
 | `vision.skipPage` | U | `{ artifactId, page }` | `VisionPageView` |
 | `vision.typePage` | U | `{ artifactId, page, title: string or null, headers: string[1..50], rows: string[][1..500] }` | `VisionPageView` (state `typed`) |
@@ -216,7 +216,7 @@ A new sentence needs a line here and a web mapping in the same change.
   path and words.
 - File page: `kept_unread` with `visionReady`: "Read this file" (fetches raw by `readUrl`, renders, pumps). `reading`:
   the page list with state and reason, "Read again" (`canRetry`), "Type this page", "Skip this page", progress live
-  region, and the cap line ("Pages 1 to 30 of 45 were read. The rest are not read in this release.").
+  region, and the batch lines of section 12 (the old cap line is gone).
 - Review of a model block: the page image (`readUrl` page) beside the rows, stacked under 768 px; `alt` "Page {page} of
   {count} of {file}"; low rows first and marked, blank cells marked; a real checkbox "I checked these rows against the
   page" (`vision.check`); Approve disabled until ticked; "Fix this cell" (`vision.fixCell`). Keyboard order: rows,
@@ -306,3 +306,89 @@ These override sections 1 to 10 where they disagree.
      read on its own (two items never join into one run), and whole runs are matched, never a part of one.
      "Fix this cell" clears that cell's mark.
    - No new refusal sentence.
+
+## 12. Batches (limits brief part C, 2026-11-20)
+
+These override sections 1 to 11 where they disagree. A file with more pages than the plant's pages per batch
+(`visionPagesPerBatch`, default 30, ceiling 80, set in Godseye) is read one batch at a time.
+
+### Index shape (`pages/index.json`)
+
+```
+{ v: 1, pageCount, planned, skipped: number[], startedBy, startedAt,
+  bands?: { "<n>": K },
+  batches?: [from, to][],          // each planned range, in order; missing in an older index: [[1, planned]]
+  restNotRead?: { by, at } }       // a person finished with pages planned + 1 to pageCount not read
+```
+
+- `pageCount` is the whole file (from the browser's pdfjs count, at most 10,000). `planned` is the last page in the plan
+  and only grows. Every write after `vision.start` is etag guarded (`onlyIf.etagMatches`); a lost race is `MOVED`.
+- `vision.start` writes `planned = min(pageCount, visionPagesPerBatch)` and `batches: [[1, planned]]` once. It never
+  extends the plan; a second start resumes as it is (the plant's later batch size applies only to later batches).
+
+### Procedures
+
+| Procedure | Guard | Input | Output |
+|---|---|---|---|
+| `vision.nextBatch` | U | `{ artifactId }` | `VisionStartOut` |
+| `vision.finishRest` | U | `{ artifactId }` | `VisionPagesOut` |
+
+- `vision.nextBatch` ("Read next pages"): the file must be `reading` and a model route must exist (else today's
+  refusals). A page is open for the model when it is `waiting` or `ready` (not `next: "band"`), or `not_read` with
+  `cap_day_calls` / `cap_day_cost` (`openForModel`, server and web). While any planned page is open, or every page is
+  planned, nothing is planned and the missing tickets of the whole plan come back (a double click or a second tab
+  plans nothing twice). A file holding `blocksPerFile` tables is refused: BAD_REQUEST "This file already holds 50
+  tables, the most one file can hold. Finish it to use the tables read so far." Otherwise it plans `planned + 1` to
+  `min(pageCount, planned + visionPagesPerBatch)` with the plant's value now, appends the range to `batches`, clears
+  `restNotRead`, writes audit `ingest.vision.batch { from, to, pageCount }`, and hands tickets for that range only.
+- Pages only a person can settle (manual reasons, `cap_page`, `too_many_tables`, a page waiting to be cut) never hold
+  the next batch back.
+- `vision.finishRest` ("Finish without pages N to M", and "Skip the rest and finish" on a full file): in one etag
+  guarded write, every planned page not settled is added to `skipped`, and when `planned < pageCount` the index gets
+  `restNotRead`. Audit `ingest.vision.rest { skipped: number[], notRead: [from, to] | null }`. Answers `vision.pages`.
+
+### Finish (decision)
+
+A file is complete when every planned page is settled AND either every page is planned (`planned >= pageCount`) or a
+person left the rest (`restNotRead`). `artifact.complete` refuses otherwise with the existing "Some pages are not read
+yet. Read, type or skip each page first." (`visionAllSettled`). `VisionPagesOut` gains `full` (the file holds
+`blocksPerFile` tables), `restNotRead` and `canFinish` (exactly what complete requires). The pump never completes a
+file with pages past the plan; only a person's "Finish without pages N to M" does.
+
+### Listings and page numbers
+
+- Page numbers in every vision input go to 10,000 (`VISION_FILE_MAX_PAGES`); the plan is checked in the handler
+  ("This page is past the pages read for this file").
+- Every R2 listing asks for 1,000 keys a call and follows the cursor (`listKeys`), bounded by the keys the plan can hold
+  (11 per page). A single page (`readPage`, `skipPage`, `typePage`, `bandTickets`) lists only `pages/<n>.` and
+  `pages/<n>/`. The runs of a whole file come from one range on `block_id` (`<id>:p` to `<id>:q`) instead of IN lists.
+- A whole-file listing of a fully planned 10,000 page file is about 30 list calls (three keys a page); the batch
+  ceiling 80 stays as a bound on one click's work, not on the listing.
+- Ordinals: page 10,000 gives ordinal 49,995; a candidate's `createdAt` is `at + ordinal` ms, so up to about 50 s ahead
+  for the last pages of a huge file. Only the order within a file uses it.
+
+### States and words (web)
+
+- Day cap: the pump stops the pass at the first page that answers `cap_day_calls` / `cap_day_cost` (later pages would
+  only be capped too). The file page says "Today's spend on the model is used up. Read next pages carries on from page
+  {page} tomorrow." (or the calls line), and "Read next pages" carries on from that page through the plan: the same day
+  if the caps were raised, else the next plant day. Pages already stored need no bytes.
+- A batch read through with pages past the plan: "Pages read: 1 to 30." (`ingest.vision.readRanges`, ranges of read or
+  typed pages), "Pages 31 to 100 of 100 are not read yet.", "Read next pages" with "Reads pages 31 to 60." (fetches the
+  raw bytes, plans the batch, draws and reads only its pages), and "Finish without pages 31 to 100".
+- A full file: "This file holds 50 tables, the most one file can hold. The tables read so far can still be checked and
+  imported." and "Skip the rest and finish" while planned pages are open. Tables already read stay usable.
+- Upload strip: pages past the plan count as not read in "{count} pages are not read".
+- New server sentence: the full-file sentence above, listed in 8b and mapped to `ingest.vision.error.fileFull`.
+
+### Calls and cost
+
+- A batch of 30 dense pages at the defaults: a text PDF at 3 bands is 90 calls; a scan is 1 whole read plus 3 bands, 120
+  calls. The 300 call cap does not bind. At about 0.07 USD a band call, `checkCaps` allows a call while the day's spend
+  is under 5 USD: 71 calls spend 4.97 USD, call 72 goes (5.04 USD), call 73 is capped. A dense batch finishes the next
+  plant day with "Read next pages".
+- 100 pages one table each: four batches (30, 30, 30, 10). Whole pages only: 100 calls, about 1 to 3 USD, one day. Dense
+  text at 3 bands: 300 calls, about 21 USD, so about 72 calls a day at 5 USD: five plant days. The day call cap (300)
+  is never the wall at 5 USD. The 50-table file limit binds first for any file with more than 50 tables: at one table a
+  page, page 51 onward is `too_many_tables`; such a file cannot be read whole in one artifact (owner decision).
+
