@@ -12,7 +12,7 @@ import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
-import { handleIngestUpload } from "@orrn/server/lib/ingest/vault";
+import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/vault";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
@@ -159,6 +159,11 @@ app.put("/files/dies/upload", (c) => handleDieFileUpload(c.req.raw));
 // checked against the SHA-256 in the ticket by R2) and from `ingest.artifact.complete` (canonical rows).
 // No session: the signed ticket is the authority, bound to one object key and its size.
 app.put("/files/ingest/upload", (c) => handleIngestUpload(c.req.raw));
+// Vision read (contract section 8): the signed GET from `ingest.vision.readUrl`, valid 10 minutes, bound
+// to one object key the server built from the caller's company. Purpose `ingest-read` only; an upload
+// ticket is refused here and a read ticket is refused by the upload route. Raw files go out as an
+// octet-stream attachment, page images as inline JPEG, both sandboxed.
+app.get("/files/ingest/read", (c) => handleIngestRead(c.req.raw));
 
 app.use(
   "/trpc/*",
