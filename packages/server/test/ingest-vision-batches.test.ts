@@ -354,7 +354,7 @@ describe("batches: a file full of tables", () => {
 
     const done = await p.owner.ingest.vision.finishRest({ artifactId: f.artifactId });
     expect(done).toMatchObject({ settled: true, restNotRead: true, canFinish: true });
-    expect(done.pages.map((v) => v.state)).toEqual([...Array<string>(10).fill("read"), "skipped", "skipped"]);
+    expect(done.pages.map((v): string => v.state)).toEqual([...Array<string>(10).fill("read"), "skipped", "skipped"]);
     await p.owner.ingest.artifact.complete({ artifactId: f.artifactId });
     const got = await p.owner.ingest.artifact.get({ artifactId: f.artifactId });
     expect(got.readState).toBe("read");
