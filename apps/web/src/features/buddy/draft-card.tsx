@@ -1,4 +1,4 @@
-import { useT, type Translate } from "@orrn/i18n";
+import { useT, type MessageKey, type Translate } from "@orrn/i18n";
 import { mapSentence } from "@orrn/i18n/refusal";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -60,6 +60,25 @@ export type DraftCardProps = {
   onLeave?(): void;
 };
 
+/** Import drafts whose title the app says in the person's language (§12.1); every other draft shows the server's words. */
+const TITLE_KEYS = {
+  "ingest.shape.make": "buddy.draft.titles.ingest_shape_make",
+  "ingest.period.confirm": "buddy.draft.titles.ingest_period_confirm",
+  "ingest.answer.set": "buddy.draft.titles.ingest_answer_set",
+  "ingest.rows.answerDoubts": "buddy.draft.titles.ingest_rows_answerDoubts",
+  "ingest.candidate.confirmNear": "buddy.draft.titles.ingest_candidate_confirmNear",
+  "ingest.candidate.setTarget": "buddy.draft.titles.ingest_candidate_setTarget",
+  "ingest.candidate.hold": "buddy.draft.titles.ingest_candidate_hold",
+  "ingest.candidate.release": "buddy.draft.titles.ingest_candidate_release",
+  "ingest.dryRun.step": "buddy.draft.titles.ingest_dryRun_step",
+  "ingest.vision.readPage": "buddy.draft.titles.ingest_vision_readPage",
+} as const satisfies Record<string, MessageKey>;
+
+export function draftTitle(t: Translate, draft: { path: string; title: string }): string {
+  const key = Object.prototype.hasOwnProperty.call(TITLE_KEYS, draft.path) ? TITLE_KEYS[draft.path as keyof typeof TITLE_KEYS] : null;
+  return key ? t(key) : draft.title;
+}
+
 /**
  * One change Buddy prepared (design §4.4): the procedure in words, the input as a list, and Confirm and Reject for a
  * pending one. Confirm runs the real procedure under the person's own session; the server judges it again.
@@ -79,7 +98,7 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
     >
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <h3 id={titleId} className="m-0 min-w-0 flex-1 basis-40 text-[15px] leading-6 font-semibold break-words">
-          {draft.title}
+          {draftTitle(t, draft)}
         </h3>
         <Chip tone={TONE[draft.status]} truncate={false}>
           {t(`buddy.draft.status.${draft.status}`)}

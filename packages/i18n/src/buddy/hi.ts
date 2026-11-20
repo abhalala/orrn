@@ -22,8 +22,21 @@ export const buddyHi = {
   // unsure: "बीच में रुक गया" for an answer cut before the end
   cut: "जवाब पूरा होने से पहले रुक गया।",
   tool: "orrn देखा: {path}",
-  waiting: "आपकी राह में",
+  waiting: "आपका इंतज़ार है",
   draft: {
+    // Titles of import drafts by procedure path (dots as underscores); other drafts show the server's words.
+    titles: {
+      ingest_shape_make: "इस शीट का ढांचा पढ़ें",
+      ingest_period_confirm: "इस फ़ाइल का साल या तारीख तय करें",
+      ingest_answer_set: "इम्पोर्ट के सवाल का जवाब दें",
+      ingest_rows_answerDoubts: "शक वाली पंक्तियों का जवाब दें",
+      ingest_candidate_confirmNear: "मिलते जुलते नाम का जवाब दें",
+      ingest_candidate_setTarget: "यह तालिका किस चीज़ की है, तय करें",
+      ingest_candidate_hold: "यह तालिका रोकें",
+      ingest_candidate_release: "यह तालिका फिर से जांच में भेजें",
+      ingest_dryRun_step: "पंक्तियों को प्लांट के डेटा से मिलाकर देखें",
+      ingest_vision_readPage: "यह पेज पढ़ें",
+    },
     confirm: "पक्का करें",
     reject: "नामंज़ूर करें",
     review: "जांच पेज खोलें",

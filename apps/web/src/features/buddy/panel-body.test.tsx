@@ -355,6 +355,8 @@ describe("draft cards", () => {
     try {
       const link = view.q<HTMLAnchorElement>("buddy-draft-review")!;
       expect(link.getAttribute("href")).toBe("/ingest/review/cand_42");
+      // An import draft's title comes from the dictionary, not the server's English words.
+      expect(view.q("buddy-draft")!.querySelector("h3")!.textContent).toBe("Answer the import's question");
       link.addEventListener("click", (e) => e.preventDefault());
       await env.click(link);
       expect(view.calls.open).toEqual([false]);

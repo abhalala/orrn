@@ -28,6 +28,19 @@ export const guBuddy = {
     tool: "orrn જોયું: {path}",
     waiting: "તમારી રાહમાં",
     draft: {
+      // Titles of import drafts by procedure path (dots as underscores); other drafts show the server's words.
+      titles: {
+        ingest_shape_make: "આ શીટનું માળખું વાંચો",
+        ingest_period_confirm: "આ ફાઇલનું વર્ષ કે તારીખ નક્કી કરો",
+        ingest_answer_set: "ઇમ્પોર્ટના સવાલનો જવાબ આપો",
+        ingest_rows_answerDoubts: "શંકાવાળી લાઇનોનો જવાબ આપો",
+        ingest_candidate_confirmNear: "મળતા આવતા નામનો જવાબ આપો",
+        ingest_candidate_setTarget: "આ કોષ્ટક શાનું છે તે નક્કી કરો",
+        ingest_candidate_hold: "આ કોષ્ટક રોકો",
+        ingest_candidate_release: "આ કોષ્ટક ફરી તપાસમાં મોકલો",
+        ingest_dryRun_step: "લાઇનોને પ્લાન્ટના ડેટા સાથે મેળવી જુઓ",
+        ingest_vision_readPage: "આ પેજ વાંચો",
+      },
       confirm: "પાકું કરો",
       reject: "નામંજૂર કરો",
       // unsure: "તપાસ પેજ" for the import review page

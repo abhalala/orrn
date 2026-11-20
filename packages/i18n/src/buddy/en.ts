@@ -24,6 +24,19 @@ export const buddyEn = {
   tool: "Used orrn: {path}",
   waiting: "Waiting for you",
   draft: {
+    // Titles of import drafts by procedure path (dots as underscores); other drafts show the server's words.
+    titles: {
+      ingest_shape_make: "Read the layout of this sheet",
+      ingest_period_confirm: "Set the year or date of this file",
+      ingest_answer_set: "Answer the import's question",
+      ingest_rows_answerDoubts: "Answer the doubtful rows",
+      ingest_candidate_confirmNear: "Answer a near match",
+      ingest_candidate_setTarget: "Set what this table holds",
+      ingest_candidate_hold: "Hold this table",
+      ingest_candidate_release: "Send this table back to checking",
+      ingest_dryRun_step: "Try the rows against the plant's data",
+      ingest_vision_readPage: "Read this page",
+    },
     confirm: "Confirm",
     reject: "Reject",
     review: "Open the review page",
