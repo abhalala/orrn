@@ -400,6 +400,9 @@ export type BlockView = ReaderFacts & {
   sample: string[][];
   readBy: "parser" | "model";
   modelChecked: boolean;
+  /** Who set the vision tick (user id) and when (ms); null while it is not set (fix round decision 5). */
+  modelCheckedBy: string | null;
+  modelCheckedAt: number | null;
   /** Vision read: the page this block came from, or null for a block read by code from a sheet. */
   vision: BlockVisionView | null;
   /** The canonical rows file of this block is in the vault. */

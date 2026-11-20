@@ -101,7 +101,7 @@ Under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`):
 |---|---|---|
 | `raw` | browser (existing ticket) | the file |
 | `pages/<n>.jpg` (n from 1) | browser, `ingest-page` ticket from `vision.start` | JPEG, at most `maxPageBytes` |
-| `pages/index.json` | Worker (`vision.start`, `vision.skipPage`) | `{ v: 1, pageCount, planned, skipped: number[], startedBy, startedAt }`; updates use an R2 etag condition (`onlyIf.etagMatches`), a lost race is CONFLICT `MOVED` |
+| `pages/index.json` | Worker (`vision.start`, `vision.skipPage`) | `{ v: 1, pageCount, planned, skipped: number[], startedBy, startedAt }`; updates use an R2 etag condition (`onlyIf.etagMatches`), a lost race is CONFLICT `MOVED`. A plan write and its audit row are two steps (R2, then D1): if D1 fails after R2, the plan changed with no audit row. Accepted (fix round N13); the plan is the source of truth for pages. |
 | `digest.json` | Worker (`complete`, as now) | as now |
 
 ## 6. Blocks from a page
@@ -156,7 +156,8 @@ The block then goes through the normal fit, `shape.make` (no longer refused for 
 
 ## 7. Procedures (router `ingest.vision`)
 
-`U` = `ingest.upload`, `R` = `ingest.upload` or `ingest.merge` (the file page's guard). Company always from ctx.
+`U` = `ingest.upload`, `M` = `ingest.merge`, `R` = `ingest.upload` or `ingest.merge` (the file page's guard). Company
+always from ctx.
 
 | Procedure | Guard | Input | Output |
 |---|---|---|---|
@@ -166,7 +167,7 @@ The block then goes through the normal fit, `shape.make` (no longer refused for 
 | `vision.skipPage` | U | `{ artifactId, page }` | `VisionPageView` |
 | `vision.typePage` | U | `{ artifactId, page, title: string or null, headers: string[1..50], rows: string[][1..500] }` | `VisionPageView` (state `typed`) |
 | `vision.readUrl` (query) | R | `{ artifactId, what: "raw" }` or `{ artifactId, what: "page", page }` | `{ url, expiresAt }` |
-| `vision.check` | R | `{ candidateId, expectSeq, checked: boolean }` | `CandidateDetail` |
+| `vision.check` | M (`ingest.merge`, the action Approve takes; fix round decision 5) | `{ candidateId, expectSeq, checked: boolean }` | `CandidateDetail` |
 | `vision.fixCell` | U | `{ candidateId, expectSeq, rowIndex, col, text: string max 200 }` | `CandidateDetail` |
 
 `VisionPageView = { page, state: VisionPageState, reason: VisionNotReadReason or null, canRetry: boolean, next: "retry" | "manual" | "done" | null, attempts: number, blockIds: string[], tables: number }`.
@@ -185,9 +186,19 @@ Rules:
   `runVisionAttempt` with `visualReads: true`, `vaultReady: true`, `blockId = visionPageKey`. The web calls it again
   while `next === "retry"`.
 - `vision.status`: none; `IngestStatus` gains `visionReady: boolean` (= `vaultReady() && shapeBotReady(env)`).
-- `vision.check`: only a `readBy model` block; candidate in `EDITABLE_STATES`; sets `model_checked`, bumps the
-  candidate `serverSeq` (`candidateChange`), audit `ingest.vision.check` with `{ checked }`.
-- Tick cleared (server, same batch): `vision.fixCell` and `rows.decide` on a model block. Approve refuses without the
+- `vision.check`: only a `readBy model` block; candidate in `EDITABLE_STATES`; sets `model_checked` with who set it
+  and when (`model_checked_by`, `model_checked_at`, migration 0053; `BlockView.modelCheckedBy` / `modelCheckedAt`,
+  null while not set), bumps the candidate `serverSeq` (`candidateChange`), audit `ingest.vision.check` with
+  `{ checked }`. A person without `order.price` cannot set the tick on a block with a rate column (by header or by a
+  recipe of its sheets, `rateMaskColumns`): FORBIDDEN "Someone who can see prices must check this table." Taking the
+  tick off is always allowed (fix round decision 6).
+- **Tick rule (fix round decision 5, N1, L3).** The tick, with who and when, is cleared in the same batch by every
+  action that changes a cell of a model-read table or which of its rows are written: `vision.fixCell`, `rows.decide`
+  (any decision, a skip too), `rows.answerDoubts` ("right" takes a held row in, "skip" leaves it out),
+  `rows.skipNoDate`, and every fill-above change (`fillAboveRerun`: the first answer, a changed answer, a sheet moved
+  into or out of orders, a re-put), which clears the tick of every model-read order sheet of the file. Answers that
+  only change how values are read (units, date format, period) keep the tick: they change no cell and no row the
+  person checked against the page. Approve refuses without the
   tick (exists: "Check these rows against the page first"), and the approve write itself carries the guard in its own
   WHERE (`not exists` a model block of this candidate with `model_checked = 0`), with the abort statement after it,
   so a tick cleared between the read and the write fails the approve (AGENTS section 2).
@@ -195,7 +206,9 @@ Rules:
   `periodRerun` and `setAnswer` use, children included), not a hand-rolled update.
 - `vision.fixCell`: model block only, editable state, no row of the candidate written; sets `raw[col]`, the row back
   to pending, the candidate to `processing` with `dryCursor 0`, clears the tick, audit `ingest.vision.fix` with
-  `{ rowIndex, col, from, to }`. A rate column is refused to a viewer who cannot see rates.
+  `{ rowIndex, col, from, to }`; for a rate column the audit stores `{ rowIndex, col, from: null, to: null, rate:
+  true }` instead (fix round L5: audit readers may not see rates). A rate column is refused to a viewer who cannot
+  see rates. A failed sheet stays failed (its file read failed; a fixed cell cannot repair that; fix round N3).
 
 ## 8. Read path (brief gate 5)
 

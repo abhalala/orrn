@@ -111,6 +111,7 @@ import {
   INGEST_LIMITS,
   KEPT_UNREAD_NOT_READ,
   VISION_CHECK_MODEL_ONLY,
+  VISION_CHECK_NEEDS_PRICES,
   VISION_REPICK_MODEL,
   VISION_ROWS_WRITTEN,
   isKeptUnread,
@@ -735,6 +736,8 @@ export async function skipNoDateLines(ctx: IngestCtx, input: { candidateId: stri
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
     // Rule 11.3: marked as skipped by this action, so a later Yes can take the lines back.
     ctx.db.update(ingestStagedRow).set({ decision: "skip", bulkSkip: "no_date", updatedAt: now() }).where(noDateWhere(c.id)),
+    // The tick rule (contract section 7): skipped lines change which rows of a model-read table are written.
+    clearModelTick(ctx, c.blockId),
     recountStatement(ctx, c.id),
     auditInsert(ctx, { action: "ingest.rows.skip_no_date", subjectType: "ingest_candidate", subjectId: c.id, meta: { count } }),
   ]);
@@ -1307,6 +1310,8 @@ export async function answerDoubts(
       .update(ingestStagedRow)
       .set(input.answer === "right" ? { doubtBy: ctx.session.user.id, updatedAt: now() } : { decision: "skip", updatedAt: now() })
       .where(where),
+    // The tick rule: a doubted row taken in ("right") or left out ("skip") changes which rows are written.
+    clearModelTick(ctx, c.blockId),
     recountStatement(ctx, c.id),
   ];
   await guardedBatch(ctx.db, statements);
@@ -1317,12 +1322,34 @@ export async function answerDoubts(
  * Plan B7 decisions on rows. The rows re-run from the first decided one (state processing), so the
  * decision passes through the same classification as everything else.
  */
-/** Clears the vision tick of a model-read block (a no-op on any other block). Goes in the batch that changes a row. */
+/**
+ * Clears the vision tick of a model-read block, with who set it and when (a no-op on any other block). Goes
+ * in the batch of every action that changes a cell or which rows are written (contract section 7, the tick
+ * rule): `vision.fixCell`, `rows.decide`, `rows.answerDoubts`, `rows.skipNoDate`, and a fill-above change.
+ */
 export function clearModelTick(ctx: Pick<IngestCtx, "db" | "companyId">, blockId: string): SqliteBatchItem {
   return ctx.db
     .update(ingestBlock)
-    .set({ modelChecked: false })
+    .set({ modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
     .where(and(eq(ingestBlock.id, blockId), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model")));
+}
+
+/**
+ * Rule 11.3 with the tick rule: a fill-above change fills or leaves blank the order numbers of every order
+ * sheet of the file, so every model-read order sheet of the file needs its page checked again.
+ */
+function clearOrderTicks(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string): SqliteBatchItem {
+  return ctx.db
+    .update(ingestBlock)
+    .set({ modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
+    .where(
+      and(
+        eq(ingestBlock.artifactId, artifactId),
+        eq(ingestBlock.companyId, ctx.companyId),
+        eq(ingestBlock.readBy, "model"),
+        sql`${ingestBlock.id} in (select k.block_id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders')`,
+      ),
+    );
 }
 
 export async function decideRows(
@@ -1620,14 +1647,17 @@ async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: readon
       ),
     );
   // State-guarded, not seq-guarded: othersAgainAfter may move the same sheets in the same batch.
-  return others
+  return [
+    clearOrderTicks(ctx, artifactId),
+    ...others
     .filter((o) => !except.includes(o.id))
     .map((o) =>
       ctx.db
         .update(ingestCandidate)
         .set({ state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: now() })
         .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.state, ["processing", "ready", "held"]))),
-    );
+    ),
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -2185,6 +2215,15 @@ export { artifactSummary, MOVED, answerKey };
 // Vision read: the person's tick (contract section 7)
 // ---------------------------------------------------------------------------
 
+/** The rate columns of a block: by header, and by every recipe of its sheets (plan A8, D8). */
+async function blockRateColumns(ctx: IngestCtx, block: { id: string; headers: string[] }): Promise<Set<number>> {
+  const siblings = await ctx.db
+    .select({ recipe: ingestCandidate.recipe })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, block.id)));
+  return rateMaskColumns(block.headers, siblings.map((x) => x.recipe));
+}
+
 /**
  * "I checked these rows against the page": sets or clears the tick of a model-read table. Only a block
  * read from a page takes it, and only while its sheet may still change. The candidate's seq moves, so
@@ -2195,11 +2234,16 @@ export async function visionCheck(ctx: IngestCtx, input: { candidateId: string; 
   const block = await loadBlock(ctx, c.blockId);
   if (block.readBy !== "model") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_CHECK_MODEL_ONLY });
   assertState(c, EDITABLE_STATES, "Rows of this import can no longer change");
+  // Decision 6: a person who sees "Hidden" in a rate column cannot say they checked every cell.
+  if (input.checked && !seesRates(ctx) && (await blockRateColumns(ctx, block)).size > 0) {
+    throw new TRPCError({ code: "FORBIDDEN", message: VISION_CHECK_NEEDS_PRICES });
+  }
+  const at = now();
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, {}),
     ctx.db
       .update(ingestBlock)
-      .set({ modelChecked: input.checked })
+      .set(input.checked ? { modelChecked: true, modelCheckedBy: ctx.session.user.id, modelCheckedAt: at } : { modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
       .where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model"))),
     ingestAbortUnlessChanged(ctx.db),
     auditInsert(ctx, { action: "ingest.vision.check", subjectType: "ingest_candidate", subjectId: c.id, meta: { checked: input.checked, blockId: block.id } }),
@@ -2210,9 +2254,11 @@ export async function visionCheck(ctx: IngestCtx, input: { candidateId: string; 
 /**
  * "Fix this cell" (contract section 7): a person corrects one cell of a model-read table against its page.
  * The row goes back to pending and the tick is cleared in the same batch. A sheet that was checking or
- * checked (processing, ready, held) goes back to processing from row 0, as an answer does (`setAnswer`);
- * a sheet still waiting for its layout (needs_shape, needs_confirm) or failed keeps its state, since the
- * dry run cannot run before it has one. Refused once any row of the sheet is written.
+ * checked (processing, ready, held) goes back to processing from row 0, as an answer does (`setAnswer`,
+ * `periodRerun`: the same `candidateChange` set); a sheet still waiting for its layout (needs_shape,
+ * needs_confirm) keeps its state, since the dry run cannot run before it has one, and a failed sheet stays
+ * failed (its file read failed; a cell cannot repair that; fix round N3). Refused once any row of the sheet
+ * is written.
  */
 export async function visionFixCell(
   ctx: IngestCtx,
@@ -2233,14 +2279,10 @@ export async function visionFixCell(
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
   if (row.mergeState !== "open") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
   // A viewer without order.price never reads or writes a rate cell (plan A8, D8).
-  if (!seesRates(ctx)) {
-    const siblings = await ctx.db
-      .select({ recipe: ingestCandidate.recipe })
-      .from(ingestCandidate)
-      .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, block.id)));
-    if (rateMaskColumns(block.headers, siblings.map((x) => x.recipe)).has(input.col)) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
-    }
+  const rateCols = await blockRateColumns(ctx, block);
+  const rateCell = rateCols.has(input.col);
+  if (!seesRates(ctx) && rateCell) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
   }
   const text = input.text.slice(0, INGEST_LIMITS.cellChars);
   const raw = [...row.raw];
@@ -2270,7 +2312,8 @@ export async function visionFixCell(
       action: "ingest.vision.fix",
       subjectType: "ingest_candidate",
       subjectId: c.id,
-      meta: { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from, to: text },
+      // Security L5: a rate cell's text stays out of the audit row (audit readers may not see rates).
+      meta: rateCell ? { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from: null, to: null, rate: true } : { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from, to: text },
     }),
   ];
   // The block's sample shows the first rows: it shows the fixed cell too. A person typed the cell, so its

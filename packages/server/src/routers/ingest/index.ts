@@ -187,7 +187,8 @@ export const ingestRouter = router({
     skipPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionSkipPage(ix(ctx), input)),
     typePage: U.input(visionTypePageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionTypePage(ix(ctx), input)),
     readUrl: R.input(visionReadUrlInput).query(({ ctx, input }): Promise<VisionReadUrlOut> => visionReadUrl(ix(ctx), input)),
-    check: R.input(visionCheckInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionCheck(ix(ctx), input)),
+    // Fix round decision 5: the tick takes the action Approve takes.
+    check: M.input(visionCheckInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionCheck(ix(ctx), input)),
     fixCell: U.input(visionFixCellInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionFixCell(ix(ctx), input)),
   }),
 

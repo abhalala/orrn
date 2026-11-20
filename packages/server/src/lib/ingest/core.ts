@@ -219,6 +219,8 @@ export function blockView(b: BlockRow): BlockView {
     sample: b.sample,
     readBy: b.readBy,
     modelChecked: b.modelChecked,
+    modelCheckedBy: b.modelChecked ? (b.modelCheckedBy ?? null) : null,
+    modelCheckedAt: b.modelChecked && b.modelCheckedAt ? b.modelCheckedAt.getTime() : null,
     canonicalStored: b.canonicalStored,
     gaps: b.readerFacts?.gaps ?? 0,
     warnings: b.readerFacts?.warnings ?? [],
