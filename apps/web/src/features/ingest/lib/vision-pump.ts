@@ -4,7 +4,8 @@ import type { VisionApi } from "./vision-api";
 import { VISION_PARAMS } from "@orrn/ingest";
 
 import type { BandHow, PageSource } from "./vision-render";
-import { isSettled, type VisionPageTicket, type VisionPageView, type VisionPagesOut, type VisionStartOut } from "./vision-types";
+import { openForModel } from "./vision-model";
+import { canFinishOf, isSettled, type VisionPageTicket, type VisionPageView, type VisionPagesOut, type VisionStartOut } from "./vision-types";
 
 /**
  * The vision pump (contract section 9): `vision.start`, render each page the server has no image of, PUT it to its
@@ -39,6 +40,8 @@ export type VisionPumpDeps = {
 export type VisionPumpResult = {
   /** Every planned page is read, typed or skipped. */
   settled: boolean;
+  /** A day cap stopped the pass (`cap_day_calls` or `cap_day_cost`): the pages after it wait for "Read next pages". */
+  dayCapped?: boolean;
   /** `artifact.complete` went through (or another tab had already finished the file). */
   completed: boolean;
   pages: VisionPagesOut;
@@ -79,6 +82,8 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
   aborted(signal);
   let start = await api.start({ artifactId, pageCount });
   const total = start.planned;
+  // "Read next pages" (`batchStart`) reads from the first page it planned or the first open page; a plain pass from 1.
+  const firstPage = Math.max(1, start.readFrom ?? 1);
   const stored = new Set<number>();
 
   /**
@@ -200,7 +205,8 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
   await sendPages(start.uploads);
   await sendTexts(start.texts ?? []);
 
-  for (let page = 1; page <= total; page += 1) {
+  let dayCapped = false;
+  for (let page = firstPage; page <= total && !dayCapped; page += 1) {
     let view: VisionPageView | null = null;
     let band: number | undefined;
     let cut = false;
@@ -255,14 +261,41 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
       if (view.next !== "retry") break;
     }
     if (view) progress({ phase: "page", page, total, view });
+    // A day cap stops the pass: every later page would only be capped too (contract section 12).
+    if (view?.reason === "cap_day_calls" || view?.reason === "cap_day_cost") dayCapped = true;
   }
 
   aborted(signal);
   progress({ phase: "finishing" });
   const pages = await api.pages({ artifactId });
-  if (!pages.settled) return { settled: false, completed: false, pages };
+  if (!pages.settled) return { settled: false, completed: false, pages, dayCapped };
+  // Pages past the plan keep the file open until "Read next pages" reads them or a person finishes without them.
+  if (!canFinishOf(pages)) return { settled: true, completed: false, pages, dayCapped };
   const completed = await finishFile(api, artifactId);
-  return { settled: true, completed, pages };
+  return { settled: true, completed, pages, dayCapped };
+}
+
+/**
+ * The api of "Read next pages" (contract section 12): its first `start` carries on from the first page the model can
+ * still take, or, with none, plans the next batch (`vision.nextBatch`) and hands that batch's tickets, so the pump draws
+ * and reads only the new pages. `readFrom` tells the pump where to begin; past `planned`, there is nothing to read.
+ */
+export function batchStart(api: VisionApi, artifactId: string): VisionApi {
+  let first = true;
+  return {
+    ...api,
+    async start(input) {
+      const out = await api.start(input);
+      if (!first) return out;
+      first = false;
+      const now = await api.pages({ artifactId });
+      const open = now.pages.filter(openForModel).sort((a, b) => a.page - b.page);
+      if (open.length > 0) return { ...out, readFrom: open[0]!.page };
+      if (now.planned >= now.pageCount || now.full) return { ...out, readFrom: now.planned + 1 };
+      const next = await api.nextBatch({ artifactId });
+      return { ...next, readFrom: now.planned + 1 };
+    },
+  };
 }
 
 /** `artifact.complete` on a file whose pages are settled. A file another tab already finished counts as finished. */

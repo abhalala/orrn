@@ -9,6 +9,10 @@ import type { VisionBandTicketsOut, VisionPageView, VisionPagesOut, VisionReadUr
  */
 export type VisionApi = {
   start: (input: { artifactId: string; pageCount: number }) => Promise<VisionStartOut>;
+  /** "Read next pages" (contract section 12): plans the next batch and hands its tickets; plans nothing while the plan has open pages. */
+  nextBatch: (input: { artifactId: string }) => Promise<VisionStartOut>;
+  /** Skips the planned pages not settled and leaves the pages past the plan not read, so the file can finish. */
+  finishRest: (input: { artifactId: string }) => Promise<VisionPagesOut>;
   /** `band`: read that band of a page cut into bands (section 11.3); left out, the next band or the whole page. */
   readPage: (input: { artifactId: string; page: number; band?: number }) => Promise<VisionPageView>;
   /** Cuts a page into `bands` bands (2..4) once and hands a ticket per band image the server does not have. */
@@ -30,6 +34,8 @@ function build(): VisionApi {
   const c = trpcClient.ingest;
   return {
     start: (i) => c.vision.start.mutate(i),
+    nextBatch: (i) => c.vision.nextBatch.mutate(i),
+    finishRest: (i) => c.vision.finishRest.mutate(i),
     readPage: (i) => c.vision.readPage.mutate(i),
     bandTickets: (i) => c.vision.bandTickets.mutate(i),
     pages: (i) => c.vision.pages.query(i),

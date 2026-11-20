@@ -35,6 +35,9 @@ type Script = {
   readPage?: (page: number, n: number, band?: number) => VisionPageView | Error;
   bandTickets?: (page: number, bands: number, n: number) => VisionBandTicketsOut | Error;
   pagesView?: () => VisionPageView[];
+  /** The plan `pages` answers (default: one page per view, all planned). */
+  plan?: () => { pageCount: number; planned: number; full?: boolean; canFinish?: boolean };
+  nextBatch?: () => VisionStartOut;
   settled?: boolean;
   complete?: () => Promise<unknown>;
 };
@@ -49,6 +52,13 @@ function fakeApi(calls: Call[], script: Script = {}): VisionApi {
       starts += 1;
       calls.push(`start:${input.pageCount}`);
       return script.start?.(starts) ?? { pageCount: input.pageCount, planned: Math.min(input.pageCount, 30), uploads: [1, 2].filter((p) => p <= input.pageCount).map((p) => ticket(p)) };
+    },
+    async nextBatch() {
+      calls.push("nextBatch");
+      return script.nextBatch?.() ?? { pageCount: 0, planned: 0, uploads: [], texts: [] };
+    },
+    async finishRest() {
+      throw new Error("not used");
     },
     async readPage({ page, band }) {
       const n = (reads.get(page) ?? 0) + 1;
@@ -70,7 +80,7 @@ function fakeApi(calls: Call[], script: Script = {}): VisionApi {
     async pages() {
       calls.push("pages");
       const list = script.pagesView?.() ?? pages;
-      return { pageCount: list.length, planned: list.length, pages: list, settled: script.settled ?? true };
+      return { pageCount: list.length, planned: list.length, pages: list, settled: script.settled ?? true, ...script.plan?.() };
     },
     async skipPage({ page }) {
       return view(page, "skipped");

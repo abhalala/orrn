@@ -39,10 +39,25 @@ export type VisionBandTicketsOut = ServerBandTicketsOut;
 
 export type VisionPageTicket = ServerStartOut["uploads"][number];
 
-/** `vision.start`. `texts` (section 11.5): for a text PDF, one ticket per page with no text yet, for `pages/<n>.text.json`. */
-export type VisionStartOut = ServerStartOut;
+/**
+ * `vision.start` and `vision.nextBatch`. `texts` (section 11.5): for a text PDF, one ticket per page with no text yet, for
+ * `pages/<n>.text.json`. `readFrom` is the web's own (never from the server): set by `batchStart`, the page the pump
+ * begins reading at.
+ */
+export type VisionStartOut = ServerStartOut & { readFrom?: number };
 
-export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
+/**
+ * `vision.pages` (contract section 12). Pages 1 to `planned` are in the plan, which grows one batch at a time. `full`:
+ * the file holds the most tables one file may. `restNotRead`: a person chose to finish with the pages past the plan not
+ * read. `canFinish`: what `artifact.complete` needs. The three are optional so a fake in a test may leave them out:
+ * missing `canFinish` reads as settled with every page planned, missing `full` and `restNotRead` as false.
+ */
+export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean; full?: boolean; restNotRead?: boolean; canFinish?: boolean };
+
+/** Whether `artifact.complete` goes through on this answer (see `VisionPagesOut`). */
+export function canFinishOf(out: Pick<VisionPagesOut, "pageCount" | "planned" | "settled" | "canFinish">): boolean {
+  return out.canFinish ?? (out.settled && out.planned >= out.pageCount);
+}
 
 /**
  * `BlockView.vision`: where a model-read (or typed) block came from. `lowRows` lowest confidence first, then by index.

@@ -1,7 +1,7 @@
 import { VISION_PARAMS } from "@orrn/ingest";
 
 import type { Tone, Words } from "./model";
-import { isSettled, type BlockVision, type VisionPageView } from "./vision-types";
+import { canFinishOf, isSettled, type BlockVision, type VisionPageView, type VisionPagesOut } from "./vision-types";
 
 /**
  * View models of the vision read: the file page's page list and the review's rows read from a page. The screens draw
@@ -78,6 +78,93 @@ export function visionFileActions(pages: readonly VisionPageView[], settled: boo
   const toCut = pages.some((p) => p.next === "band");
   return { carryOn: waiting || due, needsBytes: waiting || toCut, finish: settled };
 }
+
+/**
+ * A page the model can still take, today or after a day cap: no image yet, an answer due, or stopped by a day cap. The
+ * server's own rule (`openForModel` in `lib/ingest/vision.ts`): a page only a person can settle never holds the next batch.
+ */
+export function openForModel(v: VisionPageView): boolean {
+  if (isSettled(v.state)) return false;
+  if (v.state === "waiting" || v.state === "ready") return v.next !== "band";
+  return v.state === "not_read" && (v.reason === "cap_day_calls" || v.reason === "cap_day_cost");
+}
+
+/** Whole page numbers as runs: [1, 2, 3, 5] is [[1, 3], [5, 5]]. */
+export function pageRanges(pages: readonly number[]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const p of [...new Set(pages)].sort((a, b) => a - b)) {
+    const last = out.at(-1);
+    if (last && p === last[1] + 1) last[1] = p;
+    else out.push([p, p]);
+  }
+  return out;
+}
+
+/** What the file page says and offers about batches (contract section 12). */
+export type VisionBatchView = {
+  /** Read or typed pages as runs, for "Pages read: 1 to 12, 14 to 30." (`readRangesWords`); empty before any is read. */
+  readRanges: [number, number][];
+  /** "Pages 31 to 100 of 100 are not read yet.", null when every page is planned. */
+  restLine: Words | null;
+  /** The day cap stopped the read at this page; "Read next pages" carries on from it. */
+  dayCapLine: Words | null;
+  /** The file holds the most tables one file may. */
+  fullLine: Words | null;
+  /** "Read next pages", with the pages it reads; null when there is nothing for the model to read. */
+  readNext: { from: number; to: number; needsBytes: boolean; note: Words } | null;
+  /** "Finish without pages 31 to 100": every planned page is settled and pages past the plan are left. */
+  finishEarly: { label: Words; note: Words } | null;
+  /** "Skip the rest and finish": a full file with pages still open. */
+  skipRest: boolean;
+};
+
+/**
+ * The batch state of a file being read. `batchSize` is the plant's pages per batch (`ingest.status`). "Read next pages"
+ * carries on from the first page the model can still take (after a day cap, the same day if the caps allow, else the
+ * next plant day); with none, it plans the next batch, which needs the file's bytes to draw the new pages.
+ */
+export function visionBatch(out: VisionPagesOut, batchSize: number): VisionBatchView {
+  const done = out.pages.filter((p) => p.state === "read" || p.state === "typed").map((p) => p.page);
+  const ranges = pageRanges(done);
+  const rest = out.planned < out.pageCount && !out.restNotRead ? { from: out.planned + 1, to: out.pageCount } : null;
+  const open = out.pages.filter(openForModel).sort((a, b) => a.page - b.page);
+  const capped = open.find((p) => p.state === "not_read") ?? null;
+  const full = out.full === true;
+  let readNext: VisionBatchView["readNext"] = null;
+  if (capped) {
+    // A day cap stopped the read: carry on from the capped page through the rest of the plan. Pages already stored
+    // need no bytes; a page with no image does.
+    readNext = { from: capped.page, to: out.planned, needsBytes: open.some((p) => p.state === "waiting"), note: { key: "ingest.vision.readNextNote", vars: { from: capped.page, to: out.planned } } };
+  } else if (open.length === 0 && !full && out.planned < out.pageCount) {
+    const from = out.planned + 1;
+    const to = Math.min(out.pageCount, out.planned + Math.max(1, Math.floor(batchSize)));
+    readNext = { from, to, needsBytes: true, note: { key: "ingest.vision.readNextNote", vars: { from, to } } };
+  }
+  const settledNow = out.pages.every((p) => isSettled(p.state));
+  const finishEarly =
+    settledNow && out.settled && rest && !canFinishOf(out)
+      ? { label: { key: "ingest.vision.finishEarly", vars: { from: rest.from, to: rest.to } }, note: { key: "ingest.vision.finishEarlyNote", vars: { from: rest.from, to: rest.to } } }
+      : null;
+  return {
+    readRanges: ranges,
+    restLine: rest ? { key: "ingest.vision.restLine", vars: { from: rest.from, to: rest.to, total: out.pageCount } } : null,
+    dayCapLine: capped ? { key: capped.reason === "cap_day_cost" ? "ingest.vision.dayCostLine" : "ingest.vision.dayCallsLine", vars: { page: capped.page } } : null,
+    fullLine: full ? { key: "ingest.vision.fullLine", vars: { max: VISION_TABLES_PER_FILE } } : null,
+    readNext,
+    finishEarly,
+    skipRest: full && !settledNow,
+  };
+}
+
+/** "Pages read: 1 to 12, 14, 16 to 30." in the reader's language: `say` is the screen's word function. */
+export function readRangesWords(ranges: readonly [number, number][], say: (key: string, vars?: Record<string, string | number>) => string): string | null {
+  if (ranges.length === 0) return null;
+  const list = ranges.map(([from, to]) => (from === to ? say("ingest.vision.rangeOne", { page: from }) : say("ingest.vision.range", { from, to }))).join(", ");
+  return say("ingest.vision.readRanges", { ranges: list });
+}
+
+/** `INGEST_LIMITS.blocksPerFile` on the server: the most tables one file may hold. */
+export const VISION_TABLES_PER_FILE = 50;
 
 export type VisionCell = {
   text: string;

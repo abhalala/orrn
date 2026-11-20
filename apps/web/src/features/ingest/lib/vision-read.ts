@@ -46,7 +46,9 @@ export async function readVisualBytes(input: {
   try {
     const result = await runVisionPump(input.artifactId, source, { api: input.api, signal: input.signal, onProgress: input.onProgress });
     if (result.completed) return { kind: "done", result };
-    return { kind: "left", result, open: openPages(result.pages.pages).length };
+    // Pages past the plan are not read either (contract section 12), unless a person left them on purpose.
+    const unplanned = result.pages.restNotRead ? 0 : Math.max(0, result.pages.pageCount - result.pages.planned);
+    return { kind: "left", result, open: openPages(result.pages.pages).length + unplanned };
   } catch (error) {
     if (cannotReadNow(error)) return { kind: "cannotReadNow" };
     throw error;
