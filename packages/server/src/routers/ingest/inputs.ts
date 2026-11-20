@@ -259,3 +259,10 @@ export const visionReadUrlInput = z.discriminatedUnion("what", [
   z.object({ artifactId: id, what: z.literal("page"), page: visionPage }),
 ]);
 export const visionCheckInput = z.object({ candidateId: id, expectSeq: seq, checked: z.boolean() });
+export const visionFixCellInput = z.object({
+  candidateId: id,
+  expectSeq: seq,
+  rowIndex: z.number().int().min(0).max(L.stagedRowsPerBlock - 1),
+  col: z.number().int().min(0).max(L.columnsPerBlock - 1),
+  text: z.string().max(L.cellChars),
+});

@@ -58,6 +58,7 @@ import {
   shapeMakeInput,
   shapeSaveInput,
   visionCheckInput,
+  visionFixCellInput,
   visionPageInput,
   visionReadUrlInput,
   visionStartInput,
@@ -97,6 +98,7 @@ import {
   setAnswer,
   setTarget,
   visionCheck,
+  visionFixCell,
 } from "../../lib/ingest/candidates";
 import { dryRunStep } from "../../lib/ingest/dryrun";
 import { visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
@@ -168,6 +170,7 @@ export const ingestRouter = router({
     typePage: U.input(visionTypePageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionTypePage(ix(ctx), input)),
     readUrl: R.input(visionReadUrlInput).query(({ ctx, input }): Promise<VisionReadUrlOut> => visionReadUrl(ix(ctx), input)),
     check: R.input(visionCheckInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionCheck(ix(ctx), input)),
+    fixCell: U.input(visionFixCellInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionFixCell(ix(ctx), input)),
   }),
 
   dryRun: router({

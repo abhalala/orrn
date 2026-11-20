@@ -109,6 +109,7 @@ import {
   KEPT_UNREAD_NOT_READ,
   VISION_CHECK_MODEL_ONLY,
   VISION_REPICK_MODEL,
+  VISION_ROWS_WRITTEN,
   isKeptUnread,
   type BlockInput,
   type ReaderFacts,
@@ -2196,5 +2197,93 @@ export async function visionCheck(ctx: IngestCtx, input: { candidateId: string; 
     ingestAbortUnlessChanged(ctx.db),
     auditInsert(ctx, { action: "ingest.vision.check", subjectType: "ingest_candidate", subjectId: c.id, meta: { checked: input.checked, blockId: block.id } }),
   ]);
+  return candidateDetail(ctx, c.id);
+}
+
+/**
+ * "Fix this cell" (contract section 7): a person corrects one cell of a model-read table against its page.
+ * The row goes back to pending and the tick is cleared in the same batch. A sheet that was checking or
+ * checked (processing, ready, held) goes back to processing from row 0, as an answer does (`setAnswer`);
+ * a sheet still waiting for its layout (needs_shape, needs_confirm) or failed keeps its state, since the
+ * dry run cannot run before it has one. Refused once any row of the sheet is written.
+ */
+export async function visionFixCell(
+  ctx: IngestCtx,
+  input: { candidateId: string; expectSeq: number; rowIndex: number; col: number; text: string },
+): Promise<CandidateDetail> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
+  const block = await loadBlock(ctx, c.blockId);
+  if (block.readBy !== "model") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_CHECK_MODEL_ONLY });
+  assertState(c, EDITABLE_STATES, "Rows of this import can no longer change");
+  if (c.rowsWritten > 0 || c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+  if (input.col >= block.columnCount) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
+  const [row] = await ctx.db
+    .select()
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.companyId, ctx.companyId), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.rowIndex, input.rowIndex)))
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
+  if (row.mergeState !== "open") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+  // A viewer without order.price never reads or writes a rate cell (plan A8, D8).
+  if (!seesRates(ctx)) {
+    const siblings = await ctx.db
+      .select({ recipe: ingestCandidate.recipe })
+      .from(ingestCandidate)
+      .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, block.id)));
+    if (rateMaskColumns(block.headers, siblings.map((x) => x.recipe)).has(input.col)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
+    }
+  }
+  const text = input.text.slice(0, INGEST_LIMITS.cellChars);
+  const raw = [...row.raw];
+  while (raw.length <= input.col) raw.push("");
+  const from = raw[input.col] ?? "";
+  raw[input.col] = text;
+  const at = now();
+  const rerun = c.state === "processing" || c.state === "ready" || c.state === "held";
+  const statements: SqliteBatchItem[] = [
+    ...candidateChange(ctx, c.id, input.expectSeq, rerun ? { state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null } : {}),
+    // The row changes only while no row of the sheet is written, checked in the statement itself.
+    ctx.db
+      .update(ingestStagedRow)
+      .set({ raw, state: "pending", values: null, entered: null, diff: null, matchId: null, decision: null, bulkSkip: null, updatedAt: at })
+      .where(
+        and(
+          eq(ingestStagedRow.id, row.id),
+          eq(ingestStagedRow.candidateId, c.id),
+          eq(ingestStagedRow.mergeState, "open"),
+          sql`not exists (select 1 from ingest_staged_row w where w.candidate_id = ${c.id} and w.merge_state = 'written')`,
+        ),
+      ),
+    ingestAbortUnlessChanged(ctx.db),
+    clearModelTick(ctx, block.id),
+    recountStatement(ctx, c.id),
+    auditInsert(ctx, {
+      action: "ingest.vision.fix",
+      subjectType: "ingest_candidate",
+      subjectId: c.id,
+      meta: { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from, to: text },
+    }),
+  ];
+  // The block's sample shows the first rows: it shows the fixed cell too.
+  if (input.rowIndex < block.sample.length) {
+    const sample = block.sample.map((r, i) => {
+      if (i !== input.rowIndex) return r;
+      const next = [...r];
+      while (next.length <= input.col) next.push("");
+      next[input.col] = text;
+      return next;
+    });
+    statements.push(ctx.db.update(ingestBlock).set({ sample }).where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId))));
+  }
+  try {
+    await guardedBatch(ctx.db, statements);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "CONFLICT" && (await loadCandidate(ctx, c.id)).serverSeq === input.expectSeq) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+    }
+    throw e;
+  }
   return candidateDetail(ctx, c.id);
 }
