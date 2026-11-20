@@ -38,8 +38,6 @@ export type VisionPageView = Omit<ServerPageView, "next"> & {
   /** Section 11.3: "band" when a scan or photo must be cut into bands and read band by band. */
   next: ServerPageView["next"] | "band";
   bands?: VisionBands | null;
-  /** Section 11.3: the headers of the whole-page read, sent with `next: "band"`. */
-  headers?: string[] | null;
 };
 
 export type VisionPageTicket = ServerStartOut["uploads"][number];

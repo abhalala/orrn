@@ -225,8 +225,11 @@ function RowLine({ row, masked, canFix, fixing, onFix }: { row: VisionRowView; m
           </td>
         ) : cell.unseen ? (
           <td key={col} data-unseen className="px-2 py-2 align-top break-words">
-            <span className="rounded-sm bg-tone-red-tint px-1 font-semibold text-tone-red-ink">{cell.text}</span>
-            <span className="mt-1 block max-w-[24ch] text-[12px] leading-snug text-tone-red-ink">{say("ingest.vision.unseenMark")}</span>
+            {/* The red ink sits on its own red tint (a designed pair), never on the amber row. */}
+            <span className="block max-w-[26ch] rounded-sm bg-tone-red-tint px-1.5 py-1 text-tone-red-ink">
+              <span className="font-semibold">{cell.text}</span>
+              <span className="mt-1 block text-[12px] leading-snug">{say("ingest.vision.unseenMark")}</span>
+            </span>
           </td>
         ) : (
           <td key={col} className="px-2 py-2 align-top break-words">

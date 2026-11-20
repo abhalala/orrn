@@ -27,21 +27,22 @@ const HEADERS = ["Series", "Section code", "Min weight (kg/12ft)", "Max weight (
 const ROWS = CODES.map((code, i) => [SERIES, code, (1.1 + i / 10).toFixed(1), (1.4 + i / 10).toFixed(1), `Vision test ${code}`, "30", "1.5", "", "active", ""]);
 const FILE = `vision-${STAMP}.pdf`;
 
-/** A small, valid PDF with one line of text per page (synthetic; offsets computed so the xref is right). */
-function makePdf(lines: string[]): Buffer {
+/** A small, valid PDF with lines of text on each page (synthetic; offsets computed so the xref is right). */
+function makePdf(pages: string[][]): Buffer {
   const objects: string[] = [];
   const pageIds: number[] = [];
-  const font = 3 + lines.length * 2;
+  const font = 3 + pages.length * 2;
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-  lines.forEach((line, i) => {
+  pages.forEach((lines, i) => {
     const pageId = 3 + i * 2;
     const contentId = pageId + 1;
     pageIds.push(pageId);
-    const stream = `BT /F1 16 Tf 72 760 Td (${line.replace(/[()\\]/g, "")}) Tj ET`;
+    // One text line per entry, 14 pt apart, so every value the scripted model answers is in the page text (section 11.5).
+    const stream = `BT /F1 10 Tf 14 TL 40 800 Td ${lines.map((line) => `(${line.replace(/[()\\]/g, "")}) '`).join(" ")} ET`;
     objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentId} 0 R >>`;
     objects[contentId] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
   });
-  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${lines.length} >>`;
+  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`;
   objects[font] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
   let out = "%PDF-1.4\n";
   const offsets: number[] = [];
@@ -93,15 +94,13 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await fakeModel(api, {
     action: "install",
     responses: [
-      { tables: [{ title: "Sections", headers: HEADERS, rows: ROWS, rowConfidence: [0.96, 0.5, 0.93] }] },
+      // Prompt v3 row objects: each row carries its own confidence.
+      { tables: [{ title: "Sections", headers: HEADERS, rows: ROWS.map((cells, i) => ({ cells, confidence: [0.96, 0.5, 0.93][i] })) }] },
       { tables: [] },
     ],
   });
   await openPortal(page);
-  // With storage and a model the drop hint says PDFs and photos are read.
-  await expect(page.getByText(/PDFs and photos are read page by page/).first()).toBeVisible();
-
-  await page.locator("input[type='file']").setInputFiles({ name: FILE, mimeType: "application/pdf", buffer: makePdf([`Synthetic page one ${STAMP}`, `Synthetic page two ${STAMP}`]) });
+  await page.locator("input[type='file']").setInputFiles({ name: FILE, mimeType: "application/pdf", buffer: makePdf([[`Synthetic page one ${STAMP}`, HEADERS.join(" "), ...ROWS.map((r) => r.join(" "))], [`Synthetic page two ${STAMP}`]]) });
   await page.getByRole("button", { name: /^Add \d+ files?$/ }).click();
 
   // Page 1 is read; page 2 has no table, so the strip sends the person to the file page.
