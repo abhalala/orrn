@@ -3,7 +3,7 @@ import type { ArtifactKind } from "./types";
 import type { UploadItem } from "./upload";
 import type { VisionApi } from "./vision-api";
 import { openPages, runVisionPump, type VisionProgress, type VisionPumpResult } from "./vision-pump";
-import { openVisualSource, RenderError, type PageSource } from "./vision-render";
+import { openPdf, openVisualSource, RenderError, type PageSource, type RangeSource } from "./vision-render";
 
 /**
  * One read of a PDF or photo, from the bytes in hand: open the pages, run the pump, close. Used by the upload (right
@@ -82,4 +82,50 @@ export function uploadVisionHook(api: () => VisionApi) {
         return "kept";
     }
   };
+}
+
+/** The read link ran out or the server refused the range: the bytes cannot be had now. */
+export class RangeReadError extends Error {
+  constructor(readonly status: number) {
+    super(`range read failed (${status})`);
+  }
+}
+
+/**
+ * The stored file read back by range for "Read this file" (limits brief part B.4): a large PDF is opened page by page,
+ * never fetched whole. The signed link lasts 10 minutes while a read with model calls runs longer, so the link is asked
+ * again a minute before it runs out and once more on a 403.
+ */
+export async function remoteRangeSource(
+  link: () => Promise<{ url: string; expiresAt: number }>,
+  opts: { fetch?: typeof fetch; signal?: AbortSignal; now?: () => number } = {},
+): Promise<RangeSource> {
+  const send = opts.fetch ?? fetch;
+  const clock = opts.now ?? Date.now;
+  let current = await link();
+  const get = async (begin: number, endInclusive: number): Promise<Response> => {
+    for (let attempt = 0; ; attempt += 1) {
+      if (current.expiresAt - clock() < 60_000) current = await link();
+      const res = await send(current.url, { headers: { range: `bytes=${begin}-${endInclusive}` }, signal: opts.signal });
+      if (res.status === 206) return res;
+      if (res.status === 403 && attempt === 0) {
+        current = await link();
+        continue;
+      }
+      throw new RangeReadError(res.status);
+    }
+  };
+  const first = await get(0, 0);
+  const total = Number(/\/(\d+)$/.exec(first.headers.get("content-range") ?? "")?.[1] ?? NaN);
+  await first.arrayBuffer();
+  if (!Number.isFinite(total) || total < 1) throw new RangeReadError(first.status);
+  return {
+    length: total,
+    read: async (begin, end) => new Uint8Array(await (await get(begin, Math.min(total, end) - 1)).arrayBuffer()),
+  };
+}
+
+/** "Read this file" for a PDF: the stored bytes opened by range through `remoteRangeSource`. */
+export async function openStoredPdf(link: () => Promise<{ url: string; expiresAt: number }>, signal?: AbortSignal): Promise<PageSource> {
+  return openPdf(await remoteRangeSource(link, { signal }));
 }

@@ -10,7 +10,7 @@ import { useRunAction } from "./use-run-action";
 import { visionApi } from "./vision-api";
 import { openForModel } from "./vision-model";
 import { batchStart, finishFile, PAGE_CALLS_PER_PASS, type VisionProgress } from "./vision-pump";
-import { readVisualBytes, type VisualReadOutcome } from "./vision-read";
+import { openStoredPdf, readVisualBytes, type VisualReadOutcome } from "./vision-read";
 import { canFinishOf, type VisionPageView, type VisionPagesOut } from "./vision-types";
 
 /**
@@ -112,7 +112,14 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
         const api = next ? batchStart(visionApi(), artifactId) : visionApi();
         const withBytes = async () => {
           setProgress({ phase: "opening" });
-          const link = await api.readUrl({ artifactId, what: "raw" });
+          const rawLink = () => api.readUrl({ artifactId, what: "raw" });
+          // A PDF is read back by range, page by page (limits brief part B.4); a photo is one small image.
+          if (kind !== "image") {
+            const pdf = () => openStoredPdf(rawLink, signal);
+            setOutcome(await readVisualBytes({ api, artifactId, file: new Blob([]), kind, signal, onProgress: setProgress, open: pdf }));
+            return;
+          }
+          const link = await rawLink();
           const res = await fetch(link.url, { signal });
           if (!res.ok) throw Object.assign(new Error(`read failed (${res.status})`), { data: { code: res.status === 404 ? "NOT_FOUND" : "UNKNOWN" } });
           const file = await res.blob();

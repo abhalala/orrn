@@ -136,8 +136,15 @@ type PdfPage = {
 };
 type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage>; destroy?: () => Promise<void> };
 type PdfTask = { promise: Promise<PdfDoc>; destroy?: () => Promise<void> };
+type PdfRangeTransport = {
+  requestDataRange: (begin: number, end: number) => void;
+  onDataRange: (begin: number, chunk: Uint8Array | null) => void;
+};
 type PdfJs = {
-  getDocument: (o: { data: Uint8Array }) => PdfTask;
+  getDocument: (
+    o: { data: Uint8Array } | { range: PdfRangeTransport; length: number; rangeChunkSize: number; disableAutoFetch: boolean; disableStream: boolean },
+  ) => PdfTask;
+  PDFDataRangeTransport: new (length: number, initialData: Uint8Array | null) => PdfRangeTransport;
   GlobalWorkerOptions: { workerSrc: string };
   Util: { transform: (a: number[], b: number[]) => number[] };
 };
@@ -171,10 +178,39 @@ function loadPdfJs(): Promise<PdfJs> {
   return pdfjsLoad;
 }
 
-export async function openPdf(bytes: ArrayBuffer): Promise<PageSource> {
+/**
+ * Bytes of a file by range (limits brief part B.4): a large PDF is opened page by page from it, never as one buffer.
+ * `read(begin, end)` answers bytes `begin` to `end - 1`.
+ */
+export type RangeSource = { length: number; read: (begin: number, end: number) => Promise<Uint8Array> };
+
+/** pdfjs asks for pieces of this size (and only the pieces a page needs: no auto fetch, no stream). */
+export const PDF_RANGE_CHUNK = 1024 * 1024;
+/** A PDF larger than this is opened by range from the file, not read into one buffer. */
+export const PDF_RANGE_FROM_BYTES = 8 * 1024 * 1024;
+
+/** A range source over a local file: each piece is a `slice` of it. */
+export function blobRangeSource(file: Pick<Blob, "size" | "slice">): RangeSource {
+  return { length: file.size, read: async (begin, end) => new Uint8Array(await file.slice(begin, end).arrayBuffer()) };
+}
+
+export async function openPdf(input: ArrayBuffer | RangeSource): Promise<PageSource> {
   const pdfjs = await loadPdfJs();
   let doc: PdfDoc;
-  const task = pdfjs.getDocument({ data: new Uint8Array(bytes) });
+  let task: PdfTask;
+  if (input instanceof ArrayBuffer) {
+    task = pdfjs.getDocument({ data: new Uint8Array(input) });
+  } else {
+    const range = new pdfjs.PDFDataRangeTransport(input.length, null);
+    range.requestDataRange = (begin, end) => {
+      input.read(begin, end).then(
+        (chunk) => range.onDataRange(begin, chunk),
+        // A piece that cannot be read ends the document: pending pages reject instead of waiting.
+        () => void task.destroy?.().catch(() => undefined),
+      );
+    };
+    task = pdfjs.getDocument({ range, length: input.length, rangeChunkSize: PDF_RANGE_CHUNK, disableAutoFetch: true, disableStream: true });
+  }
   try {
     doc = await task.promise;
   } catch {
@@ -269,5 +305,7 @@ export async function openPhoto(blob: Blob): Promise<PageSource> {
 /** Opens a PDF or a photo for page images. */
 export async function openVisualSource(file: Blob, kind: ArtifactKind): Promise<PageSource> {
   if (kind === "image") return openPhoto(file);
+  // A large PDF is read page by page from the file by range, never whole into memory.
+  if (file.size > PDF_RANGE_FROM_BYTES) return openPdf(blobRangeSource(file));
   return openPdf(await file.arrayBuffer());
 }
