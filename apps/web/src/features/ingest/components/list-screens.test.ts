@@ -122,6 +122,14 @@ const seedList = (list: CandidateSummary[], artifacts: ArtifactSummary[] = [arti
 };
 
 describe("upload area", () => {
+  test("the hint names the plant's own files per upload from ingest.status", () => {
+    const seed: Seed = (client) => {
+      seedList([])(client);
+      client.setQueryData(ingestKeys.status(), { botReady: true, vaultReady: true, limits: { filesPerUpload: 3 }, activeRunId: null, botToday: 0 });
+    };
+    expect(render(createElement(IngestUploadScreen), seed)).toContain("PDFs and photos are kept, not read yet. Up to 3 files.");
+  });
+
   test("with nothing imported yet it is one big drop zone: title, hint, Choose files, no note field", () => {
     const html = render(createElement(IngestUploadScreen), seedList([]));
     expect(html).toContain("Drop files here");

@@ -10,7 +10,7 @@ export const guIngest = {
   ingest: {
     vision: {
       check: "પેજ સાથે મેળવીને જોઈ લીધી.",
-      dropHint: "Excel, CSV, ડેટાબેઝ એક્સપોર્ટ, PDF કે ફોટો. PDF અને ફોટો પેજ પ્રમાણે વંચાય છે. એક વારમાં 20 ફાઇલ સુધી.",
+      dropHint: "Excel, CSV, ડેટાબેઝ એક્સપોર્ટ, PDF કે ફોટો. PDF અને ફોટો પેજ પ્રમાણે વંચાય છે. એક વારમાં {max} ફાઇલ સુધી.",
       keptNote: "પેજ વાંચવા માટે ફાઇલ ખોલો.",
       opening: "પેજ ખોલાય છે",
       rendering: "પેજ {page} / {total} તૈયાર થાય છે",

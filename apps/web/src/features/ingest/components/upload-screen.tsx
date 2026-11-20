@@ -82,7 +82,7 @@ export function IngestUploadScreen() {
     const { taken, left: over } = takeFiles([...staged, ...files], limit);
     setStaged(taken);
     setLeft(over.length);
-    if (over.length > 0) announce(say("ingest.drop.left", { count: over.length }));
+    if (over.length > 0) announce(say("ingest.drop.left", { count: over.length, max: limit }));
   };
   const start = () => {
     if (staged.length === 0) return;
@@ -198,7 +198,7 @@ export function IngestUploadScreen() {
           <UploadCloud aria-hidden="true" className="size-7" />
           <h2 className="m-0 font-display text-[20px] font-bold leading-tight">{coarse ? t("ingest.drop.add") : t("ingest.drop.title")}</h2>
           <p id={hintId} className="m-0 max-w-[440px] text-[14px] leading-6 text-muted-foreground">
-            {visionReady ? t("ingest.vision.dropHint") : t("ingest.drop.hint")}
+            {visionReady ? t("ingest.vision.dropHint", { max: limit }) : t("ingest.drop.hint", { max: limit })}
           </p>
           <Button ref={focus.ref("choose-files")} variant="secondary" aria-describedby={hintId} onClick={choose}>
             {t("ingest.drop.choose")}
@@ -208,7 +208,7 @@ export function IngestUploadScreen() {
 
       <UnfinishedFiles files={unfinished} />
 
-      {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
+      {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left, max: limit })}</p> : null}
 
       {showStrip ? (
         <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">

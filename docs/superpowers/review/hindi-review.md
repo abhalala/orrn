@@ -7132,14 +7132,14 @@ Please check, Lalubhai:
 | `title` | Imports | इम्पोर्ट |
 | `lead` | Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक orrn में कुछ नहीं बदलता। |
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
-| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में 20 फ़ाइलें तक। |
+| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में {max} फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
 | `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
 | `drop.tooManyRows` | {name} has more than {limit} rows. Split it and try again. | {name} में {limit} से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
 | `drop.openLimit` | More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में {limit} से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
 | `drop.wrongType` | {name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो नहीं है। इनमें से कोई चुनें। |
-| `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
+| `drop.left` | {count} {count:file was\|files were} left out. Add up to {max} files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में {max} फ़ाइलें तक जोड़ें। |
 | `drop.add` | Add files | फ़ाइलें जोड़ें |
 | `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
 | `drop.openIt` | Open it | इसे खोलें |
@@ -7521,7 +7521,7 @@ Please check, Lalubhai:
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
 | `vision.check` | Checked against the page. | पेज से मिलाकर देख ली गईं। |
-| `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to 20 files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में 20 फ़ाइलें तक। |
+| `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to {max} files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में {max} फ़ाइलें तक। |
 | `vision.keptNote` | Open a file to read its pages. | पेज पढ़ने के लिए फ़ाइल खोलें। |
 | `vision.opening` | Opening the pages | पेज खोले जा रहे हैं |
 | `vision.rendering` | Making page {page} of {total} | पेज {page} / {total} तैयार हो रहा है |

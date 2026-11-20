@@ -11,14 +11,14 @@ export const ingestEn = {
   lead: "Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge.",
   drop: {
     title: "Drop files here",
-    hint: "Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files.",
+    hint: "Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files.",
     choose: "Choose files",
     tooBig: "{name} is too big. The limit for this kind of file is {limit} MB.",
     tooManyRows: "{name} has more than {limit} rows. Split it and try again.",
     openLimit: "More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again.",
     seenBefore: "You added this file on {date}.",
     wrongType: "{name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those.",
-    left: "{count} {count:file was|files were} left out. Add up to 20 files at a time.",
+    left: "{count} {count:file was|files were} left out. Add up to {max} files at a time.",
     // screens work order: upload strip
     add: "Add files",
     note: "Note for these files (optional)",
@@ -497,7 +497,7 @@ export const ingestEn = {
   vision: {
     check: "Checked against the page.",
     // import portal release 2: reading PDFs and photos page by page
-    dropHint: "Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to 20 files.",
+    dropHint: "Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to {max} files.",
     keptNote: "Open a file to read its pages.",
     opening: "Opening the pages",
     rendering: "Making page {page} of {total}",
