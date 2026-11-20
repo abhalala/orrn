@@ -1,7 +1,7 @@
 import { VISION_PARAMS } from "@orrn/ingest";
 
 import type { Tone, Words } from "./model";
-import type { BlockVision, VisionPageView } from "./vision-types";
+import { isSettled, type BlockVision, type VisionPageView } from "./vision-types";
 
 /**
  * View models of the vision read: the file page's page list and the review's rows read from a page. The screens draw
@@ -19,6 +19,8 @@ export type VisionPageRow = {
   reason: Words | null;
   /** "2 tables" for a page read. */
   tables: Words | null;
+  /** "1 of 3 parts read" while a dense page is read in bands (section 11.3). */
+  bands: Words | null;
   actions: VisionPageAction[];
 };
 
@@ -31,16 +33,25 @@ const STATE_TONE: Record<VisionPageView["state"], Tone> = {
   skipped: "neutral",
 };
 
+/** A page waiting on its bands (section 11.3): the server asked for bands, or some bands are not read yet. */
+export function waitsOnBands(view: VisionPageView): boolean {
+  return view.next === "band" || (view.bands != null && view.bands.read < view.bands.total);
+}
+
 /**
  * One page of the list. A page not read offers "Read again" when the server says it may be tried again (a day cap that
- * reset), and always "Type this page" and "Skip this page". A page with an answer still due is read by "Carry on reading".
+ * reset), and always "Type this page" and "Skip this page". A page waiting on its bands also offers type and skip, so a
+ * page the browser cannot cut never holds the file open. A page with an answer still due is read by "Carry on reading".
  */
 export function visionPageRow(view: VisionPageView, canUpload: boolean): VisionPageRow {
   const actions: VisionPageAction[] = [];
   if (canUpload && view.state === "not_read") {
     if (view.canRetry) actions.push("readAgain");
     actions.push("type", "skip");
+  } else if (canUpload && !isSettled(view.state) && waitsOnBands(view)) {
+    actions.push("type", "skip");
   }
+  const bands = view.bands && view.bands.total > 0 && !isSettled(view.state) ? view.bands : null;
   return {
     page: view.page,
     name: { key: "ingest.vision.pageName", vars: { page: view.page } },
@@ -48,6 +59,7 @@ export function visionPageRow(view: VisionPageView, canUpload: boolean): VisionP
     tone: STATE_TONE[view.state],
     reason: view.state === "not_read" && view.reason ? { key: `ingest.vision.reason.${view.reason}` } : null,
     tables: view.state === "read" || view.state === "typed" ? { key: "ingest.vision.tables", vars: { count: view.tables } } : null,
+    bands: bands ? { key: "ingest.vision.bands", vars: { read: bands.read, total: bands.total } } : null,
     actions,
   };
 }

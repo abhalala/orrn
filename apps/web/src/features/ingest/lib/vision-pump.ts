@@ -107,7 +107,31 @@ export async function runVisionPump(artifactId: string, source: PageSource, deps
     }
   };
 
+  /**
+   * Sends the page text of a text PDF (section 11.5) before its page is read, since the digit check runs when the page's
+   * blocks are made. Text that is missing, empty or over the cap is not sent, and a text that fails to send only means
+   * no marks: it never stops the read.
+   */
+  const sendTexts = async (tickets: readonly VisionPageTicket[]): Promise<void> => {
+    if (!source.text) return;
+    let fresh = false;
+    for (const ticket of [...tickets].sort((a, b) => a.page - b.page)) {
+      aborted(signal);
+      const json = await source.text(ticket.page).catch(() => null);
+      if (json === null) continue;
+      const put = (t: VisionPageTicket) => send(ticketUrl(t), { method: "PUT", headers: { "content-type": "application/json" }, body: json }).catch(() => null);
+      let res = await put(ticket);
+      if (res && STALE_TICKET.has(res.status) && !fresh && startsLeft > 0) {
+        fresh = true;
+        start = await startAgain();
+        const again = (start.texts ?? []).find((t) => t.page === ticket.page);
+        if (again) res = await put(again);
+      }
+    }
+  };
+
   await sendPages(start.uploads);
+  await sendTexts(start.texts ?? []);
 
   for (let page = 1; page <= total; page += 1) {
     let view: VisionPageView | null = null;

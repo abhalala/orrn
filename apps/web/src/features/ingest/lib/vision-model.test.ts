@@ -137,3 +137,23 @@ describe("the file page's pages", () => {
     expect(ok).toEqual({ ok: true, problems: [], headers: ["Code", "Name"], rows: [["R1", "A"], ["R2", ""]] });
   });
 });
+
+describe("a page read in bands (section 11.3)", () => {
+  const page = (over: Partial<VisionPageView>): VisionPageView => ({ page: 3, state: "ready", reason: null, canRetry: false, next: null, attempts: 1, blockIds: [], tables: 0, ...over });
+
+  test("a page waiting on its bands offers type and skip, and says how many parts are read", () => {
+    const row = visionPageRow(page({ next: "band" }), true);
+    expect(row.actions).toEqual(["type", "skip"]);
+    const part = visionPageRow(page({ bands: { total: 3, read: 1 } }), true);
+    expect(part.actions).toEqual(["type", "skip"]);
+    expect(part.bands).toEqual({ key: "ingest.vision.bands", vars: { read: 1, total: 3 } });
+  });
+
+  test("a read page shows no parts line and no actions; a viewer who cannot upload gets no actions", () => {
+    const read = visionPageRow(page({ state: "read", next: "done", bands: { total: 3, read: 3 } }), true);
+    expect(read.bands).toBeNull();
+    expect(read.actions).toEqual([]);
+    expect(visionPageRow(page({ next: "band" }), false).actions).toEqual([]);
+    expect(visionPageRow(page({ next: "retry" }), true).actions).toEqual([]);
+  });
+});

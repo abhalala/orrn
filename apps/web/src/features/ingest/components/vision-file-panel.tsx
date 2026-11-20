@@ -189,6 +189,7 @@ function PageLine({ row }: { row: VisionPageRow }) {
           {words(row.state)}
         </Chip>
         {row.tables ? <span className="text-[14px] text-muted-foreground">{words(row.tables)}</span> : null}
+        {row.bands ? <span className="text-[14px] text-muted-foreground">{words(row.bands)}</span> : null}
       </div>
       {row.reason ? <p className="m-0 text-[14px] leading-6 text-tone-amber-ink">{words(row.reason)}</p> : null}
     </div>

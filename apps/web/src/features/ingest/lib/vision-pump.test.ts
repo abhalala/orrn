@@ -208,3 +208,42 @@ describe("vision pump", () => {
     expect(pageResultWords(view(4, "skipped"), 5).key).toBe("ingest.vision.pageSkipped");
   });
 });
+
+describe("vision pump: page text for the digit check (section 11.5)", () => {
+  const textTicket = (page: number, n = 1) => ({ page, url: `/files/ingest/upload?ticket=x${page}-${n}`, ticket: `x${page}-${n}`, expiresAt: Date.now() + 600_000 });
+  const withText = (calls: Call[], texts: Record<number, string | null>): PageSource => ({
+    ...fakeSource(2, calls),
+    async text(page) {
+      calls.push(`text:${page}`);
+      return texts[page] ?? null;
+    },
+  });
+
+  test("a text PDF sends each page's text as JSON after the images and before any page is read", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, { start: () => ({ pageCount: 2, planned: 2, uploads: [ticket(1), ticket(2)], texts: [textTicket(1), textTicket(2)] }) });
+    await runVisionPump(ARTIFACT, withText(calls, { 1: '{"v":1,"items":["R100"]}', 2: '{"v":1,"items":["9"]}' }), { api, fetch: fakeFetch(calls) });
+    const firstRead = calls.indexOf("read:1");
+    expect(calls.indexOf("put:x1-1:application/json")).toBeGreaterThan(calls.indexOf("put:t2-1:image/jpeg"));
+    expect(calls.indexOf("put:x1-1:application/json")).toBeLessThan(firstRead);
+    expect(calls.indexOf("put:x2-1:application/json")).toBeLessThan(firstRead);
+  });
+
+  test("a page with no text (or text over the cap) sends nothing; a failed text never stops the read", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, { start: () => ({ pageCount: 2, planned: 2, uploads: [], texts: [textTicket(1), textTicket(2)] }) });
+    const out = await runVisionPump(ARTIFACT, withText(calls, { 1: null, 2: '{"v":1,"items":["9"]}' }), { api, fetch: fakeFetch(calls, (u) => (u.includes("x2") ? 500 : 200)) });
+    expect(calls.some((c) => c.startsWith("put:x1"))).toBe(false);
+    expect(calls).toContain("put:x2-1:application/json");
+    expect(calls).toContain("read:2");
+    expect(out.completed).toBe(true);
+  });
+
+  test("a stale text ticket asks for fresh tickets once", async () => {
+    const calls: Call[] = [];
+    const api = fakeApi(calls, { start: (n) => ({ pageCount: 1, planned: 1, uploads: [], texts: [textTicket(1, n)] }) });
+    await runVisionPump(ARTIFACT, { ...withText(calls, { 1: '{"v":1,"items":["1"]}' }), pageCount: 1 }, { api, fetch: fakeFetch(calls, (u) => (u.includes("x1-1") ? 403 : 200)) });
+    expect(calls.filter((c) => c.startsWith("start:")).length).toBe(2);
+    expect(calls).toContain("put:x1-2:application/json");
+  });
+});

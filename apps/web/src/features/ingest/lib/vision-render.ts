@@ -1,5 +1,6 @@
 import { fitLongSide, pdfRenderScale, VISION_PARAMS } from "@orrn/ingest";
 
+import { bandCountFor, inkRows, pageTextJson, textLines, planScanBands, planTextBands, type BandPlan, type TextBox } from "./vision-bands";
 import type { ArtifactKind } from "./types";
 
 /**
@@ -49,12 +50,28 @@ export class RenderError extends Error {
   }
 }
 
-/** An opened file: how many pages it has, and one JPEG per page on request. Call `close` when done. */
+/** How a page is cut into bands: from the text layer (text PDF) or the ink projection (scan or photo). */
+export type BandHow = "text" | "ink";
+
+/**
+ * An opened file: how many pages it has, one JPEG per page on request, and for dense pages (contract section 11.3) the
+ * band JPEGs, each `longSidePx` wide (null when the page is read whole or cannot be cut on blank rows). `text` is the
+ * page's text layer as `{ v: 1, items }` JSON, or null (a photo, a page with no text, or text over the cap). Call
+ * `close` when done.
+ */
 export type PageSource = {
   pageCount: number;
   render: (page: number) => Promise<Blob>;
+  text?: (page: number) => Promise<string | null>;
+  bands?: (page: number, how: BandHow) => Promise<Blob[] | null>;
   close: () => void;
 };
+
+/** The canvas size of a page drawn `longSidePx` wide (bands are cut from it). */
+export function bandCanvasSize(width: number, height: number): { scale: number; width: number; height: number } {
+  const scale = width > 0 ? VISION_PARAMS.longSidePx / width : 1;
+  return { scale, width: VISION_PARAMS.longSidePx, height: Math.max(1, Math.round(height * scale)) };
+}
 
 function canvasOf(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const canvas = document.createElement("canvas");
@@ -66,6 +83,28 @@ function canvasOf(width: number, height: number): { canvas: HTMLCanvasElement; c
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
   return { canvas, ctx };
+}
+
+/** The band JPEGs of a page drawn on `canvas`, cut by `plan`; the header strip goes on top of bands 2..k. */
+async function bandJpegs(canvas: HTMLCanvasElement, plan: BandPlan): Promise<Blob[] | null> {
+  const out: Blob[] = [];
+  for (const [i, band] of plan.bands.entries()) {
+    const strip = i > 0 ? plan.strip : null;
+    const stripH = strip ? strip.bottom - strip.top : 0;
+    const bandH = band.bottom - band.top;
+    const { canvas: piece, ctx } = canvasOf(canvas.width, stripH + bandH);
+    if (strip) ctx.drawImage(canvas, 0, strip.top, canvas.width, stripH, 0, 0, canvas.width, stripH);
+    ctx.drawImage(canvas, 0, band.top, canvas.width, bandH, 0, stripH, canvas.width, bandH);
+    const blob = await toJpeg(piece);
+    // A band over the image cap is not sent; the page is then read whole.
+    if (blob.size > VISION_PARAMS.maxPageBytes) return null;
+    out.push(blob);
+  }
+  return out;
+}
+
+function inkOf(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): Uint32Array {
+  return inkRows(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
 }
 
 function toJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -84,8 +123,11 @@ function toJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+type PdfTextItem = { str?: string; transform?: number[] };
+type PdfViewport = { width: number; height: number; transform: number[] };
 type PdfPage = {
-  getViewport: (o: { scale: number }) => { width: number; height: number };
+  getViewport: (o: { scale: number }) => PdfViewport;
+  getTextContent: () => Promise<{ items: PdfTextItem[] }>;
   render: (o: { canvas: HTMLCanvasElement; canvasContext: CanvasRenderingContext2D; viewport: unknown; background?: string }) => { promise: Promise<void> };
   cleanup: () => void;
 };
@@ -93,7 +135,21 @@ type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage>; dest
 type PdfJs = {
   getDocument: (o: { data: Uint8Array }) => { promise: Promise<PdfDoc> };
   GlobalWorkerOptions: { workerSrc: string };
+  Util: { transform: (a: number[], b: number[]) => number[] };
 };
+
+/** Text boxes of a page in canvas rows of `viewport` (through its transform, so a rotated page maps right). */
+function textBoxes(pdfjs: PdfJs, items: readonly PdfTextItem[], viewport: PdfViewport): TextBox[] {
+  const boxes: TextBox[] = [];
+  for (const item of items) {
+    if (typeof item.str !== "string" || !item.transform) continue;
+    const t = pdfjs.Util.transform(viewport.transform, item.transform);
+    const em = Math.hypot(t[2]!, t[3]!);
+    // The baseline is at t[5]; the em box sits above it, with a little room for descenders below.
+    boxes.push({ str: item.str, top: t[5]! - em, bottom: t[5]! + em * 0.2 });
+  }
+  return boxes;
+}
 
 let pdfjsLoad: Promise<PdfJs> | null = null;
 
@@ -131,6 +187,33 @@ export async function openPdf(bytes: ArrayBuffer): Promise<PageSource> {
       page.cleanup();
       return toJpeg(canvas);
     },
+    async text(n) {
+      const page = await doc.getPage(n);
+      const content = await page.getTextContent();
+      page.cleanup();
+      return pageTextJson(content.items.map((i) => (typeof i.str === "string" ? i.str : "")));
+    },
+    async bands(n, how) {
+      const page = await doc.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      const size = bandCanvasSize(base.width, base.height);
+      const viewport = page.getViewport({ scale: size.scale });
+      // A text page under the row threshold is read whole: counted from the text layer before anything is drawn.
+      const boxes = how === "text" ? textBoxes(pdfjs, (await page.getTextContent()).items, viewport) : [];
+      if (how === "text" && bandCountFor(textLines(boxes).length) === 0) {
+        page.cleanup();
+        return null;
+      }
+      const { canvas, ctx } = canvasOf(size.width, size.height);
+      await page.render({ canvas, canvasContext: ctx, viewport, background: "#ffffff" }).promise;
+      const ink = inkOf(canvas, ctx);
+      const plan = how === "text" ? planTextBands(ink, canvas.width, boxes) : planScanBands(ink, canvas.width);
+      page.cleanup();
+      const out = plan ? await bandJpegs(canvas, plan) : null;
+      canvas.width = 0;
+      canvas.height = 0;
+      return out;
+    },
     close() {
       void doc.destroy();
     },
@@ -153,6 +236,20 @@ export async function openPhoto(blob: Blob): Promise<PageSource> {
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(bitmap, 0, 0, size.width, size.height);
       return toJpeg(canvas);
+    },
+    async text() {
+      return null;
+    },
+    async bands() {
+      const size = bandCanvasSize(bitmap.width, bitmap.height);
+      const { canvas, ctx } = canvasOf(size.width, size.height);
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bitmap, 0, 0, size.width, size.height);
+      const plan = planScanBands(inkOf(canvas, ctx), canvas.width);
+      const out = plan ? await bandJpegs(canvas, plan) : null;
+      canvas.width = 0;
+      canvas.height = 0;
+      return out;
     },
     close() {
       bitmap.close();

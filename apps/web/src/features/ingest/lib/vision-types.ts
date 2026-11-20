@@ -42,7 +42,11 @@ export type VisionPageView = Omit<ServerPageView, "next"> & {
 
 export type VisionPageTicket = ServerStartOut["uploads"][number];
 
-export type VisionStartOut = ServerStartOut;
+/**
+ * `vision.start`. `texts` (section 11.5): for a text PDF, one ticket per page with no text yet, for
+ * `pages/<n>.text.json`; optional here until the server's type has it.
+ */
+export type VisionStartOut = ServerStartOut & { texts?: VisionPageTicket[] };
 
 export type VisionPagesOut = { pageCount: number; planned: number; pages: VisionPageView[]; settled: boolean };
 
