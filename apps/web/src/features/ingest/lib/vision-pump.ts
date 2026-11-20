@@ -289,8 +289,9 @@ export function batchStart(api: VisionApi, artifactId: string): VisionApi {
       if (!first) return out;
       first = false;
       const now = await api.pages({ artifactId });
-      const open = now.pages.filter(openForModel).sort((a, b) => a.page - b.page);
-      if (open.length > 0) return { ...out, readFrom: open[0]!.page };
+      // A page waiting to be cut into bands is read from too; only the server's open pages decide a new batch.
+      const due = now.pages.filter((p) => openForModel(p) || (!isSettled(p.state) && p.next === "band")).sort((a, b) => a.page - b.page);
+      if (due.length > 0) return { ...out, readFrom: due[0]!.page };
       if (now.planned >= now.pageCount || now.full) return { ...out, readFrom: now.planned + 1 };
       const next = await api.nextBatch({ artifactId });
       return { ...next, readFrom: now.planned + 1 };

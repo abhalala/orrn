@@ -135,7 +135,8 @@ export function visionBatch(out: VisionPagesOut, batchSize: number): VisionBatch
     // A day cap stopped the read: carry on from the capped page through the rest of the plan. Pages already stored
     // need no bytes; a page with no image does.
     readNext = { from: capped.page, to: out.planned, needsBytes: open.some((p) => p.state === "waiting"), note: { key: "ingest.vision.readNextNote", vars: { from: capped.page, to: out.planned } } };
-  } else if (open.length === 0 && !full && out.planned < out.pageCount) {
+  } else if (open.length === 0 && !full && out.planned < out.pageCount && !out.pages.some((p) => !isSettled(p.state) && p.next === "band")) {
+    // A page waiting to be cut goes first ("Carry on reading" draws its bands); then the next batch.
     const from = out.planned + 1;
     const to = Math.min(out.pageCount, out.planned + Math.max(1, Math.floor(batchSize)));
     readNext = { from, to, needsBytes: true, note: { key: "ingest.vision.readNextNote", vars: { from, to } } };

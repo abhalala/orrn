@@ -109,7 +109,7 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
       setOutcome(null);
       try {
         // "Read next pages" (contract section 12): the pump carries on from the first open page or plans the next batch.
-        const api = next ? batchStart(visionApi(), artifactId) : visionApi();
+        let api = next ? batchStart(visionApi(), artifactId) : visionApi();
         const withBytes = async () => {
           setProgress({ phase: "opening" });
           const rawLink = () => api.readUrl({ artifactId, what: "raw" });
@@ -138,8 +138,11 @@ export function useVisionFileRead(artifactId: string, kind: ArtifactKind): {
           }
           const after = await api.pages({ artifactId });
           // A page the server wants in bands is cut from the file's own pixels, so the bytes come back for it.
-          if (after.pages.some((p) => p.next === "band")) await withBytes();
-          else if (canFinishOf(after)) await finishFile(api, artifactId);
+          // The plain api: cutting that page is the whole pass, never a new batch.
+          if (after.pages.some((p) => p.next === "band")) {
+            api = visionApi();
+            await withBytes();
+          } else if (canFinishOf(after)) await finishFile(api, artifactId);
         }
         setPhase("done");
       } catch (e) {

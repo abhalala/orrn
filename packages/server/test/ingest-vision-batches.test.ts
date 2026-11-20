@@ -299,6 +299,28 @@ describe("batches: listings stay within 1,000 keys a call", () => {
   }, 60_000);
 });
 
+describe("batches: cost arithmetic of contract section 12", () => {
+  test("at 0.07 USD a band call, 72 calls go under the 5 USD day cap and call 73 is capped", () => {
+    // checkCaps allows a call while the day's spend is under the cap.
+    const perCall = 70_000;
+    const cap = 5_000_000;
+    let spent = 0;
+    let calls = 0;
+    while (spent < cap) {
+      spent += perCall;
+      calls += 1;
+    }
+    expect(calls).toBe(72);
+    expect(spent).toBe(5_040_000);
+    // A dense 30 page batch: 90 band calls (text PDF, 3 bands) or 120 (scan: whole read and 3 bands), both under 300 calls.
+    expect(30 * 3).toBeLessThanOrEqual(300);
+    expect(30 * 4).toBeLessThanOrEqual(300);
+    // 100 dense text pages at 3 bands: 300 calls, five plant days at 72 a day, if the file had room for the tables.
+    expect(Math.ceil(300 / 72)).toBe(5);
+    expect(100).toBeGreaterThan(INGEST_LIMITS.blocksPerFile);
+  });
+});
+
 describe("batches: a file full of tables", () => {
   test("the sentence names the limit in code", () => {
     expect(VISION_FILE_FULL).toContain(`${INGEST_LIMITS.blocksPerFile} tables`);

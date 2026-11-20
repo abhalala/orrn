@@ -206,6 +206,33 @@ describe("the pump in batches", () => {
     expect(calls.filter((c) => c.startsWith("render:"))).toEqual([]);
   });
 
+  test("a page waiting to be cut is read first: Read next pages cuts it and plans no batch", async () => {
+    const calls: string[] = [];
+    const api = server(calls, { pageCount: 10, planned: 6, readTo: 6, batch: 4, open: [view(4, "ready", { next: "band" })] });
+    const bandApi = {
+      ...api,
+      async readPage({ page, band }: { page: number; band?: number }) {
+        calls.push(band ? `read:${page}:b${band}` : `read:${page}`);
+        return band ? view(page, "read") : view(page, "ready", { next: "band" });
+      },
+      async bandTickets({ page, bands }: { page: number; bands: number }) {
+        calls.push(`bands:${page}:${bands}`);
+        return { page, total: bands, uploads: Array.from({ length: bands }, (_, i) => ({ band: i + 1, url: `/u?ticket=p${page}b${i + 1}`, ticket: "t", expiresAt: 0 })) };
+      },
+    } as unknown as VisionApi;
+    const src: PageSource = { ...source(10, calls), bands: async (page) => (calls.push(`cut:${page}`), [new Blob(["a"]), new Blob(["b"])]) };
+    await runVisionPump("a1", src, { api: batchStart(bandApi, "a1"), fetch: fetchOk(calls) });
+    expect(calls.some((c) => c.startsWith("nextBatch"))).toBe(false);
+    expect(calls).toContain("cut:4");
+    expect(calls).toContain("read:4:b1");
+    expect(calls.filter((c) => /^read:\d+$/.test(c))[0]).toBe("read:4");
+  });
+
+  test("the panel waits for the cut before offering the next batch", () => {
+    const pages = [...range(1, 3), view(4, "ready", { next: "band" })];
+    expect(visionBatch(out(pages, { pageCount: 10, settled: false }), 4).readNext).toBeNull();
+  });
+
   test("the upload strip counts pages past the plan as not read", async () => {
     const calls: string[] = [];
     const api = server(calls, { pageCount: 45, planned: 30, readTo: 0, batch: 30 });
