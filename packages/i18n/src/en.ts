@@ -26,6 +26,7 @@ import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
+import { buddyEn } from "./buddy/en";
 
 export const en = {
   common: {
@@ -2579,6 +2580,7 @@ export const en = {
       units: "Units",
       security: "Security",
       signIn: "Sign-in",
+      buddy: "Buddy",
     },
     /** Settings > Security (plan 2026-11-18, Task 9). */
     security: {
@@ -6488,6 +6490,8 @@ export const en = {
 
   ingest: ingestEn,
 
+  buddy: buddyEn,
+
   reasons: {
     kinds: {
       downtime: "Downtime",
@@ -6857,6 +6861,8 @@ export const en = {
       ingest_candidate: "Import",
       ingest_merge_run: "Import merge",
       ingest_hole: "Import layout",
+      buddy_draft: "Buddy change",
+      buddy_grant: "Hermes connection",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -6910,6 +6916,13 @@ export const en = {
       backup__drill: "Backup drill run",
       backup__drill__discard: "Backup drill thrown away",
       backup__export: "Backup downloaded",
+      buddy__draft__confirm: "Buddy change confirmed",
+      buddy__draft__create: "Buddy prepared a change",
+      buddy__draft__expire: "Buddy change expired",
+      buddy__draft__fail: "Buddy change did not go through",
+      buddy__draft__reject: "Buddy change rejected",
+      buddy__grant__create: "Hermes connected to Buddy",
+      buddy__grant__revoke: "Hermes disconnected from Buddy",
       bundle__import: "Bundles imported",
       bundle__receipt__create: "Bundles packed",
       bundle__receipt__pin_override: "Packed on another copy than the order pins",

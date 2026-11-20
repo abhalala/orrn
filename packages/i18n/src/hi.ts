@@ -10,6 +10,7 @@ import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
+import { buddyHi } from "./buddy/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -2568,6 +2569,7 @@ export const hi = {
       units: "इकाइयाँ",
       security: "सुरक्षा",
       signIn: "साइन-इन",
+      buddy: "Buddy",
     },
     security: {
       title: "साइन-इन",
@@ -6470,6 +6472,8 @@ export const hi = {
 
   ingest: ingestHi,
 
+  buddy: buddyHi,
+
   reasons: {
     kinds: {
       downtime: "रुकावट",
@@ -6839,6 +6843,8 @@ export const hi = {
       ingest_candidate: "इम्पोर्ट",
       ingest_merge_run: "इम्पोर्ट मर्ज",
       ingest_hole: "इम्पोर्ट का लेआउट",
+      buddy_draft: "Buddy का बदलाव",
+      buddy_grant: "Hermes कनेक्शन",
     },
     onlyThis: "सिर्फ़ यह",
     byStaff: "orrn सपोर्ट",
@@ -6892,6 +6898,13 @@ export const hi = {
       backup__drill: "बैकअप ड्रिल चलाई",
       backup__drill__discard: "बैकअप ड्रिल हटाई",
       backup__export: "बैकअप डाउनलोड किया",
+      buddy__draft__confirm: "Buddy के बदलाव की पुष्टि की",
+      buddy__draft__create: "Buddy ने बदलाव तैयार किया",
+      buddy__draft__expire: "Buddy के बदलाव का समय खत्म",
+      buddy__draft__fail: "Buddy का बदलाव नहीं हुआ",
+      buddy__draft__reject: "Buddy का बदलाव मना किया",
+      buddy__grant__create: "Hermes को Buddy से जोड़ा",
+      buddy__grant__revoke: "Hermes को Buddy से हटाया",
       bundle__import: "बंडल इंपोर्ट किए",
       bundle__receipt__create: "बंडल पैक किए",
       bundle__receipt__pin_override: "ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया",

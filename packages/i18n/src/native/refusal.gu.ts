@@ -169,6 +169,9 @@ export const refusalGu = {
     imageTypes: "ફોટો JPEG, PNG કે WebP હોવો જોઈએ.",
     notPdf: "આ PDF નથી.",
     pickFileKind: ".{kind} ફાઇલ પસંદ કરો.",
+    buddyClosed: "આ પ્લાન્ટ માટે Buddy સેટ નથી.",
+    buddyConfirming: "આ ફેરફારની ખાતરી પહેલેથી થઈ રહી છે. થોડી વાર રાહ જુઓ.",
+    buddyNotAllowed: "Buddy આ ફેરફાર કરી શકતો નથી. તેને તેની પોતાની સ્ક્રીન પર કરો.",
     unknown: "orrn એ આને નકાર્યું. વિગતો તપાસીને ફરી પ્રયાસ કરો.",
   },
 } as const;

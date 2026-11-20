@@ -166,6 +166,9 @@ export const refusalHi = {
     imageTypes: "फ़ोटो JPEG, PNG या WebP होनी चाहिए।",
     notPdf: "यह PDF नहीं है।",
     pickFileKind: ".{kind} फ़ाइल चुनें।",
+    buddyClosed: "इस प्लांट के लिए Buddy सेट नहीं है।",
+    buddyConfirming: "इस बदलाव की पुष्टि पहले से हो रही है। थोड़ा रुकें।",
+    buddyNotAllowed: "Buddy यह बदलाव नहीं कर सकता। इसे इसकी अपनी स्क्रीन पर करें।",
     unknown: "orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें।",
   },
 } as const;

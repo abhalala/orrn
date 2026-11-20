@@ -278,6 +278,11 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "alreadyOnPlan", re: new RegExp(`^${S} line (\\d+) is already on this plan$`), vars: (m) => ({ order: m[1]!, n: m[2]! }) },
   { id: "planNeedsLine", re: /^A plan needs at least one order line; cancel the plan instead$/ },
   { id: "maxDies", re: /^At most (\d+) dies on a plan$/, vars: (m) => ({ max: m[1]! }) },
+
+  // --- Buddy (design 2026-11-18 §4.4, §13) --------------------------------------
+  { id: "buddyClosed", re: /^The buddy is not open for this plant\.?$/ },
+  { id: "buddyConfirming", re: /^This draft is being confirmed\.?$/ },
+  { id: "buddyNotAllowed", re: /^The buddy may not make this change\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {

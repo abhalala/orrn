@@ -171,6 +171,9 @@ export const refusalEn = {
     imageTypes: "Pictures must be JPEG, PNG or WebP.",
     notPdf: "This is not a PDF.",
     pickFileKind: "Pick a .{kind} file.",
+    buddyClosed: "Buddy is not set up for this plant.",
+    buddyConfirming: "This change is already being confirmed. Wait a moment.",
+    buddyNotAllowed: "Buddy may not make this change. Do it on its own screen.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;
