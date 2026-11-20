@@ -1,6 +1,6 @@
 # e2e groups A / B / C
 
-The 54 grouped spec files (A 18, B 19, C 17) run in three groups, one after another on one port pair, never together. Each group starts or
+The 55 grouped spec files (A 18, B 19, C 18) run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
@@ -9,7 +9,7 @@ and ui-kit moved from C to A. Keep the long store, platform, press and chain flo
 |---|---|---|
 | A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, ingest-vision, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports, sign-in-methods | 276 s (failed) / 272 s (before sign-in-methods) |
-| C | ageing-masters, ageing, chain, collectors, invite-onboarding, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker and invite-onboarding) |
+| C | ageing-masters, ageing, buddy, chain, collectors, invite-onboarding, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker and invite-onboarding) |
 
 These are **historical measurements, not verification of the current revision**. The interrupted W4-TESTSWEEP-2 run
 saved them in `/tmp/W4-TESTSWEEP-2/final-summary.txt` and `final-{1,2}-{A,B,C}.json`. The previous distribution's
@@ -19,6 +19,10 @@ subsequently removed retry/warmup helpers, so their green results do not establi
 
 Four spec files are in no group and the script warns about each: `ingest-shots` takes screenshots for design review and
 runs by hand with `SHOTS=1`; `label-photo-import`, `label-studio` and `printing-labels` are not in any group either, so no gate runs them.
+
+`buddy` (group C, no saved wall time yet) talks to the fake Hermes that `playwright.config.ts` starts on the API port
+plus 80; the API gets `BUDDY_FAKE_HERMES_PORT`, so an API you started yourself needs it too. It runs serially on the
+demo owner's grant and disconnects Hermes before and after, so the floating button shows only while it runs.
 
 `a11y-app` is the signed-in axe sweep (every nav screen, desktop and 375 px, light and dark, en plus hi for Today, Pack, Scan and
 Dispatch). It has no saved wall time yet (about 10 minutes on two workers). It writes every violation to
