@@ -116,6 +116,58 @@ async function loadPageText(bucket: R2Bucket, ctx: Pick<IngestCtx, "companyId">,
 }
 
 // ---------------------------------------------------------------------------
+// Bands (contract section 11.3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The banded table of band 1's answer: the table with the most rows, the last one on a tie. The dense
+ * table runs off the bottom of band 1, so it holds most of band 1's rows; the prompt does not promise an
+ * order of tables, so the rule does not depend on one.
+ */
+export function bandedTableIndex(tables: readonly VisionTable[]): number {
+  let best = 0;
+  tables.forEach((t, i) => {
+    if (t.rows.length >= tables[best]!.rows.length) best = i;
+  });
+  return best;
+}
+
+const headerLine = (cells: readonly string[]) => cells.map((c) => c.trim().replace(/\s+/g, " ").toLowerCase()).join("\u0000");
+
+/**
+ * Merge the bands of one page (pure). `first` is band 1's answer; `rest` is the answer of bands 2..K in
+ * order. The banded table of band 1 takes the rows of every later band in order; a first row of band
+ * k >= 2 that equals the headers (the header strip read as data) is dropped, once; nothing else is
+ * de-duplicated, since the cuts have no overlap. Band 1's other tables stay as they are, in place. Null
+ * when band 1 has no table, a later band is not exactly one table, or any row is not as wide as the headers.
+ */
+export function mergeBands(first: readonly VisionTable[], rest: readonly (readonly VisionTable[])[]): { tables: VisionTable[]; banded: number } | null {
+  if (first.length === 0) return null;
+  const banded = bandedTableIndex(first);
+  const base = first[banded]!;
+  const width = base.headers.length;
+  if (base.rows.some((r) => r.length !== width)) return null;
+  const head = headerLine(base.headers);
+  const rows = [...base.rows];
+  const rowConfidence = [...base.rowConfidence];
+  for (const answer of rest) {
+    if (answer.length !== 1) return null;
+    const t = answer[0]!;
+    if (t.headers.length !== width || t.rows.some((r) => r.length !== width)) return null;
+    const start = t.rows.length > 0 && headerLine(t.rows[0]!) === head ? 1 : 0;
+    rows.push(...t.rows.slice(start));
+    rowConfidence.push(...t.rows.slice(start).map((_, i) => t.rowConfidence[start + i] ?? 0));
+  }
+  const lowConfidenceRows = rowConfidence
+    .map((c, i) => ({ c, i }))
+    .filter((x) => x.c < VISION_PARAMS.lowConfidence)
+    .sort((x, y) => x.c - y.c || x.i - y.i)
+    .map((x) => x.i);
+  const merged: VisionTable = { title: base.title, headers: [...base.headers], rows, rowConfidence, lowConfidenceRows };
+  return { tables: first.map((t, i) => (i === banded ? merged : t)), banded };
+}
+
+// ---------------------------------------------------------------------------
 // Page state (contract section 4)
 // ---------------------------------------------------------------------------
 
