@@ -52,3 +52,5 @@ export { runVisionPump, finishFile, openPages, PAGE_READS_PER_PASS, START_AGAINS
 export { plannedPages, pageNumbers, capLine, pdfCanvasSize, photoCanvasSize, isVisualKind, RenderError, type PageSource } from "./vision-render";
 export { readVisualBytes, uploadVisionHook, cannotReadNow, type VisualReadOutcome } from "./vision-read";
 export { visionApi, setVisionApiForTests, type VisionApi } from "./vision-api";
+export * from "./vision-model";
+export { useVisionPages, usePageImage, useVisionRows, useVisionFileRead, useVisionPageActions, useVisionCheckActions, visionKeys, PAGE_LINK_FRESH_MS, type FileReadPhase } from "./use-vision";

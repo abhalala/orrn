@@ -99,6 +99,10 @@ export function visionRows(
   });
 }
 
+/** What `vision.typePage` takes (contract section 7): 1 to 50 column names, 1 to 500 rows. */
+export const TYPED_MAX_COLUMNS = 50;
+export const TYPED_MAX_ROWS = 500;
+
 /** The typed table of "Type this page": column names and rows, checked before it goes. */
 export type TypedTable = { title: string; headers: string[]; rows: string[][] };
 

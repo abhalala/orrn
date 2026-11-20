@@ -78,6 +78,8 @@ export const guIngest = {
       lowFirst: "જે લાઇન વિશે મોડેલને પાકી ખાતરી ન હતી તે પહેલાં દેખાય છે.",
       lowMark: "પાકું નથી",
       blank: "ખાલી",
+      rowHeader: "લાઇન",
+      fixColumn: "કૉલમ",
       rowName: "લાઇન {n}",
       typed: "પેજ {page} પરથી હાથે ટાઇપ કર્યું.",
       tick: "મેં આ લાઇન પેજ સાથે મેળવીને જોઈ લીધી",

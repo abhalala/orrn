@@ -566,6 +566,8 @@ export const ingestEn = {
     lowFirst: "Rows the model was not sure of come first.",
     lowMark: "Not sure",
     blank: "Blank",
+    rowHeader: "Row",
+    fixColumn: "Column",
     rowName: "Row {n}",
     typed: "Typed by hand from page {page}.",
     tick: "I checked these rows against the page",

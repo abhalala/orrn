@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8398 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8400 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7098,7 +7098,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (626)
+### ingest (628)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7556,6 +7556,8 @@ Please check, Lalubhai:
 | `vision.lowFirst` | Rows the model was not sure of come first. | जिन लाइनों पर मॉडल को पक्का भरोसा नहीं था, वे पहले दिखती हैं। |
 | `vision.lowMark` | Not sure | पक्का नहीं |
 | `vision.blank` | Blank | खाली |
+| `vision.rowHeader` | Row | लाइन |
+| `vision.fixColumn` | Column | कॉलम |
 | `vision.rowName` | Row {n} | लाइन {n} |
 | `vision.typed` | Typed by hand from page {page}. | पेज {page} से हाथ से टाइप किया गया। |
 | `vision.tick` | I checked these rows against the page | मैंने ये लाइनें पेज से मिलाकर देख लीं |
