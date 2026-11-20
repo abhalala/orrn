@@ -248,3 +248,17 @@ Fixed names, so the server and web lanes build at the same time.
   `orrn_describe`, `orrn_call`, `orrn_review_link`.
 - **Fake Hermes:** `apps/server/scripts/fake-hermes.ts`, a Bun server that speaks the Hermes endpoint the proxy uses.
   Tests and e2e use it, never the network.
+
+### 13.1 As built (2026-11-20)
+
+Differences from the contract above, as the code has them:
+
+- `buddy.use` is in `OWNER_ONLY_ACTIONS`, not `PLANT_ACTIONS`, because `plant-roles.test.ts` requires every plant action
+  to have a holder other than the owner. `BUDDY_ROLES = ["owner"]`.
+- A draft's `link` is a relative web path. `orrn_review_link` and the MCP draft answer give the full URL.
+- The chat leg calls Hermes `POST /v1/responses` with `stream: true` and `conversation: "orrn:<company>:<user>:<id>"`.
+  Hermes keeps the history. This was checked against the v0.23.1 source only, not the live CT 230.
+- A grant keeps the sign-in method of the session that made it. The secure sign-in check judges MCP calls by it.
+- Chat turns are `buddy_call` rows with `tool: "chat"` and no text, for the 30 turns an hour limit.
+- The draft card says the ten import draft titles in the person's language. Other drafts show the server's English
+  words.
