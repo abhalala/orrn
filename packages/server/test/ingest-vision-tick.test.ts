@@ -19,7 +19,7 @@ import { Miniflare } from "miniflare";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
-import { plant, type Caller, type Plant } from "./ingest-portal-helpers";
+import { layout, learnLayout, plant, pump, trim, upload, type Caller, type Plant } from "./ingest-portal-helpers";
 import { fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
 import { pageKey, rawKey } from "../src/lib/ingest/vault";
 
@@ -144,6 +144,41 @@ describe("row actions clear the tick (decision 5, N1, L3)", () => {
     // Sheet b goes into orders: every other order sheet of the file is checked again (rule 11.3).
     await p.owner.ingest.candidate.setTarget({ candidateId: b, target: "orders", expectSeq: (await detail(p.owner, b)).serverSeq });
     expect(await tickOf(a)).toEqual(cleared);
+  });
+
+  test("a first fill-above answer leaves the tick of an approved order sheet alone (it is not re-run)", async () => {
+    const BOOK = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Baki (kg)"];
+    const FIELDS = [
+      { field: "customer", steps: [{ op: "trim" as const }, { op: "lookup" as const, resolver: "customer_by_name" as const }] },
+      { field: "oldOrderNo", steps: trim },
+      { field: "poNumber", steps: trim },
+      { field: "orderDate", steps: [{ op: "date" as const, format: "dmy" as const }] },
+      { field: "series", steps: [{ op: "trim" as const }, { op: "case" as const, to: "upper" as const }] },
+      { field: "sectionCode", steps: [{ op: "trim" as const }, { op: "lookup" as const, resolver: "section_by_code" as const }] },
+      { field: "cutLength", steps: [{ op: "number" as const, kind: "length" as const, unit: "mm" }] },
+      { field: "bakiKg", steps: [{ op: "number" as const, kind: "mass" as const, unit: "kg" }] },
+    ];
+    const R = (no: string, po: string, date: string, sec: string) => ["Acme Traders", no, po, date, "R", sec, "3658", "100"];
+    const TWO = (no: string) => [R(no, "PO-A", "01/05/2023", "5100"), R(no, "", "", "5101"), R(no, "PO-B", "01/06/2024", "5102"), R(no, "", "", "5103")];
+    const p = await plant(env);
+    await p.owner.customer.create({ name: "Acme Traders" });
+    for (const code of ["5100", "5101", "5102", "5103"]) await env.seedDie(p.companyId, { series: "R", sectionCode: code });
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("orders", BOOK, FIELDS, ["customer", "oldOrderNo", "orderDate"]), "Book");
+    const up = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: TWO("41") },
+      { name: "B", headers: BOOK, rows: TWO("43") },
+    ]);
+    const [a, b] = [up.candidates[0]!.id, up.candidates[1]!.id];
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    // Sheet A stands for a model-read order sheet, ticked by the owner and then approved.
+    await env.d1
+      .prepare("update ingest_block set read_by = 'model', model_checked = 1, model_checked_by = ?, model_checked_at = 5 where id = (select block_id from ingest_candidate where id = ?)")
+      .bind(p.users.owner.id, a)
+      .run();
+    await env.d1.prepare("update ingest_candidate set state = 'approved' where id = ?").bind(a).run();
+    await p.owner.ingest.answer.set({ candidateId: b, questionCode: "order_fill_above", subject: "", answer: true, expectSeq: (await detail(p.owner, b)).serverSeq });
+    expect(await tickOf(a)).toEqual({ checked: 1, by: p.users.owner.id, at: 5 });
   });
 });
 

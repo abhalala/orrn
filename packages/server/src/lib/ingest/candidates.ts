@@ -1336,7 +1336,8 @@ export function clearModelTick(ctx: Pick<IngestCtx, "db" | "companyId">, blockId
 
 /**
  * Rule 11.3 with the tick rule: a fill-above change fills or leaves blank the order numbers of every order
- * sheet of the file, so every model-read order sheet of the file needs its page checked again.
+ * sheet of the file, so every model-read order sheet the change re-runs (processing, ready, held) needs
+ * its page checked again. An approved, merging or merged sheet is not re-run and keeps its tick.
  */
 function clearOrderTicks(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string): SqliteBatchItem {
   return ctx.db
@@ -1347,7 +1348,7 @@ function clearOrderTicks(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: s
         eq(ingestBlock.artifactId, artifactId),
         eq(ingestBlock.companyId, ctx.companyId),
         eq(ingestBlock.readBy, "model"),
-        sql`${ingestBlock.id} in (select k.block_id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders')`,
+        sql`${ingestBlock.id} in (select k.block_id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders' and k.state in ('processing', 'ready', 'held'))`,
       ),
     );
 }

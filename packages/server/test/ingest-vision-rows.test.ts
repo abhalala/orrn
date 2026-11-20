@@ -129,6 +129,27 @@ describe("S5: a merged banded table over 500 rows", () => {
   });
 });
 
+describe("S5 with S3: a top-up at the row limit", () => {
+  // Only a merged banded table passes 500 rows (one model table holds at most 500), so only a banded page
+  // has a short block. Its top-up goes through the merge, which adds no row and is not refused at the limit.
+  test("a file at its rows per file limit still finishes a stopped batch of a merged banded table", async () => {
+    const p = await plant(env, { limits: { rawRowsPerFile: 640 } });
+    const f = await startedPdf({ p, pages: false });
+    await inBands(f, 4);
+    const client = new FakeShapeClient([sonnetTables({ rows: body(1, 160) }), sonnetTables({ rows: body(161, 160) }), sonnetTables({ rows: body(321, 160) }), sonnetTables({ rows: body(481, 160) })]);
+    setShapeClientForTests(client);
+    for (let i = 0; i < 4; i++) await read(f, 1);
+    const { block } = await stagedOf(f);
+    await env.d1.prepare("delete from ingest_staged_row where company_id = ? and candidate_id = ? and row_index >= 500").bind(f.p.companyId, block.candidates[0]!.id).run();
+    await env.d1.prepare("update ingest_block set rows_put = 500 where id = ?").bind(block.id).run();
+    expect(await read(f, 1)).toMatchObject({ state: "read" });
+    expect(client.calls).toHaveLength(4);
+    const after = await stagedOf(f);
+    expect(after.block.rowsPut).toBe(640);
+    expect(after.staged).toBe(640);
+  });
+});
+
 describe("S3: the plant's row limits", () => {
   test("rows per file: a page whose table passes it makes no block; a typed page too", async () => {
     const p = await plant(env, { limits: { rawRowsPerFile: 2 } });
