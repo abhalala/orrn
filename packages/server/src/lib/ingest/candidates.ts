@@ -106,6 +106,7 @@ import { aliasMoveRefusal } from "./merge/rowchecks";
 import { openStuckParts } from "./stuck";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
+import { abortIfAbandoned } from "./upload-parts";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NOT_READ,
@@ -1942,6 +1943,8 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
   // Sheets that waited on this one check again at once (item 3).
   const again = await othersAgainAfter(ctx, c, "discarded", now());
   if (again.length) await ctx.db.batch(again as never);
+  // Security L6: the file's last live sheet went while its bytes were still arriving: abort that upload.
+  await abortIfAbandoned(ctx, c.artifactId);
   return candidateDetail(ctx, c.id);
 }
 

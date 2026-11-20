@@ -11,7 +11,7 @@ import { Miniflare } from "miniflare";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
-import { plant, type Plant } from "./ingest-portal-helpers";
+import { plant, putBlocksPicked, type Plant } from "./ingest-portal-helpers";
 import { handleIngestRead, handleIngestUpload, issueReadTicket, issueTicket, pageKey, rawKey } from "../src/lib/ingest/vault";
 import { ingestArtifact } from "@orrn/db/schema/ingest";
 import { eq } from "drizzle-orm";
@@ -545,6 +545,24 @@ describe("fix round: part markers, the whole-file check and who may restart", ()
     await g.p.owner.ingest.artifact.uploadComplete({ artifactId: g.artifactId });
     expect(await abortIfAbandoned({ db: env.db, companyId: g.p.companyId }, g.artifactId)).toBe(false);
     expect(await raw.head(rawKey(g.p.companyId, g.sha256))).not.toBeNull();
+  });
+
+  test("L6: discarding the last sheet of a file still arriving aborts its upload; another live sheet keeps it", async () => {
+    workersEnv.INGEST_VAULT = vault();
+    const pl = await plant(env);
+    const bytes = bigFile();
+    const sha256 = hex(bytes);
+    const b = await pl.owner.ingest.artifact.begin({ sha256, fileName: "big.csv", sizeBytes: bytes.length, contentType: "text/csv", kind: "csv" });
+    const sheet = (ordinal: number) => ({ ordinal, sheetName: `S${ordinal}`, title: null, headerRow: 0, headerRows: 1, headers: ["Name", "GSTIN", "City"], rowCount: 1, sample: [["A", "", "X"]] });
+    const put = await putBlocksPicked(pl.owner, { artifactId: b.artifactId, blocks: [sheet(0), sheet(1)] });
+    const f = { p: pl, bytes, sha256, artifactId: b.artifactId, begin: b, parts: partsOf(bytes) };
+    await sendAll(f, [1]);
+    const [c0, c1] = put.candidates.sort((x, y) => x.blockOrdinal - y.blockOrdinal);
+    const seq = async (id: string) => (await pl.owner.ingest.candidate.get({ candidateId: id })).serverSeq;
+    await pl.owner.ingest.candidate.discard({ candidateId: c0!.id, expectSeq: await seq(c0!.id) });
+    expect(await raw.head(uploadPlanKey(pl.companyId, sha256))).not.toBeNull();
+    await pl.owner.ingest.candidate.discard({ candidateId: c1!.id, expectSeq: await seq(c1!.id) });
+    expect((await raw.list({ prefix: `tenants/${pl.companyId}/artifacts/${sha256}/` })).objects).toEqual([]);
   });
 
   test("N7/L6: the daily sweep clears uploads begun over a day ago and stores a one-piece file whose commit never came", async () => {
