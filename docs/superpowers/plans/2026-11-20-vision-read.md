@@ -283,3 +283,25 @@ These override sections 1 to 10 where they disagree.
    0.7, then the rest; marked cells say "These digits are not in the PDF's text. Check them against the page."
 6. **A cell that holds an instruction is data.** It is copied, stored and shown as text and never acted on; a test
    keeps an instruction-like cell as a plain cell value.
+7. **Server shapes as built (server lane, 2026-11-20).** These fill gaps in items 3 and 5.
+   - The banded table of band 1 is the table with the most rows (the last one on a tie). Prompt v3 does not promise
+     an order of tables, so the rule does not depend on one. Its headers go to bands 2..K for both kinds; a scan's
+     whole-page read is used only to decide that the page is dense.
+   - `VisionPageView` gains `next: "band"`, `bands: { total, read, next } | null` (`next` is the band `readPage`
+     reads next, null when all are read) and `bandHeaders: string[] | null` (the dense table's headers with
+     `next: "band"`; null when the answer was cut off). A text PDF that is cut off keeps its retry and then
+     `too_long`; only a scan or photo goes to bands.
+   - `vision.readPage({ artifactId, page, band? })`: left out, it reads the next band. Bands 2..K wait (no call)
+     until band 1 is read. A band past the plan is refused as `MOVED`. The bands are merged on every build from
+     `pages/<n>/b<k>.tables.json`; no merged object is stored. The block's `readerFacts.vision.bands` is K.
+   - `vision.bandTickets({ artifactId, page, bands })` answers `VisionBandTicketsOut { page, total, uploads:
+     { band, url, ticket, expiresAt }[] }`. The count is written once into `index.json` (`bands: { "<n>": K }`,
+     etag guarded, audit `ingest.vision.bands`). The same count again hands the missing tickets; another count is
+     refused as `MOVED`; a read or typed page is refused with "This page is already read". `vision.start` hands no
+     page ticket for a page cut into bands.
+   - `vision.readUrl({ artifactId, what: "page", page, band? })` signs a band image.
+   - `VisionStartOut.texts`: the text tickets (text PDF only). `BlockVisionView.unseen: [row, col][]` and
+     `BlockVisionView.bands: number | null`. Digit runs: a comma between two digits is removed, each text item is
+     read on its own (two items never join into one run), and whole runs are matched, never a part of one.
+     "Fix this cell" clears that cell's mark.
+   - No new refusal sentence.
