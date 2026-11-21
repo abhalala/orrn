@@ -1346,28 +1346,37 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   are set and the plant slug is in `BUDDY_COMPANIES`; `auth.me.buddy` is the single flag the web reads.
 - **One allow/deny constant.** `packages/server/src/lib/buddy/decisions.ts` `BUDDY_DECISIONS` decides every router
   (allow, deny, or `ingest` per procedure), the denied paths with reasons, input guards (`unless`, e.g. `format: "csv"`)
-  and `pending` paths of unmerged lanes. Lookups use own keys and fail closed. `buddy-registry.test.ts` fails when a new
-  router or ingest procedure has no decision: add the decision in the same change. The queries that write, sign a
-  link, print or export were found by a one-off review (2026-11-20) and are pinned as denied in that test; no test
-  can find a new one, so a new query with a side effect needs its own deny entry by hand.
-- **MCP (`POST /mcp`).** `lib/buddy/mcp.ts`, JSON-RPC 2.0, tools `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`. Bearer
-  is a grant token (`orrnb_…`, only its SHA-256 is stored); `contextFromGrant` builds a ctx with `via: "buddy"` and the
-  grant's sign-in method, so `assertStrongSignIn` judges the grant like the session that made it. A request with an
-  `Origin` header is 403. Queries run through `createCaller`; a mutation never runs from MCP: it becomes a
-  `buddy_draft` (`needs_confirm`). The MCP files may not import ledger, doc number, approval, stock, print or router
-  code (grep test in `buddy-mcp.test.ts`).
-- **Drafts.** The person confirms in orrn (`buddy.drafts.confirm`, a browser session, never the MCP token). Confirm
-  re-checks the decision and the input guard, claims the row with a conditional UPDATE (concurrent confirms run once,
-  a decided draft replays its view), runs the real procedure as the person and audits `buddy.draft.*`; the real
-  procedure's audit row gets `meta.buddyDraftId` (`withBuddyMeta` in `lib/audit.ts`) when the procedure hands its
-  own ctx to the audit helper; one that passes a narrowed copy of ctx drops it (the `buddy.draft.confirm` row still
-  names the draft). Drafts live 24 h.
-- **Limits.** Rows, not counters: 60 tool calls a minute per grant, 20 drafts an hour per grant, 30 chat turns an
-  hour per person and plant (`tool: "chat"` rows in `buddy_call`, no chat text stored). Results over 32 KB are cut.
-- **Chat (`POST /buddy/chat`).** `lib/buddy/chat.ts` proxies one turn to Hermes `POST /v1/responses` (`stream`,
-  `conversation: "orrn:<company>:<user>:<id>"`, the context block as `instructions`) and turns its SSE into orrn's
-  `text | tool | draft | done | error` events. Any non-2xx or non-SSE answer is `offline`. Tests use the fake Hermes
-  (`lib/buddy/fakeHermes.ts`); never call a real Hermes from tests.
+  and `pending` paths of unmerged lanes (pinned by exact name). Lookups use own keys and fail closed. Every procedure
+  is pinned with its kind and decision in `packages/server/test/buddy-procedures.snapshot.tsv`: a new procedure fails
+  `buddy-registry.test.ts` until it has a reviewed line (regenerate with `BUDDY_SNAPSHOT_WRITE=1 bun test
+  test/buddy-registry.test.ts` and read the diff). Never callable, not even as drafts: the import tick, Approve, merge,
+  discard, uploads, row decisions, `ingest.rows.answerDoubts`, `approval.decide`, `dieInstance.closeOwnerOverride`.
+- **MCP (`POST /mcp`).** `lib/buddy/mcp.ts`, JSON-RPC 2.0, tools `orrn_search`, `orrn_describe`, `orrn_call`,
+  `orrn_review_link`, `orrn_import_answers`, `orrn_import_dry_run`. Bearer is a grant token (`orrnb_…`, only its
+  SHA-256 is stored); `contextFromGrant` builds a ctx with `via: "buddy"` and the grant's sign-in method, so
+  `assertStrongSignIn` judges the grant like the session that made it. A request with an `Origin` header is 403.
+  Queries run through `createCaller`; a mutation never runs from MCP: it becomes a `buddy_draft` (`needs_confirm`)
+  that records `x-hermes-platform`. A draft the card cannot show in full (over 40 fields, a value over 2,000
+  characters, over 200 items) is refused. The MCP files may not import ledger, doc number, approval, stock, print or
+  router code (grep test in `buddy-mcp.test.ts`).
+- **Drafts run at most once.** The person confirms in orrn (`buddy.drafts.confirm({ draftId, via })`, a browser
+  session, never the MCP token). Confirm and Reject are one atomic claim, and audit rows land only when the UPDATE
+  matched. A stale claim is never run again: it settles `failed` ("check the screen"). The draft id is always the
+  `clientRequestId` where the target takes one. Ingest targets get the candidate's current `expectSeq` at Confirm.
+  A draft of a revoked grant is refused. Drafts live 24 h. The card shows the stored input in full (`fields`, `items`).
+- **Grants.** 30 days, renewable in Settings > Buddy. Mint and renew need a sign-in within 10 minutes plus the secure
+  sign-in check (`FRESH_SIGN_IN_NEEDED`). Revoked on password reset, sign out everywhere, removal from the plant and
+  any role change (`@orrn/auth/buddy-revoke`); nothing revives an old grant. Revoking expires the grant's pending drafts.
+- **Limits.** Reserved before the call, in one conditional insert, per person and plant (a new grant does not reset
+  them): 60 tool calls a minute, 20 drafts an hour (the draft insert itself), 30 chat turns an hour (`tool: "chat"`
+  rows in `buddy_call`, no chat text stored). Results over 32 KB (bytes) are cut.
+- **Chat (`POST /buddy/chat`).** Only `application/json` from an allowed `Origin`; `buddyProcedure` mutations check
+  `Origin` too. `lib/buddy/chat.ts` proxies one turn to the person's own Hermes profile,
+  `HERMES_BASE_URL/p/<profile>/v1/responses` (env `BUDDY_HERMES_PROFILE`, default `orrn-buddy`, never the default
+  profile; https only outside the dev stage), with `conversation: "orrn:<company>:<user>:<id>"` and the context block
+  as `instructions`. Notes on decided drafts come from the server (`noted_at`), never from the browser. Its SSE becomes
+  orrn's `text | tool | draft | done | error` events; any non-2xx or non-SSE answer is `offline`. Tests use the fake
+  Hermes (`lib/buddy/fakeHermes.ts`); never call a real Hermes from tests. e2e uses the `buddy-owner` dev account only.
 - **Tables** `buddy_link`, `buddy_grant`, `buddy_call`, `buddy_draft` (migration 0053) are left out of plant backups.
 
 # 13. Customer portal
