@@ -138,5 +138,5 @@ describe("a 4,000-row order book with 150 PO questions reaches the review link w
     const made = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
     expect(Number(made?.n)).toBe(7);
     expect(Number(made?.n)).toBeLessThanOrEqual(20);
-  }, 240_000);
+  }, 600_000); // measured 472 s at load average 150 to 216 on a shared Mac (2026-11-21): 23 s upload, 146 s per dry run, 146 s for 150 answers; no quiet-machine figure yet
 });
