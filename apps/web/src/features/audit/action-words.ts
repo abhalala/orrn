@@ -49,6 +49,8 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "buddy.draft.reject",
   "buddy.grant.create",
   "buddy.grant.revoke",
+  "buddy.grant.renew",
+  "buddy.draft.report",
   "bundle.import",
   "bundle.receipt.create",
   "bundle.receipt.pin_override",

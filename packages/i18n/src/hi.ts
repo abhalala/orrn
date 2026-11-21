@@ -6905,6 +6905,8 @@ export const hi = {
       buddy__draft__reject: "Buddy का बदलाव नामंज़ूर किया",
       buddy__grant__create: "Hermes को Buddy से जोड़ा",
       buddy__grant__revoke: "Hermes को Buddy से हटाया",
+      buddy__grant__renew: "Hermes कनेक्शन बढ़ाया",
+      buddy__draft__report: "Buddy की लाइन जांच का नतीजा दर्ज हुआ",
       bundle__import: "बंडल इंपोर्ट किए",
       bundle__receipt__create: "बंडल पैक किए",
       bundle__receipt__pin_override: "ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया",

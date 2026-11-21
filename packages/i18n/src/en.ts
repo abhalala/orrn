@@ -6923,6 +6923,8 @@ export const en = {
       buddy__draft__reject: "Buddy change rejected",
       buddy__grant__create: "Hermes connected to Buddy",
       buddy__grant__revoke: "Hermes disconnected from Buddy",
+      buddy__grant__renew: "Hermes connection renewed",
+      buddy__draft__report: "Buddy row check reported",
       bundle__import: "Bundles imported",
       bundle__receipt__create: "Bundles packed",
       bundle__receipt__pin_override: "Packed on another copy than the order pins",
