@@ -16,7 +16,8 @@ export type SheetHints = { sheetName: string | null; hints: EngineHints[] };
 
 export type WorkerRequest =
   | { id: number; type: "hash"; file: File }
-  | { id: number; type: "read"; file: File; kind: ArtifactKind; hints?: SheetHints[] };
+  /** `maxRawRows`: the plant's rows per file; left out, the default in `READ_LIMITS`. */
+  | { id: number; type: "read"; file: File; kind: ArtifactKind; hints?: SheetHints[]; maxRawRows?: number };
 
 /** `putBlocks` takes the region width too; the server's own type does not list it yet, and it ignores what it does not know. */
 export type WireBlockInput = Omit<BlockInput, "headers"> & { headers?: string[]; width?: number; follows?: { ordinal: number; gapRows: number } | null };
@@ -56,6 +57,8 @@ export type ReadBlock = { input: WireBlockInput; rows: string[][]; meta?: BlockM
 
 export type ReadFailure =
   | { code: "no_text_layer" }
+  /** The file is larger than this browser can hold to read (limits brief part B.4). It stays in the vault; nothing is refused. */
+  | { code: "too_large_to_read" }
   | { code: "too_many_rows"; rows: number }
   | { code: "too_many_columns"; sheet: string | null; columns: number }
   | { code: "too_many_blocks"; blocks: number }
@@ -65,6 +68,7 @@ export type ReadFailure =
 
 export type WorkerResponse =
   | { id: number; type: "progress"; progress: ReadProgress }
-  | { id: number; type: "hashed"; sha256: string }
+  /** `parts`: the SHA-256 of each part for a file over one part (chunked upload), else null. */
+  | { id: number; type: "hashed"; sha256: string; parts?: string[] | null }
   | { id: number; type: "blocks"; kind: ArtifactKind; blocks: ReadBlock[]; rawRows: number }
   | { id: number; type: "failed"; failure: ReadFailure };

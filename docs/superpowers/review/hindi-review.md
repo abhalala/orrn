@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3147,7 +3147,7 @@ Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (352)
+### admin (384)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3210,6 +3210,7 @@ Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
 | `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
 | `company.sections` | Company sections | कंपनी के हिस्से |
 | `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.limits` | Limits | सीमाएं |
 | `company.tabs.printing` | Printing | प्रिंटिंग |
 | `company.tabs.access` | Access | एक्सेस |
 | `company.tabs.audit` | Audit | ऑडिट |
@@ -3311,6 +3312,37 @@ Counts: 8311 screen strings in 50 groups, 45 guides with 866 strings.
 | `support.failed` | That didn't send. Try again. | यह नहीं गया। फिर कोशिश करें। |
 | `support.earlierReply` | Reply sent {time} | जवाब {time} को भेजा गया |
 | `support.readOnly` | Your role can read requests but not answer them. | आपकी भूमिका अनुरोध पढ़ सकती है, जवाब नहीं दे सकती। |
+| `limits.intro` | Limits for this plant. Each one follows the orrn default until you set it. | इस प्लांट की सीमाएं। जब तक आप कोई सीमा तय नहीं करते, वह orrn की डिफ़ॉल्ट पर चलती है। |
+| `limits.names.dayModelCalls` | Model calls a day | रोज़ मॉडल कॉल |
+| `limits.names.dayModelCostCents` | Model spend a day | रोज़ मॉडल खर्च |
+| `limits.names.blockModelCalls` | Model tries per table | हर टेबल पर मॉडल की कोशिशें |
+| `limits.names.visionPagesPerBatch` | Pages read at a time | एक बार में पढ़े जाने वाले पेज |
+| `limits.names.filesPerUpload` | Files per upload | एक अपलोड में फ़ाइलें |
+| `limits.names.rawRowsPerFile` | Rows per file | हर फ़ाइल में लाइनें |
+| `limits.names.openRowsPerPlant` | Rows waiting to merge | मर्ज के इंतज़ार में लाइनें |
+| `limits.names.uploadFileMiB` | Largest file per upload | एक अपलोड में सबसे बड़ी फ़ाइल |
+| `limits.names.vaultQuotaGiB` | Storage for this plant | इस प्लांट की फ़ाइल जगह |
+| `limits.hints.dayModelCalls` | Reads by the model in one plant day. The day starts at midnight India time. | एक प्लांट दिन में मॉडल कितनी बार पढ़े। दिन भारत के समय से आधी रात को शुरू होता है। |
+| `limits.hints.dayModelCostCents` | What the model may spend in one plant day, in US dollars. | एक प्लांट दिन में मॉडल कितना खर्च कर सकता है, अमेरिकी डॉलर में। |
+| `limits.hints.blockModelCalls` | Tries on one table or one page part before it waits for a person. | किसी व्यक्ति के देखने से पहले एक टेबल या पेज के एक हिस्से पर कितनी कोशिशें हों। |
+| `limits.hints.visionPagesPerBatch` | Pages of one PDF or photo read in one go. | एक PDF या फ़ोटो के कितने पेज एक बार में पढ़े जाएं। |
+| `limits.hints.filesPerUpload` | Files taken from one pick or drop. | एक बार चुनने या डालने में कितनी फ़ाइलें ली जाएं। |
+| `limits.hints.rawRowsPerFile` | A file with more rows than this is refused. | इससे ज़्यादा लाइनों वाली फ़ाइल नहीं ली जाती। |
+| `limits.hints.openRowsPerPlant` | Rows from imports not merged or discarded yet. New files wait above this. | इम्पोर्ट की वे लाइनें जो अभी मर्ज नहीं हुईं या हटाई नहीं गईं। इससे ऊपर नई फ़ाइलें रुकती हैं। |
+| `limits.hints.uploadFileMiB` | A larger file is refused when it is added. Set in MB. | इससे बड़ी फ़ाइल डालते समय नहीं ली जाती। MB में। |
+| `limits.hints.vaultQuotaGiB` | Original files kept for this plant, uploads still going included. A new file that goes past this is refused. Set in GB. | इस प्लांट की रखी गई असली फ़ाइलें, चल रहे अपलोड भी। इससे ऊपर जाने वाली नई फ़ाइल नहीं ली जाती। GB में। |
+| `limits.defaultValue` | Default {value} | डिफ़ॉल्ट {value} |
+| `limits.ceiling` | Up to {max} | ज़्यादा से ज़्यादा {max} |
+| `limits.usesDefault` | Uses the default | डिफ़ॉल्ट पर है |
+| `limits.setHere` | Set for this plant | इस प्लांट के लिए तय |
+| `limits.useDefault` | Use default | डिफ़ॉल्ट रखें |
+| `limits.invalid` | Enter a whole number from 1 to {max}. | 1 से {max} तक की पूरी संख्या डालें। |
+| `limits.invalidMoney` | Enter an amount from {min} to {max}. | {min} से {max} तक की रकम डालें। |
+| `limits.costBuys` | About {count} parts of busy pages a day, at about 7 US cents a part. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से, हर हिस्सा लगभग 7 अमेरिकी सेंट का। |
+| `limits.callsBuy` | About {count} parts of busy pages a day. The model calls a day stop first. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से। रोज़ मॉडल कॉल की सीमा पहले पूरी होती है। |
+| `limits.save` | Save limits | सीमाएं सेव करें |
+| `limits.saved` | Limits saved | सीमाएं सेव हो गईं |
+| `limits.unsaved` | Changes not saved | बदलाव सेव नहीं हुए |
 | `plan.plan` | Plan | प्लान |
 | `plan.plans.starter` | Starter | स्टार्टर |
 | `plan.plans.growth` | Growth | ग्रोथ |
@@ -7098,21 +7130,20 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (539)
+### ingest (679)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Imports | इम्पोर्ट |
 | `lead` | Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक orrn में कुछ नहीं बदलता। |
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
-| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में 20 फ़ाइलें तक। |
+| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में {max} फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
-| `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
-| `drop.tooManyRows` | {name} has more than 200,000 rows. Split it and try again. | {name} में 2,00,000 से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
-| `drop.openLimit` | More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में 3,00,000 से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
+| `drop.tooManyRows` | {name} has more than {limit} rows. Split it and try again. | {name} में {limit} से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `drop.openLimit` | More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में {limit} से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
 | `drop.wrongType` | {name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो नहीं है। इनमें से कोई चुनें। |
-| `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
+| `drop.left` | {count} {count:file was\|files were} left out. Add up to {max} files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में {max} फ़ाइलें तक जोड़ें। |
 | `drop.add` | Add files | फ़ाइलें जोड़ें |
 | `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
 | `drop.openIt` | Open it | इसे खोलें |
@@ -7122,7 +7153,11 @@ Please check, Lalubhai:
 | `drop.keptNoStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए चालू नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
+| `read.uploadingParts` | Saving the original file: {done} of {total} parts | असली फ़ाइल सेव कर रहे हैं: {total} में से {done} हिस्से |
+| `read.tooLargeToRead` | {name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} सेव हो गई। यह इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
+| `read.tooLargeNotSaved` | {name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
+| `read.failedPage` | orrn could not open this file on this device. Check that the file opens, then add it again. | orrn इस डिवाइस पर यह फ़ाइल नहीं खोल पाया। देखें कि फ़ाइल खुलती है, फिर इसे दोबारा डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
@@ -7155,6 +7190,18 @@ Please check, Lalubhai:
 | `skipNoDate.keep` | Keep them | इन्हें रहने दें |
 | `fillChange.title` | Change the answer to Yes? | जवाब बदलकर हां करें? |
 | `fillChange.body` | Lines you skipped with "Skip these lines" come back and are checked again. Lines you skipped one by one stay skipped. | "ये लाइनें छोड़ें" से छोड़ी गई लाइनें वापस आएंगी और फिर से जांची जाएंगी। एक-एक करके छोड़ी गई लाइनें छोड़ी ही रहेंगी। |
+| `upload.error.partsMissing` | Some parts of the file did not arrive. Add the same file again to send them. | फ़ाइल के कुछ हिस्से नहीं पहुंचे। उन्हें भेजने के लिए वही फ़ाइल फिर डालें। |
+| `upload.error.digest` | The saved file did not match the file you chose. Add it again. | सेव हुई फ़ाइल आपकी चुनी फ़ाइल से मेल नहीं खाई। इसे फिर डालें। |
+| `upload.error.ranOut` | The upload took too long and stopped. Add the same file again. | अपलोड में बहुत देर लगी और वह रुक गया। वही फ़ाइल फिर डालें। |
+| `upload.error.checkRunning` | This file is still being checked. Wait a minute, then try again. | इस फ़ाइल की जांच अभी चल रही है। एक मिनट रुकें, फिर कोशिश करें। |
+| `upload.error.checkFailed` | orrn could not check this file after it arrived. Remove it from the list and add it again. | फ़ाइल पहुंचने के बाद orrn उसकी जांच नहीं कर सका। इसे सूची से हटाएं और फिर डालें। |
+| `upload.error.someoneElse` | Someone else is sending this file now. Try again when they finish. | कोई और अभी यह फ़ाइल भेज रहा है। उनका काम पूरा होने पर फिर कोशिश करें। |
+| `upload.error.stopped` | The upload stopped before every part arrived. Press "Try again" to carry on from the parts already saved. | सारे हिस्से पहुंचने से पहले अपलोड रुक गया। जो हिस्से सेव हो चुके हैं उनके आगे से भेजने के लिए "फिर से कोशिश करें" दबाएं। |
+| `upload.refused.tooBigKind` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
+| `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. orrn support can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। orrn सपोर्ट इसे बढ़ा सकता है। |
+| `upload.refused.fileTooBigMax` | {name} is too big. The largest file orrn can take is {size}. | {name} बहुत बड़ी है। orrn में सबसे बड़ी फ़ाइल {size} की हो सकती है। |
+| `upload.refused.storageFull` | This plant's file storage is full ({size}). orrn support can raise it. | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। orrn सपोर्ट इसे बढ़ा सकता है। |
+| `upload.refused.storageFullMax` | This plant's file storage is full ({size}). | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
@@ -7493,7 +7540,132 @@ Please check, Lalubhai:
 | `reason.customer_missing` | Not merged. Customer {name} is not in orrn. Add the customer, then press Check again. | मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर "फिर से जांचें" दबाएं। |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
-| `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
+| `vision.check` | Checked against the page. | लाइनें पेज से मिला ली गईं। |
+| `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to {max} files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में {max} फ़ाइलें तक। |
+| `vision.keptNote` | Open a file to read its pages. | पेज पढ़ने के लिए फ़ाइल खोलें। |
+| `vision.opening` | Opening the pages | पेज खोले जा रहे हैं |
+| `vision.rendering` | Making page {page} of {total} | पेज {page} / {total} तैयार हो रहा है |
+| `vision.sending` | Sending page {page} of {total} | पेज {page} / {total} भेजा जा रहा है |
+| `vision.reading` | Reading page {page} of {total} | पेज {page} / {total} पढ़ा जा रहा है |
+| `vision.readingBand` | Reading part {band} of {bands} of page {page} of {total} | पेज {page} / {total} का हिस्सा {band} / {bands} पढ़ा जा रहा है |
+| `vision.cutting` | Cutting page {page} of {total} into parts | पेज {page} / {total} को हिस्सों में काटा जा रहा है |
+| `vision.finishing` | Checking every page is done | देख रहे हैं कि हर पेज पूरा हुआ या नहीं |
+| `vision.pageRead` | Page {page} of {total} read, {count} {count:table\|tables}. | पेज {page} / {total} पढ़ लिया, {count} {count:टेबल\|टेबल}। |
+| `vision.pageNotRead` | Page {page} of {total} not read. | पेज {page} / {total} नहीं पढ़ा गया। |
+| `vision.pageTyped` | Page {page} of {total} typed. | पेज {page} / {total} टाइप कर दिया। |
+| `vision.pageSkipped` | Page {page} of {total} skipped. | पेज {page} / {total} छोड़ दिया। |
+| `vision.someLeft` | {count} {count:page is\|pages are} not read. Open the file to read, type or skip {count:it\|them}. | {count} {count:पेज\|पेज} नहीं पढ़े गए। फ़ाइल खोलकर {count:उसे\|उन्हें} पढ़ें, टाइप करें या छोड़ें। |
+| `vision.cannotOpen` | orrn could not open the pages of this file in this browser. The file is kept. | orrn इस ब्राउज़र में इस फ़ाइल के पेज नहीं खोल पाया। फ़ाइल रख ली गई है। |
+| `vision.readFile` | Read this file | यह फ़ाइल पढ़ें |
+| `vision.readFileNote` | orrn reads each page with the model. You check every table against its page before anything is imported. | orrn हर पेज मॉडल से पढ़वाता है। कुछ भी इम्पोर्ट होने से पहले आप हर टेबल को उसके पेज से मिलाते हैं। |
+| `vision.carryOn` | Carry on reading | पढ़ना जारी रखें |
+| `vision.pagesTitle` | Pages | पेज |
+| `vision.pageName` | Page {page} | पेज {page} |
+| `vision.tables` | {count} {count:table\|tables} | {count} {count:टेबल\|टेबल} |
+| `vision.bands` | {read} of {total} parts read | {total} में से {read} हिस्से पढ़े गए |
+| `vision.state.waiting` | Not sent yet | अभी भेजा नहीं गया |
+| `vision.state.ready` | Waiting to be read | पढ़े जाने के इंतज़ार में |
+| `vision.state.read` | Read | पढ़ लिया |
+| `vision.state.not_read` | Not read | नहीं पढ़ा गया |
+| `vision.state.typed` | Typed | टाइप किया |
+| `vision.state.skipped` | Skipped | छोड़ा गया |
+| `vision.reason.no_table` | No table found on this page. | इस पेज पर कोई टेबल नहीं मिली। |
+| `vision.reason.refused` | The model would not read this page. | मॉडल ने यह पेज पढ़ने से मना कर दिया। |
+| `vision.reason.invalid` | The model's answer did not fit the page, twice. | मॉडल का जवाब दो बार पेज से मेल नहीं खाया। |
+| `vision.reason.too_long` | This page has too many rows to read at once. | इस पेज पर एक बार में पढ़ने के लिए बहुत ज़्यादा लाइनें हैं। |
+| `vision.reason.error` | The model could not be reached. | मॉडल से संपर्क नहीं हो पाया। |
+| `vision.reason.cap_page` | This page was tried as many times as allowed. | यह पेज जितनी बार हो सकता था, उतनी बार आज़माया जा चुका है। |
+| `vision.reason.cap_day_calls` | The model has read as many pages as allowed today. Try again tomorrow. | मॉडल आज जितने पेज पढ़ सकता था, पढ़ चुका है। कल फिर कोशिश करें। |
+| `vision.reason.cap_day_cost` | Today's spend on the model is used up. Try again tomorrow. | मॉडल पर आज का खर्च पूरा हो गया। कल फिर कोशिश करें। |
+| `vision.reason.page_too_large` | This page image is too large. | इस पेज की इमेज बहुत बड़ी है। |
+| `vision.reason.unsupported_page` | This page image cannot be read. | इस पेज की इमेज पढ़ी नहीं जा सकती। |
+| `vision.reason.too_many_tables` | This file already holds as many tables as one file may. | इस फ़ाइल में पहले ही उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। |
+| `vision.readAgain` | Read again | फिर से पढ़ें |
+| `vision.typePage` | Type this page | यह पेज टाइप करें |
+| `vision.skipPage` | Skip this page | यह पेज छोड़ें |
+| `vision.actionFor` | {action}, page {page} | {action}, पेज {page} |
+| `vision.finish` | Finish | पूरा करें |
+| `vision.finishNote` | Every page is read, typed or skipped. Finish to check the tables. | हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। टेबल जांचने के लिए पूरा करें। |
+| `vision.notDone` | Read, type or skip each page, then finish. | हर पेज पढ़ें, टाइप करें या छोड़ें, फिर पूरा करें। |
+| `vision.cap` | orrn reads pages 1 to {max} of {total} first. | {total} में से पहले पेज 1 से {max} तक पढ़े जाएंगे। |
+| `vision.readNext` | Read next pages | अगले पेज पढ़ें |
+| `vision.readNextNote` | Reads pages {from} to {to}. | पेज {from} से {to} तक पढ़े जाएंगे। |
+| `vision.readRanges` | Pages read: {ranges}. | पढ़े गए पेज: {ranges}। |
+| `vision.range` | {from} to {to} | {from} से {to} |
+| `vision.rangeOne` | {page} | {page} |
+| `vision.restLine` | Pages {from} to {to} of {total} are not read yet. | {total} में से पेज {from} से {to} तक अभी नहीं पढ़े गए। |
+| `vision.dayCostLine` | Today's spend on the model is used up. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल पर खर्च की सीमा पूरी हो गई। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
+| `vision.dayCallsLine` | The model has read as many pages as allowed today. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
+| `vision.fullLine` | This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported. | इस फ़ाइल में {max} टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल जांची और इम्पोर्ट की जा सकती हैं। |
+| `vision.skipRest` | Skip the rest and finish | बाकी छोड़ें और पूरा करें |
+| `vision.skipRestNote` | Pages not read yet are skipped. The tables read so far stay. | जो पेज अभी नहीं पढ़े गए वे छोड़ दिए जाएंगे। अब तक पढ़ी गई टेबल बनी रहेंगी। |
+| `vision.finishEarly` | Finish without pages {from} to {to} | पेज {from} से {to} के बिना पूरा करें |
+| `vision.finishEarlyNote` | Every page so far is read, typed or skipped. Read the next pages, or finish now and leave pages {from} to {to} not read. | अब तक का हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। अगले पेज पढ़ें, या अभी पूरा करें और पेज {from} से {to} बिना पढ़े छोड़ दें। |
+| `vision.type.title` | Type page {page} | पेज {page} टाइप करें |
+| `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। पहले कॉलम के नाम, फिर पेज की हर लाइन। |
+| `vision.type.tableTitle` | Table name (if the page has one) | टेबल का नाम (अगर पेज पर है) |
+| `vision.type.header` | Column {n} name | कॉलम {n} का नाम |
+| `vision.type.cell` | Row {row}, column {col} | लाइन {row}, कॉलम {col} |
+| `vision.type.addRow` | Add a row | लाइन जोड़ें |
+| `vision.type.addColumn` | Add a column | कॉलम जोड़ें |
+| `vision.type.removeRow` | Remove row {row} | लाइन {row} हटाएं |
+| `vision.type.save` | Save the table | टेबल सेव करें |
+| `vision.type.needHeader` | Give every column a name. | हर कॉलम को नाम दें। |
+| `vision.type.needRow` | Type at least one row. | कम से कम एक लाइन टाइप करें। |
+| `vision.pageHeading` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
+| `vision.partAlt` | Page {page} of {count} of {file}, part {part} of {parts} | {file} का पेज {page} / {count}, हिस्सा {part} / {parts} |
+| `vision.imageFailed` | The page image did not load. | पेज की इमेज लोड नहीं हुई। |
+| `vision.openFull` | Open the page full size | पेज पूरे साइज़ में खोलें |
+| `vision.zoomHint` | Pinch or scroll to move around the page. | पेज पर घूमने के लिए दो उंगलियों से ज़ूम करें या स्क्रोल करें। |
+| `vision.fitScreen` | Fit to the screen | स्क्रीन के बराबर करें |
+| `vision.fullSize` | Full size | पूरा साइज़ |
+| `vision.checkedBy` | Checked by {name} on {date} at {time}. | {name} ने {date} को {time} बजे जाँचा। |
+| `vision.checkedAt` | Checked on {date} at {time}. | {date} को {time} बजे जाँचा गया। |
+| `vision.checkOnlyLead` | Check each row against the page, then tick. The admin approves the table. | हर लाइन पेज से मिलाएं, फिर टिक करें। टेबल को एडमिन मंज़ूर करेगा। |
+| `vision.waiting.title` | Tables waiting for a check | जाँच के लिए रुकी टेबल |
+| `vision.waiting.lead` | Each table was read from a page. Open it, check every row against the page, then tick. | हर टेबल किसी पेज से पढ़ी गई है। उसे खोलें, हर लाइन पेज से मिलाएं, फिर टिक करें। |
+| `vision.waiting.empty` | No table is waiting for a check. | कोई टेबल जाँच के लिए नहीं रुकी है। |
+| `vision.waiting.line` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.waiting.open` | Check | जाँचें |
+| `vision.waiting.openLabel` | Check {file}, page {page} | {file}, पेज {page} जाँचें |
+| `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
+| `vision.lowFirst` | Marked rows come first. Any row can be wrong, so check every row against the page. | निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं। |
+| `vision.lowMark` | Look first | पहले देखें |
+| `vision.unseenMark` | These digits are not in the PDF's text. Check them against the page. | ये अंक PDF के टेक्स्ट में नहीं हैं। इन्हें पेज से मिलाएं। |
+| `vision.blank` | Blank | खाली |
+| `vision.rowHeader` | Row | लाइन |
+| `vision.fixColumn` | Column | कॉलम |
+| `vision.rowName` | Row {n} | लाइन {n} |
+| `vision.typed` | Typed by hand from page {page}. | पेज {page} से हाथ से टाइप किया गया। |
+| `vision.tick` | I checked these rows against the page | मैंने ये लाइनें पेज से मिलाकर देख लीं |
+| `vision.tickNote` | Look at each row on the page. Fix a cell that is wrong, then tick. | पेज पर हर लाइन देखें। जो सेल गलत हो उसे सुधारें, फिर टिक करें। |
+| `vision.tickFirst` | Tick that you checked the rows against the page, then approve. | टिक करें कि आपने लाइनें पेज से मिला लीं, फिर मंज़ूर करें। |
+| `vision.fixCell` | Fix this cell | यह सेल सुधारें |
+| `vision.fixCellName` | Fix row {row}, {column} | लाइन {row}, {column} सुधारें |
+| `vision.fixLabel` | Row {row}, {column} | लाइन {row}, {column} |
+| `vision.fixSave` | Save the cell | सेल सेव करें |
+| `vision.fixed` | Cell saved. Check the rows again, then tick. | सेल सेव हो गया। लाइनें फिर से देखें, फिर टिक करें। |
+| `vision.error.uploadFirst` | This page is not sent yet. Read the file again. | यह पेज अभी भेजा नहीं गया। फ़ाइल फिर से पढ़ें। |
+| `vision.error.notSettled` | Some pages are not read yet. Read, type or skip each page first. | कुछ पेज अभी पढ़े नहीं गए। पहले हर पेज पढ़ें, टाइप करें या छोड़ें। |
+| `vision.error.fromPage` | This table was read from a page. Fix a cell or discard it. | यह टेबल एक पेज से पढ़ी गई थी। कोई सेल सुधारें या इसे हटा दें। |
+| `vision.error.onlyFromPage` | Only a table read from a page is checked against it. | सिर्फ़ पेज से पढ़ी गई टेबल ही उस पेज से मिलाई जाती है। |
+| `vision.error.pastPages` | This page is past the pages read for this file. | यह पेज इस फ़ाइल के पढ़े जाने वाले पेजों से आगे है। |
+| `vision.error.pageRead` | This page is already read. | यह पेज पहले ही पढ़ा जा चुका है। |
+| `vision.error.notPageByPage` | This file is not being read page by page. | यह फ़ाइल पेज दर पेज नहीं पढ़ी जा रही है। |
+| `vision.error.onlyVisual` | Only PDFs and photos are read page by page. | सिर्फ़ PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। |
+| `vision.error.rowsWritten` | Rows of this sheet are already written. Its rows cannot change now. | इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसकी लाइनें नहीं बदल सकतीं। |
+| `vision.error.noStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए सेट नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
+| `vision.error.notRead` | orrn cannot read PDFs and photos on this plant yet. The file is kept. | orrn इस प्लांट पर अभी PDF और फ़ोटो नहीं पढ़ सकता। फ़ाइल रख ली गई है। |
+| `vision.error.notSaved` | The original file is not saved yet. Upload the same file again, then approve. | असली फ़ाइल अभी सेव नहीं हुई है। वही फ़ाइल फिर से अपलोड करें, फिर मंज़ूर करें। |
+| `vision.error.fileRead` | This file is already read. | यह फ़ाइल पहले ही पढ़ी जा चुकी है। |
+| `vision.error.checkFirst` | Check these rows against the page first. | पहले इन लाइनों को पेज से मिलाकर देखें। |
+| `vision.error.fileGone` | This file is no longer there. | यह फ़ाइल अब नहीं है। |
+| `vision.error.fileFull` | This file already holds the most tables one file can hold. Finish it to use the tables read so far. | इस फ़ाइल में पहले से उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। अब तक पढ़ी गई टेबल इस्तेमाल करने के लिए इसे पूरा करें। |
+| `vision.error.rebuildFailed` | The tables read from this page could not be written. Skip this page. | इस पेज से पढ़ी गई टेबल लिखी नहीं जा सकीं। यह पेज छोड़ दें। |
+| `vision.error.needsPrices` | Someone who can see prices must check this table. | इस टेबल को वही जाँचे जिसे रेट दिखते हैं। |
+| `vision.error.fileRowsFull` | This file has more rows than one file may hold in this plant. Split it and try again. | इस फ़ाइल में इस प्लांट की एक फ़ाइल की सीमा से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `vision.error.openRowsFull` | Too many rows from imports are waiting to merge in this plant. Merge or discard imports first. | इस प्लांट में इम्पोर्ट की बहुत ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। पहले इम्पोर्ट मर्ज करें या हटाएं। |
 | `rate.hidden` | Hidden | छिपा है |
 | `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
 | `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |
@@ -7905,7 +8077,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (316)
+### audit (326)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8113,6 +8285,15 @@ Please check, Lalubhai:
 | `actions.ingest__block__repick` | Header row opened again | कॉलम के नाम वाली लाइन फिर से खोली |
 | `actions.ingest__block__reput` | Table put again | टेबल फिर से डाली गई |
 | `actions.ingest__rows__skip_no_date` | Lines with no date skipped | बिना तारीख की लाइनें छोड़ी गईं |
+| `actions.ingest__vision__start` | PDF or photo read page by page | PDF या फ़ोटो पेज दर पेज पढ़ी |
+| `actions.ingest__vision__page` | Page read by the model | मॉडल ने पेज पढ़ा |
+| `actions.ingest__vision__bands` | Page cut into parts to read | पढ़ने के लिए पेज हिस्सों में काटा |
+| `actions.ingest__vision__skip` | Page skipped | पेज छोड़ा |
+| `actions.ingest__vision__type` | Page typed by hand | पेज हाथ से लिखा |
+| `actions.ingest__vision__check` | Table checked against its page | टेबल को उसके पेज से मिलाया |
+| `actions.ingest__vision__fix` | Cell of a page table fixed | पेज की टेबल का खाना ठीक किया |
+| `actions.ingest__vision__batch` | Next pages planned for reading | अगले पेज पढ़ने के लिए तय किए |
+| `actions.ingest__vision__rest` | File finished without the remaining pages | बाकी पेज छोड़कर फ़ाइल पूरी की |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
 | `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |
@@ -8150,6 +8331,7 @@ Please check, Lalubhai:
 | `actions.plan__create` | Press plan created | प्रेस प्लान बनाया |
 | `actions.plan__release` | Press plan released to the press | प्रेस प्लान प्रेस को भेजा |
 | `actions.plan__update` | Press plan changed | प्रेस प्लान बदला |
+| `actions.platform__company__limits__update` | Plant limits changed by orrn support | orrn सपोर्ट ने प्लांट की सीमाएं बदलीं |
 | `actions.platform__company__modules__update` | Plant modules changed by orrn support | orrn सपोर्ट ने प्लांट के मॉड्यूल बदले |
 | `actions.platform__waitlist__signInLink` | Owner sign-in link made | मालिक का साइन-इन लिंक बनाया |
 | `actions.portal__certificate__issue` | Test certificate issued to the party | पार्टी को टेस्ट सर्टिफ़िकेट दिया |

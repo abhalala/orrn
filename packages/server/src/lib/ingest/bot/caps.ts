@@ -1,7 +1,8 @@
 /**
  * Call caps (plan B6, "Caps") and the run store the caps read.
  *
- * 4 calls per block per hole version; 300 calls and 5 USD per plant per day, where the day
+ * By default 4 calls per block per hole version; 300 calls and 5 USD per plant per day (staff may set
+ * a plant's own values in Godseye, passed in as `caps`), where the day
  * starts at midnight Asia/Kolkata. Counts and cost come from `ingest_bot_run`. This module does
  * not touch the table itself: lane A implements `BotRunStore` over its schema and passes it in.
  */
@@ -70,6 +71,13 @@ export interface BotRunStore {
    * Listings report a `pending` row as `error`: it is a call that counts.
    */
   finishRun?(id: string, row: BotRunRecord): Promise<void>;
+  /**
+   * Writes a `pending` row only when no other live `pending` row of the same key and purpose exists (one
+   * statement, so two tabs cannot both claim). A `pending` row older than `staleMs` is a call whose
+   * Worker stopped: it no longer holds the key. Returns the new id, or null when another call holds the
+   * key. The vision read uses it so one page or band is never paid for twice at once.
+   */
+  claimRun?(row: BotRunRecord, staleMs: number): Promise<string | null>;
 }
 
 const DAY_MS = 86_400_000;
@@ -82,6 +90,14 @@ export function plantDayStartMs(nowMs: number): number {
 }
 
 export type CapReason = "block_calls" | "day_calls" | "day_cost";
+
+/**
+ * The three caps of one plant. The constants above are the defaults; a plant's own values come from
+ * `effectiveLimits` (`lib/plantLimits.ts`, set by staff in Godseye) and are passed in by the caller.
+ */
+export type CapValues = { blockCalls: number; dayCalls: number; dayCostMicro: number };
+
+export const DEFAULT_CAPS: CapValues = { blockCalls: BLOCK_CALL_CAP, dayCalls: DAY_CALL_CAP, dayCostMicro: DAY_COST_CAP_MICRO };
 
 /** Model calls in a history. `capped` rows are not calls. */
 export function countCalls(history: readonly BotRunHistoryRow[]): number {
@@ -97,11 +113,13 @@ export async function checkCaps(args: {
   companyId: string;
   history: readonly BotRunHistoryRow[];
   nowMs: number;
+  caps?: CapValues | undefined;
 }): Promise<CapReason | null> {
-  if (countCalls(args.history) >= BLOCK_CALL_CAP) return "block_calls";
+  const caps = args.caps ?? DEFAULT_CAPS;
+  if (countCalls(args.history) >= caps.blockCalls) return "block_calls";
   const day = await args.store.dayTotals({ companyId: args.companyId, sinceMs: plantDayStartMs(args.nowMs) });
-  if (day.calls >= DAY_CALL_CAP) return "day_calls";
-  if (day.costMicroUsd >= DAY_COST_CAP_MICRO) return "day_cost";
+  if (day.calls >= caps.dayCalls) return "day_calls";
+  if (day.costMicroUsd >= caps.dayCostMicro) return "day_cost";
   return null;
 }
 
@@ -117,12 +135,14 @@ export async function capsAfterClaim(args: {
   purpose: ShapePurpose;
   sinceMs?: number | undefined;
   nowMs: number;
+  caps?: CapValues | undefined;
 }): Promise<CapReason | null> {
+  const caps = args.caps ?? DEFAULT_CAPS;
   const history = await args.store.listBlockRuns({ companyId: args.companyId, blockId: args.blockId, purpose: args.purpose, sinceMs: args.sinceMs });
-  if (countCalls(history) > BLOCK_CALL_CAP) return "block_calls";
+  if (countCalls(history) > caps.blockCalls) return "block_calls";
   const day = await args.store.dayTotals({ companyId: args.companyId, sinceMs: plantDayStartMs(args.nowMs) });
-  if (day.calls > DAY_CALL_CAP) return "day_calls";
-  if (day.costMicroUsd > DAY_COST_CAP_MICRO) return "day_cost";
+  if (day.calls > caps.dayCalls) return "day_calls";
+  if (day.costMicroUsd > caps.dayCostMicro) return "day_cost";
   return null;
 }
 
@@ -162,5 +182,12 @@ export class MemoryBotRunStore implements BotRunStore {
   async finishRun(id: string, row: BotRunRecord) {
     const i = this.rows.findIndex((r) => r.id === id);
     if (i !== -1) this.rows[i] = { ...row, id };
+  }
+
+  async claimRun(row: BotRunRecord, staleMs: number) {
+    const held = this.rows.some(
+      (r) => r.companyId === row.companyId && r.blockId === row.blockId && r.purpose === row.purpose && r.outcome === "pending" && r.createdAtMs > row.createdAtMs - staleMs,
+    );
+    return held ? null : this.insertRun(row);
   }
 }

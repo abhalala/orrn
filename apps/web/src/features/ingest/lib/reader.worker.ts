@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { engine } from "./engine";
-import { readFileBlocks, ReadStop, READ_LIMITS, sha256OfBuffer, type PapaLike, type XlsxLike } from "./reader-core";
+import { readFileBlocks, ReadStop, READ_LIMITS, type PapaLike, type XlsxLike } from "./reader-core";
+import { hashFileParts } from "./sha256";
 import type { WorkerRequest, WorkerResponse } from "./reader-protocol";
 
 /**
@@ -26,7 +27,11 @@ scope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   try {
     if (msg.type === "hash") {
       post({ id: msg.id, type: "progress", progress: { phase: "hash", sheet: null, rowsRead: 0, rowsTotal: null } });
-      post({ id: msg.id, type: "hashed", sha256: await sha256OfBuffer(await msg.file.arrayBuffer()) });
+      // Slice by slice: the whole digest and each part's (a file over one part goes to the vault in parts).
+      const out = await hashFileParts(msg.file, {
+        onProgress: (bytes) => post({ id: msg.id, type: "progress", progress: { phase: "hash", sheet: null, rowsRead: bytes, rowsTotal: msg.file.size } }),
+      });
+      post({ id: msg.id, type: "hashed", sha256: out.sha256, parts: out.parts });
       return;
     }
     const blocks = await readFileBlocks(
@@ -34,7 +39,7 @@ scope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       msg.kind,
       {
         engine,
-        limits: READ_LIMITS,
+        limits: msg.maxRawRows !== undefined ? { ...READ_LIMITS, maxRawRows: msg.maxRawRows } : READ_LIMITS,
         loadXlsx,
         loadPapa,
         onProgress: (progress) => post({ id: msg.id, type: "progress", progress }),

@@ -14,7 +14,7 @@ export E2E_WORKERS="${E2E_WORKERS:-2}"
 
 # Keep membership in one place so the coverage warning cannot drift from the selected files.
 group_a="a11y-app catalog charts die-room-share die-room-w2 die-room dispatch-w1 dispatch-w2 dispatch front-door godseye gu-w4 guides imports ingest preview-redirects redirects ui-kit"
-group_b="approvals-inbox audit die-room-flows foundry foundry-masters layout-guards marketing masters orders-w2 orders pack-w1 pack platform portal press printing-settings reports sign-in-methods"
+group_b="approvals-inbox audit die-room-flows foundry foundry-masters ingest-vision layout-guards marketing masters orders-w2 orders pack-w1 pack platform portal press printing-settings reports sign-in-methods"
 group_c="ageing-masters ageing chain collectors invite-onboarding nav-order next-rows orders-plan-purpose plant-picker purchase scan session shell stock-w1 stock store today"
 
 group="${1:-}"

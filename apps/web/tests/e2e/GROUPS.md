@@ -1,6 +1,6 @@
 # e2e groups A / B / C
 
-The 53 grouped spec files (A 18, B 18, C 17) run in three groups, one after another on one port pair, never together. Each group starts or
+The 54 grouped spec files (A 18, B 19, C 17) run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
@@ -8,7 +8,7 @@ and ui-kit moved from C to A. Keep the long store, platform, press and chain flo
 | Group | Spec files | Saved wall time, runs 1 / 2 |
 |---|---|---|
 | A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, preview-redirects, redirects, ui-kit | 351 s / 285 s |
-| B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports, sign-in-methods | 276 s (failed) / 272 s (before sign-in-methods) |
+| B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, ingest-vision, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports, sign-in-methods | 276 s (failed) / 272 s (before sign-in-methods) |
 | C | ageing-masters, ageing, chain, collectors, invite-onboarding, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker and invite-onboarding) |
 
 These are **historical measurements, not verification of the current revision**. The interrupted W4-TESTSWEEP-2 run
@@ -30,6 +30,10 @@ place and warns about a spec in none of them. Specs create the data they change 
 dispatch owns its customer and section: packing on the newest shared die used to consume a chain order's planable kg
 (BACKLOG 73). The booking-picker test owns both its confirmed and booking orders rather than waiting for another
 spec's shared confirmed line to reappear.
+
+`ingest-vision` installs the scripted model client (`/dev/ingest-bot`), a global of the API worker that turns on the vision
+read for every PDF. Keep it out of group A, where `ingest.spec.ts` expects a PDF to stay kept and not read; it clears the
+client in afterAll.
 
 One remaining grouping constraint: `die-room-flows` leaves some copies on trial, while `die-room.spec.ts` counts live
 copies of the seed. Keep them in separate groups until the picker test reads its total from the server (BACKLOG 66).

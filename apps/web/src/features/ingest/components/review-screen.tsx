@@ -11,6 +11,7 @@ import {
   classifiedRows,
   decisionBar,
   helperOffer,
+  hiddenPriceColumns,
   nextNeedsYou,
   progressStep,
   questionList,
@@ -33,6 +34,8 @@ import {
   useReput,
   yearLine,
   ingestErrorWords,
+  blockVisionOf,
+  isFromPage,
   type BarActionId,
   type CandidateDetail,
 } from "../lib";
@@ -46,6 +49,10 @@ import { Muted, useSay, useScrolledOut } from "./review-bits";
 import { StagedRows, type RowsHandle } from "./rows-table";
 import { IngestBar, InlineNotice, ProgressBar, QueryPanel } from "./shared";
 import { FOCUS, questionSentenceKey, useReviewActions } from "./use-review-actions";
+import { VisionCheckPanel } from "./vision-check-panel";
+
+/** The tick of a table read from a page: the "Tick that you checked..." link in the bar goes there. */
+const VISION_TICK = "review:vision-tick";
 
 const EDITOR_ID = "review-mapping-editor";
 
@@ -133,7 +140,8 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const act = useReviewActions({ candidate, focus, announce, decidedText });
   const discard = useDiscardFlow(candidate, { onDone: () => void navigate({ to: "/ingest" }), count: plant.count });
 
-  const bar = decisionBar(candidate, { can: { merge: canMerge, upload: canUpload }, botReady, editorOpen });
+  const pricesHidden = hiddenPriceColumns(candidate.block.headers, candidate.target, canSeePrices).some(Boolean);
+  const bar = decisionBar(candidate, { can: { merge: canMerge, upload: canUpload }, botReady, editorOpen, pricesHidden });
   const offer = helperOffer(candidate, botReady);
   const year = yearLine(candidate, plant.day);
   const questions = questionList(withYearQuestion(candidate), candidate.target);
@@ -142,7 +150,8 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const read = readPanel(candidate, plant, canSeePrices, canChangeMapping);
   // Start a new table here: while no row of the import is written and the person may upload.
   const reput = useReput(candidate.artifactId);
-  const canReput = canUpload && candidate.counts.written === 0 && candidate.state !== "merged" && candidate.state !== "merging" && candidate.state !== "discarded";
+  // A table read from a page is never put again from a sheet: a cell is fixed instead (the server refuses it too).
+  const canReput = canUpload && !isFromPage(candidate.block) && candidate.counts.written === 0 && candidate.state !== "merged" && candidate.state !== "merging" && candidate.state !== "discarded";
   const reputProps = canReput
     ? {
         busy: reput.busy,
@@ -233,7 +242,8 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   // "Answer 1 question to approve." goes to the first open thing: the year, a question, or the rows.
   const goToFirstOpen = () => {
     const first = questions.find((q) => !q.answered);
-    if (first?.control.kind === "period") focus.focus(FOCUS.yearSelect);
+    if (bar.blocked?.to === "tick") focus.focus(VISION_TICK);
+    else if (first?.control.kind === "period") focus.focus(FOCUS.yearSelect);
     else if (bar.blocked?.to === "rows" && !first) focus.focus(FOCUS.rowsHeading);
     else focus.focus(FOCUS.firstQuestion);
   };
@@ -302,6 +312,16 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
       </div>
 
       <div className="flex flex-col gap-4">
+        {blockVisionOf(candidate.block) && candidate.state !== "discarded" ? (
+          <VisionCheckPanel
+            candidate={candidate}
+            bar={bar}
+            approveBusy={act.busy}
+            approveWorking={act.pending === "approve"}
+            onApprove={press}
+            tickRef={focus.ref(VISION_TICK)}
+          />
+        ) : null}
         <QuestionsPanel
           candidate={candidate}
           act={act}

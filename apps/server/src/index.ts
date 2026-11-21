@@ -9,10 +9,12 @@ import { cors } from "hono/cors";
 import { requestLogger } from "@orrn/server/lib/requestLog";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
+import { trpcCsrfRefusal } from "@orrn/server/lib/trpcCsrf";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
-import { handleIngestUpload } from "@orrn/server/lib/ingest/vault";
+import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/vault";
+import { handleIngestPart } from "@orrn/server/lib/ingest/upload-parts";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
@@ -53,7 +55,9 @@ app.use(
     origin: (origin) => resolveCorsOrigin(env, origin),
     // PUT: the signed die-file and import uploads (`/files/dies/upload`, `/files/ingest/upload`), straight from the browser.
     allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
+    // Range: "Read this file" reads a large PDF back in pieces (`/files/ingest/read`, 206).
+    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company", "Range"],
+    exposeHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
     credentials: true,
   }),
 );
@@ -159,6 +163,25 @@ app.put("/files/dies/upload", (c) => handleDieFileUpload(c.req.raw));
 // checked against the SHA-256 in the ticket by R2) and from `ingest.artifact.complete` (canonical rows).
 // No session: the signed ticket is the authority, bound to one object key and its size.
 app.put("/files/ingest/upload", (c) => handleIngestUpload(c.req.raw));
+// Vision read (contract section 8): the signed GET from `ingest.vision.readUrl`, valid 10 minutes, bound
+// to one object key the server built from the caller's company. Purpose `ingest-read` only; an upload
+// ticket is refused here and a read ticket is refused by the upload route. Raw files go out as an
+// octet-stream attachment, page images as inline JPEG, both sandboxed.
+app.get("/files/ingest/read", (c) => handleIngestRead(c.req.raw));
+// Chunked raw upload (limits brief part B): one part of a file over 16 MiB, signed by `ingest.artifact.uploadTickets`
+// (purpose `ingest-part` only, 10 minutes). The part's SHA-256 is checked as it streams into R2.
+app.put("/files/ingest/part", (c) => handleIngestPart(c.req.raw));
+
+// CSRF (fix round item 15): a tRPC POST must be JSON, and an Origin header, when sent, must be on the CORS allowlist.
+// Runs after CORS, so a refused browser request still carries the CORS headers and the page can read the status.
+app.use("/trpc/*", async (c, next) => {
+  const refused = trpcCsrfRefusal(env, c.req.raw);
+  if (refused) {
+    c.header("x-content-type-options", "nosniff");
+    return c.text(refused.message, refused.status);
+  }
+  await next();
+});
 
 app.use(
   "/trpc/*",

@@ -8,6 +8,7 @@ import { config } from "dotenv";
 
 import { deployMasterKey } from "./masterKey";
 import { nativePasskeyBindings } from "./nativePasskeys";
+import { SERVER_OBSERVABILITY } from "./observability";
 import { optionalR2Bucket } from "./optionalR2";
 import { WEB_EDGE_SCRIPT } from "./webEdge";
 
@@ -163,7 +164,23 @@ const ingestVault = await optionalR2Bucket("ingest-vault", {
   feature: "the import file vault",
   probe: r2Probe,
   forget: forgetR2State("ingest-vault"),
-  create: () => R2Bucket("ingest-vault", { adopt: true, delete: false }),
+  create: () =>
+    R2Bucket("ingest-vault", {
+      adopt: true,
+      delete: false,
+      // Security M1 / L6 (fix round 2026-11-20): a multipart upload left unfinished is aborted after 1 day, so its
+      // parts stop costing; R2's own default is 7 days. Only an abort rule: no object is ever deleted by age (raw files
+      // are kept forever). `upload-parts.ts` resumes a plan only within 20 hours (PLAN_RESUME_MS) and the daily cron
+      // clears what is left. This PUT replaces the bucket's lifecycle rules, including R2's default abort rule.
+      lifecycle: [
+        {
+          id: "abort-unfinished-uploads-1d",
+          conditions: { prefix: "" },
+          enabled: true,
+          abortMultipartUploadsTransition: { condition: { maxAge: 86_400, type: "Age" } },
+        },
+      ],
+    }),
 });
 
 /**
@@ -257,6 +274,8 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // Invocation records would keep every signed ticket in the query string (item 20); console lines stay.
+  observability: SERVER_OBSERVABILITY,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.

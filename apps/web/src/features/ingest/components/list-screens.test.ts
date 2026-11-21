@@ -122,6 +122,14 @@ const seedList = (list: CandidateSummary[], artifacts: ArtifactSummary[] = [arti
 };
 
 describe("upload area", () => {
+  test("the hint names the plant's own files per upload from ingest.status", () => {
+    const seed: Seed = (client) => {
+      seedList([])(client);
+      client.setQueryData(ingestKeys.status(), { botReady: true, vaultReady: true, limits: { filesPerUpload: 3 }, activeRunId: null, botToday: 0 });
+    };
+    expect(render(createElement(IngestUploadScreen), seed)).toContain("PDFs and photos are kept, not read yet. Up to 3 files.");
+  });
+
   test("with nothing imported yet it is one big drop zone: title, hint, Choose files, no note field", () => {
     const html = render(createElement(IngestUploadScreen), seedList([]));
     expect(html).toContain("Drop files here");
@@ -218,7 +226,7 @@ describe("files being added", () => {
   });
 
   test("a refused file gives the reason in words", () => {
-    const html = strip([item({ step: "refused", problem: { key: "ingest.drop.tooManyRows", vars: { name: "dies-b-RCQCZ.csv" } } as never })]);
+    const html = strip([item({ step: "refused", problem: { key: "ingest.drop.tooManyRows", vars: { name: "dies-b-RCQCZ.csv", limit: "200,000" } } as never })]);
     expect(html).toContain("has more than 200,000 rows");
   });
 });
@@ -549,7 +557,7 @@ describe("unfinished and kept files (design check minors 6, 7, 8)", () => {
   });
 
   test("a kept file reads 'added 11 Nov' in mid-line, and says it was kept before storage was turned off only when it is off", () => {
-    const files = [{ id: "k1", name: "scan.pdf", size: "470 KB", date: "11 Nov" }];
+    const files = [{ id: "k1", name: "scan.pdf", size: "470 KB", date: "11 Nov", reading: false }];
     const on = render(createElement(KeptFiles, { files }));
     expect(on).toContain("added 11 Nov");
     expect(on).not.toContain("Added 11 Nov");

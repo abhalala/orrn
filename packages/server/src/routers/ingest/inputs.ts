@@ -1,10 +1,12 @@
 /** Zod inputs of the `ingest` router (plan B5). Bounds are plan A9. */
 import { z } from "zod";
-import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS } from "@orrn/ingest";
+import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, VISION_PARAMS } from "@orrn/ingest";
 
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
 import { DOUBT_CODES, INGEST_LIMITS as L } from "../../lib/ingest/types";
+import { PART_TICKETS_PER_CALL, RAW_MAX_BYTES, RAW_MAX_PARTS, RAW_PLAN_MAX_PARTS } from "../../lib/ingest/upload-parts";
+import { VISION_FILE_MAX_PAGES } from "../../lib/plantLimits";
 
 const id = z.string().min(1).max(64);
 const seq = z.number().int().min(0);
@@ -15,13 +17,18 @@ export const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/, "Not a SHA-256 diges
 export const beginInput = z.object({
   sha256: sha256Hex,
   fileName: z.string().trim().min(1).max(255),
-  sizeBytes: z.number().int().min(1).max(L.maxFileBytes.sql),
+  // Loose on purpose: `begin` refuses with words (no vault: by kind; vault: the plant's `uploadFileMiB`).
+  sizeBytes: z.number().int().min(1).max(RAW_MAX_BYTES),
   contentType: z.string().max(200).nullable(),
   kind: z.enum(ARTIFACT_KINDS),
   note: z.string().max(L.noteChars).optional(),
 });
 
 export const artifactIdInput = z.object({ artifactId: id });
+
+/** The SHA-256 of every part, part 1 first (chunked upload). */
+export const uploadStartInput = z.object({ artifactId: id, parts: z.array(sha256Hex).min(2).max(RAW_PLAN_MAX_PARTS) });
+export const uploadTicketsInput = z.object({ artifactId: id, parts: z.array(z.number().int().min(1).max(RAW_MAX_PARTS)).min(1).max(PART_TICKETS_PER_CALL) });
 
 /** `readError` set: the browser could not read the file; the artifact and its candidates become failed. */
 export const completeInput = z.object({ artifactId: id, readError: z.string().trim().min(1).max(300).optional() });
@@ -237,3 +244,37 @@ export const holeListInput = z.object({ target: z.enum(INGEST_TARGETS).optional(
 export const holeIdInput = z.object({ holeId: id });
 
 export const provenanceInput = z.object({ type: z.string().min(1).max(64), id });
+
+// ---------------------------------------------------------------------------
+// Vision read (contract docs/superpowers/plans/2026-11-20-vision-read.md, section 7)
+// ---------------------------------------------------------------------------
+
+/** Bounded by the most pages a file may have; the file's own plan (`index.planned`) is checked in the handler. */
+const visionPage = z.number().int().min(1).max(VISION_FILE_MAX_PAGES);
+const visionCell = z.string().max(L.cellChars);
+
+export const visionStartInput = z.object({ artifactId: id, pageCount: z.number().int().min(1).max(VISION_FILE_MAX_PAGES) });
+export const visionPageInput = z.object({ artifactId: id, page: visionPage });
+const visionBand = z.number().int().min(1).max(VISION_PARAMS.maxBandsPerPage);
+/** `band`: read that band of a page cut into bands (contract section 11.3); left out, the next band. */
+export const visionReadPageInput = z.object({ artifactId: id, page: visionPage, band: visionBand.optional() });
+export const visionBandTicketsInput = z.object({ artifactId: id, page: visionPage, bands: z.number().int().min(2).max(VISION_PARAMS.maxBandsPerPage) });
+export const visionTypePageInput = z.object({
+  artifactId: id,
+  page: visionPage,
+  title: z.string().max(500).nullable(),
+  headers: z.array(visionCell).min(1).max(50),
+  rows: z.array(z.array(visionCell).max(50)).min(1).max(500),
+});
+export const visionReadUrlInput = z.discriminatedUnion("what", [
+  z.object({ artifactId: id, what: z.literal("raw") }),
+  z.object({ artifactId: id, what: z.literal("page"), page: visionPage, band: visionBand.optional() }),
+]);
+export const visionCheckInput = z.object({ candidateId: id, expectSeq: seq, checked: z.boolean() });
+export const visionFixCellInput = z.object({
+  candidateId: id,
+  expectSeq: seq,
+  rowIndex: z.number().int().min(0).max(L.stagedRowsPerBlock - 1),
+  col: z.number().int().min(0).max(L.columnsPerBlock - 1),
+  text: z.string().max(L.cellChars),
+});

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { user } from "@orrn/db/schema/auth";
@@ -13,8 +13,11 @@ import {
 } from "@orrn/db/schema/tenant";
 import { normalizeModules } from "@orrn/domain";
 import { atomicBatch } from "../../lib/atomic";
+import { guardedBatch, ingestAbortUnlessChanged } from "../../lib/ingest/core";
 import { auditInsert } from "../../lib/audit";
+import { limitsPatchSql } from "../../lib/companySettings";
 import { COMPANY_MODULES } from "../../lib/modules";
+import { isPlantLimitKey, limitMin, limitProblems, PLANT_LIMIT_KEYS, PLANT_LIMITS, setLimits, type PlantLimitKey } from "../../lib/plantLimits";
 import { platformGuard } from "../../index";
 import { auditListInput, listAudit } from "../audit";
 
@@ -44,6 +47,22 @@ const printingStatus = sql<"pending" | "active" | "offline" | null>`(
  * rejected before that, which are still `pending` with no members. Not a
  * company: never listed, counted or opened.
  */
+export const LIMITS_MOVED = "Someone else changed these limits just now. Reload and save again.";
+
+/**
+ * True in SQL while each named limit is stored as `from` says, read the way `setLimits` reads it (a whole number of
+ * at least 1, else not set). Keys must be `PLANT_LIMIT_KEYS` (plain names).
+ */
+export function limitsUnchangedSql(from: Record<string, number | null>): SQL {
+  const parts = Object.entries(from).map(([key, was]) => {
+    if (!(PLANT_LIMIT_KEYS as readonly string[]).includes(key)) throw new Error(`limit key ${key} is not known`);
+    const v = sql.raw(`json_extract(coalesce(settings, '{}'), '$.limits.${key}')`);
+    const usable = sql`(CASE WHEN json_type(coalesce(settings, '{}'), ${`$.limits.${key}`}) = 'integer' AND ${v} >= 1 THEN ${v} END)`;
+    return was === null ? sql`${usable} IS NULL` : sql`${usable} = ${was}`;
+  });
+  return parts.length === 0 ? sql`1 = 1` : sql.join(parts, sql` AND `);
+}
+
 export const notRejectedRequest = sql`not (${company.status} = 'pending' and exists (
   select 1 from ${waitlistRequest}
   where ${waitlistRequest.companyId} = ${outerCompanyId} and ${waitlistRequest.status} = 'rejected'
@@ -123,6 +142,7 @@ export const companiesProcedures = {
           status: company.status,
           plan: company.plan,
           modules: company.modules,
+          settings: company.settings,
           createdAt: company.createdAt,
           updatedAt: company.updatedAt,
           memberCount,
@@ -134,6 +154,8 @@ export const companiesProcedures = {
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
       }
+      // Only the limits leave; the rest of the plant's settings are not this page's business.
+      const { settings, ...rest } = row;
 
       const grants = await ctx.db
         .select({
@@ -151,7 +173,7 @@ export const companiesProcedures = {
         .orderBy(desc(impersonationGrant.createdAt))
         .limit(20);
 
-      return { company: row, recentGrants: grants };
+      return { company: { ...rest, limits: setLimits(settings) }, recentGrants: grants };
     }),
 
   companiesSuspend: platformGuard("platform.company.manage")
@@ -258,6 +280,84 @@ export const companiesProcedures = {
       ]);
 
       return { success: true, modules };
+    }),
+
+  /**
+   * The plant's limits (limits brief, section A; Limits section of /admin/companies/$id). `limits` names
+   * only the keys to change: a whole number from the key's min (1, or 18 for dayModelCostCents) to its hard ceiling sets it, `null` removes it
+   * ("Use default"). Unknown keys, values below the min, fractions and values above the ceiling are refused and
+   * nothing is written. Written per key in SQL against the row as it is (`limitsPatchSql`), with one audit
+   * row of the old and new values; a call that changes nothing writes nothing.
+   */
+  companiesSetLimits: platformGuard("platform.company.manage")
+    .input(
+      z.object({
+        companyId: z.string().min(1).max(64),
+        limits: z
+          .record(z.string().max(40), z.number().nullable())
+          .refine((r) => Object.keys(r).length <= PLANT_LIMIT_KEYS.length * 2, "Too many limits"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const problems = limitProblems(input.limits);
+      if (problems.length > 0) {
+        const words = problems.map((p) =>
+          p.problem === "unknown"
+            ? `Unknown limit: ${p.key}`
+            : p.problem === "above_ceiling"
+              ? `${p.key} can be at most ${PLANT_LIMITS[p.key as PlantLimitKey].ceiling}`
+              : `${p.key} must be a whole number of at least ${isPlantLimitKey(p.key) ? limitMin(p.key) : 1}`,
+        );
+        throw new TRPCError({ code: "BAD_REQUEST", message: words.join(". ") });
+      }
+      const target = await ctx.db
+        .select({ id: company.id, settings: company.settings })
+        .from(company)
+        .where(eq(company.id, input.companyId))
+        .get();
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+
+      const before = setLimits(target.settings);
+      const change: Record<string, number | null> = {};
+      const from: Record<string, number | null> = {};
+      const to: Record<string, number | null> = {};
+      for (const key of PLANT_LIMIT_KEYS) {
+        if (!(key in input.limits)) continue;
+        const next = input.limits[key] ?? null;
+        const was = before[key] ?? null;
+        if (next === was) continue;
+        change[key] = next;
+        from[key] = was;
+        to[key] = next;
+      }
+      if (Object.keys(change).length === 0) return { limits: before };
+
+      // The audit's `from` is what the row held when this call read it; the write lands only while the row still holds
+      // those values, so two staff saving the same key at once cannot both record the same old value (server N2).
+      await guardedBatch(
+        ctx.db,
+        [
+          ctx.db
+            .update(company)
+            .set({ settings: limitsPatchSql(change) })
+            .where(and(eq(company.id, input.companyId), limitsUnchangedSql(from))),
+          ingestAbortUnlessChanged(ctx.db),
+          auditInsert(
+            { ...ctx, companyId: input.companyId },
+            {
+              action: "platform.company.limits.update",
+              subjectType: "company",
+              subjectId: input.companyId,
+              meta: { from, to },
+            },
+          ),
+        ],
+        { code: "CONFLICT", message: LIMITS_MOVED },
+      );
+      const after = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, input.companyId)).get();
+      return { limits: setLimits(after?.settings ?? {}) };
     }),
 
   /**

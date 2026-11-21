@@ -22,9 +22,18 @@ describe("files that are not candidates", () => {
       PLAIN_FORMAT,
     );
     expect(list).toEqual([
-      { id: "3", name: "page.jpg", size: "3 MB", date: "2026-11-05" },
-      { id: "1", name: "old.pdf", size: "100 B", date: "2026-10-01" },
+      { id: "3", name: "page.jpg", size: "3 MB", date: "2026-11-05", reading: false },
+      { id: "1", name: "old.pdf", size: "100 B", date: "2026-10-01", reading: false },
     ]);
+  });
+
+  test("a PDF or photo being read page by page is listed with the kept files, never as a file to add again", () => {
+    const files = [
+      art({ id: "1", readState: "reading", kind: "pdf_scan", fileName: "scan.pdf" }),
+      art({ id: "2", readState: "reading", kind: "sheet", fileName: "book.xlsx" }),
+    ];
+    expect(keptFiles(files, PLAIN_FORMAT).map((f) => [f.id, f.reading])).toEqual([["1", true]]);
+    expect(unfinishedFiles(files, new Set()).map((f) => f.id)).toEqual(["2"]);
   });
 
   test("a file still being read that this page is not sending was left half way", () => {

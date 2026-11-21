@@ -194,7 +194,7 @@ export function UnfinishedFiles({ files }: { files: readonly { id: string; name:
  * "Kept, not read yet": the PDFs and photos orrn stored and does not read in this release. Each shows its name, size and
  * date. One line says when reading them comes.
  */
-export function KeptFiles({ files, storageOff = false }: { files: readonly KeptFile[]; storageOff?: boolean }) {
+export function KeptFiles({ files, storageOff = false, visionReady = false }: { files: readonly KeptFile[]; storageOff?: boolean; visionReady?: boolean }) {
   const { t } = useT();
   const { say } = useSay();
   const headingId = useId();
@@ -205,14 +205,21 @@ export function KeptFiles({ files, storageOff = false }: { files: readonly KeptF
         <h2 id={headingId} className="m-0 text-[14px] font-semibold">
           {t("ingest.kept.title")}
         </h2>
-        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.kept.note")}</p>
+        {/* Where PDFs and photos are read page by page, each file opens to its pages; else the line says when reading comes. */}
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{visionReady ? t("ingest.vision.keptNote") : t("ingest.kept.note")}</p>
         {/* Storage can be turned off after files were kept: say so, or this card contradicts the "not kept" line at the top. */}
         {storageOff ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.kept.beforeOff")}</p> : null}
       </div>
       <ul className="m-0 list-none divide-y divide-border p-0">
         {files.map((file) => (
           <li key={file.id} className="flex min-w-0 flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <FileName name={file.name} className="font-semibold" />
+            {visionReady || file.reading ? (
+              <UiLink to={`/ingest/files/${file.id}`} className="min-w-0 font-semibold break-words underline-offset-4 hover:underline">
+                <FileName name={file.name} />
+              </UiLink>
+            ) : (
+              <FileName name={file.name} className="font-semibold" />
+            )}
             <p className="m-0 shrink-0 text-[13px] leading-5 text-muted-foreground">
               <span className="font-mono tabular-nums">{file.size}</span>
               {", "}

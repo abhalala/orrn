@@ -58,6 +58,15 @@ export type PdfItem = { page: number; text: string; x: number; y: number; width:
 
 export type EngineTable = { title: string | null; sheetName?: string | null; headers: string[]; rows: string[][] };
 
+export interface CsvRowReader {
+  /** Feed the next chunk of CSV text, in order. */
+  push(chunk: string): void;
+  /** Rows finished so far (a newline outside quotes ends a row). */
+  rowCount(): number;
+  /** The text has ended: every row, the last one closed. */
+  end(): string[][];
+}
+
 export interface SqlTableReader {
   /** Feed the next chunk of dump text, in order. */
   push(chunk: string): void;
@@ -70,6 +79,12 @@ export interface ReaderEngine {
   blocksFromMatrix(matrix: string[][], opts?: MatrixRead): EngineBlock[];
   /** A CSV file as text: its tables, with the delimiter chosen by the package. Optional so a small fake engine stays small. */
   blocksFromCsv?(text: string, opts?: MatrixRead): { blocks: EngineBlock[]; rawRows: number };
+  /**
+   * A CSV read piece by piece (decision 13): rows are parsed as the text arrives, so the whole text is never held. The
+   * package picks the delimiter from the first 4,096 characters. Optional so a small fake engine stays small; without it
+   * the text is gathered and read whole.
+   */
+  createCsvReader?(): CsvRowReader;
   createSqlReader(): SqlTableReader;
   /** Positioned text items of a PDF: its tables. */
   tablesFromPdfItems(items: PdfItem[]): EngineTable[];

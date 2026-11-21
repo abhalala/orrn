@@ -73,7 +73,7 @@ const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.re
 const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.close", "reports.read"];
 
 export const TENANT_MORE: readonly NavItem[] = [
-  { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge"] },
+  { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
   { key: "orders", to: "/orders", labelKey: "nav.orders", icon: ListChecks, requires: ["order.manage", "order.plan"] },
   { key: "press", to: "/press", labelKey: "nav.press", icon: Factory, requires: PRESS_PEOPLE, module: "press" },

@@ -12,6 +12,7 @@ import { useState, type ReactNode, type Ref } from "react";
 import {
   HOLD_REASONS,
   holdReason,
+  isFromPage,
   type useDiscardFlow,
   type BarActionId,
   type BarButton,
@@ -212,7 +213,7 @@ export function DecisionBarCard({
             candidate.reasonCode ? (
               <ReasonText code={candidate.reasonCode} detail={candidate.reasonDetail} />
             ) : (
-              <Muted>{t("ingest.read.failed")}</Muted>
+              <Muted>{t(isFromPage(candidate.block) ? "ingest.read.failedPage" : "ingest.read.failed")}</Muted>
             )
           ) : null}
           {candidate.block.readBy === "model" && candidate.block.modelChecked ? <Muted>{t("ingest.vision.check")}</Muted> : null}

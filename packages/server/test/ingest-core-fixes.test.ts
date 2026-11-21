@@ -1276,10 +1276,12 @@ describe("test gaps", () => {
     expect((await a.admin.ingest.hole.list({}))[0]!.state).toBe("active");
   });
 
-  test("A26: a manager gets FORBIDDEN from every ingest procedure", async () => {
+  // Item 16 gave the manager ingest.check (the review reads, the tick, the waiting list; swept in
+  // ingest-vision-check-role.test.ts), so a role with no ingest action stands in here.
+  test("A26: a role with no ingest action (supervisor) gets FORBIDDEN from every ingest procedure", async () => {
     const { ingestRouter } = await import("../src/routers/ingest");
     const p = await plant();
-    const caller = p.as("manager") as unknown as { ingest: Record<string, unknown> };
+    const caller = p.as("supervisor") as unknown as { ingest: Record<string, unknown> };
     const paths = Object.keys((ingestRouter as unknown as { _def: { procedures: Record<string, unknown> } })._def.procedures);
     expect(paths.length).toBeGreaterThan(25);
     for (const path of paths) {

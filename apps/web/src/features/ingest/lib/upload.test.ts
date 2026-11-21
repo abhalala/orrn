@@ -181,16 +181,16 @@ describe("uploadOneFile", () => {
     expect(t.item.sent).toEqual({ rows: 1201, total: 1201 });
   });
 
-  test("a file over its limit is refused before it is read or hashed", async () => {
+  test("a file over the old limit is not refused: it is hashed and begun like any other (limits brief part B)", async () => {
     const { api, calls } = fakeApi();
     let hashed = false;
     const big = sized("dump.xlsx", 20 * 1024 * 1024 + 1);
     const t = track();
-    const out = await uploadOneFile(big, { api, reader: reader([], { hash: async () => ((hashed = true), "x") }) }, { onItem: t.onItem });
-    expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.tooBig", vars: { name: "dump.xlsx", limit: 20 } });
-    expect(hashed).toBe(false);
-    expect(calls).toEqual([]);
+    const out = await uploadOneFile(big, { api, reader: reader([block(0, 2)], { hash: async () => ((hashed = true), "a".repeat(64)) }), fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("done");
+    expect(t.item.problem).toBeNull();
+    expect(hashed).toBe(true);
+    expect(calls[0]).toMatchObject({ name: "begin", input: { sizeBytes: 20 * 1024 * 1024 + 1, kind: "sheet" } });
   });
 
   test("an unknown file type is refused as unreadable", async () => {
@@ -206,8 +206,25 @@ describe("uploadOneFile", () => {
     const r = reader([], { read: async () => { throw new ReadError({ code: "too_many_rows", rows: 250_000 }); } });
     const out = await uploadOneFile(file("big.csv"), { api, reader: r, fetch: fakeFetch().fn }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv" } });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv", limit: "200,000" } });
     expect(calls.map((c) => c.name)).not.toContain("putBlocks");
+  });
+
+  test("the plant's rows per file goes to the reader and into the refusal", async () => {
+    const { api } = fakeApi();
+    const t = track();
+    const asked: (number | undefined)[] = [];
+    const r = reader([], {
+      read: async (_f, opts) => {
+        asked.push(opts.maxRawRows);
+        throw new ReadError({ code: "too_many_rows", rows: 600 });
+      },
+    });
+    const limits = { ...DEFAULT_LIMITS, rawRowsPerFile: 500 };
+    const out = await uploadOneFile(file("big.csv"), { api, reader: r, limits, fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("refused");
+    expect(asked).toEqual([500]);
+    expect(t.item.problem).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "big.csv", limit: "500" } });
   });
 
   test("the open-rows limit from begin is its own message", async () => {
@@ -217,7 +234,7 @@ describe("uploadOneFile", () => {
     const t = track();
     const out = await uploadOneFile(file(), { api, reader: reader([]) }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.openLimit" });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
   });
 
   test("other failures throw so the screen shows Could not read with Retry", async () => {
@@ -242,11 +259,12 @@ describe("uploadOneFile", () => {
     expect(calls[0]!.input).toMatchObject({ note: "October book" });
   });
 
-  test("limits come from the server when given", async () => {
+  test("limits come from the server when given (rows per file), and no size limit refuses the file", async () => {
     const t = track();
-    const limits = { ...DEFAULT_LIMITS, maxFileBytes: { ...DEFAULT_LIMITS.maxFileBytes, sheet: 10 } };
-    const out = await uploadOneFile(file("a.xlsx", 40), { api: fakeApi().api, reader: reader([]), limits }, { onItem: t.onItem });
+    const limits = { ...DEFAULT_LIMITS, rawRowsPerFile: 1 };
+    const out = await uploadOneFile(file("a.xlsx", 40), { api: fakeApi().api, reader: reader([block(0, 2)]), limits, fetch: fakeFetch().fn }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
+    expect(t.item.problem?.key).toBe("ingest.drop.tooManyRows");
   });
 });
 
@@ -256,9 +274,11 @@ describe("helpers", () => {
     expect(ticketUrl({ url: "https://a.test/files/ingest/upload", ticket: "a b" })).toBe("https://a.test/files/ingest/upload?ticket=a+b");
   });
   test("begin errors that are plain refusals", () => {
-    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50)).toEqual({ key: "ingest.drop.openLimit" });
-    expect(problemFromError(new Error("File is too big"), "a.csv", 50)).toEqual({ key: "ingest.drop.tooBig", vars: { name: "a.csv", limit: 50 } });
-    expect(problemFromError(new Error("boom"), "a.csv", 50)).toBeNull();
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv")).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "300,000" } });
+    expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 40_000)).toEqual({ key: "ingest.drop.openLimit", vars: { limit: "40,000" } });
+    // The server no longer refuses a file for its size; an old "too big" sentence is not a plain refusal any more.
+    expect(problemFromError(new Error("File is too big"), "a.csv")).toBeNull();
+    expect(problemFromError(new Error("boom"), "a.csv")).toBeNull();
   });
 });
 
@@ -339,6 +359,26 @@ describe("review: upload fixes", () => {
     expect(out.step).toBe("kept");
     expect(calls.map((c) => c.name)).toEqual(["begin", "commitRaw", "complete"]);
     expect((calls[0]!.input as { kind: string }).kind).toBe("pdf_text");
+  });
+
+  // Import portal release 2: where the plant can read pages, the PDF goes to the vision read after the raw bytes.
+  test("with the vision read on, a PDF is read page by page after its raw upload, and kept only when the read says so", async () => {
+    for (const [outcome, step, last] of [["done", "done", "commitRaw"], ["left", "pagesLeft", "commitRaw"], ["kept", "kept", "complete"]] as const) {
+      const { api, calls } = fakeApi();
+      const t = track();
+      const asked: string[] = [];
+      const out = await uploadOneFile(file("Packing list.pdf"), { api, reader: reader([]), fetch: fakeFetch().fn }, {
+        onItem: t.onItem,
+        vision: async (input) => {
+          asked.push(`${input.artifactId}:${input.kind}`);
+          return outcome;
+        },
+      });
+      expect({ outcome, step: out.step }).toEqual({ outcome, step });
+      expect(asked).toHaveLength(1);
+      // The file is finished by the vision read (complete once every page is settled), not here, unless it stays kept.
+      expect({ outcome, last: calls.at(-1)?.name }).toEqual({ outcome, last });
+    }
   });
 
   test("with no storage the server refuses and the screen says so in its own words", async () => {

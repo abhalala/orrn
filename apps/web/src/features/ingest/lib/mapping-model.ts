@@ -76,6 +76,11 @@ export function isRateColumn(header: string, field: string | null, target: Inges
   return def?.kind === "price_per_mass";
 }
 
+/** Per column of a table: true when it is a rate the person may not see (shown as "Hidden"). */
+export function hiddenPriceColumns(headers: readonly string[], target: IngestTarget | null, canSeePrices: boolean): boolean[] {
+  return headers.map((h) => !canSeePrices && isRateColumn(h, null, target));
+}
+
 /** Sample values of one column: the first three non-blank, cut, and masked when it is a rate the person may not see. */
 export function sampleValues(
   block: Pick<CandidateDetail["block"], "sample" | "kinds">,
