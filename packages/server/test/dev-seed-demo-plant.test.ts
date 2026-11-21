@@ -44,7 +44,8 @@ const owner = () => env.caller({ role: "owner", companyId: company });
 
 /** Rows per company-scoped table: the demo plant in numbers. */
 const TABLE_COUNTS: Record<string, number> = {
-  membership: 13,
+  // 13 roles plus the second owner `buddy-owner` (only buddy.spec connects Hermes, review S12).
+  membership: 14,
   customer: 6,
   die: 12,
   die_band: 6,
@@ -115,7 +116,7 @@ describe("the demo plant in numbers", () => {
   test("the seed's own report agrees", () => {
     expect(first.ok).toBe(true);
     expect(first.counts).toMatchObject({
-      members: 13,
+      members: 14,
       customers: 6,
       dies: 12,
       dieCopies: 34,
@@ -138,7 +139,9 @@ describe("accounts and roles", () => {
       .prepare("select u.email, m.role from membership m join user u on u.id = m.user_id where m.company_id = ? order by m.role")
       .bind(company)
       .all<{ email: string; role: string }>();
-    expect(Object.fromEntries(rows.results.map((r) => [r.role, r.email]))).toEqual({
+    // The demo plant has a second owner, `buddy-owner`, kept for buddy.spec (review S12).
+    expect(rows.results.filter((r) => r.role === "owner").map((r) => r.email).sort()).toEqual(["buddy-owner@orrn.local", "owner@orrn.local"]);
+    expect(Object.fromEntries(rows.results.filter((r) => r.email !== "buddy-owner@orrn.local").map((r) => [r.role, r.email]))).toEqual({
       accountant: "accountant@orrn.local",
       admin: "admin@orrn.local",
       die_room: "dieroom@orrn.local",
