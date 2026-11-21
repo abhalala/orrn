@@ -18,7 +18,7 @@ import { Note } from "./ui";
 export type BuddyStatus = {
   available: boolean;
   listed: boolean;
-  connected: { grantId: string; createdAt: string; lastUsedAt: string | null; expiresAt: string | null } | null;
+  connected: { grantId: string; createdAt: string; lastUsedAt: string | null; expiresAt: string | null; renewedAt?: string | null } | null;
 };
 
 /** One row of `buddy.calls.list`. */
@@ -48,12 +48,20 @@ export type BuddyTabBodyProps = {
   onTokenDone(): void;
   revoke(grantId: string): void;
   revoking: boolean;
+  /** `buddy.grant.renew`: 30 more days from now (fix round decision 5). */
+  renew(grantId: string): void;
+  renewing: boolean;
+  renewError: string | null;
+  /** Connect or Renew was refused for want of a fresh sign-in: say "sign in again" and offer it. */
+  freshSignIn: boolean;
+  signInAgain(): void;
   copy(text: string): Promise<boolean>;
 };
 
-const OUTCOME_TONE: Record<string, "green" | "amber" | "red" | "neutral"> = {
+const OUTCOME_TONE: Record<string, "green" | "amber" | "red" | "neutral" | "blue"> = {
   ok: "green",
   truncated: "green",
+  pending: "blue",
   needs_confirm: "amber",
   forbidden: "red",
   not_found: "neutral",
@@ -61,7 +69,7 @@ const OUTCOME_TONE: Record<string, "green" | "amber" | "red" | "neutral"> = {
   rate_limited: "amber",
   error: "red",
 };
-const OUTCOMES = ["ok", "needs_confirm", "forbidden", "not_found", "invalid", "rate_limited", "error", "truncated"] as const;
+const OUTCOMES = ["ok", "needs_confirm", "forbidden", "not_found", "invalid", "rate_limited", "error", "truncated", "pending"] as const;
 type KnownOutcome = (typeof OUTCOMES)[number];
 const isKnownOutcome = (o: string): o is KnownOutcome => (OUTCOMES as readonly string[]).includes(o);
 
@@ -133,10 +141,19 @@ export function BuddyTabBody(props: BuddyTabBodyProps) {
               <li data-testid="buddy-last-used">
                 {connected.lastUsedAt ? t("buddy.settings.lastUsed", { time: when(connected.lastUsedAt) }) : t("buddy.settings.neverUsed")}
               </li>
-              {connected.expiresAt ? <li>{t("buddy.settings.endsOn", { time: when(connected.expiresAt) })}</li> : null}
+              {connected.renewedAt ? <li data-testid="buddy-renewed-on">{t("buddy.settings.renewedOn", { time: when(connected.renewedAt) })}</li> : null}
+              {connected.expiresAt ? <li data-testid="buddy-ends-on">{t("buddy.settings.endsOn", { time: when(connected.expiresAt) })}</li> : null}
             </ul>
+            {props.renewError ? (
+              <p role="alert" className="m-0 text-[14px] text-destructive">
+                {props.renewError}
+              </p>
+            ) : null}
             <Can do="buddy.use">
-              <div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => props.renew(connected.grantId)} loading={props.renewing} data-testid="buddy-renew">
+                  {t("buddy.settings.renew")}
+                </Button>
                 <Button variant="secondary" onClick={() => setConfirmRevoke(true)} data-testid="buddy-revoke">
                   {t("buddy.settings.revoke")}
                 </Button>
@@ -160,6 +177,17 @@ export function BuddyTabBody(props: BuddyTabBodyProps) {
             </Can>
           </>
         )}
+
+        {props.freshSignIn ? (
+          <div role="alert" className="flex min-w-0 flex-col gap-2 rounded-card bg-tone-amber-tint p-3.5 text-tone-amber-ink" data-testid="buddy-fresh-sign-in">
+            <p className="m-0 text-[14px] leading-5">{t("buddy.settings.freshSignIn")}</p>
+            <div>
+              <Button onClick={props.signInAgain} data-testid="buddy-sign-in-again">
+                {t("buddy.settings.signInAgain")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {props.token ? (
           <div className="flex min-w-0 flex-col gap-3 rounded-card bg-surface-sunken p-3.5" data-testid="buddy-key">

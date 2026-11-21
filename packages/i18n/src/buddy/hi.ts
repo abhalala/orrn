@@ -158,6 +158,7 @@ export const buddyHi = {
       rate_limited: "बहुत सारी कॉल",
       error: "गड़बड़ी",
       truncated: "हो गया (जवाब काटा गया)",
+      pending: "चल रहा है",
     },
     drafts: "Buddy के बदलाव",
     draftsEmpty: "Buddy से अभी कोई बदलाव नहीं।",

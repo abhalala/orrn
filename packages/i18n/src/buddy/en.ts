@@ -159,6 +159,7 @@ export const buddyEn = {
       rate_limited: "Too many calls",
       error: "Error",
       truncated: "Done, cut short",
+      pending: "Running",
     },
     drafts: "Changes from Buddy",
     draftsEmpty: "No changes from Buddy yet.",

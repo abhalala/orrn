@@ -1,5 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,6 +9,8 @@ import type { BuddyDraft } from "@/features/buddy/types";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
+import { freshSignInNeeded } from "@/shared/lib/strong-sign-in";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { isAuthMeQueryKey } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
@@ -35,6 +38,11 @@ export function BuddyTab() {
   // The key lives here only, never in the query cache: it is gone once the person says they copied it.
   const [token, setToken] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [renewError, setRenewError] = useState<string | null>(null);
+  // Connect and Renew need a sign-in from the last few minutes (decision 5): the refusal says "sign in again".
+  const [freshSignIn, setFreshSignIn] = useState(false);
+  const navigate = useNavigate();
+  const signOut = useSignOutAndReset();
 
   const refreshAccess = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.buddy.status.queryKey() });
@@ -47,9 +55,31 @@ export function BuddyTab() {
       onSuccess: (data) => {
         setToken(data.token);
         setConnectError(null);
+        setFreshSignIn(false);
         refreshAccess();
       },
-      onError: () => setConnectError(t("buddy.settings.connectFailed")),
+      onError: (error) => {
+        if (freshSignInNeeded(error)) {
+          setFreshSignIn(true);
+          setConnectError(null);
+        } else setConnectError(t("buddy.settings.connectFailed"));
+      },
+    }),
+  );
+  const renew = useMutation(
+    trpc.buddy.grant.renew.mutationOptions({
+      onSuccess: (data) => {
+        setRenewError(null);
+        setFreshSignIn(false);
+        toast.success(t("buddy.settings.renewed", { time: when(data.expiresAt) }));
+        refreshAccess();
+      },
+      onError: (error) => {
+        if (freshSignInNeeded(error)) {
+          setFreshSignIn(true);
+          setRenewError(null);
+        } else setRenewError(t("buddy.settings.renewFailed"));
+      },
     }),
   );
   const revoke = useMutation(
@@ -78,7 +108,7 @@ export function BuddyTab() {
       });
       setPending({ id: draft.id, kind });
       (kind === "confirm" ? confirm : reject).mutate(
-        { draftId: draft.id },
+        { draftId: draft.id, via: "settings" },
         {
           onSuccess: () => {
             if (kind === "confirm") void queryClient.invalidateQueries({ predicate: (q) => !isAuthMeQueryKey(q.queryKey) });
@@ -118,6 +148,12 @@ export function BuddyTab() {
       }}
       revoke={(grantId) => revoke.mutate({ grantId })}
       revoking={revoke.isPending}
+      renew={(grantId) => renew.mutate({ grantId })}
+      renewing={renew.isPending}
+      renewError={renewError}
+      freshSignIn={freshSignIn}
+      // The app's own sign-out (it clears the cache; offline it says so and stays), then back here after the new sign-in.
+      signInAgain={() => signOut(() => void navigate({ to: "/login", search: { next: "/settings?tab=buddy" }, replace: true }))}
       copy={copyText}
     />
   );

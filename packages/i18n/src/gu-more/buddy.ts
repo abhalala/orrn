@@ -164,6 +164,7 @@ export const guBuddy = {
         rate_limited: "ઘણા બધા કૉલ",
         error: "ભૂલ",
         truncated: "થઈ ગયું (જવાબ કાપ્યો)",
+        pending: "ચાલે છે",
       },
       drafts: "Buddy ના ફેરફાર",
       draftsEmpty: "Buddy તરફથી હજી કોઈ ફેરફાર નથી.",
