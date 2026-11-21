@@ -299,5 +299,5 @@ describe("a 4,000-row sheet reaches the review link within 20 drafts (review S6)
     const made = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
     expect(Number(made?.n)).toBeLessThanOrEqual(20);
     expect(Number(made?.n)).toBe(3);
-  }, 30_000); // measured 5.1 s on its own (2026-11-20)
+  }, 120_000); // measured 5.1 s on its own on a quiet Mac, 49.5 s at load average 30 (2026-11-20)
 });
