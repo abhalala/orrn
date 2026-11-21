@@ -8,6 +8,7 @@ import { config } from "dotenv";
 
 import { deployMasterKey } from "./masterKey";
 import { nativePasskeyBindings } from "./nativePasskeys";
+import { SERVER_OBSERVABILITY } from "./observability";
 import { optionalR2Bucket } from "./optionalR2";
 import { WEB_EDGE_SCRIPT } from "./webEdge";
 
@@ -273,6 +274,8 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // Invocation records would keep every signed ticket in the query string (item 20); console lines stay.
+  observability: SERVER_OBSERVABILITY,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
