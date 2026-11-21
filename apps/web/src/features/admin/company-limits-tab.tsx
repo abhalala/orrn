@@ -13,6 +13,7 @@ import { trpc } from "@/shared/utils/trpc";
 import {
   boxText,
   initialDraft,
+  limitMin,
   limitsChange,
   limitWords,
   MONEY_KEY,
@@ -115,7 +116,7 @@ export function CompanyLimitsTab({ company }: { company: CompanyDetail["company"
                 <Field
                   label={t(NAME_KEYS[key])}
                   hint={t(HINT_KEYS[key])}
-                  error={bad ? (money ? t("admin.limits.invalidMoney", { max }) : t("admin.limits.invalid", { max })) : undefined}
+                  error={bad ? (money ? t("admin.limits.invalidMoney", { min: limitWords(key, limitMin(key)), max }) : t("admin.limits.invalid", { max })) : undefined}
                   className="min-w-0 flex-1"
                 >
                   <NumberInput

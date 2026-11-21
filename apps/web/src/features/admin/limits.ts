@@ -1,7 +1,8 @@
 /** Limits form state (Godseye company tab "Limits", limits brief section A). Pure: tested without React. */
 import { withoutGrouping } from "@orrn/domain";
 import {
-  bandReadsFor,
+  BAND_READ_MICRO,
+  MICRO_PER_CENT,
   PLANT_LIMIT_KEYS,
   PLANT_LIMITS,
   type PlantLimitKey,
@@ -35,6 +36,16 @@ export function limitWords(key: PlantLimitKey, value: number): string {
   return unit ? `${n} ${unit}` : n;
 }
 
+/**
+ * The least value a limit takes. Money: one call's worst case (17.5 cents, rounded up to 18), because a call goes only
+ * while today's spend plus that worst case stays within the cap; the server holds the same minimum. Else 1.
+ */
+export function limitMin(key: PlantLimitKey): number {
+  const own = (PLANT_LIMITS[key] as { min?: number }).min;
+  if (own !== undefined) return own;
+  return key === MONEY_KEY ? Math.ceil(VISION_WORST_COST_MICRO / MICRO_PER_CENT) : 1;
+}
+
 /** The value a box holds, or null when it is not a value from 1 to the ceiling. Money is read in dollars, to the cent. */
 export function parseLimit(key: PlantLimitKey, text: string): number | null {
   const cleaned = withoutGrouping(text);
@@ -47,7 +58,7 @@ export function parseLimit(key: PlantLimitKey, text: string): number | null {
     if (!/^\d+$/.test(cleaned)) return null;
     n = Number(cleaned);
   }
-  return Number.isSafeInteger(n) && n >= 1 && n <= PLANT_LIMITS[key].ceiling ? n : null;
+  return Number.isSafeInteger(n) && n >= limitMin(key) && n <= PLANT_LIMITS[key].ceiling ? n : null;
 }
 
 /** The form as saved: set keys show their value, the rest "Use default". */
@@ -96,9 +107,22 @@ export function draftCostCents(draft: LimitsDraft): number {
   return (text === null ? null : parseLimit(MONEY_KEY, text)) ?? PLANT_LIMITS[MONEY_KEY].default;
 }
 
-/** Roughly how many dense page parts the day cost pays for, at about 0.07 dollars a part read. */
+/**
+ * One vision call's worst case in micro-USD (`VISION_WORST_COST_MICRO` on the server, 17.5 cents): each call books it
+ * before it runs (decision 11). Kept here as a number so the server's model module stays out of the browser; a test pins
+ * it to the server's value.
+ */
+export const VISION_WORST_COST_MICRO = 175_000;
+
+/**
+ * How many page parts the day cost pays for. A call goes only while today's spend plus one worst case (17.5 cents) stays
+ * within the cap, and a part costs about 7 cents (`BAND_READ_MICRO`), so: floor((cap - 17.5 cents) / 7 cents) + 1, and 0
+ * when the cap is under one worst case. $5.00 gives 69.
+ */
 export function costBuys(costCents: number): number {
-  return bandReadsFor(costCents);
+  const cap = costCents * MICRO_PER_CENT;
+  if (cap < VISION_WORST_COST_MICRO) return 0;
+  return Math.floor((cap - VISION_WORST_COST_MICRO) / BAND_READ_MICRO) + 1;
 }
 
 /**

@@ -17,7 +17,9 @@ describe("limits form", () => {
   test("money is typed in dollars and kept in cents; the rest are whole numbers from 1 to the ceiling", () => {
     expect(parseLimit("dayModelCostCents", "5")).toBe(500);
     expect(parseLimit("dayModelCostCents", "2.5")).toBe(250);
-    expect(parseLimit("dayModelCostCents", "0.01")).toBe(1);
+    // The money minimum is one call's worst case, 17.5 cents rounded up (decision 11).
+    expect(parseLimit("dayModelCostCents", "0.17")).toBeNull();
+    expect(parseLimit("dayModelCostCents", "0.18")).toBe(18);
     expect(parseLimit("dayModelCostCents", "50.00")).toBe(5000);
     expect(parseLimit("dayModelCostCents", "50.01")).toBeNull();
     expect(parseLimit("dayModelCostCents", "0")).toBeNull();
@@ -47,10 +49,12 @@ describe("limits form", () => {
     expect(limitsChange(set, { ...draft, visionPagesPerBatch: "81" })).toEqual({ change: {}, invalid: ["visionPagesPerBatch"] });
   });
 
-  test("what the day spend buys, at about 7 cents a dense page part", () => {
-    expect(costBuys(500)).toBe(70);
-    expect(costBuys(1500)).toBe(210);
-    expect(costBuys(100)).toBe(14);
+  test("what the day spend buys: each call books 17.5 cents first, a part costs about 7 cents (decision 11)", () => {
+    expect(costBuys(500)).toBe(69);
+    expect(costBuys(1500)).toBe(212);
+    expect(costBuys(100)).toBe(12);
+    expect(costBuys(18)).toBe(1);
+    expect(costBuys(17)).toBe(0);
     expect(draftCostCents(initialDraft({}))).toBe(500);
     expect(draftCostCents({ ...initialDraft({}), dayModelCostCents: "1" })).toBe(100);
     expect(limitWords("dayModelCostCents", 500)).toBe("$5.00");
@@ -62,8 +66,8 @@ describe("what the spend buys is the smaller of the money and the day calls (dec
   test("$50 a day at 300 calls a day: the calls stop first", () => {
     expect(spendBuys({ ...initialDraft({}), dayModelCostCents: "50" })).toEqual({ count: 300, stop: "calls" });
   });
-  test("the defaults: $5 buys about 70 parts, under 300 calls, so the money stops first", () => {
-    expect(spendBuys(initialDraft({}))).toEqual({ count: 70, stop: "cost" });
+  test("the defaults: $5 buys 69 parts, under 300 calls, so the money stops first", () => {
+    expect(spendBuys(initialDraft({}))).toEqual({ count: 69, stop: "cost" });
   });
   test("the calls box as typed counts, not the saved value", () => {
     expect(spendBuys({ ...initialDraft({ dayModelCalls: 300 }), dayModelCalls: "40" })).toEqual({ count: 40, stop: "calls" });
@@ -71,6 +75,14 @@ describe("what the spend buys is the smaller of the money and the day calls (dec
   test("while either box holds no allowed value the line is left out, never a default in its place (N9)", () => {
     expect(spendBuys({ ...initialDraft({}), dayModelCostCents: "0" })).toBeNull();
     expect(spendBuys({ ...initialDraft({}), dayModelCalls: "abc" })).toBeNull();
+  });
+});
+
+describe("the worst case per call follows the server", () => {
+  test("VISION_WORST_COST_MICRO here is the server's", async () => {
+    const server = await import("@orrn/server/lib/ingest/bot/vision");
+    const { VISION_WORST_COST_MICRO } = await import("./limits");
+    expect(VISION_WORST_COST_MICRO).toBe(server.VISION_WORST_COST_MICRO);
   });
 });
 
@@ -114,7 +126,7 @@ describe("the Limits tab", () => {
     expect(html).toContain("Up to $50.00");
     expect(html).toContain("Default 300");
     expect(html).toContain("Up to 3,000");
-    expect(html).toContain("About 70 parts of busy pages a day");
+    expect(html).toContain("About 69 parts of busy pages a day");
     expect(html).toContain('value="5.00"');
     expect(html).toContain("Use default");
   });
@@ -124,7 +136,7 @@ describe("the Limits tab", () => {
     expect(html.match(/>Set for this plant</g)).toHaveLength(2);
     expect(html).toContain('value="1.00"');
     expect(html).toContain('value="4"');
-    expect(html).toContain("About 14 parts of busy pages a day");
+    expect(html).toContain("About 12 parts of busy pages a day");
   });
 
   test("$50 a day with 300 calls a day says 300 parts and that the calls stop first", () => {

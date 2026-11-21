@@ -3754,7 +3754,7 @@ export const en = {
       setHere: "Set for this plant",
       useDefault: "Use default",
       invalid: "Enter a whole number from 1 to {max}.",
-      invalidMoney: "Enter an amount from 0.01 to {max}.",
+      invalidMoney: "Enter an amount from {min} to {max}.",
       costBuys: "About {count} parts of busy pages a day, at about 7 US cents a part.",
       callsBuy: "About {count} parts of busy pages a day. The model calls a day stop first.",
       save: "Save limits",
