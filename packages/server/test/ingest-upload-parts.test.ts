@@ -724,3 +724,172 @@ describe("fix round: read tickets and page uploads (security L1, L4)", () => {
     expect((await handleIngestUpload(new Request(badUrl, { method: "PUT", body: a, headers: { "content-length": "500" } }), { bucket: vault() })).status).toBe(403);
   });
 });
+
+describe("delta review SF1: no delete path removes the bytes of a file whose check passed", () => {
+  type Gate = { bucket: R2Bucket; reached: Promise<void>; release: () => void };
+  /**
+   * A vault that holds the first call `when` names until `release` (controlled promises). The call is held before it
+   * runs, so a check can finish in between. `resumeMultipartUpload` is synchronous and passes straight through.
+   */
+  function gatedVault(when: (method: string, key: string) => boolean): Gate {
+    let hit!: () => void;
+    const reached = new Promise<void>((r) => (hit = r));
+    let open!: () => void;
+    const opened = new Promise<void>((r) => (open = r));
+    let fired = false;
+    const inner = vault() as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const held = (method: string) => async (...args: unknown[]) => {
+      const a0 = args[0];
+      const key = typeof a0 === "string" ? a0 : Array.isArray(a0) ? String(a0[0] ?? "") : String((a0 as R2ListOptions | undefined)?.prefix ?? "");
+      if (!fired && when(method, key)) {
+        fired = true;
+        hit();
+        await opened;
+      }
+      return inner[method]!(...args);
+    };
+    const bucket = {
+      head: held("head"),
+      list: held("list"),
+      delete: held("delete"),
+      put: held("put"),
+      get: held("get"),
+      createMultipartUpload: held("createMultipartUpload"),
+      resumeMultipartUpload: (...args: unknown[]) => inner.resumeMultipartUpload!(...args),
+    } as unknown as R2Bucket;
+    return { bucket, reached, release: open };
+  }
+
+  /** Holds the whole-file check of `key` once its body is read, until `free`. */
+  function holdCheck(key: string) {
+    let hold!: () => void;
+    const held = new Promise<void>((r) => (hold = r));
+    let free!: () => void;
+    const freed = new Promise<void>((r) => (free = r));
+    let once = false;
+    afterBodyRead = async (k) => {
+      if (k !== key || once) return;
+      once = true;
+      hold();
+      await freed;
+    };
+    return { held, free };
+  }
+
+  const survives = async (f: { p: Plant; artifactId: string; sha256: string }) => {
+    expect((await artifactRow(f)).vaultState).toBe("stored");
+    expect(await raw.head(rawKey(f.p.companyId, f.sha256))).not.toBeNull();
+  };
+
+  test("abort: a check that finishes after abort read the row and before its delete keeps the stored file", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const lock = checkKey(f.p.companyId, f.sha256);
+    const gate = gatedVault((_m, k) => k === lock);
+    workersEnv.INGEST_VAULT = gate.bucket;
+    const abort = f.p.owner.ingest.artifact.uploadAbort({ artifactId: f.artifactId });
+    await gate.reached;
+    workersEnv.INGEST_VAULT = vault();
+    try {
+      expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+    } finally {
+      gate.release();
+    }
+    expect((await abort).aborted).toBe(false);
+    await survives(f);
+  });
+
+  test("discard: a check that finishes after the discard hook read the row and before its delete keeps the stored file", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const lock = checkKey(f.p.companyId, f.sha256);
+    const gate = gatedVault((_m, k) => k === lock);
+    workersEnv.INGEST_VAULT = gate.bucket;
+    const discard = abortIfAbandoned({ db: env.db, companyId: f.p.companyId }, f.artifactId);
+    await gate.reached;
+    workersEnv.INGEST_VAULT = vault();
+    try {
+      expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+    } finally {
+      gate.release();
+    }
+    expect(await discard).toBe(false);
+    await survives(f);
+  });
+
+  test("daily sweep: a check that finishes after the sweep picked the row and before its delete keeps the stored file", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const lock = checkKey(f.p.companyId, f.sha256);
+    const gate = gatedVault((_m, k) => k === lock);
+    const sweep = sweepUnfinishedUploads(env.db, gate.bucket, new Date(Date.now() + 25 * 60 * 60 * 1000));
+    await gate.reached;
+    workersEnv.INGEST_VAULT = vault();
+    try {
+      expect((await f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId })).vaultState).toBe("stored");
+    } finally {
+      gate.release();
+    }
+    await sweep;
+    await survives(f);
+  });
+
+  test("5-minute limit: a slow check that finishes after a second complete judged its lock dead keeps the stored file", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const key = rawKey(f.p.companyId, f.sha256);
+    const lock = checkKey(f.p.companyId, f.sha256);
+    const a = holdCheck(key);
+    const { setClockForTests } = await import("../src/lib/clock");
+    // Check A takes its lock as if 6 minutes ago, then hashes slowly.
+    setClockForTests(new Date(Date.now() - 6 * 60 * 1000));
+    workersEnv.INGEST_VAULT = vault();
+    const first = f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId });
+    await a.held;
+    setClockForTests(null);
+    // Complete B finds A's lock past 5 minutes; it is held on the call after it read the lock.
+    let sawLock = false;
+    const gate = gatedVault((m, k) => {
+      if (sawLock) return true;
+      if (m === "get" && k === lock) sawLock = true;
+      return false;
+    });
+    workersEnv.INGEST_VAULT = gate.bucket;
+    const second = f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId });
+    try {
+      await gate.reached;
+      a.free();
+      expect((await first).vaultState).toBe("stored");
+    } finally {
+      a.free();
+      gate.release();
+    }
+    const said = await second.then((r) => r.vaultState, (e: Error) => e.message);
+    await survives(f);
+    expect(["stored", CHECK_RUNNING]).toContain(said);
+  });
+
+  test("a late part PUT after complete does not release the check lock; abort still waits for the check", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const [late] = await ticketsFor(f, [1]);
+    const key = rawKey(f.p.companyId, f.sha256);
+    const plan = JSON.parse(await (await raw.get(uploadPlanKey(f.p.companyId, f.sha256)))!.text()) as { uploadId: string };
+    await raw.resumeMultipartUpload(key, plan.uploadId).complete(await markerEtags(f.p.companyId, f.sha256, plan.uploadId));
+    const a = holdCheck(key);
+    workersEnv.INGEST_VAULT = vault();
+    const check = f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId });
+    const settled = check.then((r) => r.vaultState, (e: Error) => e.message);
+    try {
+      await a.held;
+      expect((await putPart(late!.url, f.parts[0]!)).status).toBe(410);
+      expect(await raw.head(checkKey(f.p.companyId, f.sha256))).not.toBeNull();
+      await expect(f.p.owner.ingest.artifact.uploadAbort({ artifactId: f.artifactId })).rejects.toThrow(CHECK_RUNNING);
+    } finally {
+      a.free();
+      await settled;
+    }
+    expect(await settled).toBe("stored");
+    await survives(f);
+  });
+});

@@ -11,6 +11,9 @@
  * - R2 has no whole-object checksum for multipart. After `complete`, the object is streamed once through
  *   `DigestStream`; only a match marks the artifact stored. One check runs at a time (`upload/check.json`); a check
  *   that fails, or that never finished (the request ran out of CPU), marks the file failed and is not run again.
+ * - Every path that deletes the bytes of an object made from parts (abort, discard, the daily sweep, a failed check)
+ *   takes the same lock first and reads the row again right before the delete; it never deletes the bytes of a
+ *   stored row (delta review SF1). Only the holder releases the lock; clearing the upload folder leaves it.
  * - The vault's lifecycle rule (`alchemy.run.ts`) aborts an unfinished multipart upload after 1 day; the part route
  *   then answers 410 and the browser starts again. The daily cron clears what is left (`sweepUnfinishedUploads`).
  */
@@ -137,13 +140,14 @@ async function clearMarkers(bucket: R2Bucket, companyId: string, sha256: string,
   for (let i = 0; i < keys.length; i += 1000) await bucket.delete(keys.slice(i, i + 1000));
 }
 
-/** Deletes the plan and every part record of the upload folder. */
+/** Deletes the plan and every part record of the upload folder. The check lock stays: only its holder releases it. */
 async function clearUpload(bucket: R2Bucket, companyId: string, sha256: string): Promise<void> {
   const prefix = `${artifactPrefix(companyId, sha256)}/upload/`;
+  const lock = checkKey(companyId, sha256);
   let cursor: string | undefined;
   do {
     const page = await bucket.list({ prefix, cursor, limit: 1000 });
-    const keys = page.objects.map((o) => o.key);
+    const keys = page.objects.map((o) => o.key).filter((k) => k !== lock);
     if (keys.length > 0) await bucket.delete(keys);
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
@@ -200,37 +204,75 @@ function isInvalidPart(error: unknown): boolean {
 // Whole-file check
 // ---------------------------------------------------------------------------
 
-type CheckLock = { at: number; userId: string };
+/** `drop` marks a lock taken by a path that deletes (abort, discard, sweep), not by a whole-file check. */
+type CheckLock = { at: number; userId: string; drop?: true };
+/** A lock this call holds: the ETag of its own put. */
+type HeldLock = { etag: string };
+/** `stale`: the lock was taken over from a check that died ("check") or a delete that died ("drop"). */
+type TakenLock = { held: HeldLock; stale: false | "check" | "drop" } | { held: null; ageMs: number };
 
 /**
- * Takes the lock of the whole-file check. `null` when taken; else the age of the lock already there. A lock is created
- * only when absent (`etagDoesNotMatch: "*"`), so two completes never hash at once.
+ * Takes the check lock. A lock is created only when absent (`etagDoesNotMatch: "*"`), so two holders never run at
+ * once. A lock older than any check can run belongs to a request that died (CPU limit): it is taken over only while
+ * it is still that lock (`etagMatches`), so of two callers that judge it dead exactly one wins.
  */
-async function takeCheck(ctx: IngestCtx, bucket: R2Bucket, sha256: string): Promise<number | null> {
-  const body: CheckLock = { at: now().getTime(), userId: ctx.session.user.id };
-  const put = await bucket.put(checkKey(ctx.companyId, sha256), JSON.stringify(body), {
-    onlyIf: { etagDoesNotMatch: "*" },
-    httpMetadata: { contentType: "application/json" },
-  });
-  if (put) return null;
-  const held = await bucket.get(checkKey(ctx.companyId, sha256));
-  if (!held) return 0;
+async function takeLock(bucket: R2Bucket, companyId: string, sha256: string, userId: string, drop: boolean): Promise<TakenLock> {
+  const key = checkKey(companyId, sha256);
+  const body = () => JSON.stringify({ at: now().getTime(), userId, ...(drop ? { drop: true } : {}) } satisfies CheckLock);
+  const httpMetadata = { contentType: "application/json" };
+  const put = await bucket.put(key, body(), { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata });
+  if (put) return { held: { etag: put.etag }, stale: false };
+  const there = await bucket.get(key);
+  if (!there) return { held: null, ageMs: 0 };
+  let ageMs = CHECK_HOLD_MS;
+  let wasDrop = false;
   try {
-    const lock = JSON.parse(await held.text()) as CheckLock;
-    return Number.isFinite(lock.at) ? Math.max(0, now().getTime() - lock.at) : CHECK_HOLD_MS;
+    const lock = JSON.parse(await there.text()) as CheckLock;
+    if (Number.isFinite(lock.at)) ageMs = Math.max(0, now().getTime() - lock.at);
+    wasDrop = lock.drop === true;
   } catch {
-    return CHECK_HOLD_MS;
+    // An unreadable lock is treated as one that never finished.
   }
+  if (ageMs < CHECK_HOLD_MS) return { held: null, ageMs };
+  const over = await bucket.put(key, body(), { onlyIf: { etagMatches: there.etag }, httpMetadata });
+  return over ? { held: { etag: over.etag }, stale: wasDrop ? "drop" : "check" } : { held: null, ageMs: 0 };
+}
+
+/** True while the lock is still the one this call put (no one took it over). */
+async function stillHeld(bucket: R2Bucket, companyId: string, sha256: string, lock: HeldLock): Promise<boolean> {
+  return (await bucket.head(checkKey(companyId, sha256)))?.etag === lock.etag;
+}
+
+/** Releases the lock only while it is still this call's own (a late part PUT or another caller never releases it). */
+async function releaseLock(bucket: R2Bucket, companyId: string, sha256: string, lock: HeldLock): Promise<void> {
+  if (await stillHeld(bucket, companyId, sha256, lock)) await bucket.delete(checkKey(companyId, sha256));
+}
+
+/** The row read again right before a delete: true when it is stored (or gone), so its bytes must stay. */
+async function storedNow(db: OrrnDb, companyId: string, artifactId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ vaultState: ingestArtifact.vaultState })
+    .from(ingestArtifact)
+    .where(and(eq(ingestArtifact.id, artifactId), eq(ingestArtifact.companyId, companyId)))
+    .limit(1);
+  return !row || row.vaultState === "stored";
 }
 
 /**
- * One failed whole-file check (a wrong digest, or a check that never finished): the object and the upload folder go,
- * the file is marked failed with plain words, and the check is not run again until the file is added again.
+ * One failed whole-file check (a wrong digest, or a check that never finished), under the check lock: the object and
+ * the upload folder go, the file is marked failed with plain words, and the check is not run again until the file is
+ * added again. Returns without deleting when the row is stored by now (a slow check finished first, SF1).
  */
-async function failWhole(ctx: IngestCtx, bucket: R2Bucket, a: Pick<ArtifactRow, "id" | "sha256" | "kind">, words: string): Promise<never> {
+async function failWhole(ctx: IngestCtx, bucket: R2Bucket, a: Pick<ArtifactRow, "id" | "sha256" | "kind">, words: string, lock: HeldLock): Promise<void> {
   const key = rawKey(ctx.companyId, a.sha256);
   const plan = await readPlan(bucket, ctx.companyId, a.sha256);
   if (plan) await bucket.resumeMultipartUpload(key, plan.uploadId).abort().catch(() => undefined);
+  if (await storedNow(ctx.db, ctx.companyId, a.id)) {
+    await releaseLock(bucket, ctx.companyId, a.sha256, lock);
+    return;
+  }
+  // Taken over while this check ran past 5 minutes: the new holder decides.
+  if (!(await stillHeld(bucket, ctx.companyId, a.sha256, lock))) throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
   const head = await bucket.head(key);
   if (madeFromParts(head)) await bucket.delete(key);
   await clearUpload(bucket, ctx.companyId, a.sha256);
@@ -243,6 +285,7 @@ async function failWhole(ctx: IngestCtx, bucket: R2Bucket, a: Pick<ArtifactRow, 
       .set({ readState: "failed", readError: words, updatedAt: now() })
       .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored")));
   }
+  await releaseLock(bucket, ctx.companyId, a.sha256, lock);
   throw new TRPCError({ code: "BAD_REQUEST", message: words });
 }
 
@@ -254,44 +297,42 @@ async function confirmWhole(ctx: IngestCtx, bucket: R2Bucket, a: ArtifactRow): P
   const key = rawKey(ctx.companyId, a.sha256);
   const obj = await bucket.get(key);
   if (!obj) throw new TRPCError({ code: "BAD_REQUEST", message: PARTS_MISSING });
-  const held = await takeCheck(ctx, bucket, a.sha256);
-  if (held !== null) {
+  const taken = await takeLock(bucket, ctx.companyId, a.sha256, ctx.session.user.id, false);
+  if (!taken.held) {
     await obj.body.cancel().catch(() => undefined);
-    // Another complete is hashing it now; a lock older than any check can run means that check died (CPU limit).
-    if (held < CHECK_HOLD_MS) throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
-    return failWhole(ctx, bucket, a, CHECK_FAILED);
+    // Another complete is hashing it now, or a delete holds it; or a slow check finished as this call looked.
+    if (await storedNow(ctx.db, ctx.companyId, a.id)) return;
+    throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
+  }
+  // A lock older than any check can run, left by a check that died (CPU limit): the file is marked failed once.
+  if (taken.stale === "check") {
+    await obj.body.cancel().catch(() => undefined);
+    return failWhole(ctx, bucket, a, CHECK_FAILED, taken.held);
   }
   const sha256 = await streamSha256(obj.body);
-  if (sha256 !== a.sha256 || obj.size !== a.sizeBytes) return failWhole(ctx, bucket, a, DIGEST_MISMATCH);
+  if (sha256 !== a.sha256 || obj.size !== a.sizeBytes) return failWhole(ctx, bucket, a, DIGEST_MISMATCH, taken.held);
   // A file marked failed by an earlier check and added again goes back to where a new file starts.
   const back = a.readError === CHECK_FAILED || a.readError === DIGEST_MISMATCH;
   await ctx.db
     .update(ingestArtifact)
     .set({ vaultState: "stored", updatedAt: now(), ...(back ? { readState: isVisualKind(a.kind) ? "kept_unread" : a.readState, readError: isVisualKind(a.kind) ? null : a.readError } : {}) })
     .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored")));
-  // Taken off the strip while it was hashed (server review N6, security L8): the bytes must still be the ones hashed.
+  // The lock must still be this check's own after the mark (SF1): a delete that took it over as dead read the row
+  // before the mark and may delete the bytes. And the bytes must still be the ones hashed (server review N6, L8).
+  const mine = await stillHeld(bucket, ctx.companyId, a.sha256, taken.held);
   const after = await bucket.head(key);
-  if (!after || after.etag !== obj.etag) {
+  if (!mine || !after || after.etag !== obj.etag) {
     await ctx.db
       .update(ingestArtifact)
       .set({ vaultState: "pending", updatedAt: now() })
       .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId)));
+    if (!mine) throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
     await clearUpload(bucket, ctx.companyId, a.sha256);
+    await releaseLock(bucket, ctx.companyId, a.sha256, taken.held);
     throw new TRPCError({ code: "BAD_REQUEST", message: UPLOAD_RAN_OUT });
   }
   await clearUpload(bucket, ctx.companyId, a.sha256);
-}
-
-/** True while a whole-file check of this file may still be running. */
-async function checkRunning(bucket: R2Bucket, companyId: string, sha256: string): Promise<boolean> {
-  const held = await bucket.get(checkKey(companyId, sha256));
-  if (!held) return false;
-  try {
-    const lock = JSON.parse(await held.text()) as CheckLock;
-    return now().getTime() - lock.at < CHECK_HOLD_MS;
-  } catch {
-    return false;
-  }
+  await releaseLock(bucket, ctx.companyId, a.sha256, taken.held);
 }
 
 // ---------------------------------------------------------------------------
@@ -452,19 +493,34 @@ export async function uploadAbort(ctx: IngestCtx, artifactId: string): Promise<{
   if (a.vaultState === "stored") return { aborted: false };
   const bucket = needBucket();
   // The whole-file check is reading the object: removing it now would leave a stored row with no bytes (N6, L8).
-  if (await checkRunning(bucket, ctx.companyId, a.sha256)) throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
-  return { aborted: await dropUnfinished(bucket, ctx.companyId, a.sha256) };
+  const drop = await dropUnfinished(ctx.db, bucket, ctx.companyId, a.id, a.sha256, ctx.session.user.id);
+  if (drop.done === "busy") throw new TRPCError({ code: "CONFLICT", message: CHECK_RUNNING });
+  return { aborted: drop.done === "dropped" && drop.plan };
 }
 
-/** Aborts the multipart upload, deletes an object made from parts that was never checked, and the upload folder. */
-async function dropUnfinished(bucket: R2Bucket, companyId: string, sha256: string): Promise<boolean> {
-  const key = rawKey(companyId, sha256);
-  const plan = await readPlan(bucket, companyId, sha256);
-  if (plan) await bucket.resumeMultipartUpload(key, plan.uploadId).abort().catch(() => undefined);
-  // An object completed from parts but never checked is not kept either.
-  if (madeFromParts(await bucket.head(key))) await bucket.delete(key);
-  await clearUpload(bucket, companyId, sha256);
-  return plan !== null;
+/** `busy`: a check or another delete holds the lock. `kept`: the row is stored. `dropped`: what was there went. */
+type Drop = { done: "busy" | "kept" | "dropped"; plan: boolean; object: boolean };
+
+/**
+ * Under the check lock (SF1): reads the row again and, while it is not stored, aborts the multipart upload, deletes an
+ * object made from parts that was never checked, and the upload folder. Never deletes the bytes of a stored row.
+ */
+async function dropUnfinished(db: OrrnDb, bucket: R2Bucket, companyId: string, artifactId: string, sha256: string, by: string): Promise<Drop> {
+  const taken = await takeLock(bucket, companyId, sha256, by, true);
+  if (!taken.held) return { done: "busy", plan: false, object: false };
+  try {
+    if (await storedNow(db, companyId, artifactId)) return { done: "kept", plan: false, object: false };
+    const key = rawKey(companyId, sha256);
+    const plan = await readPlan(bucket, companyId, sha256);
+    if (plan) await bucket.resumeMultipartUpload(key, plan.uploadId).abort().catch(() => undefined);
+    // An object completed from parts but never checked is not kept either.
+    const head = await bucket.head(key);
+    if (madeFromParts(head)) await bucket.delete(key);
+    await clearUpload(bucket, companyId, sha256);
+    return { done: "dropped", plan: plan !== null, object: head !== null };
+  } finally {
+    await releaseLock(bucket, companyId, sha256, taken.held);
+  }
 }
 
 /**
@@ -484,8 +540,8 @@ export async function abortIfAbandoned(ctx: Pick<IngestCtx, "db" | "companyId">,
       .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifactId), ne(ingestCandidate.state, "discarded")))
       .limit(1);
     if (live) return false;
-    if (await checkRunning(bucket, ctx.companyId, a.sha256)) return false;
-    return await dropUnfinished(bucket, ctx.companyId, a.sha256);
+    const drop = await dropUnfinished(ctx.db, bucket, ctx.companyId, a.id, a.sha256, "discard");
+    return drop.done === "dropped" && drop.plan;
   } catch {
     return false;
   }
@@ -526,9 +582,9 @@ export async function sweepUnfinishedUploads(db: OrrnDb, bucket: R2Bucket, at: D
       stored += 1;
       continue;
     }
-    if (await checkRunning(bucket, r.companyId, r.sha256)) continue;
-    if (await dropUnfinished(bucket, r.companyId, r.sha256)) cleared += 1;
-    else if (head) cleared += 1;
+    // The row was read when the sweep began: a check may have stored it since. dropUnfinished reads it again.
+    const drop = await dropUnfinished(db, bucket, r.companyId, r.id, r.sha256, "sweep");
+    if (drop.done === "dropped" && (drop.plan || drop.object)) cleared += 1;
   }
   return { cleared, stored };
 }
@@ -620,7 +676,12 @@ export async function handleIngestPart(request: Request, opts: { bucket?: R2Buck
     got = digest;
   } catch (error) {
     if (isGone(error)) {
-      await clearUpload(bucket, t.companyId, t.sha256);
+      // Only this upload's own records go (SF1): never the check lock (a check of the completed file may be running),
+      // and the plan only while it still names this upload.
+      await clearMarkers(bucket, t.companyId, t.sha256, t.uploadId);
+      const head = await bucket.head(uploadPlanKey(t.companyId, t.sha256));
+      const named = head ? (head.customMetadata?.uploadId ?? (await readPlan(bucket, t.companyId, t.sha256))?.uploadId) : undefined;
+      if (named === t.uploadId) await bucket.delete(uploadPlanKey(t.companyId, t.sha256));
       return text("This upload ran out. Start it again.", 410);
     }
     throw error;

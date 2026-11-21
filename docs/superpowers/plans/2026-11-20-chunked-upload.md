@@ -32,7 +32,7 @@ All under `tenants/<companyId>/artifacts/<sha256>/` (`artifactPrefix`), company 
 |---|---|---|
 | `upload/plan.json` | Worker, `artifact.uploadStart` | `{ v: 1, uploadId, artifactId, userId, size, partSize, partCount, parts: string[] (hex SHA-256 per part), createdAt }`; `customMetadata.uploadId` too, so the part route reads only the head |
 | `upload/<uploadId>/p<n>` | Worker, part route, after the part's digest matched | empty; `customMetadata.etag`; one marker per part, replaced by a later PUT of the same part, deleted by a PUT whose digest does not match |
-| `upload/check.json` | Worker, whole-file check | `{ at, userId }`, created only when absent: one check at a time |
+| `upload/check.json` | Worker, whole-file check and every path that deletes raw bytes | `{ at, userId, drop? }`, created only when absent: one holder at a time; a lock older than 5 minutes is taken over only while it is still that lock (`etagMatches`); released only by its holder (head, same ETag, delete); clearing the upload folder never deletes it |
 | `raw` | R2 multipart complete | the file; `customMetadata.upload = "parts"` set at create |
 
 The session is held on the server (the plan object), not in the client: a session carrying every part digest cannot
@@ -66,13 +66,18 @@ purposes, the read route only `ingest-read`.
   older than 5 minutes (a check the CPU limit killed), deletes the object and the upload folder, marks the file (a PDF
   or photo; a sheet, CSV or SQL file keeps its read state and tables) `read_state = failed` with the sentence as `read_error`, and the call fails; the check is not run again until the
   file is added again. On a match the artifact is `stored` (a PDF or photo marked failed by an earlier check goes back
-  to `kept_unread`); the object is headed again and must still have the ETag that was hashed. R2 InvalidPart on
+  to `kept_unread`); after that mark the check heads `upload/check.json` and it must still be its own lock (else the
+  row goes back to `pending` and the call says the check sentence), and the object is headed again and must still have
+  the ETag that was hashed. A failed check reads the row again right before its delete and keeps the bytes of a row
+  that is stored by then. R2 InvalidPart on
   complete (two PUTs of one part crossed) deletes the part markers, keeps the plan and the multipart upload, and says
   "Some parts of the file have not arrived...". A NoSuchUpload on complete first checks whether another complete
   already stored the file. Idempotent: an object already there but not yet checked is checked again, never completed
   again.
 - `uploadAbort({ artifactId })`: aborts the multipart upload, deletes the plan and markers, and a raw object of parts
-  that is not yet stored. Refused (CONFLICT, the check sentence) while a whole-file check runs. Discarding the last
+  that is not yet stored. Refused (CONFLICT, the check sentence) while a whole-file check runs. Every path that deletes
+  raw bytes (abort, discard, the daily sweep, a failed check) takes `upload/check.json` first, reads the row again
+  right before the delete, and never deletes the bytes of a row that is `stored` (delta review SF1). Discarding the last
   live sheet of a file whose bytes are not stored does the same (`abortIfAbandoned`, called from
   `candidate.discard`). Called when a file is taken off the upload strip while it is saving (there is no artifact
   discard procedure; the strip's remove is the discard).
@@ -96,8 +101,9 @@ Ticket checked; Content-Length must equal the ticket's part size; the plan must 
 (else 409), read from the plan's head only (no plan body, no marker listing). The body runs through a tap into
 `DigestStream` and into a `FixedLengthStream` that `uploadPart` reads; the digest is compared when the part is in. A
 match writes the part's marker `p<n>` (200); a mismatch deletes that marker and answers 400 "The part does not match
-its digest", so the part is missing. NoSuchUpload (the 1-day abort) answers 410 and clears the plan, so the browser
-starts the upload again.
+its digest", so the part is missing. NoSuchUpload (the 1-day abort, or a part sent after complete) answers 410,
+deletes that upload's markers and the plan only while the plan still names that upload, so the browser starts the
+upload again. It never deletes `upload/check.json`: a check of the completed file may hold it.
 
 ## 7. Read route Range
 
@@ -121,7 +127,8 @@ or a malformed header get the whole object. The gate 5 headers stay. CORS allows
 ## 9. Tests
 
 Server: multipart upload, wrong part digest, wrong whole digest, resume, abort on discard, commitRaw inside the window,
-part ticket scope, read route Range (206, 416, headers). Web: incremental SHA-256 against a reference, the part upload
+part ticket scope, read route Range (206, 416, headers). SF1: abort, discard, the sweep and a check past 5 minutes each
+held (controlled promises) while a check finishes, and the stored file survives; a late part PUT leaves the lock. Web: incremental SHA-256 against a reference, the part upload
 order and resume, the reader ceilings. Browser: one file just over one part through the local stack (workerd and local
 R2).
 
@@ -154,7 +161,8 @@ R2).
 - A plan is resumed only within 20 hours (`PLAN_RESUME_MS`).
 - The daily cron (`sweepUnfinishedUploads`): files still `pending` whose row crossed the one-day line in the last two
   days (newest first, at most 500 a run) lose their plan,
-  markers and any unchecked object made from parts; a file sent in one piece whose commit never came is marked stored.
+  markers and any unchecked object made from parts, under the check lock and only while the row read again is not
+  stored; a file sent in one piece whose commit never came is marked stored.
   Rows stay `pending` otherwise (the approve gate refuses a file whose bytes are not stored).
 - The storage quota counts stored files plus `pending` rows touched in the last day; a re-add of a file touches its row
   under the quota check.
