@@ -187,6 +187,23 @@ describe("what the buddy may reach (§4.2, §12.3)", () => {
     expect(Number(drafts?.n)).toBe(0);
   });
 
+  test("owner decision 2: approval.decide, the owner's die close override and answerDoubts make no draft", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const tries: [string, unknown][] = [
+      ["approval.decide", { id: "a1", decision: "approved" }],
+      ["dieInstance.closeOwnerOverride", { id: "d1", reason: "synthetic" }],
+      ["ingest.rows.answerDoubts", { candidateId: "c1", answer: "right", expectCount: 3, expectSeq: 1 }],
+      ["ingest.rows.answerDoubts", { candidateId: "c1", answer: "skip", rowId: "r1", expectSeq: 1 }],
+    ];
+    for (const [path, input] of tries) {
+      expect({ path, d: (await tool(env, token, "orrn_describe", { path })).status }).toEqual({ path, d: "not_found" });
+      expect({ path, c: (await tool(env, token, "orrn_call", { path, input })).status }).toEqual({ path, c: "not_found" });
+    }
+    const drafts = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
+    expect(Number(drafts?.n)).toBe(0);
+  });
+
   test("the MCP token cannot confirm: buddy.* is unreachable, and the buddy router refuses a buddy context", async () => {
     const p = await buddyPlant(env);
     const { token } = await connect(p);

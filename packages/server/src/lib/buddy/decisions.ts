@@ -81,6 +81,10 @@ export const BUDDY_DECISIONS = {
     "company.membersRemove": deny("Removes a member (§4.2)."),
     "foundry.casts.setSeriesStart": deny("Writes a company setting (the cast series start) (§4.2)."),
 
+    // Owner decision 2 (2026-11-20): attestation acts stay a person's act on the screen, not even drafts.
+    "approval.decide": deny("Approving or refusing a request is a person's act on the approvals screen (owner decision 2)."),
+    "dieInstance.closeOwnerOverride": deny("The owner's override to close a die copy is a person's act on the die screen (owner decision 2)."),
+
     // The §10 scan: queries that write rows, call outside services, mint links or return bulk exports.
     "reasonCodes.list": deny("§10 scan: the read inserts the default reason codes on first use."),
     "press.reasons": deny("§10 scan: the read inserts the default reason codes on first use."),
@@ -120,7 +124,6 @@ export const BUDDY_DECISIONS = {
     "ingest.shape.make": allow,
     "ingest.period.confirm": allow,
     "ingest.answer.set": allow,
-    "ingest.rows.answerDoubts": allow,
     "ingest.candidate.confirmNear": allow,
     "ingest.candidate.setTarget": allow,
     "ingest.candidate.hold": allow,
@@ -139,6 +142,9 @@ export const BUDDY_DECISIONS = {
     "ingest.artifact.putRows": deny("Upload: parsed rows come from the browser only (§12.2)."),
     "ingest.artifact.complete": deny("Upload: file bytes come from the browser only (§12.2)."),
     "ingest.rows.decide": deny("Row by row keep or refuse is a check against the file, made on the review page."),
+    "ingest.rows.answerDoubts": deny(
+      "\"Right\" on doubted rows records the person as having checked them; that check is made on the review page (owner decision 2).",
+    ),
     "ingest.rows.skipNoDate": deny("Row by row keep or refuse is a check against the file, made on the review page."),
     "ingest.candidate.repickHeader": deny("The person picks the header row while they see the sheet."),
     "ingest.shape.save": deny("The person saves a layout while they see the sheet."),
@@ -160,6 +166,13 @@ export const BUDDY_DECISIONS = {
     "ingest.vision.typePage": deny("Typing a page is done against the page image, in the browser."),
     "ingest.vision.fixCell": deny("Fixing a cell is done against the page image, in the browser."),
     "ingest.vision.readUrl": deny("Mints a signed link to a page image; the image stays in the browser."),
+    // Review S8: the release 2 upload parts and batch controls.
+    "ingest.artifact.uploadStart": deny("Upload: file bytes come from the browser only (§12.2)."),
+    "ingest.artifact.uploadTickets": deny("Upload tickets for file parts, which come from the browser only (§12.2)."),
+    "ingest.artifact.uploadComplete": deny("Upload: file bytes come from the browser only (§12.2)."),
+    "ingest.artifact.uploadAbort": deny("Upload: file bytes come from the browser only (§12.2)."),
+    "ingest.vision.nextBatch": deny("Hands out page image tickets for the next batch; the images come from the browser only."),
+    "ingest.vision.finishRest": deny("Skips the pages not read yet; that is a check against the pages, made in the browser."),
   } satisfies Record<string, BuddyDecision>,
 } as const;
 

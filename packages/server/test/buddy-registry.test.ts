@@ -53,6 +53,36 @@ const NEVER = [
   "ingest.vision.typePage",
   "ingest.vision.fixCell",
   "ingest.vision.readUrl",
+  // Owner decision 2 (2026-11-20): attestation acts, even as drafts.
+  "approval.decide",
+  "dieInstance.closeOwnerOverride",
+  "ingest.rows.answerDoubts",
+  // Review S8: release 2 procedures, denied ahead of the merge.
+  "ingest.artifact.uploadStart",
+  "ingest.artifact.uploadTickets",
+  "ingest.artifact.uploadComplete",
+  "ingest.artifact.uploadAbort",
+  "ingest.vision.nextBatch",
+  "ingest.vision.finishRest",
+];
+
+/** Release 2 of the import (feat/vision-read): the only paths `pending` may name. */
+const RELEASE_2 = [
+  "ingest.vision.readPage",
+  "ingest.vision.pages",
+  "ingest.vision.check",
+  "ingest.vision.start",
+  "ingest.vision.bandTickets",
+  "ingest.vision.skipPage",
+  "ingest.vision.typePage",
+  "ingest.vision.fixCell",
+  "ingest.vision.readUrl",
+  "ingest.artifact.uploadStart",
+  "ingest.artifact.uploadTickets",
+  "ingest.artifact.uploadComplete",
+  "ingest.artifact.uploadAbort",
+  "ingest.vision.nextBatch",
+  "ingest.vision.finishRest",
 ];
 
 /** §12.1: what the buddy can do in an import. */
@@ -64,7 +94,6 @@ const IMPORT_TOOLS = [
   "ingest.shape.make",
   "ingest.vision.readPage",
   "ingest.answer.set",
-  "ingest.rows.answerDoubts",
   "ingest.period.confirm",
   "ingest.candidate.confirmNear",
   "ingest.candidate.setTarget",
@@ -116,8 +145,8 @@ describe("every router and every ingest procedure has a decision", () => {
     const stale = Object.keys(BUDDY_DECISIONS.paths).filter((p) => !reg.has(p));
     expect(stale).toEqual([]);
     // Pending paths are release 2 of the import; once it merges they exist and must move to `paths`.
+    expect(Object.keys(BUDDY_DECISIONS.pending).sort()).toEqual([...RELEASE_2].sort());
     for (const p of Object.keys(BUDDY_DECISIONS.pending)) {
-      expect(p.startsWith("ingest.vision.")).toBe(true);
       expect({ p, existsNow: reg.has(p) }).toEqual({ p, existsNow: false });
     }
   });
