@@ -221,10 +221,12 @@ describe("orrn_import_dry_run and buddy.drafts.report", () => {
     await drive(p, draftId);
     const row = await env.db.select({ notedAt: buddyDraft.notedAt, result: buddyDraft.resultJson }).from(buddyDraft).where(eq(buddyDraft.id, draftId)).get();
     expect(row?.notedAt).toBeNull();
-    expect(row?.result).toMatchObject({ report: { outcome: "done", summary: "Synthetic run finished" } });
+    // Delta S2: the outcome is the candidate's own state when the browser reported; the browser's words are not kept.
+    expect(row?.result).toMatchObject({ dryRun: { outcome: "done", state: "ready" } });
+    expect(JSON.stringify(row?.result)).not.toContain("Synthetic run finished");
     // A second report replays; the first one stands.
     const again = await p.owner.buddy.drafts.report({ draftId, outcome: "failed" });
-    expect(again.result).toMatchObject({ report: { outcome: "done" } });
+    expect(again.result).toMatchObject({ dryRun: { outcome: "done" } });
     const audits = await env.db
       .select({ n: sql<number>`count(*)` })
       .from(auditLog)

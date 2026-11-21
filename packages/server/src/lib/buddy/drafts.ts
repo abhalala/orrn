@@ -11,30 +11,46 @@
  * - it runs the procedure through `appRouter.createCaller({ ...ctx, buddyDraftId })`, so every rule of the real
  *   procedure applies as that person, and the procedure's own audit row carries `meta.buddyDraftId`;
  * - the draft id is always the `clientRequestId` (or `clientMutationId`) where the target takes one, and an
- *   ingest draft on a candidate runs with the candidate's current `expectSeq`;
+ *   ingest draft on a candidate runs only on the seq it was drafted for (`basis_seq`, after the earlier drafts of its
+ *   turn ran); any other change to the candidate settles it `failed` with STALE_DRAFT_FAILURE (delta S3);
+ * - an irreversible draft with an unnamed id or bidi controls is refused before the claim (`confirmBlock`, delta S4);
+ * - a stored result never holds a secret (`stripSecrets`, delta decision 1);
  * - an audit row is written only when the settling UPDATE matched (same batch, guarded INSERT … SELECT);
  * - a decided draft's stored outcome is the answer to every later confirm (replay).
  */
 import { auditLog, buddyDraft, buddyGrant, type BuddyDraftDecidedVia } from "@orrn/db/schema";
-import { ingestArtifact, ingestBlock, ingestCandidate } from "@orrn/db/schema/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import type { Context } from "../../context";
-import { atomicBatch, mapInChunks } from "../atomic";
+import { atomicBatch } from "../atomic";
 import { auditInsertGuarded } from "../audit";
 import { now } from "../clock";
 import { refusedInput } from "./decisions";
-import { draftView, fillsExpectSeq, KIND_TARGET, REQUEST_KEYS, type DraftNames, type DraftRow } from "./draftView";
-import { capResult } from "./envelope";
+import { resolveDraftNames } from "./draftNames";
+import { draftView, fillsExpectSeq, KIND_TARGET, REQUEST_KEYS, type DraftRow } from "./draftView";
+import { capResult, stripSecrets } from "./envelope";
 import { allowedProcedure, roleHoldsGuard, validateInput, type BuddyProcedure } from "./registry";
-import type { BuddyDraftView } from "./views";
+import { TRPCMetaError } from "../errorMeta";
+import { CONFIRM_BLOCKED, type BuddyDraftView } from "./views";
 
 type BrowserCtx = Context & { companyId: string; session: NonNullable<Context["session"]> };
 
 /** A claim older than this is a confirm that died mid-run. It is never run again (decision 6). */
 export const DRAFT_CLAIM_STALE_MS = 2 * 60 * 1000;
+/**
+ * Slow targets keep their claim longer (review N3), so a second Confirm or Reject does not call a confirm that is still
+ * running "could not tell": a paid page read, and a batch of up to 30 import answers in one request.
+ */
+const CLAIM_STALE_BY_TARGET: Record<string, number> = {
+  "ingest.vision.readPage": 15 * 60 * 1000,
+  "import.answerQuestions": 5 * 60 * 1000,
+};
+export const claimStaleMs = (path: string): number => CLAIM_STALE_BY_TARGET[path] ?? DRAFT_CLAIM_STALE_MS;
+/** The draft's candidate changed after it was drafted, other than by the earlier drafts of its turn (delta S3). */
+export const STALE_DRAFT_FAILURE = "The sheet changed after this was drafted. Ask Buddy again.";
+export const CONFIRM_BLOCKED_TEXT = "This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make the change on its screen.";
 export const UNKNOWN_OUTCOME = "orrn could not tell if this went through. Check the screen before you try again.";
 export const NOT_ALLOWED = "The buddy may not make this change.";
 export const CHANGE_FAILED = "The change failed.";
@@ -55,8 +71,9 @@ const draftColumns = {
   decidedVia: buddyDraft.decidedVia,
   claimedAt: buddyDraft.claimedAt,
   grantId: buddyDraft.grantId,
+  basisSeq: buddyDraft.basisSeq,
 };
-type Row = DraftRow & { claimedAt: Date | null; grantId: string | null };
+type Row = DraftRow & { claimedAt: Date | null; grantId: string | null; basisSeq: number | null };
 
 function mine(ctx: BrowserCtx, draftId: string) {
   return and(
@@ -72,39 +89,8 @@ async function readMine(ctx: BrowserCtx, draftId: string): Promise<Row> {
   return row;
 }
 
-/** Sheet and file names for the ids the cards show (decision 9). Only this plant's rows. */
-async function namesFor(ctx: BrowserCtx, rows: Row[]): Promise<DraftNames> {
-  const candidates = new Set<string>();
-  const artifacts = new Set<string>();
-  for (const r of rows) {
-    const input = r.inputJson as { candidateId?: unknown; artifactId?: unknown } | null;
-    if (!input || typeof input !== "object") continue;
-    if (typeof input.candidateId === "string") candidates.add(input.candidateId);
-    if (typeof input.artifactId === "string") artifacts.add(input.artifactId);
-  }
-  const names = new Map<string, string>();
-  if (candidates.size > 0) {
-    const found = await mapInChunks([...candidates], (ids) =>
-      ctx.db
-        .select({ id: ingestCandidate.id, fileName: ingestArtifact.fileName, sheetName: ingestBlock.sheetName, title: ingestBlock.title, ordinal: ingestBlock.ordinal })
-        .from(ingestCandidate)
-        .innerJoin(ingestBlock, eq(ingestBlock.id, ingestCandidate.blockId))
-        .innerJoin(ingestArtifact, eq(ingestArtifact.id, ingestCandidate.artifactId))
-        .where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, ids))),
-    );
-    for (const c of found) names.set(c.id, `${c.fileName} / ${c.sheetName ?? c.title ?? `Table ${c.ordinal + 1}`}`);
-  }
-  if (artifacts.size > 0) {
-    const found = await mapInChunks([...artifacts], (ids) =>
-      ctx.db
-        .select({ id: ingestArtifact.id, fileName: ingestArtifact.fileName })
-        .from(ingestArtifact)
-        .where(and(eq(ingestArtifact.companyId, ctx.companyId), inArray(ingestArtifact.id, ids))),
-    );
-    for (const a of found) names.set(a.id, a.fileName);
-  }
-  return names;
-}
+/** Names for the ids the cards show (decisions 9 and delta 5). Only this plant's rows (`draftNames.ts`). */
+const namesFor = (ctx: BrowserCtx, rows: Row[]) => resolveDraftNames(ctx, rows);
 
 async function viewOf(ctx: BrowserCtx, row: Row): Promise<BuddyDraftView> {
   return draftView(row, await namesFor(ctx, [row]));
@@ -144,10 +130,12 @@ async function settle(ctx: BrowserCtx, row: Row, set: Settle, action: string, vi
   const at = now();
   const userId = ctx.session.user.id;
   const claimed = claim === null ? isNull(buddyDraft.claimedAt) : eq(buddyDraft.claimedAt, claim);
+  // Decision 1: a stored result never holds a token, a share link or a signed link.
+  const safe = set.resultJson === undefined ? set : { ...set, resultJson: stripSecrets(set.resultJson) };
   await atomicBatch(ctx.db, [
     ctx.db
       .update(buddyDraft)
-      .set({ ...set, decidedBy: userId, decidedAt: at, decidedVia: via })
+      .set({ ...safe, decidedBy: userId, decidedAt: at, decidedVia: via })
       .where(and(mine(ctx, row.id), eq(buddyDraft.status, "pending"), claimed)),
     auditInsertGuarded(
       ctx,
@@ -165,7 +153,7 @@ async function settle(ctx: BrowserCtx, row: Row, set: Settle, action: string, vi
   ]);
 }
 
-const stale = (claimedAt: Date, at: Date) => claimedAt.getTime() < at.getTime() - DRAFT_CLAIM_STALE_MS;
+const stale = (row: Row, claimedAt: Date, at: Date) => claimedAt.getTime() < at.getTime() - claimStaleMs(row.path);
 
 /**
  * The common start of Confirm and Reject. Returns the view when the draft is already decided or was settled here
@@ -175,7 +163,7 @@ async function settleIfDone(ctx: BrowserCtx, row: Row, via: BuddyDraftDecidedVia
   if (row.status !== "pending") return viewOf(ctx, row);
   const at = now();
   if (row.claimedAt) {
-    if (!stale(row.claimedAt, at)) throw new TRPCError({ code: "CONFLICT", message: BEING_CONFIRMED });
+    if (!stale(row, row.claimedAt, at)) throw new TRPCError({ code: "CONFLICT", message: BEING_CONFIRMED });
     // At most once: a confirm that never settled may have written. Never run it again.
     await settle(ctx, row, { status: "failed", failure: UNKNOWN_OUTCOME }, "buddy.draft.fail", via, row.claimedAt);
     return viewOf(ctx, await readMine(ctx, row.id));
@@ -214,16 +202,22 @@ function callPath(caller: Caller, path: string, input: unknown): Promise<unknown
 }
 
 type CandidateNow = { serverSeq: number; state: string; dryCursor: number };
+
+class StaleDraft extends Error {
+  constructor() {
+    super("stale draft");
+  }
+}
 const candidateNow = (caller: Caller, candidateId: string) => callPath(caller, "ingest.candidate.get", { candidateId }) as Promise<CandidateNow>;
 
 /** The input as Confirm runs it: the draft id as request key, the candidate's current expectSeq (decision 8, S3). */
-async function runInput(caller: Caller, entry: BuddyProcedure, row: Row): Promise<unknown> {
+async function runInput(ctx: BrowserCtx, caller: Caller, entry: BuddyProcedure, row: Row): Promise<unknown> {
   const input = row.inputJson;
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
   const out: Record<string, unknown> = { ...(input as Record<string, unknown>) };
   for (const key of REQUEST_KEYS) if (entry.fields.includes(key)) out[key] = row.id;
   if (entry.fields.includes("expectSeq") && fillsExpectSeq(entry.path, input)) {
-    out.expectSeq = (await candidateNow(caller, out.candidateId as string)).serverSeq;
+    out.expectSeq = await seqIfCurrent(ctx, caller, row, out.candidateId as string);
   }
   const valid = validateInput(entry, out);
   if (!valid.ok) throw new TRPCError({ code: "BAD_REQUEST", message: "The input does not fit." });
@@ -240,12 +234,41 @@ class AnswersStopped extends Error {
   }
 }
 
+/**
+ * The candidate's current seq when it is the one the draft expects (delta S3, decision 4): `basis_seq`, and every draft
+ * on the same candidate that was pending when this one was made is now confirmed (the earlier drafts of its turn ran).
+ * Anything else moved the candidate (the person on the review page, another tab, a draft rejected or failed): throws.
+ */
+async function seqIfCurrent(ctx: BrowserCtx, caller: Caller, row: Row, candidateId: string): Promise<number> {
+  const seq = (await candidateNow(caller, candidateId)).serverSeq;
+  if (row.basisSeq === null || row.basisSeq === undefined) return seq;
+  if (seq !== row.basisSeq) throw new StaleDraft();
+  const earlier = await ctx.db
+    .select({ status: buddyDraft.status })
+    .from(buddyDraft)
+    .where(
+      and(
+        eq(buddyDraft.companyId, ctx.companyId),
+        eq(buddyDraft.requestedByUserId, ctx.session.user.id),
+        ne(buddyDraft.id, row.id),
+        isNotNull(buddyDraft.basisSeq),
+        sql`json_extract(${buddyDraft.inputJson}, '$.candidateId') = ${candidateId}`,
+        or(lt(buddyDraft.createdAt, row.createdAt), and(eq(buddyDraft.createdAt, row.createdAt), lt(buddyDraft.id, row.id))),
+        or(isNull(buddyDraft.decidedAt), sql`${buddyDraft.decidedAt} > ${row.createdAt.getTime()}`),
+        sql`${buddyDraft.expiresAt} > ${row.createdAt.getTime()}`,
+      ),
+    );
+  if (earlier.some((e) => e.status !== "confirmed")) throw new StaleDraft();
+  return seq;
+}
+
 /** kind "answers": `ingest.answer.set` for each answer, in order, with the current expectSeq each time. */
-async function runAnswers(caller: Caller, entry: BuddyProcedure, row: Row): Promise<unknown> {
+async function runAnswers(ctx: BrowserCtx, caller: Caller, entry: BuddyProcedure, row: Row): Promise<unknown> {
   const { candidateId, answers } = row.inputJson as { candidateId: string; answers: { questionCode: string; subject: string; answer: unknown }[] };
   let applied = 0;
   let candidate: unknown = null;
-  let seq: number | null = null;
+  // The first answer runs only on the seq the draft expects; then each answer.set hands back the next one.
+  let seq: number | null = await seqIfCurrent(ctx, caller, row, candidateId);
   for (const a of answers) {
     try {
       // The current expectSeq: read once, then the one each answer.set hands back (the candidate after that write).
@@ -283,14 +306,16 @@ async function decided(ctx: BrowserCtx, row: Row): Promise<BuddyProcedure | null
   return entry;
 }
 
+/** The draft's grant is neither revoked nor past `expires_at` (null: no expiry, as `grantContext` reads it; D-L1). */
 async function grantLive(ctx: BrowserCtx, grantId: string | null): Promise<boolean> {
   if (!grantId) return false;
   const g = await ctx.db
-    .select({ revokedAt: buddyGrant.revokedAt })
+    .select({ revokedAt: buddyGrant.revokedAt, expiresAt: buddyGrant.expiresAt })
     .from(buddyGrant)
     .where(and(eq(buddyGrant.id, grantId), eq(buddyGrant.companyId, ctx.companyId)))
     .get();
-  return !!g && g.revokedAt === null;
+  if (!g || g.revokedAt !== null) return false;
+  return !g.expiresAt || g.expiresAt.getTime() > now().getTime();
 }
 
 export async function confirmDraft(ctx: BrowserCtx, draftId: string, via: BuddyDraftDecidedVia): Promise<BuddyDraftView> {
@@ -298,7 +323,7 @@ export async function confirmDraft(ctx: BrowserCtx, draftId: string, via: BuddyD
   const done = await settleIfDone(ctx, row, via);
   if (done) return done;
 
-  // Security L1: a draft of a grant that was cut off never runs.
+  // Security L1, D-L1: a draft of a grant that was cut off or ran out never runs.
   if (!(await grantLive(ctx, row.grantId))) {
     await settle(ctx, row, { status: "expired" }, "buddy.draft.expire", via, null);
     return viewOf(ctx, await readMine(ctx, draftId));
@@ -307,6 +332,11 @@ export async function confirmDraft(ctx: BrowserCtx, draftId: string, via: BuddyD
   if (!entry) {
     await settle(ctx, row, { status: "failed", failure: NOT_ALLOWED }, "buddy.draft.fail", via, null);
     return viewOf(ctx, await readMine(ctx, draftId));
+  }
+  // Decisions 5 and 10: an irreversible draft the card cannot show plainly is refused; the draft stays pending.
+  const view = await viewOf(ctx, row);
+  if (view.confirmBlock) {
+    throw new TRPCMetaError({ code: "PRECONDITION_FAILED", message: CONFIRM_BLOCKED_TEXT, meta: { reason: CONFIRM_BLOCKED, keys: view.confirmBlock.keys, why: view.confirmBlock.reason } });
   }
 
   // Claim: only one confirm runs the draft, and only while no reject or other confirm decided it.
@@ -326,13 +356,15 @@ export async function confirmDraft(ctx: BrowserCtx, draftId: string, via: BuddyD
   try {
     const caller = await callerFor(ctx, row.id);
     let result: unknown;
-    if (row.kind === "answers") result = await runAnswers(caller, entry, row);
+    if (row.kind === "answers") result = await runAnswers(ctx, caller, entry, row);
     else if (row.kind === "dryRun") result = await startDryRun(caller, row);
-    else result = await callPath(caller, entry.path, await runInput(caller, entry, row));
-    const capped = capResult(result);
+    else result = await callPath(caller, entry.path, await runInput(ctx, caller, entry, row));
+    const capped = capResult(stripSecrets(result));
     await settle(ctx, row, { status: "confirmed", resultJson: capped.data ?? null }, "buddy.draft.confirm", via, claim);
   } catch (error) {
-    if (error instanceof AnswersStopped) {
+    if (error instanceof StaleDraft) {
+      await settle(ctx, row, { status: "failed", failure: STALE_DRAFT_FAILURE }, "buddy.draft.fail", via, claim);
+    } else if (error instanceof AnswersStopped) {
       await settle(
         ctx,
         row,
@@ -361,29 +393,48 @@ export async function rejectDraft(ctx: BrowserCtx, draftId: string, via: BuddyDr
 
 export type DryRunReport = { outcome: "done" | "stopped" | "failed"; summary?: string };
 
+/** The stored outcome from the candidate's own state (delta S2): ready or held is done, processing stopped, else failed. */
+export function dryRunOutcome(state: string): "done" | "stopped" | "failed" {
+  if (state === "ready" || state === "held") return "done";
+  if (state === "processing") return "stopped";
+  return "failed";
+}
+
 /**
- * The browser's report of a confirmed dry run draft (decision 8). Stored once in `result.report`; `noted_at` goes
- * back to null so the next chat turn tells Hermes the outcome. A second report replays the view.
+ * The browser's report of a confirmed dry run draft (decision 8, delta S2). The report only triggers a read: the
+ * server stores `result.dryRun = { outcome, state }` from the candidate's own state at that moment, never the
+ * browser's outcome or summary. Stored once; `noted_at` goes back to null so the next chat turn tells Hermes. A
+ * second report replays the view.
  */
-export async function reportDraft(ctx: BrowserCtx, draftId: string, report: DryRunReport): Promise<BuddyDraftView> {
+export async function reportDraft(ctx: BrowserCtx, draftId: string, _report: DryRunReport): Promise<BuddyDraftView> {
   const row = await readMine(ctx, draftId);
   const result = (row.resultJson && typeof row.resultJson === "object" ? row.resultJson : {}) as Record<string, unknown>;
   if (row.kind !== "dryRun" || row.status !== "confirmed") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This draft has no dry run to report." });
   }
-  if ("report" in result) return viewOf(ctx, row);
-  const stored = { outcome: report.outcome, ...(report.summary ? { summary: report.summary.slice(0, 300) } : {}) };
-  const unreported: SQL = sql`json_extract(${buddyDraft.resultJson}, '$.report') is null`;
-  const reported: SQL = sql`json_extract(${buddyDraft.resultJson}, '$.report.outcome') = ${report.outcome}`;
+  if ("dryRun" in result) return viewOf(ctx, row);
+  const { candidateId } = row.inputJson as { candidateId: string };
+  const caller = await callerFor(ctx, row.id);
+  let state: string;
+  try {
+    state = (await candidateNow(caller, candidateId)).state;
+  } catch (error) {
+    // A candidate the person can no longer read (gone) is a failed run, never "done".
+    if (error instanceof TRPCError && error.code === "NOT_FOUND") state = "gone";
+    else throw error;
+  }
+  const stored = { outcome: dryRunOutcome(state), state };
+  const unreported: SQL = sql`json_extract(${buddyDraft.resultJson}, '$.dryRun') is null`;
+  const reported: SQL = sql`json_extract(${buddyDraft.resultJson}, '$.dryRun.outcome') = ${stored.outcome}`;
   const at = now();
   await atomicBatch(ctx.db, [
     ctx.db
       .update(buddyDraft)
-      .set({ resultJson: { ...result, report: stored }, notedAt: null })
+      .set({ resultJson: stripSecrets({ ...result, dryRun: stored }), notedAt: null })
       .where(and(mine(ctx, draftId), eq(buddyDraft.status, "confirmed"), eq(buddyDraft.kind, "dryRun"), unreported)),
     auditInsertGuarded(
       ctx,
-      { action: "buddy.draft.report", subjectType: "buddy_draft", subjectId: draftId, meta: { path: row.path, outcome: report.outcome, at: at.getTime() } },
+      { action: "buddy.draft.report", subjectType: "buddy_draft", subjectId: draftId, meta: { path: row.path, outcome: stored.outcome, state, at: at.getTime() } },
       { from: buddyDraft, where: and(mine(ctx, draftId), reported, sql`not exists (select 1 from ${auditLog} where ${auditLog.subjectId} = ${draftId} and ${auditLog.action} = 'buddy.draft.report')`) },
     ),
   ]);

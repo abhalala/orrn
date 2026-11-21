@@ -297,7 +297,7 @@ describe("orrn_call", () => {
 });
 
 describe("limits and the cap (§7)", () => {
-  test("60 tool calls a minute per grant, then rate_limited (logged)", async () => {
+  test("60 tool calls a minute per person and plant, then rate_limited (logged)", async () => {
     const p = await buddyPlant(env);
     const { token, grantId } = await connect(p);
     const { createId } = await import("../src/lib/id");
@@ -317,7 +317,7 @@ describe("limits and the cap (§7)", () => {
     expect(last?.outcome).toBe("rate_limited");
   });
 
-  test("20 drafts an hour per grant, then rate_limited and no 21st draft", async () => {
+  test("20 drafts an hour per person and plant, then rate_limited and no 21st draft", async () => {
     const p = await buddyPlant(env);
     const { token, grantId } = await connect(p);
     const { createId } = await import("../src/lib/id");

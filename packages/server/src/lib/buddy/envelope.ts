@@ -107,3 +107,29 @@ export function errorEnvelope(error: unknown, opts: { action?: string | null } =
   }
   return statusEnvelope("error", "orrn could not answer that.");
 }
+
+/** What a stripped secret becomes (delta round decision 1). */
+export const HIDDEN = "[hidden]";
+const SECRET_KEYS = new Set(["token", "secret", "password", "url", "signedUrl", "shareUrl"]);
+const SHARE_PATH = /\/share\//;
+const SIGNED_QUERY = /(?:^|[?&;\s])(?:x-amz-signature|sig|token)=/i;
+
+const secretText = (s: string): boolean => SHARE_PATH.test(s) || SIGNED_QUERY.test(s);
+
+/**
+ * A result with every secret hidden (delta round decision 1, D-M1): recursively, any key named `token`, `secret`,
+ * `password`, `url`, `signedUrl` or `shareUrl`, a `path` that holds `/share/`, and any string that holds a share path
+ * or a signed-link query (`X-Amz-Signature=`, `sig=`, `token=`) becomes `"[hidden]"`. Used for every stored
+ * `buddy_draft.result_json` and every read result Hermes is told on the MCP leg.
+ */
+export function stripSecrets(value: unknown): unknown {
+  if (typeof value === "string") return secretText(value) ? HIDDEN : value;
+  if (Array.isArray(value)) return value.map(stripSecrets);
+  if (!value || typeof value !== "object" || value instanceof Date) return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (SECRET_KEYS.has(k) && v !== null && v !== undefined) out[k] = HIDDEN;
+    else out[k] = stripSecrets(v);
+  }
+  return out;
+}

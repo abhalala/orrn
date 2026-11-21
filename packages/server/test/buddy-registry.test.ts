@@ -126,6 +126,8 @@ const SCAN_DENIED = [
   "scale.reading",
   "reports.salesRegisterCsv",
   "foundry.spectro.file",
+  // Delta round decision 1 (B1, D-M1): a share link would leave orrn through the chat, like the drawing link.
+  "die.share.create",
 ];
 
 describe("every router and every ingest procedure has a decision", () => {
@@ -155,6 +157,25 @@ describe("every router and every ingest procedure has a decision", () => {
     for (const p of Object.keys(BUDDY_DECISIONS.pending)) {
       expect({ p, existsNow: reg.has(p) }).toEqual({ p, existsNow: false });
     }
+  });
+
+  test("review N2: a change in an allowed router needs its own reviewed entry; a new one is denied and named here", async () => {
+    const { reg, BUDDY_DECISIONS } = await load();
+    const { undecidedChanges, buildRegistry } = await import("../src/lib/buddy/registry");
+    // Today every change of an allowed router is decided by name.
+    expect(undecidedChanges(reg)).toEqual([]);
+    // A new mutation in an allowed router, as tRPC keeps it: denied, and listed until it gets an entry.
+    const fake = buildRegistry({
+      "customer.zzSyntheticNew": { _def: { type: "mutation", inputs: [] } },
+      "customer.zzSyntheticRead": { _def: { type: "query", inputs: [] } },
+    });
+    expect(fake.get("customer.zzSyntheticNew")?.decision.kind).toBe("deny");
+    expect(fake.get("customer.zzSyntheticRead")?.decision.kind).toBe("allow");
+    expect(undecidedChanges(fake)).toEqual(["customer.zzSyntheticNew"]);
+    // Every named change exists and sits in an allowed router (no stale names).
+    const changes = BUDDY_DECISIONS.changes as readonly string[];
+    expect(changes.filter((p) => reg.get(p)?.kind !== "mutation")).toEqual([]);
+    expect([...changes].sort()).toEqual([...changes]);
   });
 
   test("an unknown router or an undecided ingest path is denied (fail closed)", async () => {
@@ -198,13 +219,15 @@ describe("every router and every ingest procedure has a decision", () => {
 describe("every procedure is pinned (security M2)", () => {
   const SNAPSHOT = join(import.meta.dir, "buddy-procedures.snapshot.tsv");
 
-  test("the registry matches the checked-in snapshot of path, kind and decision", async () => {
+  test("the registry matches the checked-in snapshot of path, kind, decision and irreversible", async () => {
     const { reg } = await load();
+    const { irreversiblePath } = await import("../src/lib/buddy/draftRefs");
     const lines = [...reg.values()]
       .map((e) => {
         const d = e.decision;
         const decision = d.kind === "deny" ? "deny" : d.unless ? `allow unless ${d.unless.field}=${d.unless.values.join("|")}` : "allow";
-        return `${e.path}\t${e.kind}\t${decision}`;
+        // Delta decision 5: whether the change can be undone, which gates Confirm on unnamed ids and bidi controls.
+        return `${e.path}\t${e.kind}\t${decision}\t${irreversiblePath(e.path) ? "irreversible" : "reversible"}`;
       })
       .sort();
     if (process.env.BUDDY_SNAPSHOT_WRITE === "1") writeFileSync(SNAPSHOT, `${lines.join("\n")}\n`);

@@ -7,7 +7,7 @@
  * does not start it again (fix round, security L2).
  */
 import { buddyDraft, company, type BuddyDraftKind } from "@orrn/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
 
 import { auditInsertGuarded } from "../audit";
 import { now } from "../clock";
@@ -84,4 +84,30 @@ export async function createBuddyDraft(ctx: BuddyContext, draft: NewDraft): Prom
     .where(and(eq(buddyDraft.id, draft.id), eq(buddyDraft.companyId, companyId)))
     .get();
   return !!landed;
+}
+
+/**
+ * How far this person's pending drafts on one candidate will move its seq when they run (delta S3): one for each
+ * procedure draft that takes an `expectSeq` (those carry a `basis_seq`), one per answer of an answers draft. Dry run
+ * drafts only read at Confirm and carry no basis.
+ */
+export async function pendingSeqMoves(ctx: BuddyContext, candidateId: string): Promise<number> {
+  const at = now().getTime();
+  const row = await ctx.db
+    .select({
+      n: sql<number>`coalesce(sum(case when ${buddyDraft.kind} = 'answers' then json_array_length(${buddyDraft.inputJson}, '$.answers') else 1 end), 0)`,
+    })
+    .from(buddyDraft)
+    .where(
+      and(
+        eq(buddyDraft.companyId, ctx.companyId!),
+        eq(buddyDraft.requestedByUserId, ctx.session!.user.id),
+        eq(buddyDraft.status, "pending"),
+        gt(buddyDraft.expiresAt, new Date(at)),
+        isNotNull(buddyDraft.basisSeq),
+        sql`json_extract(${buddyDraft.inputJson}, '$.candidateId') = ${candidateId}`,
+      ),
+    )
+    .get();
+  return Number(row?.n ?? 0);
 }

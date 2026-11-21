@@ -30,8 +30,21 @@ export type BuddyCallView = {
   at: string;
 };
 
-/** One input field of a draft as the card shows it: never cut. */
-export type BuddyDraftField = { key: string; label: string; value: string };
+/**
+ * One input field of a draft as the card shows it: never cut (v3, delta round decisions 5 and 10).
+ * - `value`: the resolved name or code when `ref.name` is set, else the raw value (ids stay visible). For an `*Ids`
+ *   list, `name (id)` per entry (the id alone when no name was found).
+ * - `ref`: set for every single id field the server resolves (key `id`, `*Id`); `name` null when no row of this plant
+ *   has that id. Null for `*Ids` lists and for fields that are not ids.
+ * - `marked`: the raw value held bidi controls (U+202A..U+202E, U+2066..U+2069); `value` shows each as `⟦U+202E⟧`.
+ */
+export type BuddyDraftField = {
+  key: string;
+  label: string;
+  value: string;
+  ref: { id: string; name: string | null } | null;
+  marked: boolean;
+};
 /** One entry of a list the draft runs (e.g. every answer of an "answers" draft): never cut. */
 export type BuddyDraftItem = { label: string; value: string };
 
@@ -63,4 +76,15 @@ export type BuddyDraftView = {
   decidedVia: BuddyDraftDecidedVia | null;
   /** A confirmed dry run draft whose run the browser has not reported yet: the bubble drives `ingest.dryRun.step`. */
   drive: { kind: "dryRun"; candidateId: string } | null;
+  /** The change cannot be undone (delete, cancel, merge, close, void, remove, retire, revoke, discard, ...). */
+  irreversible: boolean;
+  /**
+   * Set when `irreversible` and some id field has no name in this plant (`unnamed_id`) or some value holds bidi
+   * controls (`bidi`): Confirm is refused by the server (PRECONDITION_FAILED, `data.meta.reason = "CONFIRM_BLOCKED"`)
+   * and the card disables it. `keys` are the input keys at fault. Reject still works.
+   */
+  confirmBlock: null | { reason: "unnamed_id" | "bidi"; keys: string[] };
 };
+
+/** `data.meta.reason` of the refusal when Confirm is pressed on a draft with `confirmBlock` set. */
+export const CONFIRM_BLOCKED = "CONFIRM_BLOCKED";

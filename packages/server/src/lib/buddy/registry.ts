@@ -13,7 +13,7 @@ import { GUARD_ACTIONS, type GuardActions } from "../../index";
 import type { Action } from "../permissions";
 import { can } from "../permissions";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
-import { decideBuddyPath, type BuddyDecision } from "./decisions";
+import { BUDDY_DECISIONS, decideBuddyPath, type BuddyDecision } from "./decisions";
 import { describePath } from "./descriptions";
 
 /** A parser as tRPC keeps it; orrn inputs are zod schemas. */
@@ -67,7 +67,7 @@ export function buildRegistry(procedures: Record<string, AnyProcedure>): Map<str
     map.set(path, {
       path,
       kind: type,
-      decision: decideBuddyPath(path),
+      decision: decideBuddyPath(path, type),
       description: describePath(path),
       inputs,
       guard: guardOf(proc),
@@ -75,6 +75,25 @@ export function buildRegistry(procedures: Record<string, AnyProcedure>): Map<str
     });
   }
   return map;
+}
+
+/**
+ * Review N2: mutations of an allowed router that have no entry in `paths` or `changes` (they are denied until
+ * decided). The registry test fails while this is not empty.
+ */
+export function undecidedChanges(reg: Map<string, BuddyProcedure>): string[] {
+  const paths = BUDDY_DECISIONS.paths as Record<string, unknown>;
+  const routers = BUDDY_DECISIONS.routers as Record<string, unknown>;
+  const changes = new Set<string>(BUDDY_DECISIONS.changes);
+  const out: string[] = [];
+  for (const e of reg.values()) {
+    if (e.kind !== "mutation") continue;
+    const top = routers[e.path.split(".")[0] ?? ""];
+    if (!top || typeof top !== "object" || (top as BuddyDecision).kind !== "allow") continue;
+    if (Object.prototype.hasOwnProperty.call(paths, e.path) || changes.has(e.path)) continue;
+    out.push(e.path);
+  }
+  return out.sort();
 }
 
 /** Every query and mutation of `appRouter`, decided. */
@@ -125,4 +144,46 @@ export function inputJsonSchema(entry: BuddyProcedure): unknown {
   if (schemas.length === 0) return null;
   if (schemas.length === 1) return schemas[0];
   return { allOf: schemas };
+}
+
+/** zod's object and union classes, unwrapped from optional/nullable/default. */
+function objectShapes(p: unknown): { keys: string[]; loose: boolean }[] | null {
+  let cur = p;
+  for (let i = 0; i < 5; i += 1) {
+    if (cur instanceof z.ZodOptional || cur instanceof z.ZodNullable || cur instanceof z.ZodDefault) cur = (cur as { unwrap(): unknown }).unwrap();
+    else break;
+  }
+  if (cur instanceof z.ZodObject) {
+    const catchall = (cur as unknown as { _zod?: { def?: { catchall?: unknown } } })._zod?.def?.catchall;
+    const loose = !!catchall && !(catchall instanceof z.ZodNever);
+    return [{ keys: Object.keys(cur.shape), loose }];
+  }
+  if (cur instanceof z.ZodArray) return [];
+  if (cur instanceof z.ZodUnion) {
+    const out: { keys: string[]; loose: boolean }[] = [];
+    for (const o of cur.options as unknown[]) {
+      const sub = objectShapes(o);
+      if (sub === null) return null;
+      out.push(...sub);
+    }
+    return out;
+  }
+  return null;
+}
+
+/**
+ * Top-level keys of an object input that no object option of the procedure takes (review N4): zod strips them, so the
+ * card would show a key that never runs. Empty when the input is not a plain object or the parser is not made of
+ * plain objects (records, `any`, loose objects).
+ */
+export function unknownKeys(entry: BuddyProcedure, input: unknown): string[] {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return [];
+  const allowed = new Set<string>();
+  for (const p of entry.inputs) {
+    const shapes = objectShapes(p);
+    if (shapes === null || shapes.some((s) => s.loose)) return [];
+    for (const s of shapes) for (const k of s.keys) allowed.add(k);
+  }
+  if (entry.inputs.length === 0) return Object.keys(input);
+  return Object.keys(input).filter((k) => !allowed.has(k));
 }

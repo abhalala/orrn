@@ -21,13 +21,13 @@ import { now } from "../clock";
 import { createId } from "../id";
 import { BUDDY_LIMIT, finishBuddyCall, logBuddyCall, reserveBuddyCall } from "./callLog";
 import { refusedInput } from "./decisions";
-import { createBuddyDraft, type NewDraft } from "./draftCreate";
+import { createBuddyDraft, pendingSeqMoves, type NewDraft } from "./draftCreate";
 import { cardTooBig, draftCard, fillsExpectSeq, REQUEST_KEYS, TOO_BIG_FOR_CARD } from "./draftView";
-import { byteLength, errorEnvelope, okEnvelope, statusEnvelope, type Envelope } from "./envelope";
+import { byteLength, errorEnvelope, okEnvelope, statusEnvelope, stripSecrets, type Envelope } from "./envelope";
 import { contextFromGrant, type BuddyContext } from "./grantContext";
 import { prepareImportAnswers, prepareImportDryRun } from "./importDrafts";
 import { absoluteLink, draftLink, reviewPath } from "./links";
-import { allowedProcedure, buddyRegistry, inputJsonSchema, roleHoldsGuard, validateInput, type BuddyProcedure } from "./registry";
+import { allowedProcedure, buddyRegistry, inputJsonSchema, roleHoldsGuard, unknownKeys, validateInput, type BuddyProcedure } from "./registry";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -376,7 +376,8 @@ async function call(args: Record<string, unknown>, ctx: BuddyContext, origin: st
 
   if (entry.kind === "query") {
     try {
-      return okEnvelope(await runQuery(ctx, entry.path, input));
+      // Decision 1: what Hermes is told never holds a token, a share link or a signed link.
+      return okEnvelope(stripSecrets(await runQuery(ctx, entry.path, input)));
     } catch (error) {
       return errorEnvelope(error, { action });
     }
@@ -384,10 +385,46 @@ async function call(args: Record<string, unknown>, ctx: BuddyContext, origin: st
 
   // A change: validate, store a draft, never run it.
   const draftId = createId();
-  const { stored, checked } = draftInputs(entry, input, draftId);
+  const shaped = wrapBareRows(entry, input);
+  // Review N4: a key the procedure does not take would show on the card but never run.
+  const extra = unknownKeys(entry, shaped);
+  if (extra.length > 0) return statusEnvelope("invalid", `The procedure does not take: ${extra.slice(0, 10).join(", ")}.`);
+  const { stored, checked } = draftInputs(entry, shaped, draftId);
   const valid = validateInput(entry, checked);
   if (!valid.ok) return statusEnvelope("invalid", "The input does not fit.", { issues: valid.issues });
-  return storeDraft(ctx, { id: draftId, path: entry.path, kind: "procedure", input: stored, summary: entry.description, originPlatform: origin });
+  let basisSeq: number | null = null;
+  if (entry.fields.includes("expectSeq") && fillsExpectSeq(entry.path, stored)) {
+    const basis = await basisFor(ctx, (stored as { candidateId: string }).candidateId);
+    if (!basis.ok) return basis.envelope;
+    basisSeq = basis.seq;
+  }
+  return storeDraft(ctx, { id: draftId, path: entry.path, kind: "procedure", input: stored, summary: entry.description, originPlatform: origin, basisSeq });
+}
+
+/**
+ * Review N1: a bare row array (e.g. `customer.importCsv`, which also takes `{ rows, clientRequestId }`) is stored as
+ * `{ rows }`, so Confirm can set the draft id as its request key like every other target.
+ */
+function wrapBareRows(entry: BuddyProcedure, input: unknown): unknown {
+  if (!Array.isArray(input)) return input;
+  if (!entry.fields.includes("rows") || !REQUEST_KEYS.some((k) => entry.fields.includes(k))) return input;
+  return { rows: input };
+}
+
+/**
+ * The candidate seq an ingest draft expects at Confirm (delta S3, decision 4): the seq now, plus the moves of this
+ * person's earlier pending drafts on the same candidate (the drafts of the same turn run first).
+ */
+async function basisFor(ctx: BuddyContext, candidateId: string): Promise<{ ok: true; seq: number } | { ok: false; envelope: Envelope }> {
+  const check = await allowedProcedure("ingest.candidate.get");
+  if (!check) return { ok: false, envelope: statusEnvelope("not_found", "Not found.") };
+  let seq: number;
+  try {
+    seq = ((await runQuery(ctx, "ingest.candidate.get", { candidateId })) as { serverSeq: number }).serverSeq;
+  } catch (error) {
+    return { ok: false, envelope: errorEnvelope(error, { action: actionText(check) }) };
+  }
+  return { ok: true, seq: seq + (await pendingSeqMoves(ctx, candidateId)) };
 }
 
 /**
@@ -413,7 +450,14 @@ function draftInputs(entry: BuddyProcedure, input: unknown, draftId: string): { 
 
 async function importDraft(prepared: Awaited<ReturnType<typeof prepareImportAnswers>>, ctx: BuddyContext, origin: string | null): Promise<Envelope> {
   if (!prepared.ok) return prepared.envelope;
-  return storeDraft(ctx, { id: createId(), ...prepared.draft, originPlatform: origin });
+  // An answers draft runs on the seq it expects (delta S3); a dry run draft only reads at Confirm.
+  let basisSeq: number | null = null;
+  if (prepared.draft.kind === "answers") {
+    const basis = await basisFor(ctx, (prepared.draft.input as { candidateId: string }).candidateId);
+    if (!basis.ok) return basis.envelope;
+    basisSeq = basis.seq;
+  }
+  return storeDraft(ctx, { id: createId(), ...prepared.draft, originPlatform: origin, basisSeq });
 }
 
 async function storeDraft(ctx: BuddyContext, draft: NewDraft): Promise<Envelope> {

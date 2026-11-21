@@ -100,6 +100,9 @@ export const BUDDY_DECISIONS = {
     "dieInstance.files.beginUpload": deny("Die file upload: the bytes come from the browser only."),
     "dieInstance.files.commit": deny("Die file upload: the bytes come from the browser only."),
     "die.share.view": deny("The public share page, opened with a share token; not a plant tool."),
+    // Delta round decision 1 (B1, D-M1): the link's token comes from the request key, which Confirm sets to the draft id
+    // that Hermes and the audit log know. The buddy links the person to the die screen instead.
+    "die.share.create": deny("Mints a public share link, which would leave orrn through the chat; the person makes it on the die screen."),
     "reports.ageing": {
       kind: "allow",
       unless: { field: "format", values: ["csv"], reason: "§10 scan: the CSV form is a download." },
@@ -171,6 +174,62 @@ export const BUDDY_DECISIONS = {
   } satisfies Record<string, BuddyDecision>,
 
   /**
+   * Review N2: every change (mutation) of an allowed router, reviewed by name. It runs only as a draft the person
+   * confirms. A new mutation in an allowed router that is not here (or in `paths`) is denied, and
+   * `buddy-registry.test.ts` names it until it is decided, so `BUDDY_SNAPSHOT_WRITE=1` can never stamp it as allowed.
+   */
+  changes: [
+    "ageing.batches.discardRemaining", "ageing.batches.hardness", "ageing.batches.hold", "ageing.batches.load",
+    "ageing.batches.out", "ageing.batches.release", "ageing.batches.requestOverride", "ageing.batches.rework",
+    "ageing.batches.simulate", "ageing.batches.split", "ageing.batches.start", "ageing.batches.temp",
+    "ageing.batches.unhold", "ageing.batches.void", "ageing.ovens.save", "ageing.recipes.save",
+    "ageing.trolleys.save",
+    "bundle.bulkImport", "bundle.createReceipt", "bundle.importCheck", "bundle.labelsPrinted",
+    "bundle.transitionStatus",
+    "count.cancel", "count.close", "count.removeScans", "count.resolve", "count.scan", "count.start",
+    "customer.addAliases", "customer.create", "customer.delete", "customer.importCsv", "customer.update",
+    "die.bands.create", "die.bands.retire", "die.bands.update", "die.create", "die.delete", "die.processImport",
+    "die.share.revoke", "die.update", "die.validateImport",
+    "dieInstance.addNitriding", "dieInstance.addReading", "dieInstance.create", "dieInstance.files.remove",
+    "dieInstance.issues.cancel", "dieInstance.issues.issue", "dieInstance.issues.return",
+    "dieInstance.maker.archive", "dieInstance.maker.create", "dieInstance.maker.jobs.cancel",
+    "dieInstance.maker.jobs.receive", "dieInstance.maker.jobs.send", "dieInstance.maker.update",
+    "dieInstance.nitridingBack", "dieInstance.nitridingOut", "dieInstance.proposeTier",
+    "dieInstance.requestOwnerOverride", "dieInstance.trialFail", "dieInstance.trialPass", "dieInstance.update",
+    "dieInstance.work.add",
+    "dispatch.addBundle", "dispatch.addBundlesBySerial", "dispatch.cancel", "dispatch.complete", "dispatch.create",
+    "dispatch.linkItem", "dispatch.removeBundle", "dispatch.reserve", "dispatch.scan", "dispatch.setItemGroupLabel",
+    "dispatch.softDelete", "dispatch.unreserve", "dispatch.update",
+    "foundry.alloys.create", "foundry.alloys.seedDefaults", "foundry.alloys.setLimits", "foundry.alloys.update",
+    "foundry.casts.cancel", "foundry.casts.close", "foundry.casts.open", "foundry.furnaces.create",
+    "foundry.furnaces.seedDefaults", "foundry.furnaces.update", "foundry.melts.cancel", "foundry.melts.correct",
+    "foundry.melts.create", "foundry.melts.discard", "foundry.melts.lock", "foundry.melts.requestCorrection",
+    "foundry.melts.save", "foundry.readings.add", "foundry.readings.simulate", "foundry.returnStreams.create",
+    "foundry.returnStreams.opening", "foundry.returnStreams.seedDefaults", "foundry.returnStreams.update",
+    "foundry.spectro.attach", "foundry.spectro.enter", "foundry.spectro.void", "foundry.spectroInbox.attach",
+    "foundry.spectroInbox.dismiss",
+    "orders.cancel", "orders.close", "orders.confirm", "orders.create", "orders.hold", "orders.quoteMany",
+    "orders.reallocate", "orders.release", "orders.repriceWeight", "orders.update",
+    "packingList.combine", "packingList.create", "packingList.regenerate",
+    "plans.cancel", "plans.close", "plans.create", "plans.release", "plans.update",
+    "press.collector.acknowledgeAlert", "press.collector.acknowledgeEndedAlerts", "press.collector.setThreshold",
+    "press.downtime.start", "press.downtime.stop", "press.lines.create", "press.lines.restore", "press.lines.retire",
+    "press.lines.update", "press.queue.move", "press.queue.pullBack", "press.queue.urgent", "press.runs.billets",
+    "press.runs.close", "press.runs.confirmTime", "press.runs.count", "press.runs.handover", "press.runs.lines",
+    "press.runs.open", "press.runs.qc", "press.runs.remark", "press.runs.reopen", "press.runs.resume",
+    "press.runs.scrap", "press.runs.start", "press.runs.stop", "press.runs.undoStart", "press.runs.void",
+    "purchase.dcNotes.create", "purchase.lots.advance", "purchase.lots.cancel", "purchase.lots.create",
+    "purchase.lots.update", "purchase.scrapGrades.create", "purchase.scrapGrades.update",
+    "purchase.scrapItems.create", "purchase.scrapItems.update", "purchase.seedScrapDefaults",
+    "reasonCodes.create", "reasonCodes.rename", "reasonCodes.setActive",
+    "stock.locations.create", "stock.locations.seedDefaults", "stock.locations.update", "stock.move",
+    "stock.openingBalance",
+    "store.cancel", "store.exchange", "store.issue", "store.items.create", "store.items.update", "store.receive",
+    "transporter.create", "transporter.update",
+    "vendor.addAlias", "vendor.confirm", "vendor.create", "vendor.merge", "vendor.removeAlias", "vendor.update",
+  ] as readonly string[],
+
+  /**
    * Release 2 of the import (`feat/vision-read`, not merged yet). Decided ahead of the merge (§12.3); the
    * test accepts these paths missing from `appRouter` only because they are in this named list.
    */
@@ -181,11 +240,15 @@ export type BuddyRouterKey = keyof typeof BUDDY_DECISIONS.routers;
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 
+const CHANGES = new Set<string>(BUDDY_DECISIONS.changes);
+const UNDECIDED_CHANGE = deny("A new change with no reviewed decision yet (review N2).");
+
 /**
  * The decision for one procedure path. A path decision (or a pending one) wins; else the router's.
  * A router marked `"per-procedure"` with no path entry, or an unknown router, is denied (fail closed).
+ * With `kind: "mutation"`, an allowed router's change must also be named in `changes` (review N2), else denied.
  */
-export function decideBuddyPath(path: string): BuddyDecision {
+export function decideBuddyPath(path: string, kind?: "query" | "mutation"): BuddyDecision {
   const paths = BUDDY_DECISIONS.paths as Record<string, BuddyDecision>;
   const pending = BUDDY_DECISIONS.pending as Record<string, BuddyDecision>;
   if (own(paths, path)) return paths[path]!;
@@ -195,6 +258,7 @@ export function decideBuddyPath(path: string): BuddyDecision {
   if (!own(routers, top)) return deny("No decision for this router yet.");
   const d = routers[top]!;
   if (d === "per-procedure") return deny("No decision for this procedure yet.");
+  if (kind === "mutation" && d.kind === "allow" && !CHANGES.has(path)) return UNDECIDED_CHANGE;
   return d;
 }
 

@@ -4,7 +4,8 @@
  * The card shows exactly what Confirm runs, never cut:
  * - every input field, labelled in English from its key (the web maps known keys to the person's language);
  * - every entry of a composite draft's list (`items`);
- * - `candidateId` / `artifactId` as the sheet or file name when the row exists in this plant;
+ * - every id (`id`, `*Id`, `*Ids`) as the name or code of this plant's row (`draftNames.ts`), the id when none;
+ * - bidi controls marked (`⟦U+202E⟧`), and an irreversible draft with one, or with an unnamed id, blocked;
  * - not `expectSeq` (ingest drafts) or the request keys: Confirm fills them in (the draft id is the key).
  *
  * A draft the card cannot show in full is refused when it is made (`cardTooBig`). Pure: no database here, so the
@@ -15,6 +16,7 @@ import type { BuddyDraftDecidedVia, BuddyDraftKind, BuddyDraftStatus } from "@or
 import { now } from "../clock";
 import { describePath } from "./descriptions";
 import { draftLink } from "./links";
+import { hasBidi, irreversiblePath, isIdList, markBidi, nameKey, refEntity } from "./draftRefs";
 import type { BuddyDraftField, BuddyDraftItem, BuddyDraftView } from "./views";
 
 export type DraftRow = {
@@ -81,18 +83,46 @@ export function valueText(v: unknown): string {
   return JSON.stringify(v) ?? "";
 }
 
-/** id -> sheet or file name, for this plant's import rows (filled by the drafts list; empty on the MCP leg). */
+/** `<entity>:<id>` -> name, for this plant's rows (filled by the drafts list and Confirm; empty on the MCP leg). */
 export type DraftNames = ReadonlyMap<string, string>;
-const NAMED_KEYS = new Set(["candidateId", "artifactId"]);
 
-export type DraftCard = { fields: BuddyDraftField[]; items: BuddyDraftItem[] | null };
+export type DraftCard = {
+  fields: BuddyDraftField[];
+  items: BuddyDraftItem[] | null;
+  /** Id keys with an id that has no name in this plant (single ids and list entries). */
+  unnamed: string[];
+  /** Keys whose value holds bidi controls. */
+  marked: string[];
+};
+
+function idField(path: string, key: string, v: unknown, names: DraftNames): { value: string; ref: BuddyDraftField["ref"]; unnamed: boolean } | null {
+  const entity = refEntity(path, key);
+  if (!entity) return null;
+  if (isIdList(key)) {
+    if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) return null;
+    let unnamed = false;
+    const parts = (v as string[]).map((id) => {
+      const name = names.get(nameKey(entity, id));
+      if (!name) unnamed = true;
+      return name ? `${name} (${id})` : id;
+    });
+    return { value: parts.join(", "), ref: null, unnamed };
+  }
+  if (typeof v !== "string") return null;
+  const name = names.get(nameKey(entity, v)) ?? null;
+  return { value: name ?? v, ref: { id: v, name }, unnamed: name === null };
+}
 
 export function draftCard(path: string, kind: BuddyDraftKind, input: unknown, names: DraftNames = new Map()): DraftCard {
-  if (input === undefined || input === null) return { fields: [], items: null };
+  if (input === undefined || input === null) return { fields: [], items: null, unnamed: [], marked: [] };
   if (typeof input !== "object" || Array.isArray(input)) {
-    return { fields: [{ key: "input", label: "Input", value: valueText(input) }], items: null };
+    const raw = valueText(input);
+    const marked = hasBidi(raw);
+    return { fields: [{ key: "input", label: "Input", value: markBidi(raw), ref: null, marked }], items: null, unnamed: [], marked: marked ? ["input"] : [] };
   }
   const fields: BuddyDraftField[] = [];
+  const unnamed: string[] = [];
+  const markedKeys: string[] = [];
   let items: BuddyDraftItem[] | null = null;
   for (const [key, v] of Object.entries(input as Record<string, unknown>)) {
     if (hidden(path, input, key)) continue;
@@ -101,14 +131,29 @@ export function draftCard(path: string, kind: BuddyDraftKind, input: unknown, na
         const { questionCode, subject, answer } = (a ?? {}) as { questionCode?: unknown; subject?: unknown; answer?: unknown };
         const code = valueText(questionCode);
         const about = valueText(subject);
-        return { label: about ? `${code}: ${about}` : code, value: valueText(answer) };
+        const label = about ? `${code}: ${about}` : code;
+        const value = valueText(answer);
+        if ((hasBidi(label) || hasBidi(value)) && !markedKeys.includes(key)) markedKeys.push(key);
+        return { label: markBidi(label), value: markBidi(value) };
       });
       continue;
     }
     const raw = valueText(v);
-    fields.push({ key, label: fieldLabel(key), value: NAMED_KEYS.has(key) && typeof v === "string" ? (names.get(v) ?? raw) : raw });
+    const marked = hasBidi(raw);
+    if (marked) markedKeys.push(key);
+    const id = idField(path, key, v, names);
+    if (id?.unnamed) unnamed.push(key);
+    fields.push({ key, label: fieldLabel(key), value: markBidi(id ? id.value : raw), ref: id?.ref ?? null, marked });
   }
-  return { fields, items };
+  return { fields, items, unnamed, marked: markedKeys };
+}
+
+/** Confirm is blocked for an irreversible draft with an id that has no name here, or with bidi controls (decisions 5, 10). */
+export function confirmBlockOf(path: string, card: DraftCard): BuddyDraftView["confirmBlock"] {
+  if (!irreversiblePath(path)) return null;
+  if (card.marked.length > 0) return { reason: "bidi", keys: card.marked };
+  if (card.unnamed.length > 0) return { reason: "unnamed_id", keys: card.unnamed };
+  return null;
 }
 
 /** True when the card could not show the draft in full (decision 9). */
@@ -129,8 +174,9 @@ function originOf(platform: string | null): BuddyDraftView["origin"] {
   return platform === "api_server" ? "chat" : "other";
 }
 
-function hasReport(result: unknown): boolean {
-  return !!result && typeof result === "object" && "report" in (result as Record<string, unknown>);
+/** The browser has reported the dry run: the server stored `result.dryRun` (delta S2). */
+export function hasDryRunReport(result: unknown): boolean {
+  return !!result && typeof result === "object" && "dryRun" in (result as Record<string, unknown>);
 }
 
 export function draftView(row: DraftRow, names: DraftNames = new Map(), at: Date = now()): BuddyDraftView {
@@ -138,7 +184,7 @@ export function draftView(row: DraftRow, names: DraftNames = new Map(), at: Date
   const card = draftCard(row.path, row.kind, row.inputJson, names);
   const candidateId = (row.inputJson as { candidateId?: unknown } | null)?.candidateId;
   const drive =
-    row.kind === "dryRun" && row.status === "confirmed" && !hasReport(row.resultJson) && typeof candidateId === "string"
+    row.kind === "dryRun" && row.status === "confirmed" && !hasDryRunReport(row.resultJson) && typeof candidateId === "string"
       ? { kind: "dryRun" as const, candidateId }
       : null;
   return {
@@ -157,5 +203,7 @@ export function draftView(row: DraftRow, names: DraftNames = new Map(), at: Date
     origin: originOf(row.originPlatform),
     decidedVia: row.decidedVia,
     drive,
+    irreversible: irreversiblePath(row.path),
+    confirmBlock: confirmBlockOf(row.path, card),
   };
 }
