@@ -172,6 +172,7 @@ export const refusalHi = {
     buddyUnknownOutcome: "orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें।",
     buddyChangeFailed: "बदलाव नहीं हुआ।",
     buddyInputNotFit: "यह बदलाव अब उस स्क्रीन से मेल नहीं खाता जिसके लिए बना था। Buddy से फिर से पूछें।",
+    buddyStale: "Buddy के यह तैयार करने के बाद शीट बदल गई। Buddy से फिर से पूछें।",
     unknown: "orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें।",
   },
 } as const;

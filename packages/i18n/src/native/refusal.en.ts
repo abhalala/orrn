@@ -177,6 +177,7 @@ export const refusalEn = {
     buddyUnknownOutcome: "orrn could not tell if this went through. Check the screen before you try again.",
     buddyChangeFailed: "The change did not go through.",
     buddyInputNotFit: "This change no longer fits the screen it was made for. Ask Buddy again.",
+    buddyStale: "The sheet changed after Buddy prepared this. Ask Buddy again.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;

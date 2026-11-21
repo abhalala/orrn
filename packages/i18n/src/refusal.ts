@@ -287,6 +287,8 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "buddyUnknownOutcome", re: /^orrn could not tell if this went through\. Check the screen before you try again\.?$/ },
   { id: "buddyChangeFailed", re: /^The change failed\.?$/ },
   { id: "buddyInputNotFit", re: /^The input does not fit\.?$/ },
+  // Delta round S3: the sheet moved on since the draft was made (`STALE_DRAFT_FAILURE`, drafts.ts).
+  { id: "buddyStale", re: /^The sheet changed after this was drafted\. Ask Buddy again\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {

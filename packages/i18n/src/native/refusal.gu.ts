@@ -175,6 +175,7 @@ export const refusalGu = {
     buddyUnknownOutcome: "orrn જાણી ન શક્યું કે આ થયું કે નહીં. ફરી કરતાં પહેલાં સ્ક્રીન પર જોઈ લો.",
     buddyChangeFailed: "ફેરફાર ન થયો.",
     buddyInputNotFit: "આ ફેરફાર હવે જે સ્ક્રીન માટે બન્યો હતો તેની સાથે મેળ ખાતો નથી. Buddy ને ફરી પૂછો.",
+    buddyStale: "Buddy એ આ તૈયાર કર્યા પછી શીટ બદલાઈ ગઈ. Buddy ને ફરી પૂછો.",
     unknown: "orrn એ આને નકાર્યું. વિગતો તપાસીને ફરી પ્રયાસ કરો.",
   },
 } as const;
