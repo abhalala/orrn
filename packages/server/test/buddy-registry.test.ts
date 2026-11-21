@@ -7,6 +7,8 @@
  * - the §12.3 paths and the §10 scan hits are denied; every allowed path describes as JSON Schema.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -165,6 +167,32 @@ describe("every router and every ingest procedure has a decision", () => {
     expect(decideBuddyPath("ingest.vision.check").kind).toBe("deny");
     expect(decideBuddyPath("ingest.vision.start").kind).toBe("deny");
     expect(decideBuddyPath("ingest.vision.readPage").kind).toBe("allow");
+  });
+});
+
+/**
+ * Security M2 / decision 10: every procedure is pinned with its kind and decision. A new procedure, or a changed
+ * decision, fails here until its line is added to the snapshot in the same change (a reviewed, one-line decision).
+ * Regenerate after deciding: `BUDDY_SNAPSHOT_WRITE=1 bun test test/buddy-registry.test.ts`, then read the diff.
+ */
+describe("every procedure is pinned (security M2)", () => {
+  const SNAPSHOT = join(import.meta.dir, "buddy-procedures.snapshot.tsv");
+
+  test("the registry matches the checked-in snapshot of path, kind and decision", async () => {
+    const { reg } = await load();
+    const lines = [...reg.values()]
+      .map((e) => {
+        const d = e.decision;
+        const decision = d.kind === "deny" ? "deny" : d.unless ? `allow unless ${d.unless.field}=${d.unless.values.join("|")}` : "allow";
+        return `${e.path}\t${e.kind}\t${decision}`;
+      })
+      .sort();
+    if (process.env.BUDDY_SNAPSHOT_WRITE === "1") writeFileSync(SNAPSHOT, `${lines.join("\n")}\n`);
+    const pinned = existsSync(SNAPSHOT) ? readFileSync(SNAPSHOT, "utf8").split("\n").filter(Boolean) : [];
+    const pinnedSet = new Set(pinned);
+    const now = new Set(lines);
+    expect({ notPinned: lines.filter((l) => !pinnedSet.has(l)), stale: pinned.filter((l) => !now.has(l)) }).toEqual({ notPinned: [], stale: [] });
+    expect(lines.length).toBeGreaterThan(400);
   });
 });
 
