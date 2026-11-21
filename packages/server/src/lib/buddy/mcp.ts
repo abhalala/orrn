@@ -4,7 +4,8 @@
  * Every answer is one `application/json` body; a request of notifications only gets 202; GET and DELETE
  * get 405 (no server-to-client stream, no session to end).
  *
- * Tools: `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`.
+ * Tools: `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`, and the composite import drafts
+ * `orrn_import_answers` and `orrn_import_dry_run` (`importDrafts.ts`).
  * - Queries run through `appRouter.createCaller(ctx)` with the grant's context (`grantContext.ts`).
  * - Mutations never run here: `orrn_call` validates the input and stores a `buddy_draft`.
  * - Denied paths (`decisions.ts`) are not tools: search skips them, describe and call say `not_found`.
@@ -17,12 +18,15 @@ import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { TRPCError } from "@trpc/server";
 
 import { now } from "../clock";
-import { logBuddyCall, draftsLimited, toolCallsLimited } from "./callLog";
+import { createId } from "../id";
+import { BUDDY_LIMIT, finishBuddyCall, logBuddyCall, reserveBuddyCall } from "./callLog";
 import { refusedInput } from "./decisions";
-import { createBuddyDraft } from "./draftCreate";
+import { createBuddyDraft, type NewDraft } from "./draftCreate";
+import { cardTooBig, draftCard, fillsExpectSeq, REQUEST_KEYS, TOO_BIG_FOR_CARD } from "./draftView";
 import { byteLength, errorEnvelope, okEnvelope, statusEnvelope, type Envelope } from "./envelope";
 import { contextFromGrant, type BuddyContext } from "./grantContext";
-import { absoluteLink, reviewPath } from "./links";
+import { prepareImportAnswers, prepareImportDryRun } from "./importDrafts";
+import { absoluteLink, draftLink, reviewPath } from "./links";
 import { allowedProcedure, buddyRegistry, inputJsonSchema, roleHoldsGuard, validateInput, type BuddyProcedure } from "./registry";
 
 type Db = ReturnType<typeof createDb>;
@@ -80,6 +84,45 @@ export const MCP_TOOLS = [
         candidateId: { type: "string", description: "An import candidate id (from ingest.candidate.list)." },
         artifactId: { type: "string", description: "An import file id (from ingest.artifact.list)." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "orrn_import_answers",
+    description:
+      "Answer several of the importer's questions about one import table in one draft. The person confirms once; orrn then saves each answer in this order. Use the question codes and subjects from ingest.candidate.get. orrn fills in expectSeq at Confirm.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        candidateId: { type: "string", description: "The import candidate id (from ingest.candidate.list)." },
+        answers: {
+          type: "array",
+          minItems: 1,
+          maxItems: 200,
+          items: {
+            type: "object",
+            properties: {
+              questionCode: { type: "string" },
+              subject: { type: "string" },
+              answer: { description: "The answer, as ingest.answer.set takes it for this question." },
+            },
+            required: ["questionCode", "subject", "answer"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["candidateId", "answers"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "orrn_import_dry_run",
+    description:
+      "Run the dry run of one import table to the end, as one draft. After the person confirms, orrn runs it in their browser and a later note gives the outcome. Then send the review link.",
+    inputSchema: {
+      type: "object",
+      properties: { candidateId: { type: "string", description: "The import candidate id (from ingest.candidate.list)." } },
+      required: ["candidateId"],
       additionalProperties: false,
     },
   },
@@ -179,7 +222,8 @@ async function handleMessage(raw: unknown, ctx: BuddyContext, deps: McpDeps, pla
       if (!MCP_TOOLS.some((t) => t.name === name)) return rpcError(id, -32602, "Unknown tool");
       const args = params.arguments && typeof params.arguments === "object" ? (params.arguments as Record<string, unknown>) : {};
       const metaPlatform = typeof params._meta?.platform === "string" ? params._meta.platform : null;
-      const envelope = await runTool(name, args, ctx, deps, metaPlatform ?? platform);
+      // The draft's origin comes from the request header only (decision 1); `_meta` may only label the call log.
+      const envelope = await runTool(name, args, ctx, deps, metaPlatform ?? platform, platform);
       const text = JSON.stringify(envelope);
       return {
         jsonrpc: "2.0",
@@ -196,49 +240,54 @@ async function handleMessage(raw: unknown, ctx: BuddyContext, deps: McpDeps, pla
   }
 }
 
-/** One tool call: rate limit, run, log one `buddy_call` row (refused and failed calls too). */
+/**
+ * One tool call: reserve its place under the limit (60 a minute per person and plant, whatever grant; one
+ * conditional insert, so parallel calls cannot pass it), run, then finish that `buddy_call` row. A refused call
+ * gets its own `rate_limited` row (those never count).
+ */
 export async function runTool(
   name: string,
   args: Record<string, unknown>,
   ctx: BuddyContext,
   deps: McpDeps,
   platform: string | null,
+  originPlatform: string | null = null,
 ): Promise<Envelope> {
   const started = now().getTime();
   const path = typeof args.path === "string" ? args.path : null;
-  let envelope: Envelope;
-  if (await toolCallsLimited(deps.db, ctx.buddyGrantId)) {
-    envelope = statusEnvelope("rate_limited", "Too many orrn calls this minute. Wait a minute and try again.");
-  } else {
-    try {
-      envelope = await dispatchTool(name, args, ctx, deps);
-    } catch {
-      envelope = statusEnvelope("error", "orrn could not answer that.");
-    }
+  const who = { companyId: ctx.companyId!, userId: ctx.session!.user.id, grantId: ctx.buddyGrantId, tool: name, path, platform };
+  const reserved = await reserveBuddyCall(deps.db, who, BUDDY_LIMIT.toolCalls);
+  if (!reserved.ok) {
+    const envelope = statusEnvelope("rate_limited", "Too many orrn calls this minute. Wait a minute and try again.");
+    await logBuddyCall(deps.db, { ...who, outcome: "rate_limited", ms: now().getTime() - started, resultBytes: byteLength(JSON.stringify(envelope)) });
+    return envelope;
   }
-  const bytes = byteLength(JSON.stringify(envelope));
-  await logBuddyCall(deps.db, {
-    companyId: ctx.companyId!,
-    userId: ctx.session!.user.id,
-    grantId: ctx.buddyGrantId,
-    tool: name,
-    path,
+  let envelope: Envelope;
+  try {
+    envelope = await dispatchTool(name, args, ctx, originPlatform);
+  } catch {
+    envelope = statusEnvelope("error", "orrn could not answer that.");
+  }
+  await finishBuddyCall(deps.db, reserved.id, {
     outcome: envelope.truncated ? "truncated" : envelope.status,
     ms: now().getTime() - started,
-    resultBytes: bytes,
-    platform,
+    resultBytes: byteLength(JSON.stringify(envelope)),
   });
   return envelope;
 }
 
-async function dispatchTool(name: string, args: Record<string, unknown>, ctx: BuddyContext, deps: McpDeps): Promise<Envelope> {
+async function dispatchTool(name: string, args: Record<string, unknown>, ctx: BuddyContext, origin: string | null): Promise<Envelope> {
   switch (name) {
+    case "orrn_import_answers":
+      return importDraft(await prepareImportAnswers(args, ctx), ctx, origin);
+    case "orrn_import_dry_run":
+      return importDraft(await prepareImportDryRun(args, ctx), ctx, origin);
     case "orrn_search":
       return search(args, ctx);
     case "orrn_describe":
       return describe(args, ctx);
     case "orrn_call":
-      return call(args, ctx, deps);
+      return call(args, ctx, origin);
     case "orrn_review_link":
       return reviewLink(args, ctx);
     default:
@@ -314,7 +363,7 @@ async function runQuery(ctx: BuddyContext, path: string, input: unknown): Promis
   return (target as (i: unknown) => Promise<unknown>)(input);
 }
 
-async function call(args: Record<string, unknown>, ctx: BuddyContext, deps: McpDeps): Promise<Envelope> {
+async function call(args: Record<string, unknown>, ctx: BuddyContext, origin: string | null): Promise<Envelope> {
   const entry = await allowedProcedure(args.path);
   if (!entry) return statusEnvelope("not_found", "Not found.");
   const input = args.input;
@@ -334,17 +383,50 @@ async function call(args: Record<string, unknown>, ctx: BuddyContext, deps: McpD
   }
 
   // A change: validate, store a draft, never run it.
-  const valid = validateInput(entry, input);
+  const draftId = createId();
+  const { stored, checked } = draftInputs(entry, input, draftId);
+  const valid = validateInput(entry, checked);
   if (!valid.ok) return statusEnvelope("invalid", "The input does not fit.", { issues: valid.issues });
-  if (await draftsLimited(deps.db, ctx.buddyGrantId)) {
+  return storeDraft(ctx, { id: draftId, path: entry.path, kind: "procedure", input: stored, summary: entry.description, originPlatform: origin });
+}
+
+/**
+ * What a procedure draft stores, and what it is checked with (decision 8, review S3). Confirm fills in the
+ * request keys (the draft id) and, for ingest drafts on a candidate, the current `expectSeq`, so those are not
+ * stored (and not shown); the check uses the values Confirm will send.
+ */
+function draftInputs(entry: BuddyProcedure, input: unknown, draftId: string): { stored: unknown; checked: unknown } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { stored: input, checked: input };
+  const stored = { ...(input as Record<string, unknown>) };
+  const checked = { ...stored };
+  for (const key of REQUEST_KEYS) {
+    if (!entry.fields.includes(key)) continue;
+    delete stored[key];
+    checked[key] = draftId;
+  }
+  if (entry.fields.includes("expectSeq") && fillsExpectSeq(entry.path, input)) {
+    delete stored.expectSeq;
+    checked.expectSeq = 0;
+  }
+  return { stored, checked };
+}
+
+async function importDraft(prepared: Awaited<ReturnType<typeof prepareImportAnswers>>, ctx: BuddyContext, origin: string | null): Promise<Envelope> {
+  if (!prepared.ok) return prepared.envelope;
+  return storeDraft(ctx, { id: createId(), ...prepared.draft, originPlatform: origin });
+}
+
+async function storeDraft(ctx: BuddyContext, draft: NewDraft): Promise<Envelope> {
+  if (cardTooBig(draftCard(draft.path, draft.kind, draft.input), draft.input)) return statusEnvelope("invalid", TOO_BIG_FOR_CARD);
+  if (!(await createBuddyDraft(ctx, draft))) {
     return statusEnvelope("rate_limited", "Too many drafts this hour. Ask the person to confirm or reject the open ones.");
   }
-  const draft = await createBuddyDraft(ctx, entry, input);
+  const link = draftLink(draft.path, draft.input);
   return statusEnvelope("needs_confirm", "Draft made. The person must press Confirm on the draft card in orrn.", {
     data: {
-      draftId: draft.draftId,
-      summary: draft.summary,
-      ...(draft.link ? { reviewLink: absoluteLink(draft.link) } : {}),
+      draftId: draft.id,
+      summary: draft.summary.slice(0, 300),
+      ...(link ? { reviewLink: absoluteLink(link) } : {}),
     },
   });
 }

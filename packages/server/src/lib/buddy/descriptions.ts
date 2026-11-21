@@ -26,6 +26,9 @@ export const buddyDescriptions: Record<string, string> = {
   "ingest.dryRun.step": "Try an import table against the plant's data without writing (dry run).",
   "ingest.vision.readPage": "Read one uploaded page image of a PDF or photo with the model.",
   "ingest.vision.pages": "The pages of a PDF or photo import and the state of each.",
+  // Composite import drafts (fix round decision 8): MCP tools orrn_import_answers and orrn_import_dry_run.
+  "import.answerQuestions": "Answer the importer's questions about an import table, in this order.",
+  "import.runDryRun": "Run the dry run of an import table to the end (nothing is written to the plant's data).",
 };
 
 const SPLIT = /(?<=[a-z0-9])(?=[A-Z])/;

@@ -64,7 +64,7 @@ describe("HTTP and JSON-RPC", () => {
     expect(init.headers.get("content-type")).toContain("application/json");
     expect(await init.json()).toMatchObject({ id: 1, result: { protocolVersion: "2025-03-26", serverInfo: { name: "orrn" }, capabilities: { tools: {} } } });
     const list = (await (await mcpRequest(env, token, { jsonrpc: "2.0", id: 2, method: "tools/list" })).json()) as { result: { tools: { name: string }[] } };
-    expect(list.result.tools.map((t) => t.name)).toEqual(["orrn_search", "orrn_describe", "orrn_call", "orrn_review_link"]);
+    expect(list.result.tools.map((t) => t.name)).toEqual(["orrn_search", "orrn_describe", "orrn_call", "orrn_review_link", "orrn_import_answers", "orrn_import_dry_run"]);
     expect(await (await mcpRequest(env, token, { jsonrpc: "2.0", id: 3, method: "ping" })).json()).toMatchObject({ id: 3, result: {} });
     const note = await mcpRequest(env, token, { jsonrpc: "2.0", method: "notifications/initialized" });
     expect(note.status).toBe(202);
@@ -215,7 +215,7 @@ describe("what the buddy may reach (§4.2, §12.3)", () => {
     const r = await contextFromGrant(env.db, token);
     if (!r.ok) throw new Error("expected a context");
     const { appRouter } = await import("../src/routers/index");
-    await expect(appRouter.createCaller(r.ctx).buddy.drafts.confirm({ draftId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(appRouter.createCaller(r.ctx).buddy.drafts.confirm({ draftId, via: "bubble" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(appRouter.createCaller(r.ctx).buddy.grant.create()).rejects.toMatchObject({ code: "FORBIDDEN" });
     const still = await env.db.select({ status: buddyDraft.status }).from(buddyDraft).where(eq(buddyDraft.id, draftId)).get();
     expect(still?.status).toBe("pending");
@@ -338,6 +338,119 @@ describe("limits and the cap (§7)", () => {
     expect(Number(n?.n)).toBe(20);
   });
 
+  test("security L2: 25 drafts asked at once make exactly 20; the rest are rate_limited", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const all = await Promise.all(
+      Array.from({ length: 25 }, (_, i) => tool(env, token, "orrn_call", { path: "customer.create", input: { name: `Parallel Synthetic ${i}` } })),
+    );
+    expect(all.filter((r) => r.status === "needs_confirm")).toHaveLength(20);
+    expect(all.filter((r) => r.status === "rate_limited")).toHaveLength(5);
+    const n = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
+    expect(Number(n?.n)).toBe(20);
+  });
+
+  test("security L2: a new grant does not start the draft or tool call limits again", async () => {
+    const p = await buddyPlant(env);
+    const first = await connect(p);
+    for (let i = 0; i < 20; i += 1) {
+      expect((await tool(env, first.token, "orrn_call", { path: "customer.create", input: { name: `Grant A Synthetic ${i}` } })).status).toBe("needs_confirm");
+    }
+    const second = await connect(p);
+    expect((await tool(env, second.token, "orrn_call", { path: "customer.create", input: { name: "Grant B Synthetic" } })).status).toBe("rate_limited");
+
+    const q = await buddyPlant(env);
+    const a = await connect(q);
+    const { createId } = await import("../src/lib/id");
+    const rows = Array.from({ length: 60 }, () => ({ id: createId(), companyId: q.companyId, userId: q.users.owner.id, grantId: a.grantId, tool: "orrn_search", outcome: "ok" as const, at: new Date() }));
+    for (let i = 0; i < rows.length; i += 10) await env.db.insert(buddyCall).values(rows.slice(i, i + 10));
+    const b = await connect(q);
+    expect((await tool(env, b.token, "orrn_search", { query: "stock" })).status).toBe("rate_limited");
+  });
+
+  test("decision 1: the draft records x-hermes-platform from the request header (never _meta), with every column", async () => {
+    const p = await buddyPlant(env);
+    const { token, grantId } = await connect(p);
+    const call = (headers: Record<string, string>, meta?: Record<string, unknown>) =>
+      mcpRequest(
+        env,
+        token,
+        { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "orrn_call", arguments: { path: "customer.create", input: { name: "Origin Synthetic" } }, ...(meta ? { _meta: meta } : {}) } },
+        { headers },
+      ).then(async (r) => ((await r.json()) as { result: { structuredContent: { data: { draftId: string } } } }).result.structuredContent.data.draftId);
+    const chat = await call({ "x-hermes-platform": "api_server" });
+    const spoof = await call({}, { platform: "api_server" });
+    const tg = await call({ "x-hermes-platform": "telegram" });
+    const row = await env.db.select().from(buddyDraft).where(eq(buddyDraft.id, chat)).get();
+    expect(row).toMatchObject({
+      id: chat,
+      companyId: p.companyId,
+      requestedByUserId: p.users.owner.id,
+      grantId,
+      path: "customer.create",
+      inputJson: { name: "Origin Synthetic" },
+      status: "pending",
+      claimedAt: null,
+      decidedBy: null,
+      decidedAt: null,
+      resultJson: null,
+      failure: null,
+      originPlatform: "api_server",
+      decidedVia: null,
+      notedAt: null,
+      kind: "procedure",
+    });
+    expect(row!.expiresAt.getTime() - row!.createdAt.getTime()).toBe(24 * 60 * 60 * 1000);
+    expect(Math.abs(row!.createdAt.getTime() - Date.now())).toBeLessThan(60_000);
+    const views = await p.owner.buddy.drafts.listMine();
+    const origin = (id: string) => views.find((v) => v.id === id)?.origin;
+    expect([origin(chat), origin(spoof), origin(tg)]).toEqual(["chat", null, "other"]);
+  });
+
+  test("decision 9: a draft the card cannot show in full is refused, and no draft row is made", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const long = await tool(env, token, "orrn_call", { path: "customer.create", input: { name: "Long Synthetic", billingAddress: { line1: "x".repeat(2001) } } });
+    expect(long).toMatchObject({ status: "invalid", message: "Too big for a draft card. Send the person to the screen." });
+    const answers = Array.from({ length: 201 }, (_, i) => ({ questionCode: "customer_new", subject: `s${i}`, answer: true }));
+    const many = await tool(env, token, "orrn_import_answers", { candidateId: "c1", answers });
+    expect(many.status).toBe("invalid");
+    const n = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
+    expect(Number(n?.n)).toBe(0);
+    const { cardTooBig, draftCard } = await import("../src/lib/buddy/draftView");
+    const wide = Object.fromEntries(Array.from({ length: 41 }, (_, i) => [`field${i}`, "v"]));
+    expect(cardTooBig(draftCard("customer.create", "procedure", wide), wide)).toBe(true);
+    const rows = { rows: Array.from({ length: 201 }, (_, i) => i) };
+    expect(cardTooBig(draftCard("bundle.bulkImport", "procedure", rows), rows)).toBe(true);
+    const fits = { name: "x".repeat(2000) };
+    expect(cardTooBig(draftCard("customer.create", "procedure", fits), fits)).toBe(false);
+  });
+
+  test("N10: the 32 KB cap counts bytes, with Devanagari and Gujarati rows", async () => {
+    const { byteLength, capResult, okEnvelope, RESULT_CAP_BYTES } = await import("../src/lib/buddy/envelope");
+    const hi = { items: Array.from({ length: 600 }, (_, i) => ({ id: i, name: `कृत्रिम ग्राहक मोरबी ${i}`, note: "पक्का होना बाकी" })), total: 600 };
+    const gu = Array.from({ length: 900 }, (_, i) => `કૃત્રિમ ગ્રાહક મોરબી ${i}`);
+    // UTF-16 length is under the cap while the bytes are over it: a length check would not cut these.
+    expect(JSON.stringify(gu).length).toBeLessThan(RESULT_CAP_BYTES);
+    expect(byteLength(JSON.stringify(gu))).toBeGreaterThan(RESULT_CAP_BYTES);
+    for (const data of [hi, gu, "ગ".repeat(20_000)]) {
+      const capped = capResult(data);
+      expect(capped.truncated).toBe(true);
+      expect(byteLength(JSON.stringify(capped.data))).toBeLessThanOrEqual(RESULT_CAP_BYTES);
+    }
+    const env1 = okEnvelope(hi);
+    expect(byteLength(JSON.stringify(env1.data))).toBeLessThanOrEqual(RESULT_CAP_BYTES);
+    expect((env1.data as { total: number }).total).toBe(600);
+  });
+
+  test("N10: a body over 256 KB in bytes but under 256 K characters is 413", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const pad = "ક".repeat(100_000); // 100 K characters, 300 KB in UTF-8
+    const res = await mcpRequest(env, token, { jsonrpc: "2.0", id: 1, method: "ping", params: { pad } });
+    expect(res.status).toBe(413);
+  });
+
   test("results over 32 KB are cut with truncated: true and a hint", async () => {
     const { capResult, okEnvelope, RESULT_CAP_BYTES } = await import("../src/lib/buddy/envelope");
     const big = { items: Array.from({ length: 2000 }, (_, i) => ({ id: i, name: `Synthetic row ${i} `.repeat(4) })), total: 2000 };
@@ -371,7 +484,7 @@ describe("limits and the cap (§7)", () => {
 
 describe("the MCP module writes nothing but its own rows (§10 grep)", () => {
   const dir = join(import.meta.dir, "../src/lib/buddy");
-  const MCP_FILES = ["mcp.ts", "grantContext.ts", "draftCreate.ts", "callLog.ts", "registry.ts", "decisions.ts", "descriptions.ts", "envelope.ts", "links.ts", "token.ts", "config.ts", "access.ts"];
+  const MCP_FILES = ["mcp.ts", "grantContext.ts", "draftCreate.ts", "draftView.ts", "importDrafts.ts", "callLog.ts", "registry.ts", "decisions.ts", "descriptions.ts", "envelope.ts", "links.ts", "token.ts", "config.ts", "access.ts"];
 
   test("mcp.ts imports only these buddy modules, no mutation code, atomicBatch, ledger or number builder", () => {
     const src = readFileSync(join(dir, "mcp.ts"), "utf8");
@@ -388,8 +501,16 @@ describe("the MCP module writes nothing but its own rows (§10 grep)", () => {
       expect({ file, atomicBatch: /atomicBatch/.test(text) }).toEqual({ file, atomicBatch: false });
       // Writes: only buddy_draft and buddy_call inserts, the draft's audit row, and the grant's last_used_at.
       for (const m of text.matchAll(/\.(insert|update|delete)\(\s*([A-Za-z]+)/g)) {
-        const ok = (m[1] === "insert" && (m[2] === "buddyDraft" || m[2] === "buddyCall")) || (m[1] === "update" && m[2] === "buddyGrant");
+        // update(buddyCall): finishBuddyCall sets the outcome of the row reserveBuddyCall made (fix round, L2).
+        const ok =
+          (m[1] === "insert" && (m[2] === "buddyDraft" || m[2] === "buddyCall")) ||
+          (m[1] === "update" && (m[2] === "buddyGrant" || m[2] === "buddyCall"));
         expect({ file, write: `${m[1]}(${m[2]})`, ok }).toEqual({ file, write: `${m[1]}(${m[2]})`, ok: true });
+      }
+      // Raw SQL writes name only the buddy's own tables.
+      for (const m of text.matchAll(/\b(insert\s+into|update|delete\s+from)\s+([a-z_]+)\s/gi)) {
+        const ok = ["buddy_call", "buddy_draft"].includes(m[2]!.toLowerCase());
+        expect({ file, raw: `${m[1]} ${m[2]}`, ok }).toEqual({ file, raw: `${m[1]} ${m[2]}`, ok: true });
       }
     }
     // The only dynamic import is the router, used for createCaller (queries in mcp.ts).

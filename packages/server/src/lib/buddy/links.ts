@@ -21,8 +21,8 @@ export function absoluteLink(path: string): string {
   return `${webBaseUrl()}${path}`;
 }
 
-/** The review page of an import draft, from its input (`candidateId` first, else `artifactId`). */
+/** The review page of an import draft (an `ingest.*` path or a composite `import.*` one), from its input (`candidateId` first, else `artifactId`). */
 export function draftLink(path: string, input: unknown): string | null {
-  if (!path.startsWith("ingest.") || !input || typeof input !== "object") return null;
+  if (!(path.startsWith("ingest.") || path.startsWith("import.")) || !input || typeof input !== "object") return null;
   return reviewPath(input as Record<string, unknown>);
 }

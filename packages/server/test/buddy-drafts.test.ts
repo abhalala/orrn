@@ -10,7 +10,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 
-import { auditLog, buddyDraft, buddyLink, countSession, customer, impersonationGrant } from "@orrn/db/schema";
+import { auditLog, buddyDraft, buddyGrant, buddyLink, countSession, customer, impersonationGrant } from "@orrn/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 import { buddyPlant, connect, listPlant, setHermesEnv, tool } from "./buddy-fixture";
@@ -48,13 +48,15 @@ describe("listMine, confirm, replay", () => {
       id: draftId,
       path: "customer.create",
       title: "customer: create",
-      lines: [{ label: "Name", value: "Kappa Synthetic Traders" }],
+      kind: "procedure",
+      fields: [{ key: "name", label: "Name", value: "Kappa Synthetic Traders" }],
+      items: null,
       status: "pending",
       result: null,
       failure: null,
       link: null,
     });
-    const done = await p.owner.buddy.drafts.confirm({ draftId });
+    const done = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
     expect(done.status).toBe("confirmed");
     expect(done.result).toMatchObject({ success: true, id: expect.any(String) });
     expect(await customersNamed(p.companyId, "Kappa Synthetic Traders")).toBe(1);
@@ -78,8 +80,8 @@ describe("listMine, confirm, replay", () => {
     const p = await buddyPlant(env);
     const { token } = await connect(p);
     const draftId = await draftCustomer(token, "Lambda Synthetic Co");
-    const first = await p.owner.buddy.drafts.confirm({ draftId });
-    const second = await p.owner.buddy.drafts.confirm({ draftId });
+    const first = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
+    const second = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
     expect(second).toEqual(first);
     expect(await customersNamed(p.companyId, "Lambda Synthetic Co")).toBe(1);
   });
@@ -88,13 +90,13 @@ describe("listMine, confirm, replay", () => {
     const p = await buddyPlant(env);
     const { token } = await connect(p);
     const draftId = await draftCustomer(token, "Mu Synthetic Co");
-    const results = await Promise.allSettled([p.owner.buddy.drafts.confirm({ draftId }), p.owner.buddy.drafts.confirm({ draftId })]);
+    const results = await Promise.allSettled([p.owner.buddy.drafts.confirm({ draftId, via: "bubble" }), p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })]);
     expect(await customersNamed(p.companyId, "Mu Synthetic Co")).toBe(1);
     for (const r of results) {
       if (r.status === "fulfilled") expect(r.value.status).toBe("confirmed");
       else expect(r.reason).toMatchObject({ code: "CONFLICT" });
     }
-    expect((await p.owner.buddy.drafts.confirm({ draftId })).status).toBe("confirmed");
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("confirmed");
   });
 
   test("the draft id is the clientRequestId where the procedure takes one", async () => {
@@ -105,7 +107,7 @@ describe("listMine, confirm, replay", () => {
     const r = await tool(env, token, "orrn_call", { path: "count.start", input: { locationIds: [loc.id] } });
     expect(r.status).toBe("needs_confirm");
     const draftId = r.data.draftId as string;
-    const done = await p.owner.buddy.drafts.confirm({ draftId });
+    const done = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
     expect(done.status).toBe("confirmed");
     const session = await env.db.select({ key: countSession.clientRequestId }).from(countSession).where(eq(countSession.companyId, p.companyId)).get();
     expect(session?.key).toBe(draftId);
@@ -116,10 +118,158 @@ describe("listMine, confirm, replay", () => {
     const { token } = await connect(p);
     const r = await tool(env, token, "orrn_call", { path: "customer.update", input: { id: "no-such-customer", name: "Nu Synthetic" } });
     expect(r.status).toBe("needs_confirm");
-    const out = await p.owner.buddy.drafts.confirm({ draftId: r.data.draftId });
+    const out = await p.owner.buddy.drafts.confirm({ draftId: r.data.draftId, via: "bubble" });
     expect(out.status).toBe("failed");
     expect(out.failure).toBeTruthy();
-    expect((await p.owner.buddy.drafts.confirm({ draftId: r.data.draftId })).status).toBe("failed");
+    expect((await p.owner.buddy.drafts.confirm({ draftId: r.data.draftId, via: "bubble" })).status).toBe("failed");
+  });
+});
+
+describe("at most once (review S1, S2, S3, N1, N2, N3; security L1, L3)", () => {
+  const UNKNOWN = "orrn could not tell if this went through. Check the screen before you try again.";
+
+  async function draftAuditActions(companyId: string, draftId: string): Promise<string[]> {
+    const rows = await env.db
+      .select({ action: auditLog.action })
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, companyId), eq(auditLog.subjectId, draftId)))
+      .orderBy(auditLog.at);
+    return rows.map((r) => r.action);
+  }
+
+  test("S1: reject while a confirm holds the claim is refused, and the draft stays pending", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Rho Synthetic Co");
+    await env.db.update(buddyDraft).set({ claimedAt: new Date() }).where(eq(buddyDraft.id, draftId));
+    await expect(p.owner.buddy.drafts.reject({ draftId, via: "settings" })).rejects.toMatchObject({ code: "CONFLICT" });
+    const row = await env.db.select({ status: buddyDraft.status }).from(buddyDraft).where(eq(buddyDraft.id, draftId)).get();
+    expect(row?.status).toBe("pending");
+    expect(await draftAuditActions(p.companyId, draftId)).toEqual(["buddy.draft.create"]);
+  });
+
+  test("S2, L3: a stale claim is never run again; it settles failed with plain words", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Sigma Synthetic Co");
+    await env.db.update(buddyDraft).set({ claimedAt: new Date(Date.now() - 3 * 60 * 1000) }).where(eq(buddyDraft.id, draftId));
+    const out = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
+    expect(out).toMatchObject({ status: "failed", failure: UNKNOWN });
+    expect(await customersNamed(p.companyId, "Sigma Synthetic Co")).toBe(0);
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("failed");
+    expect(await customersNamed(p.companyId, "Sigma Synthetic Co")).toBe(0);
+    expect(await draftAuditActions(p.companyId, draftId)).toEqual(["buddy.draft.create", "buddy.draft.fail"]);
+  });
+
+  test("a reject of a stale claim settles failed with the same words, not rejected", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Tau Synthetic Co");
+    await env.db.update(buddyDraft).set({ claimedAt: new Date(Date.now() - 3 * 60 * 1000) }).where(eq(buddyDraft.id, draftId));
+    expect(await p.owner.buddy.drafts.reject({ draftId, via: "settings" })).toMatchObject({ status: "failed", failure: UNKNOWN });
+  });
+
+  test("S3: the draft id overwrites a clientRequestId that Hermes sent", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    await p.owner.stock.locations.seedDefaults();
+    const loc = (await p.owner.stock.locations.list()).items[0]!;
+    const r = await tool(env, token, "orrn_call", { path: "count.start", input: { locationIds: [loc.id], clientRequestId: "made-up-by-hermes-0001" } });
+    expect(r.status).toBe("needs_confirm");
+    const draftId = r.data.draftId as string;
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("confirmed");
+    const keys = await env.db.select({ key: countSession.clientRequestId }).from(countSession).where(eq(countSession.companyId, p.companyId));
+    expect(keys.map((k) => k.key)).toEqual([draftId]);
+  });
+
+  test("S3: every allowed mutation that takes a request key accepts a draft id as that key", async () => {
+    const { buddyRegistry } = await import("../src/lib/buddy/registry");
+    const { createId } = await import("../src/lib/id");
+    const { z } = await import("zod");
+    const id = createId();
+    const refused: string[] = [];
+    let checked = 0;
+    for (const entry of (await buddyRegistry()).values()) {
+      if (entry.decision.kind !== "allow" || entry.kind !== "mutation") continue;
+      for (const key of ["clientRequestId", "clientMutationId"]) {
+        if (!entry.fields.includes(key)) continue;
+        for (const parser of entry.inputs) {
+          const field = (parser as { shape?: Record<string, unknown> }).shape?.[key];
+          if (field instanceof z.ZodType) {
+            checked += 1;
+            if (!field.safeParse(id).success) refused.push(`${entry.path}.${key}`);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(5);
+    expect(refused).toEqual([]);
+  });
+
+  test("N1: when the draft was settled elsewhere while the change ran, confirm writes no audit row of its own", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Upsilon Synthetic Co");
+    // Simulates "Cut off Hermes" expiring the draft while the confirm runs.
+    await env.db.run(
+      sql.raw(
+        `CREATE TRIGGER zz_expire_${draftId} AFTER INSERT ON customer WHEN NEW.name = 'Upsilon Synthetic Co' BEGIN UPDATE buddy_draft SET status = 'expired' WHERE id = '${draftId}'; END`,
+      ),
+    );
+    try {
+      const out = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
+      expect(out.status).toBe("expired");
+    } finally {
+      await env.db.run(sql.raw(`DROP TRIGGER IF EXISTS zz_expire_${draftId}`));
+    }
+    expect(await draftAuditActions(p.companyId, draftId)).toEqual(["buddy.draft.create"]);
+  });
+
+  test("N2: rejecting a draft past its 24 hours settles it expired", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Phi Synthetic Co");
+    await env.db.update(buddyDraft).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(buddyDraft.id, draftId));
+    expect((await p.owner.buddy.drafts.reject({ draftId, via: "settings" })).status).toBe("expired");
+    const row = await env.db.select({ status: buddyDraft.status }).from(buddyDraft).where(eq(buddyDraft.id, draftId)).get();
+    expect(row?.status).toBe("expired");
+    expect(await draftAuditActions(p.companyId, draftId)).toEqual(["buddy.draft.create", "buddy.draft.expire"]);
+  });
+
+  test("N3: a raw database error is not stored on the draft", async () => {
+    const p = await buddyPlant(env);
+    const { token } = await connect(p);
+    const draftId = await draftCustomer(token, "Chi Synthetic Co");
+    await env.db.run(
+      sql.raw(
+        `CREATE TRIGGER zz_raise_${draftId} BEFORE INSERT ON customer WHEN NEW.name = 'Chi Synthetic Co' BEGIN SELECT RAISE(ABORT, 'synthetic sql detail from customer table'); END`,
+      ),
+    );
+    let out;
+    try {
+      out = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
+    } finally {
+      await env.db.run(sql.raw(`DROP TRIGGER IF EXISTS zz_raise_${draftId}`));
+    }
+    expect(out.status).toBe("failed");
+    expect(out.failure).toBe("The change failed.");
+    const row = await env.db.select({ failure: buddyDraft.failure }).from(buddyDraft).where(eq(buddyDraft.id, draftId)).get();
+    expect(row?.failure).toBe("The change failed.");
+    const audit = await env.db
+      .select({ meta: auditLog.meta })
+      .from(auditLog)
+      .where(and(eq(auditLog.subjectId, draftId), eq(auditLog.action, "buddy.draft.fail")))
+      .get();
+    expect(JSON.stringify(audit?.meta)).not.toContain("synthetic sql");
+  });
+
+  test("L1: confirm refuses a draft whose grant was revoked; it settles expired and never runs", async () => {
+    const p = await buddyPlant(env);
+    const { token, grantId } = await connect(p);
+    const draftId = await draftCustomer(token, "Psi Synthetic Co");
+    await env.db.update(buddyGrant).set({ revokedAt: new Date() }).where(eq(buddyGrant.id, grantId));
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("expired");
+    expect(await customersNamed(p.companyId, "Psi Synthetic Co")).toBe(0);
   });
 });
 
@@ -139,7 +289,7 @@ describe("what never runs", () => {
         inputJson: { candidateId: "c1", expectSeq: 1 },
         expiresAt: new Date(Date.now() + 3_600_000),
       });
-      const out = await p.owner.buddy.drafts.confirm({ draftId: id });
+      const out = await p.owner.buddy.drafts.confirm({ draftId: id, via: "bubble" });
       expect({ path, status: out.status, failure: out.failure }).toEqual({ path, status: "failed", failure: "The buddy may not make this change." });
     }
   });
@@ -148,8 +298,8 @@ describe("what never runs", () => {
     const p = await buddyPlant(env);
     const { token } = await connect(p);
     const draftId = await draftCustomer(token, "Xi Synthetic Co");
-    expect((await p.owner.buddy.drafts.reject({ draftId })).status).toBe("rejected");
-    expect((await p.owner.buddy.drafts.confirm({ draftId })).status).toBe("rejected");
+    expect((await p.owner.buddy.drafts.reject({ draftId, via: "settings" })).status).toBe("rejected");
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("rejected");
     expect(await customersNamed(p.companyId, "Xi Synthetic Co")).toBe(0);
   });
 
@@ -159,7 +309,7 @@ describe("what never runs", () => {
     const draftId = await draftCustomer(token, "Omicron Synthetic Co");
     await env.db.update(buddyDraft).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(buddyDraft.id, draftId));
     expect((await p.owner.buddy.drafts.listMine())[0]!.status).toBe("expired");
-    expect((await p.owner.buddy.drafts.confirm({ draftId })).status).toBe("expired");
+    expect((await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).status).toBe("expired");
     expect(await customersNamed(p.companyId, "Omicron Synthetic Co")).toBe(0);
   });
 
@@ -170,11 +320,11 @@ describe("what never runs", () => {
     // A second owner of the same plant.
     const otherOwner = await env.seedUser("owner2");
     await env.addMembership(otherOwner, p.companyId, "owner");
-    await expect(env.callerForUser(otherOwner, { company: p.companyId }).buddy.drafts.confirm({ draftId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(env.callerForUser(otherOwner, { company: p.companyId }).buddy.drafts.confirm({ draftId, via: "bubble" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await env.callerForUser(otherOwner, { company: p.companyId }).buddy.drafts.listMine()).toEqual([]);
     // Another plant's owner.
     const q = await buddyPlant(env);
-    await expect(q.owner.buddy.drafts.confirm({ draftId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(q.owner.buddy.drafts.confirm({ draftId, via: "bubble" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await customersNamed(p.companyId, "Pi Synthetic Co")).toBe(0);
   });
 });
@@ -224,7 +374,7 @@ describe("the buddy router: owner only, never impersonation", () => {
     expect((await owner.buddy.status()).connected?.grantId).toBe(second.grantId);
     const links = await env.db.select().from(buddyLink).where(eq(buddyLink.companyId, seeded.companyId));
     expect(links).toHaveLength(1);
-    expect(links[0]).toMatchObject({ status: "active", hermesProfile: null });
+    expect(links[0]).toMatchObject({ status: "active", hermesProfile: "orrn-buddy" });
     await owner.buddy.grant.revoke({ grantId: second.grantId });
     expect((await owner.buddy.status()).connected).toBeNull();
     expect((await env.db.select().from(buddyLink).where(eq(buddyLink.companyId, seeded.companyId)))[0]).toMatchObject({ status: "revoked" });
@@ -286,7 +436,7 @@ describe("caps (§12.4)", () => {
       expect(r.data.reviewLink).toBe(`https://app.test/ingest/review/${c.id}`);
       const card = (await ip.owner.buddy.drafts.listMine()).find((d) => d.id === r.data.draftId)!;
       expect(card.link).toBe(`/ingest/review/${c.id}`);
-      const out = await ip.owner.buddy.drafts.confirm({ draftId: r.data.draftId });
+      const out = await ip.owner.buddy.drafts.confirm({ draftId: r.data.draftId, via: "bubble" });
       expect(out.status).toBe("confirmed");
       expect(out.result).toMatchObject({ outcome: "capped" });
       expect(fake.calls).toHaveLength(0);
