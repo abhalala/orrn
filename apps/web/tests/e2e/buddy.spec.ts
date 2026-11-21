@@ -4,15 +4,16 @@ import { expect, request, test, type Page } from "@playwright/test";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { signInViaApi } from "./helpers/accounts";
 import { API_URL } from "./helpers/ports";
-import { ownerApi } from "./helpers/owner-api";
+import { apiAs, ownerApi } from "./helpers/owner-api";
 
 /**
  * orrn buddy (design 2026-11-18 §4.5, §7, §12.2, §13) against the fake Hermes (`apps/server/scripts/fake-hermes.ts`).
  * The API must run with `BUDDY_FAKE_HERMES_PORT` set (buddy on for the demo plant, fake values only) and the fake on
  * that port; without them `buddy.status.available` is false and the spec stops at its first check.
  *
- * The grant is the demo owner's, so the spec runs serially and disconnects Hermes in `afterAll` (and before it starts,
- * after a run that died half way): the floating button shows for the owner only while this file runs.
+ * The grant belongs to `buddy-owner@orrn.local`, a second owner of the demo plant that no other spec signs in as (S12):
+ * other owner specs never see the floating button, whatever runs beside this file. The spec runs serially and
+ * disconnects Hermes in `afterAll` (and before it starts, after a run that died half way).
  */
 
 /** Same rule as playwright.config.ts: the fake listens on the API port + 150. */
@@ -25,11 +26,16 @@ const SIZES = [
 ] as const;
 
 type Status = { available: boolean; listed: boolean; connected: { grantId: string } | null };
+type Locale = "en" | "hi" | "gu";
 
 test.describe.configure({ mode: "serial" });
 
+/** The one account with a Hermes link in e2e. */
+const BUDDY_OWNER = "buddy-owner" as const;
+const buddyOwnerApi = () => apiAs(`${BUDDY_OWNER}@orrn.local`);
+
 async function disconnect() {
-  const api = await ownerApi();
+  const api = await buddyOwnerApi();
   try {
     const status = await api.query<Status>("buddy.status", undefined);
     if (status.connected) await api.mutate("buddy.grant.revoke", { grantId: status.connected.grantId });
@@ -69,11 +75,11 @@ async function setFakeToken(token: string) {
   }
 }
 
-async function openOwner(page: Page, path: string, locale: "en" | "hi" = "en", width = 1280, height = 800) {
+async function openOwner(page: Page, path: string, locale: Locale = "en", width = 1280, height = 800) {
   await page.setViewportSize({ width, height });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   if (locale !== "en") await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), locale);
-  await signInViaApi(page, "owner");
+  await signInViaApi(page, BUDDY_OWNER);
   await page.goto(path);
   await expect(page.locator("h1").first()).toBeVisible({ timeout: 20_000 });
   if (locale !== "en") await expect(page.locator("html")).toHaveAttribute("lang", locale);
@@ -103,7 +109,7 @@ test.afterAll(async () => {
 });
 
 test("the stage has the buddy on for the demo plant", async () => {
-  const api = await ownerApi();
+  const api = await buddyOwnerApi();
   try {
     const status = await api.query<Status>("buddy.status", undefined);
     expect(status, "start the API with BUDDY_FAKE_HERMES_PORT and the fake Hermes on that port").toMatchObject({ available: true, listed: true });
@@ -137,7 +143,30 @@ test("Settings > Buddy: Connect Hermes shows the key once; it is gone after I ha
   await expect(page.getByTestId("buddy-launcher")).toBeVisible();
 });
 
-for (const locale of ["en", "hi"] as const) {
+test("S12: the demo owner, who has no link, never sees the button while buddy-owner is connected", async ({ page }) => {
+  // The other owner specs sign in as `owner`: this is what they see while this file runs beside them.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signInViaApi(page, "owner");
+  await page.goto("/today");
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 20_000 });
+  const api = await buddyOwnerApi();
+  try {
+    expect((await api.query<Status>("buddy.status", undefined)).connected, "buddy-owner is connected for this check").not.toBeNull();
+  } finally {
+    await api.dispose();
+  }
+  await expect(page.getByTestId("buddy-launcher")).toHaveCount(0);
+});
+
+test("Settings > Buddy: Renew gives 30 more days from now", async ({ page }) => {
+  await openOwner(page, "/settings?tab=buddy");
+  await expect(page.getByTestId("buddy-renew")).toBeVisible();
+  await page.getByTestId("buddy-renew").click();
+  await expect(page.getByTestId("buddy-renewed-on")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("buddy-fresh-sign-in")).toHaveCount(0);
+});
+
+for (const locale of ["en", "hi", "gu"] as const) {
   for (const size of SIZES) {
     test(`Settings > Buddy @ ${size.name} ${locale}: axe and layout`, async ({ page }) => {
       await openOwner(page, "/settings?tab=buddy", locale, size.width, size.height);
@@ -148,6 +177,19 @@ for (const locale of ["en", "hi"] as const) {
     });
   }
 }
+
+test("N8: opened by a click that does not focus the button (Safari), Escape still brings focus back to the button", async ({ page }) => {
+  await openOwner(page, "/today");
+  const launcher = page.getByTestId("buddy-launcher");
+  await expect(launcher).toBeVisible({ timeout: 20_000 });
+  // A click event with no focus, as Safari does it for buttons.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await launcher.dispatchEvent("click");
+  await expect(page.getByTestId("buddy-panel")).toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+});
 
 test("the bubble is a dialog: focus goes in, Escape closes it and focus comes back to the button", async ({ page }) => {
   await openOwner(page, "/today");
@@ -206,19 +248,36 @@ test("a change comes back as a draft card; Reject and Confirm each decide it, an
   await say(page, `/draft customer.create {"name":"${name} C"}`);
   const second = page.getByTestId("buddy-draft").last();
   await expect(second).toHaveAttribute("data-status", "pending", { timeout: 30_000 });
+  // The server told Hermes about the rejected draft with this turn (decision 7): the real final state.
+  {
+    const api = await request.newContext();
+    try {
+      expect(await (await api.get(`${FAKE_HERMES}/__fake/last`)).text()).toContain("rejected");
+    } finally {
+      await api.dispose();
+    }
+  }
   await second.getByTestId("buddy-draft-confirm").click();
   await expect(second).toHaveAttribute("data-status", "confirmed", { timeout: 20_000 });
 
-  // The note about the decision rides on the next turn.
+  // The server tells Hermes the real final state with the next turn (decision 7); the browser sends no notes.
+  const sent: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/buddy/chat")) sent.push(r.postData() ?? "");
+  });
   await say(page, "thanks");
   await expect(page.getByTestId("buddy-turn").last()).toHaveAttribute("data-phase", "done", { timeout: 30_000 });
   const api = await request.newContext();
   try {
     const last = await (await api.get(`${FAKE_HERMES}/__fake/last`)).text();
     expect(last).toContain("confirmed");
+    // Each final state goes to Hermes once: the reject was told on the turn before.
+    expect(last).not.toContain("rejected");
   } finally {
     await api.dispose();
   }
+  expect(sent.length).toBe(1);
+  expect(Object.keys(JSON.parse(sent[0]!)).sort()).toEqual(["conversationId", "message", "screen"]);
 
   // The confirmed change is a real customer.
   const owner = await ownerApi();
@@ -260,7 +319,7 @@ test("Add a file opens the normal import upload and steps the panel aside", asyn
   await expect(page.getByTestId("buddy-launcher")).toBeVisible();
 });
 
-for (const locale of ["en", "hi"] as const) {
+for (const locale of ["en", "hi", "gu"] as const) {
   for (const size of SIZES) {
     test(`the open bubble @ ${size.name} ${locale}: axe, no sideways scroll, nothing clipped`, async ({ page }) => {
       await openOwner(page, "/today", locale, size.width, size.height);
@@ -282,3 +341,92 @@ for (const locale of ["en", "hi"] as const) {
     });
   }
 }
+
+/**
+ * S9: on a phone the closed button must sit clear of every pinned action bar (FormActions and the screens' own bars,
+ * marked `data-sticky-bar`), at the top of the page and scrolled to its end. Checked at 390 px on each screen review S9
+ * listed that the buddy-owner can open. The admin pages are Godseye (`_platform`), where the button is not mounted.
+ */
+async function barsUnderLauncher(page: Page, withFormRows = false): Promise<{ bars: number; overlaps: string[] }> {
+  return page.evaluate((withFormRows) => {
+    const button = document.querySelector<HTMLElement>("[data-testid='buddy-launcher']");
+    if (!button) return { bars: -1, overlaps: ["no launcher"] };
+    const b = button.getBoundingClientRect();
+    // At the end of the page the in-flow form rows count too: the last button must scroll clear of the button.
+    const selector = withFormRows ? "[data-sticky-bar], [data-slot='form-actions']" : "[data-sticky-bar]";
+    const bars = Array.from(document.querySelectorAll<HTMLElement>(selector)).filter((el) => {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return s.display !== "none" && s.visibility !== "hidden" && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight;
+    });
+    const overlaps = bars
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => !(b.bottom <= r.top || b.top >= r.bottom || b.right <= r.left || b.left >= r.right))
+      .map((r) => `button ${Math.round(b.top)}-${Math.round(b.bottom)} over bar ${Math.round(r.top)}-${Math.round(r.bottom)}`);
+    return { bars: bars.length, overlaps };
+  }, withFormRows);
+}
+
+async function scrollAllToEnd(page: Page) {
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
+      const s = getComputedStyle(el);
+      if ((s.overflowY === "auto" || s.overflowY === "scroll") && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+    }
+  });
+}
+
+async function firstLotId(): Promise<string | null> {
+  const api = await buddyOwnerApi();
+  try {
+    const lots = await api.query<{ items: { id: string; status: string }[] }>("purchase.lots.list", { limit: 20 });
+    return lots.items.find((l) => l.status !== "closed" && l.status !== "cancelled")?.id ?? lots.items[0]?.id ?? null;
+  } finally {
+    await api.dispose();
+  }
+}
+
+test.describe("S9: the closed button is clear of sticky bars at 390 px", () => {
+  const SCREENS: { name: string; path: string | (() => Promise<string | null>); needsBar?: boolean; noLauncher?: boolean }[] = [
+    // Company and Units keep their Save rows in the flow (sticky={false}): checked at the end of the page.
+    { name: "settings company", path: "/settings?tab=company" },
+    { name: "settings units", path: "/settings?tab=units" },
+    { name: "settings shifts", path: "/settings?tab=shifts" },
+    { name: "settings standards (cast book, thresholds)", path: "/settings?tab=standards" },
+    { name: "settings modules", path: "/settings?tab=modules" },
+    { name: "settings team", path: "/settings?tab=team" },
+    { name: "settings support", path: "/settings?tab=support" },
+    { name: "settings about", path: "/settings?tab=about" },
+    { name: "settings printing", path: "/settings?tab=printing" },
+    { name: "purchase new lot", path: "/purchase/new", needsBar: true },
+    {
+      name: "purchase lot detail",
+      path: async () => {
+        const id = await firstLotId();
+        return id ? `/purchase/${id}` : null;
+      },
+    },
+    // The bundle page renders in its own TenantFrame, outside `_tenant`: no button there to cover its bar.
+    { name: "bundle (add to dispatch)", path: "/b/BG-000001-B001", noLauncher: true },
+    { name: "die copy lift panel", path: "/dies/copies/dev-copy-14701-2/lift" },
+  ];
+  for (const screen of SCREENS) {
+    test(screen.name, async ({ page }) => {
+      const path = typeof screen.path === "string" ? screen.path : await screen.path();
+      test.skip(path === null, "no seeded row for this screen");
+      await openOwner(page, path!, "en", 390, 844);
+      if (screen.noLauncher) {
+        await expect(page.getByTestId("buddy-launcher")).toHaveCount(0);
+        return;
+      }
+      await expect(page.getByTestId("buddy-launcher")).toBeVisible({ timeout: 20_000 });
+      // The lift is measured after layout and on scroll (one frame): wait for the answer, never sleep.
+      await expect.poll(async () => (await barsUnderLauncher(page)).overlaps, { timeout: 10_000 }).toEqual([]);
+      const atTop = await barsUnderLauncher(page);
+      if (screen.needsBar) expect(atTop.bars, `${screen.name} shows a pinned bar`).toBeGreaterThan(0);
+      await scrollAllToEnd(page);
+      await expect.poll(async () => (await barsUnderLauncher(page, true)).overlaps, { timeout: 10_000 }).toEqual([]);
+    });
+  }
+});

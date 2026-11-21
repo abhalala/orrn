@@ -80,7 +80,7 @@ export function BuddyLauncher() {
     toast.error(t("buddy.failed"));
   };
 
-  return createPortal(
+  const floating = createPortal(
     <>
       <button
         ref={buttonRef}
@@ -109,5 +109,12 @@ export function BuddyLauncher() {
       ) : null}
     </>,
     document.body,
+  );
+  return (
+    <>
+      {/* Phones: room at the end of the page, so the last button of a form scrolls clear of the floating button (S9). */}
+      <div aria-hidden="true" data-testid="buddy-spacer" className="h-12 shrink-0 md:hidden" />
+      {floating}
+    </>
   );
 }
