@@ -89,7 +89,7 @@ describe("the file page's batch state", () => {
   test("a full file: the full line, no next batch, and Skip the rest and finish while pages are open", () => {
     const pages = [...range(1, 10), view(11, "not_read", { reason: "too_many_tables", next: "manual" })];
     const b = visionBatch(out(pages, { pageCount: 40, full: true, settled: false }), 12);
-    expect(b.fullLine).toEqual({ key: "ingest.vision.fullLine", vars: { max: 50 } });
+    expect(b.fullLine).toEqual({ key: "ingest.vision.fullLine", vars: { max: 200 } });
     expect(b.readNext).toBeNull();
     expect(b.skipRest).toBe(true);
     // Every planned page settled: Finish without the rest.

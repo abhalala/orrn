@@ -31,7 +31,8 @@ describe("file kinds", () => {
   });
   test("the default limits are the plan A9 numbers", () => {
     expect(DEFAULT_LIMITS.filesPerUpload).toBe(20);
-    expect(DEFAULT_LIMITS.blocksPerFile).toBe(50);
+    // Fix round decision 1: 200 tables a file for every plant (was 50).
+    expect(DEFAULT_LIMITS.blocksPerFile).toBe(200);
     expect(DEFAULT_LIMITS.columnsPerBlock).toBe(200);
     expect(DEFAULT_LIMITS.rawRowsPerFile).toBe(200_000);
     expect(DEFAULT_LIMITS.stagedRowsPerBlock).toBe(50_000);
@@ -102,8 +103,17 @@ describe("cells and chunks", () => {
     expect(ROWS_PER_CALL).toBe(500);
     expect(rowPages([])).toEqual([]);
   });
-  test("block calls hold 50 and totals add up", () => {
-    expect(BLOCKS_PER_CALL).toBe(50);
+  test("block calls hold 200 (a whole file, decision 1) and totals add up", () => {
+    expect(BLOCKS_PER_CALL).toBe(200);
     expect(totalRows([{ rowCount: 10 }, { rowCount: 5 }])).toBe(15);
+  });
+});
+
+describe("tables per file follow the server (decision 1)", () => {
+  test("the browser's tables per file, the batch line and the server's limit are one number", async () => {
+    const { INGEST_LIMITS } = await import("@orrn/server/lib/ingest/types");
+    const { VISION_TABLES_PER_FILE } = await import("./vision-model");
+    expect(DEFAULT_LIMITS.blocksPerFile).toBe(INGEST_LIMITS.blocksPerFile);
+    expect(VISION_TABLES_PER_FILE).toBe(INGEST_LIMITS.blocksPerFile);
   });
 });

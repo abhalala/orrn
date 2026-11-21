@@ -149,10 +149,10 @@ describe("limits on blocks", () => {
     }
   });
 
-  test("50 blocks pass, 51 stop the read", () => {
+  test("200 blocks pass, 201 stop the read (decision 1)", () => {
     const pieces = (n: number) => Array.from({ length: n }, (_, i) => ({ sheetName: `S${i}`, block: block(2, 1) }));
-    expect(finishBlocks(pieces(50))).toHaveLength(50);
-    expect(() => finishBlocks(pieces(51))).toThrow(ReadStop);
+    expect(finishBlocks(pieces(200))).toHaveLength(200);
+    expect(() => finishBlocks(pieces(201))).toThrow(ReadStop);
   });
 
   test("a block over the staged rows limit is split into parts with the same headers", () => {
@@ -164,8 +164,8 @@ describe("limits on blocks", () => {
     expect(out.every((b) => b.input.headers.join() === "h0,h1")).toBe(true);
   });
 
-  test("a part count that pushes past 50 blocks stops the read", () => {
-    expect(() => finishBlocks([{ sheetName: "A", block: block(1, 60) }], { ...READ_LIMITS, maxRowsPerBlock: 1 })).toThrow(ReadStop);
+  test("a part count that pushes past 200 blocks stops the read", () => {
+    expect(() => finishBlocks([{ sheetName: "A", block: block(1, 210) }], { ...READ_LIMITS, maxRowsPerBlock: 1 })).toThrow(ReadStop);
   });
 
   test("cells keep up to 2,000 characters for the server to cut at 200, with its reason code", () => {

@@ -1,5 +1,6 @@
 import { VISION_PARAMS } from "@orrn/ingest";
 
+import { DEFAULT_LIMITS } from "./limits";
 import type { Tone, Words } from "./model";
 import { canFinishOf, isSettled, type BlockVision, type VisionPageView, type VisionPagesOut } from "./vision-types";
 
@@ -164,8 +165,8 @@ export function readRangesWords(ranges: readonly [number, number][], say: (key: 
   return say("ingest.vision.readRanges", { ranges: list });
 }
 
-/** `INGEST_LIMITS.blocksPerFile` on the server: the most tables one file may hold. */
-export const VISION_TABLES_PER_FILE = 50;
+/** `INGEST_LIMITS.blocksPerFile` on the server: the most tables one file may hold (200, decision 1). */
+export const VISION_TABLES_PER_FILE = DEFAULT_LIMITS.blocksPerFile;
 
 export type VisionCell = {
   text: string;

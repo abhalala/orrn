@@ -10,7 +10,7 @@ const MB = 1024 * 1024;
  */
 export const DEFAULT_LIMITS: IngestLimits = {
   filesPerUpload: 20,
-  blocksPerFile: 50,
+  blocksPerFile: 200,
   columnsPerBlock: 200,
   rawRowsPerFile: 200_000,
   stagedRowsPerBlock: 50_000,
@@ -34,7 +34,7 @@ export const CELL_MAX_CHARS = DEFAULT_LIMITS.cellChars;
 export const WIRE_CELL_MAX_CHARS = 2000;
 /** `putRows` takes 500 rows at most (plan A1). */
 export const ROWS_PER_CALL = DEFAULT_LIMITS.rowsPerPut;
-/** `putBlocks` takes 50 blocks at most. */
+/** `putBlocks` takes as many blocks as a file may hold (200 since the fix round, decision 1). */
 export const BLOCKS_PER_CALL = DEFAULT_LIMITS.blocksPerFile;
 /** `rows.list` pages. */
 export const ROWS_PER_PAGE = DEFAULT_LIMITS.rowsPerPage;
