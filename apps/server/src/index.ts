@@ -9,6 +9,7 @@ import { cors } from "hono/cors";
 import { requestLogger } from "@orrn/server/lib/requestLog";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
+import { trpcCsrfRefusal } from "@orrn/server/lib/trpcCsrf";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
@@ -170,6 +171,17 @@ app.get("/files/ingest/read", (c) => handleIngestRead(c.req.raw));
 // Chunked raw upload (limits brief part B): one part of a file over 16 MiB, signed by `ingest.artifact.uploadTickets`
 // (purpose `ingest-part` only, 10 minutes). The part's SHA-256 is checked as it streams into R2.
 app.put("/files/ingest/part", (c) => handleIngestPart(c.req.raw));
+
+// CSRF (fix round item 15): a tRPC POST must be JSON, and an Origin header, when sent, must be on the CORS allowlist.
+// Runs after CORS, so a refused browser request still carries the CORS headers and the page can read the status.
+app.use("/trpc/*", async (c, next) => {
+  const refused = trpcCsrfRefusal(env, c.req.raw);
+  if (refused) {
+    c.header("x-content-type-options", "nosniff");
+    return c.text(refused.message, refused.status);
+  }
+  await next();
+});
 
 app.use(
   "/trpc/*",

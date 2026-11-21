@@ -16,14 +16,13 @@ export function resolveCorsOrigin(
   origin: string,
 ): string {
   if (!origin) return env.CORS_ORIGIN;
-  if (
-    isAllowedWebOrigin(origin, {
-      corsOrigin: env.CORS_ORIGIN,
-      corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
-    }) ||
+  return isAllowedOrigin(env, origin) ? origin : env.CORS_ORIGIN;
+}
+
+/** The one allowlist: the CORS middleware above and the tRPC CSRF guard (lib/trpcCsrf.ts) both read it. */
+export function isAllowedOrigin(env: { NODE_ENV?: string; CORS_ORIGIN: string; CORS_ALLOWED_ORIGINS?: string }, origin: string): boolean {
+  return (
+    isAllowedWebOrigin(origin, { corsOrigin: env.CORS_ORIGIN, corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS }) ||
     isDevLocalOrigin(env, origin)
-  ) {
-    return origin;
-  }
-  return env.CORS_ORIGIN;
+  );
 }
