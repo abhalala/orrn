@@ -185,9 +185,11 @@ export function DecisionBarCard({
       tabIndex={-1}
       data-testid="decision-bar"
       data-state={candidate.state}
-      className="flex flex-col gap-4 rounded-card border border-border bg-card p-5 shadow-sm outline-none"
+      // `@container`: the text and the buttons sit side by side when the bar itself is wide enough (512 px), not by the
+      // window width: with the Buddy panel docked beside the page the column can be narrow on a laptop.
+      className="@container flex flex-col gap-4 rounded-card border border-border bg-card p-5 shadow-sm outline-none"
     >
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+      <div className="flex flex-col gap-4 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-6">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <Chip tone={chipTone(bar.chip.tone)} truncate={false} dot={!done} title={words(bar.chip.words)}>
@@ -233,7 +235,7 @@ export function DecisionBarCard({
           ) : null}
         </div>
         {bar.buttons.length > 0 || bar.overflow.length > 0 ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-3 md:shrink-0 md:justify-end">
+          <div className="flex min-w-0 flex-wrap items-center gap-3 @lg:shrink-0 @lg:justify-end">
             <BarButtons
               buttons={bar.buttons}
               act={act}

@@ -195,7 +195,10 @@ function NewLotForm() {
       />
       <Stepper steps={stepLabels} current={stepIndex} />
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* Two columns on a laptop only while the page column itself has room (672 px): with the Buddy panel docked
+          beside the page (`--orrn-buddy-inset`) the column is narrower, and the summary comes back under the form. */}
+      <div className="@container">
+      <div className="grid grid-cols-1 items-start gap-6 lg:@2xl:grid-cols-[minmax(0,1fr)_320px]">
         <form
           ref={formRef}
           noValidate
@@ -239,7 +242,7 @@ function NewLotForm() {
           )}
 
           {last ? (
-            <div className="lg:hidden">
+            <div className="lg:@2xl:hidden">
               <Summary
                 draft={draft}
                 reading={reading}
@@ -266,7 +269,7 @@ function NewLotForm() {
           </StickyBar>
         </form>
 
-        <aside aria-label={t("purchase.new.summary")} className="sticky top-24 hidden lg:block">
+        <aside aria-label={t("purchase.new.summary")} className="sticky top-24 hidden lg:@2xl:block">
           <Summary
             draft={draft}
             reading={reading}
@@ -276,6 +279,7 @@ function NewLotForm() {
             canNote={perms.dcnote}
           />
         </aside>
+      </div>
       </div>
     </>
   );

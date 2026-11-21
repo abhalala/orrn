@@ -2,11 +2,11 @@ import { useT, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { UiLink } from "@orrn/ui/components/link";
 import { Sheet } from "@orrn/ui/components/sheet";
-import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
+import { breakpoints } from "@orrn/ui/hooks/use-media-query";
 import { TOAST_RIGHT_VAR } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
 import { LoaderCircle, Paperclip, Plus, SendHorizontal } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import type { ChatState, Turn, TurnError } from "./chat-model";
 import { DraftCard, type DriveView } from "./draft-card";
@@ -58,22 +58,54 @@ function errorText(t: Translate, error: TurnError): string {
   return t("buddy.failed");
 }
 
-/** Toasts sit bottom right, where the open panel is: while it is open beside the page they move left of it. */
-/** 400 px panel + 24 px edge + 24 px gap. */
-const TOAST_RIGHT_BESIDE_PANEL = "448px";
+/** Set on `documentElement` while the panel is docked (from 1024 px): the tenant shell and the Buddy button move left by it. */
+export const BUDDY_INSET_VAR = "--orrn-buddy-inset";
+/** The docked column's width, and so the page's inset. */
+export const DOCK_WIDTH = "400px";
 
 /**
- * The open bubble (design §4.5, §12.2) on the shared C2 `Sheet`, always a dialog named "Buddy" (review N9):
+ * Toasts sit bottom right, where the open panel is: while it is open they start left of it (review N9).
+ * - Docked: the 400 px column + 24 px gap. At 1024 px that leaves 600 px, room for a 356 px toast.
+ * - The floating sheet from 768 px: its width (400 px, narrower below 828 px so a toast still fits beside it)
+ *   + 24 px edge + 24 px gap. The Toaster never moves a toast off the left edge (`calc(100vw - 372px)`).
+ * Phones (below 768 px): toasts stay where they are (sonner's own full-width toasts below 600 px).
+ */
+const TOAST_RIGHT_DOCKED = `calc(${DOCK_WIDTH} + 24px)`;
+const FLOAT_WIDTH = "min(400px, calc(100vw - 404px))";
+const TOAST_RIGHT_FLOATING = `calc(${FLOAT_WIDTH} + 48px)`;
+
+/** Where the panel opens: docked (from 1024 px), the floating modal sheet (768 to 1023 px) or the phone's full screen. */
+type Mode = "docked" | "sheet" | "phone";
+
+function modeNow(): Mode {
+  try {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "phone";
+    if (window.matchMedia(breakpoints.desktop).matches) return "docked";
+    return window.matchMedia(breakpoints.tablet).matches ? "sheet" : "phone";
+  } catch {
+    return "phone";
+  }
+}
+
+/**
+ * The open bubble (design §4.5, §12.2) on the shared C2 `Sheet`, always a dialog named "Buddy" (review N9, delta S5):
  *
  * - Phones (below 768 px): a full-screen MODAL sheet, as before: focus trap, the page behind hidden from screen
  *   readers, `aria-modal="true"`.
- * - From 768 px: a 400 by 600 panel at the right edge, above the closed button, as a NON-MODAL dialog (Radix
- *   `modal={false}`): no overlay, no focus trap, the page stays usable and readable (nothing `aria-hidden` or inert),
- *   `aria-modal="false"`. Focus still moves in on open, Escape inside it closes it and focus goes back to the button.
- *   The way back in: the panel follows the button in Tab order, and pressing the button while the panel is open moves
- *   focus into it (`focusOpenPanel`). Chosen over a labelled `aside`: a person who asked for Buddy keeps the dialog
- *   name, the open/close announcements, Escape and the N8 focus return, which an `aside` (a landmark, no Escape, no
- *   focus convention) would drop.
+ * - 768 to 1023 px: the same modal dialog as a floating sheet about 400 by 600 at the right edge, over a dimmed page
+ *   (there is no room to push the page beside it).
+ * - From 1024 px: DOCKED, a NON-MODAL dialog (Radix `modal={false}`) that is a full-height 400 px column at the right
+ *   edge (from 768 px the shell has no top bar, so it starts at the top). The page moves left: `--orrn-buddy-inset`
+ *   on `documentElement` pads the tenant shell (its main column and every sticky bar inside it) and moves the Buddy
+ *   button, so nothing of the page is under the panel. No overlay, no focus trap, the page stays usable and readable
+ *   (nothing `aria-hidden` or inert), `aria-modal="false"`. Focus moves in on open, Escape inside it closes it and
+ *   focus goes back to the button. The way back in: the panel follows the button in Tab order, and pressing the
+ *   button while the panel is open moves focus into it (`focusOpenPanel`). Chosen over a labelled `aside`: a person
+ *   who asked for Buddy keeps the dialog name, the open/close announcements, Escape and the N8 focus return, which an
+ *   `aside` (a landmark, no Escape, no focus convention) would drop.
+ *
+ * Which of these it is gets read once, when the panel opens (review N10): turning a tablet or resizing the window
+ * while it is open never remounts it between modal and non-modal, which would move focus and scroll.
  *
  * Streamed text is not announced token by token: one polite live region says the finished answer, or what went wrong.
  */
@@ -84,8 +116,16 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
   const hintId = useId();
   // Read once per mount: a phone keeps its keyboard down until the person taps the box.
   const [focusBox] = useState(() => !coarsePointer());
-  // The floating panel from 768 px is non-modal; the phone's full-screen sheet stays modal (see above).
-  const modal = !useMediaQuery(breakpoints.tablet);
+  // Docked (non-modal) or a modal sheet, read on each opening only (N10). Set during render on the opening render, so
+  // the Sheet never mounts once in the old mode.
+  const [mode, setMode] = useState<Mode>(() => (open ? modeNow() : "phone"));
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setMode(modeNow());
+  }
+  const docked = mode === "docked";
+  const modal = !docked;
   const endRef = useRef<HTMLDivElement>(null);
 
   const byId = new Map((drafts ?? []).map((d) => [d.id, d]));
@@ -103,14 +143,18 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
     [modal],
   );
 
-  // Beside the page, toasts would land on the message box: move them left of the panel while it is open.
-  const beside = open && !modal;
-  useEffect(() => {
-    if (!beside || typeof document === "undefined") return;
+  // Docked, the page moves left of the panel. From 768 px, toasts move left of it (N9). A layout effect, so the page
+  // never paints one frame under the panel.
+  useLayoutEffect(() => {
+    if (!open || mode === "phone" || typeof document === "undefined") return;
     const style = document.documentElement.style;
-    style.setProperty(TOAST_RIGHT_VAR, TOAST_RIGHT_BESIDE_PANEL);
-    return () => void style.removeProperty(TOAST_RIGHT_VAR);
-  }, [beside]);
+    style.setProperty(TOAST_RIGHT_VAR, mode === "docked" ? TOAST_RIGHT_DOCKED : TOAST_RIGHT_FLOATING);
+    if (mode === "docked") style.setProperty(BUDDY_INSET_VAR, DOCK_WIDTH);
+    return () => {
+      style.removeProperty(TOAST_RIGHT_VAR);
+      style.removeProperty(BUDDY_INSET_VAR);
+    };
+  }, [open, mode]);
 
   const lastTurn = state.turns.at(-1);
   useEffect(() => {
@@ -159,13 +203,22 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
       modal={modal}
       title={t("buddy.title")}
       className={cn(
-        // Phones: the whole screen, over the tab bar.
-        "max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:rounded-none max-md:border-t-0",
-        // From 768 px: about 400 by 600 at the right edge, its bottom 16 px above the closed button (which keeps its
-        // sticky-bar lift), so the button stays in sight and a pinned action bar stays clear; the top of the page
-        // (its heading and actions) stays clear while the window is taller than about 700 px.
-        "md:inset-x-auto md:top-auto md:right-6 md:bottom-[calc(max(24px,var(--orrn-toast-bottom,0px))+72px)] md:left-auto md:h-[min(600px,calc(100dvh-96px-max(24px,var(--orrn-toast-bottom,0px))))] md:max-h-none md:w-[400px] md:max-w-[calc(100vw-3rem)] md:rounded-card md:border",
-        "lg:inset-y-auto lg:top-auto lg:right-6 lg:bottom-[calc(max(24px,var(--orrn-toast-bottom,0px))+72px)] lg:h-[min(600px,calc(100dvh-96px-max(24px,var(--orrn-toast-bottom,0px))))] lg:w-[400px] lg:rounded-card lg:border",
+        docked
+          ? // From 1024 px: a full-height column at the right edge, the page beside it. The classes do not depend on
+            // the width, so a window made narrower while it is open keeps the mode it opened in (N10).
+            [
+              "inset-x-auto top-0 right-0 bottom-0 left-auto h-dvh max-h-none w-[400px] max-w-full rounded-none border-t-0 border-l",
+              "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[400px] lg:max-w-full lg:rounded-none lg:border-t-0 lg:border-l",
+            ]
+          : [
+              // Phones: the whole screen, over the tab bar.
+              "max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:rounded-none max-md:border-t-0",
+              // 768 to 1023 px (and a sheet opened there, then widened): about 400 by 600 at the right edge, its bottom
+              // 16 px above the closed button (which keeps its sticky-bar lift). Narrower below 828 px, so a toast fits
+              // beside it (N9).
+              "md:inset-x-auto md:top-auto md:right-6 md:bottom-[calc(max(24px,var(--orrn-toast-bottom,0px))+72px)] md:left-auto md:h-[min(600px,calc(100dvh-96px-max(24px,var(--orrn-toast-bottom,0px))))] md:max-h-none md:w-[min(400px,calc(100vw-404px))] md:max-w-[calc(100vw-3rem)] md:rounded-card md:border",
+              "lg:inset-y-auto lg:top-auto lg:right-6 lg:bottom-[calc(max(24px,var(--orrn-toast-bottom,0px))+72px)] lg:h-[min(600px,calc(100dvh-96px-max(24px,var(--orrn-toast-bottom,0px))))] lg:w-[min(400px,calc(100vw-404px))] lg:rounded-card lg:border",
+            ],
       )}
       footer={
         <form onSubmit={submit} className="flex w-full min-w-0 items-end gap-2" data-testid="buddy-form">
@@ -193,7 +246,7 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
         </form>
       }
     >
-      <div ref={markModal} className="flex min-w-0 flex-col gap-4" data-testid="buddy-panel">
+      <div ref={markModal} className="flex min-w-0 flex-col gap-4" data-testid="buddy-panel" data-dock={docked ? "docked" : "sheet"}>
         <div className="flex min-w-0 flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={chat.newChat} data-testid="buddy-new-chat">
             <Plus aria-hidden="true" className="size-4" strokeWidth={2} />

@@ -47,7 +47,7 @@ function stateWith(...steps: Parameters<typeof chatReducer>[1][]): ChatState {
   return steps.reduce(chatReducer, initialChat("c1"));
 }
 
-/** Phone 375 px (the full-screen modal sheet) or desktop 1280 px (the non-modal panel beside the page, N9). */
+/** Phone 375 px (the full-screen modal sheet) or desktop 1280 px (the non-modal panel docked beside the page, N9, S5). */
 type Viewport = "phone" | "desktop";
 const WIDTH: Record<Viewport, number> = { phone: 375, desktop: 1280 };
 
@@ -192,7 +192,7 @@ describe("on a phone the Buddy panel is a modal dialog", () => {
   });
 });
 
-describe("from 768 px the Buddy panel is a non-modal dialog beside the page (N9)", () => {
+describe("from 1024 px the Buddy panel is a non-modal dialog docked beside the page (N9, delta S5)", () => {
   test("still the Buddy dialog, but aria-modal false, no overlay, and the page is neither hidden nor inert", async () => {
     const view = await renderPanel({ viewport: "desktop" });
     try {
@@ -263,7 +263,8 @@ describe("from 768 px the Buddy panel is a non-modal dialog beside the page (N9)
   test("toasts move left of the open panel, and back when it closes", async () => {
     const view = await renderPanel({ viewport: "desktop" });
     try {
-      expect(document.documentElement.style.getPropertyValue("--orrn-toast-right")).toBe("448px");
+      // Delta S5: docked, the panel is a 400 px column at the edge, so toasts start 24 px left of it.
+      expect(document.documentElement.style.getPropertyValue("--orrn-toast-right")).toBe("calc(400px + 24px)");
       const input = view.q("buddy-input")!;
       await env.key(input, "Escape");
       await settle(50);

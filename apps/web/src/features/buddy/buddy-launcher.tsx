@@ -45,8 +45,10 @@ export function returnFocusTo(button: HTMLElement | null, schedule: (fn: () => v
 }
 
 /**
- * The panel is open beside the page (from 768 px it is non-modal, N9) and the person pressed the button again, or
- * reached it with Tab: take focus into the panel, to its message box when it has one. True when it moved focus.
+ * The panel is docked beside the page (from 1024 px it is non-modal) and the person pressed the button again: take
+ * focus into the panel, to its message box when it has one. True when it moved focus. Only a press does this, never
+ * focus reaching the button by Tab: the panel follows the button in Tab order, so Shift+Tab out of the panel lands on
+ * the button, and moving focus back in from there would trap the person (review N11).
  */
 export function focusOpenPanel(doc: Document = document): boolean {
   const dialog = doc.querySelector<HTMLElement>("[data-testid='buddy-panel']")?.closest<HTMLElement>("[role='dialog']");
@@ -62,8 +64,8 @@ export function focusOpenPanel(doc: Document = document): boolean {
  * (`buddy-panel.tsx`, a dynamic import) and then stay mounted, so the conversation and an open panel survive route
  * changes. Portalled to `body`, so the page's view transition never moves it. It sits above the phone tab bar and
  * above a screen's sticky action bar (the same `--orrn-toast-bottom` lift toasts use), below sheets, the command
- * palette and toasts (z-40). From 768 px the open panel sits above it and is non-modal, so the button stays visible
- * and pressing it again moves focus into the panel.
+ * palette and toasts (z-40). From 1024 px the open panel is docked at the right edge and the button moves left with
+ * the page (`--orrn-buddy-inset`), so it stays in sight beside the panel and pressing it again moves focus into it.
  */
 export function BuddyLauncher() {
   const { t } = useT();
@@ -109,7 +111,7 @@ export function BuddyLauncher() {
         aria-expanded={open}
         data-testid="buddy-launcher"
         className={cn(
-          "fixed right-4 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-button transition-[scale] duration-[var(--dur-fast)] active:scale-[0.95] motion-reduce:transition-none md:right-6",
+          "fixed right-4 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-button transition-[scale] duration-[var(--dur-fast)] active:scale-[0.95] motion-reduce:transition-none md:right-[calc(var(--orrn-buddy-inset,0px)+24px)]",
           "bottom-[max(calc(89px+env(safe-area-inset-bottom)),var(--orrn-toast-bottom,0px))] md:bottom-[max(24px,var(--orrn-toast-bottom,0px))]",
         )}
       >
