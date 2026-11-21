@@ -153,8 +153,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         if (removed) return removed;
         // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
         await limitPasskeyOptions(db, ctx);
-        // orrn buddy (security M4): note whose sessions a sign-out-everywhere ends; the after-hook revokes their
-        // buddy grants once the endpoint succeeded (buddy-revoke.ts).
+        // orrn buddy (security M4): note whose grants a sign-out-everywhere or a password change ends; the after-hook
+        // revokes them once the endpoint succeeded (buddy-revoke.ts).
         await buddyRevokeBefore(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });

@@ -1,7 +1,8 @@
 /**
  * Ending orrn buddy grants (fix round 2026-11-20, security M4 and L1). One set of statements, used by every event that
- * ends a grant: the owner's "Cut off Hermes" (`owner`), a new key (`replaced`), a password reset, signing out of every
- * session, removal from the plant and any role change. Each revoke also expires the pending drafts of the grants it
+ * ends a grant: the owner's "Cut off Hermes" (`owner`), a new key (`replaced`), a password reset, any password change
+ * (self-service or forced), signing out of every session, Google linked to an unverified account, removal from the
+ * plant and any role change. Each revoke also expires the pending drafts of the grants it
  * ends, in the same batch. A draft whose confirm is running (it holds a claim) is left to that confirm.
  *
  * Nothing is ever un-revoked: a grant stores no membership state that a re-invite or a re-promotion could match
@@ -86,29 +87,38 @@ const STASH = "orrnBuddyRevokeUserId";
 
 type HookCtx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 
-/** True for a request that signs the person out of every (other) session, a password change that does so included. */
-function endsOtherSessions(ctx: { path?: string; body?: unknown }): boolean {
-  if (ctx.path && SIGN_OUT_EVERYWHERE_PATHS.has(ctx.path)) return true;
-  return ctx.path === "/change-password" && (ctx.body as { revokeOtherSessions?: unknown } | undefined)?.revokeOtherSessions === true;
+/** Better Auth's self-service password change (it needs the current password). */
+export const CHANGE_PASSWORD_PATH = "/change-password";
+
+/**
+ * Why this request ends the person's buddy grants, or null. A password change ends trust in the old password, so it
+ * revokes whether or not it also signs out the other sessions (`password_changed`); a sign out of every (other)
+ * session is `signed_out_everywhere`.
+ */
+function revokeReasonOf(ctx: { path?: string }): BuddyGrantRevokeReason | null {
+  if (ctx.path === CHANGE_PASSWORD_PATH) return "password_changed";
+  if (ctx.path && SIGN_OUT_EVERYWHERE_PATHS.has(ctx.path)) return "signed_out_everywhere";
+  return null;
 }
 
 /**
- * `hooks.before`: remembers whose sessions this request ends (from its own session cookie), before the sessions go.
+ * `hooks.before`: remembers whose grants this request ends (from its own session cookie), before any session goes.
  * Writes nothing: the revoke waits for the endpoint to succeed (`buddyRevokeAfter`).
  */
 export async function buddyRevokeBefore(db: Db, ctx: HookCtx): Promise<void> {
-  if (!endsOtherSessions(ctx)) return;
+  if (!revokeReasonOf(ctx)) return;
   const own = await sessionOfRequest(db, ctx);
   const userId = own?.userId ?? (await getSessionFromCtx(ctx).catch(() => null))?.session?.userId ?? null;
   if (userId) (ctx.context as unknown as Record<string, unknown>)[STASH] = userId;
 }
 
-/** `hooks.after`: the endpoint succeeded, so the person's buddy grants end too (`signed_out_everywhere`). */
+/** `hooks.after`: the endpoint succeeded, so the person's buddy grants end too (`password_changed`, `signed_out_everywhere`). */
 export async function buddyRevokeAfter(db: Db, ctx: HookCtx): Promise<void> {
-  if (!endsOtherSessions(ctx)) return;
+  const reason = revokeReasonOf(ctx);
+  if (!reason) return;
   const userId = (ctx.context as unknown as Record<string, unknown>)[STASH];
   if (typeof userId !== "string") return;
   const returned = (ctx.context as { returned?: unknown }).returned;
   if (returned instanceof Error || returned instanceof Response) return;
-  await revokeBuddyGrants(db, { userId }, "signed_out_everywhere");
+  await revokeBuddyGrants(db, { userId }, reason);
 }

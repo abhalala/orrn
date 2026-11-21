@@ -51,6 +51,10 @@ export const BUDDY_GRANT_REVOKE_REASONS = [
   "membership_removed",
   "role_changed",
   "replaced",
+  /** Any password change: self-service `/change-password` (with or without signing out elsewhere) or the forced one. */
+  "password_changed",
+  /** Google linked to an account whose email was never proven: every other way in and session ends (google-guard.ts). */
+  "google_linked_unverified",
 ] as const;
 export type BuddyGrantRevokeReason = (typeof BUDDY_GRANT_REVOKE_REASONS)[number];
 

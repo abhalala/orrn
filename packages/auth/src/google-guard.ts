@@ -6,6 +6,7 @@ import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
+import { buddyRevokeStatements } from "./buddy-revoke";
 import { assertEnrolmentAllowed } from "./enrolment-guard";
 import { sessionOfRequest, upgradeSession } from "./session-method";
 import { writeUserAudit } from "./sign-in-methods";
@@ -250,8 +251,8 @@ async function acceptInvitesQuietly(db: Db, userId: string, email: string): Prom
  * When Google is linked to an account whose email was never proven, Google has just proven it, and
  * whoever set the account up (an admin who also saw the invite link, say) may still hold a way in.
  * So every sign-in method that person could have added goes: the password (and any must-change
- * flag), every passkey, the authenticator app (its `two_factor` row and `twoFactorEnabled`), and
- * every other session; and the email is marked verified. One D1 batch, all or nothing.
+ * flag), every passkey, the authenticator app (its `two_factor` row and `twoFactorEnabled`), every
+ * other session and every orrn buddy grant (`google_linked_unverified`); and the email is marked verified. One D1 batch, all or nothing.
  *
  * It runs before Better Auth writes the link row. If the batch fails, nothing changes and nothing
  * is linked. If the link write fails after the batch, the old methods are already gone and the
@@ -275,6 +276,9 @@ async function onGoogleLink(db: Db, userId: string, ctx: HookCtx): Promise<void>
     db.delete(twoFactor).where(eq(twoFactor.userId, userId)),
     db.delete(session).where(keep ? and(eq(session.userId, userId), ne(session.id, keep)) : eq(session.userId, userId)),
     db.update(user).set({ emailVerified: true, mustChangePassword: false, twoFactorEnabled: false }).where(eq(user.id, userId)),
+    // orrn buddy: whoever held a way in may also have connected Hermes, so the person's buddy grants end with the
+    // sessions, in this batch (buddy-revoke.ts). Only live grants; a revoked one keeps its reason.
+    ...buddyRevokeStatements(db, { userId }, "google_linked_unverified", new Date()),
   ]);
 }
 

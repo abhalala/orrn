@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { hashPassword } from "@orrn/auth/password";
 import { account, passkey, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
@@ -19,6 +20,7 @@ import { settingsPatchSql } from "../lib/companySettings";
 import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { buddyAccess, buddyOn } from "../lib/buddy/access";
+import { now } from "../lib/clock";
 import { authedProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 const navOrderInput = z
@@ -347,8 +349,8 @@ export const authRouter = router({
    *
    * Bypasses Better Auth's `changePassword` (which would need the current
    * password) by writing directly to the credential row, then atomically
-   * clearing `must_change_password`, revoking every other session of the user
-   * and emitting an audit row.
+   * clearing `must_change_password`, revoking every other session and every
+   * buddy grant of the user and emitting an audit row.
    *
    * Only callable while `must_change_password` is set: otherwise any stolen
    * session could rotate the password without knowing the current one.
@@ -402,6 +404,9 @@ export const authRouter = router({
               .delete(sessionTable)
               .where(and(eq(sessionTable.userId, userId), ne(sessionTable.id, currentSessionId)))
           : ctx.db.delete(sessionTable).where(eq(sessionTable.userId, userId)),
+        // orrn buddy: whoever knew the temporary password may have connected Hermes too, so the person's buddy
+        // grants end with the sessions, in this batch (@orrn/auth/buddy-revoke, `password_changed`).
+        ...buddyRevokeStatements(ctx.db, { userId }, "password_changed", now()),
         auditInsert(ctx, {
           action: "auth.password_force_change",
           subjectType: "user",

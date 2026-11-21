@@ -306,6 +306,51 @@ describe("revoked by the events that end them, and never brought back (security 
     expect((await authPost("revoke-other-sessions", {}, { cookie })).status).toBe(200);
     expect(await grantRow(g.grantId)).toMatchObject({ revokedReason: "signed_out_everywhere" });
   });
+
+  test("password change (change-password, other sessions kept): revoked (password_changed); a wrong current password leaves the grant", async () => {
+    const { p, id, email } = await passwordOwner();
+    const g = await env.callerForUser(id, { company: p.companyId }).buddy.grant.create();
+    const draftId = await pendingDraft(p.companyId, id, g.grantId);
+    const cookie = await signIn(email);
+    expect((await authPost("change-password", { currentPassword: "not-the-password-000", newPassword: NEW_PASSWORD }, { cookie })).status).not.toBe(200);
+    expect((await grantRow(g.grantId))!.revokedAt).toBeNull();
+    expect(await tokenWorks(g.token)).toBe(true);
+    expect((await authPost("change-password", { currentPassword: PASSWORD, newPassword: NEW_PASSWORD }, { cookie })).status).toBe(200);
+    expect(await grantRow(g.grantId)).toMatchObject({ revokedReason: "password_changed" });
+    expect(await tokenWorks(g.token)).toBe(false);
+    expect((await env.db.select().from(buddyDraft).where(eq(buddyDraft.id, draftId)).get())!.status).toBe("expired");
+  });
+
+  test("password change that also signs out the other sessions: revoked (password_changed); an earlier revoke keeps its reason", async () => {
+    const { p, id, email } = await passwordOwner();
+    const caller = env.callerForUser(id, { company: p.companyId });
+    const old = await caller.buddy.grant.create();
+    await caller.buddy.grant.revoke({ grantId: old.grantId });
+    const before = await grantRow(old.grantId);
+    expect(before).toMatchObject({ revokedReason: "owner" });
+    const g = await caller.buddy.grant.create();
+    const cookie = await signIn(email);
+    expect((await authPost("change-password", { currentPassword: PASSWORD, newPassword: NEW_PASSWORD, revokeOtherSessions: true }, { cookie })).status).toBe(200);
+    expect(await grantRow(g.grantId)).toMatchObject({ revokedReason: "password_changed" });
+    expect(await grantRow(old.grantId)).toMatchObject({ revokedReason: "owner", revokedAt: before!.revokedAt });
+  });
+
+  test("forced password change (auth.changeInitialPassword): revoked (password_changed) with the sessions; refused while not required", async () => {
+    const { p, id } = await passwordOwner();
+    const g = await env.callerForUser(id, { company: p.companyId }).buddy.grant.create();
+    const draftId = await pendingDraft(p.companyId, id, g.grantId);
+    // Not required: FORBIDDEN, and the grant stays.
+    expect(await refusal(env.callerForUser(id).auth.changeInitialPassword({ newPassword: NEW_PASSWORD }))).toMatchObject({ code: "FORBIDDEN" });
+    expect((await grantRow(g.grantId))!.revokedAt).toBeNull();
+    await env.db.update(user).set({ mustChangePassword: true }).where(eq(user.id, id));
+    expect(await env.callerForUser(id).auth.changeInitialPassword({ newPassword: NEW_PASSWORD })).toEqual({ success: true });
+    expect(await grantRow(g.grantId)).toMatchObject({ revokedReason: "password_changed" });
+    expect(await tokenWorks(g.token)).toBe(false);
+    expect((await env.db.select().from(buddyDraft).where(eq(buddyDraft.id, draftId)).get())!.status).toBe("expired");
+    const links = await env.db.select().from(buddyLink).where(eq(buddyLink.userId, id)).all();
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((l) => l.status === "revoked")).toBe(true);
+  });
 });
 
 async function pendingDraft(companyId: string, userId: string, grantId: string, over: Partial<typeof buddyDraft.$inferInsert> = {}): Promise<string> {

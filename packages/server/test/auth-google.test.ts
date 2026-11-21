@@ -11,7 +11,7 @@
  */
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 
-import { account, auditLog, membership, passkey, platformAdmin, session, twoFactor, user } from "@orrn/db/schema";
+import { account, auditLog, buddyDraft, buddyGrant, buddyLink, membership, passkey, platformAdmin, session, twoFactor, user } from "@orrn/db/schema";
 import { invite } from "@orrn/db/schema/tenant";
 import { and, eq } from "drizzle-orm";
 
@@ -392,6 +392,62 @@ describe("Google on an existing account", () => {
     expect(row?.emailVerified).toBe(true);
     expect(await sessionUser(other)).toBeNull();
     expect(await sessionUser(mine)).toBe(existing.id);
+  });
+
+  /** A live buddy grant (with a pending draft and an active link) for the person, in a plant of their own. Synthetic. */
+  async function liveBuddyGrant(userId: string) {
+    const { companyId } = await env.seedCompany();
+    await env.db.insert(membership).values({ id: crypto.randomUUID(), userId, companyId, role: "office" } as never);
+    const grantId = crypto.randomUUID();
+    const draftId = crypto.randomUUID();
+    await env.db.insert(buddyGrant).values({ id: grantId, companyId, userId, tokenHash: await sha256Hex(crypto.randomUUID()), scopes: [], createdBy: userId, expiresAt: new Date(Date.now() + 86_400_000) });
+    await env.db.insert(buddyLink).values({ id: crypto.randomUUID(), companyId, userId, hermesProfile: "orrn-buddy", status: "active" });
+    await env.db.insert(buddyDraft).values({
+      id: draftId, companyId, requestedByUserId: userId, grantId, path: "customer.create", inputJson: { name: "Synthetic Co" },
+      summary: "Add a customer", status: "pending", createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000),
+    } as never);
+    const state = async () => ({
+      grant: await env.db.select().from(buddyGrant).where(eq(buddyGrant.id, grantId)).get(),
+      draft: (await env.db.select().from(buddyDraft).where(eq(buddyDraft.id, draftId)).get())!.status,
+      links: (await env.db.select().from(buddyLink).where(eq(buddyLink.userId, userId)).all()).map((l) => l.status),
+    });
+    return { grantId, state };
+  }
+
+  test("google on an unverified account (sign-in) also ends the person's buddy grants (google_linked_unverified)", async () => {
+    const existing = await makeUser({ emailVerified: false });
+    const { state } = await liveBuddyGrant(existing.id);
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email: existing.email })).status).toBe(200);
+    const after = await state();
+    expect(after.grant).toMatchObject({ revokedReason: "google_linked_unverified" });
+    expect(after.grant!.revokedAt).not.toBeNull();
+    expect(after.draft).toBe("expired");
+    expect(after.links).toEqual(["revoked"]);
+  });
+
+  test("linking Google from Settings on an unverified account ends the buddy grants too; a verified account keeps them", async () => {
+    const existing = await makeUser({ emailVerified: false });
+    const { state } = await liveBuddyGrant(existing.id);
+    const mine = cookieHeader(await passwordSignIn(existing.email));
+    const res = await call("link-social", {
+      body: { provider: "google", idToken: { token: await idToken({ sub: crypto.randomUUID(), email: existing.email }) } },
+      cookie: mine,
+    });
+    expect(res.status).toBe(200);
+    expect((await state()).grant).toMatchObject({ revokedReason: "google_linked_unverified" });
+
+    const verified = await makeUser({ emailVerified: true });
+    const kept = await liveBuddyGrant(verified.id);
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email: verified.email })).status).toBe(200);
+    expect(await kept.state()).toMatchObject({ grant: { revokedAt: null, revokedReason: null }, draft: "pending", links: ["active"] });
+  });
+
+  test("a refused Google link (platform staff, unverified) leaves the buddy grants", async () => {
+    const staff = await makeUser({ emailVerified: false });
+    const { state } = await liveBuddyGrant(staff.id);
+    await env.db.insert(platformAdmin).values({ userId: staff.id, role: "support" });
+    expect((await googleSignIn({ sub: crypto.randomUUID(), email: staff.email })).status).not.toBe(200);
+    expect(await state()).toMatchObject({ grant: { revokedAt: null }, draft: "pending", links: ["active"] });
   });
 
   test("google refused for platform staff", async () => {
