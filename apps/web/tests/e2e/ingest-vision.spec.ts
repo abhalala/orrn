@@ -195,6 +195,31 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
 
   // The rows are checked before anything is approved: wait for the check, then Approve waits on the tick.
   await expect(bar).toHaveAttribute("data-state", "ready", { timeout: 90_000 });
+
+  // Item 16: the office (ingest.check, order.price) finds the table on the Imports page under "Tables waiting for a
+  // check", opens its read-only page check and may tick it; it sees no upload, no Approve and no discard. It does not
+  // tick here, so the admin's flow below stays as it was.
+  const office = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const officePage = await office.newPage();
+    await officePage.setViewportSize({ width: 1280, height: 900 });
+    await signInViaApi(officePage, "office");
+    await officePage.goto("/ingest");
+    const waiting = officePage.getByTestId("vision-waiting");
+    await expect(waiting.getByRole("heading", { name: "Tables waiting for a check" })).toBeVisible({ timeout: 30_000 });
+    await expect(officePage.getByRole("button", { name: /Add files/ })).toHaveCount(0);
+    await expect(officePage.locator("input[type='file']")).toHaveCount(0);
+    await waiting.getByRole("link", { name: `Check ${FILE}, page 1` }).click();
+    await expect(officePage).toHaveURL(new RegExp(`/ingest/review/${candidateId}$`));
+    const officeCheck = officePage.getByTestId("vision-check");
+    await expect(officeCheck.getByRole("img", { name: `Page 1 of 2 of ${FILE}` })).toBeVisible({ timeout: 30_000 });
+    await expect(officeCheck.getByRole("checkbox", { name: "I checked these rows against the page" })).toBeEnabled();
+    await expect(officePage.getByRole("button", { name: /^Approve/ })).toHaveCount(0);
+    await expect(officePage.getByRole("button", { name: /Discard|Fix this cell/ })).toHaveCount(0);
+    await expect(officePage.getByTestId("decision-bar")).toHaveCount(0);
+  } finally {
+    await office.close();
+  }
   const approve = check.getByTestId("vision-approve");
   await expect(approve).toHaveAttribute("aria-disabled", "true");
   await expect(bar.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);

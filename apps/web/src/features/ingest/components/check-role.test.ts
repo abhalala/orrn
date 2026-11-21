@@ -131,6 +131,20 @@ describe("who sees the tick (item 16)", () => {
   });
 });
 
+describe("the admin approves a priced table a price viewer ticked (item 16)", () => {
+  test("ticked by someone else, prices hidden from the admin: one Approve that may be pressed, and the bar is not blocked", () => {
+    const c = detail({ headers: ["Code", "Rate"], modelChecked: true, modelCheckedBy: "u7", modelCheckedAt: Date.UTC(2026, 10, 20, 8, 35) });
+    const html = panelAs("admin", c);
+    const approve = html.match(/<button[^>]*data-testid="vision-approve"[^>]*>/g) ?? [];
+    expect(approve).toHaveLength(1);
+    expect(approve[0]).not.toContain('aria-disabled="true"');
+    expect(html.match(/<input[^>]*data-testid="vision-tick"[^>]*>/)![0]).toContain("checked");
+    expect(html).toContain('data-testid="vision-checked-by"');
+    const bar = lib.decisionBar(c, { can: { merge: true, upload: true }, botReady: true, editorOpen: false, pricesHidden: true });
+    expect(bar.blocked).toBeNull();
+  });
+});
+
 describe("which import screens a person gets (item 16)", () => {
   test("upload or merge: every screen; ingest.check only: the check screens; neither: none", () => {
     const got = Object.fromEntries(["owner", "admin", "office", "manager", "accountant", "supervisor", "viewer"].map((r) => [r, lib.ingestAccessOf(meOf(r) as never)]));

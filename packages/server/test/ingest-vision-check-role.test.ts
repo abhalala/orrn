@@ -16,7 +16,7 @@ import { Miniflare } from "miniflare";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
-import { plant, upload, type Caller, type Plant } from "./ingest-portal-helpers";
+import { layout, learnLayout, plant, pump, trim, upload, type Caller, type Plant } from "./ingest-portal-helpers";
 import { fakeResponse, FakeShapeClient, setShapeClientForTests } from "../src/lib/ingest/bot";
 import { pageKey, rawKey } from "../src/lib/ingest/vault";
 import { ingestRouter } from "../src/routers/ingest";
@@ -190,6 +190,26 @@ describe("what a check-only caller may open (item 16)", () => {
     await tick(p.as("office"), candidates[0]!);
     const seen = await p.admin.ingest.candidate.get({ candidateId: candidates[0]! });
     expect(seen.block).toMatchObject({ modelChecked: true, modelCheckedBy: p.users.office.id });
+  });
+});
+
+describe("the owner's path: a price viewer ticks, the admin approves (item 16)", () => {
+  test("a table with a price column: the admin cannot tick it, the office ticks it, the admin sees who and approves it", async () => {
+    const p = await plant(env);
+    const PRICED: T = { title: "Parties", headers: ["Party name", "City", "Rate"], rows: [["Nova Metals", "Rajkot", "210"], ["Om Alloys", "Surat", "205"]] };
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("customers", PRICED.headers, [{ field: "name", steps: trim }, { field: "city", steps: trim }], ["name"]), "Parties");
+    const { artifactId, candidates } = await modelSheets([PRICED], p);
+    const id = candidates[0]!;
+    await p.owner.ingest.artifact.complete({ artifactId });
+    await pump(p.admin, id);
+    expect((await p.admin.ingest.candidate.get({ candidateId: id })).state).toBe("ready");
+    // Approve still waits for the tick, and the admin cannot give it on a table with a price column.
+    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: await seqOf(id) })).rejects.toThrow("Check these rows against the page first");
+    expect(await outcome(() => tick(p.admin, id))).toBe(NEEDS_PRICES);
+    await tick(p.as("office"), id);
+    const seen = await p.admin.ingest.candidate.get({ candidateId: id });
+    expect(seen.block).toMatchObject({ modelChecked: true, modelCheckedBy: p.users.office.id });
+    expect((await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: seen.serverSeq })).state).toBe("approved");
   });
 });
 

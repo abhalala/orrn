@@ -71,7 +71,7 @@ export function IngestCheckListScreen(): ReactNode {
   }, [t]);
   return (
     <>
-      <PageHeader title={t("ingest.title")} subtitle={t("ingest.vision.waiting.lead")} />
+      <PageHeader title={t("ingest.title")} />
       <VisionWaitingPanel alwaysShow />
     </>
   );
