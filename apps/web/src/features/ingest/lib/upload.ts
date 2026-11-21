@@ -2,7 +2,9 @@ import type { IngestApi } from "./api";
 import {
   BLOCKS_PER_CALL, chunk, countText, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
+  type FileProblemKey,
 } from "./limits";
+import { beginRefusalWords } from "./errors";
 import type { HeaderAskView, HeaderReply } from "./header-step";
 import { ReadError, type ReadResult } from "./reader-client";
 import type { ReadProgress, SheetHints } from "./reader-protocol";
@@ -141,6 +143,9 @@ export function problemFromError(error: unknown, name: string, openRows: number 
   if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit", vars: { limit: countText(openRows) } };
   // The server's own refusal when a PDF or photo cannot be stored: nothing is kept without storage.
   if (/need file storage/i.test(message)) return { key: "ingest.drop.keptNoStorage", vars: { name } };
+  // Fix round decisions 2 and 3: the old per-kind refusal without a vault, the plant's largest file and storage quota.
+  const limit = beginRefusalWords(error);
+  if (limit) return { key: limit.key as FileProblemKey, vars: limit.vars };
   return null;
 }
 

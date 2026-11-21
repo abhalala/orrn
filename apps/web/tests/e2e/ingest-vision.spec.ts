@@ -170,6 +170,17 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await page.keyboard.press("Escape");
   await expect(zoomDialog).toBeHidden();
   await expect(openFull).toBeFocused();
+  // On a phone the page opens at its own width: the zoom box scrolls sideways, the page itself does not.
+  const desktop = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openFull.click();
+  await expect(zoomDialog).toBeVisible();
+  const box = zoomDialog.getByTestId("vision-zoom");
+  await expect.poll(() => box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(zoomDialog).toBeHidden();
+  if (desktop) await page.setViewportSize(desktop);
 
   // The row whose digits are not in the PDF's text comes first, its cell marked in words; then the row rated low. The
   // blank Leg cell is marked.

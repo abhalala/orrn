@@ -611,6 +611,9 @@ export const ingestEn = {
     zoomHint: "Pinch or scroll to move around the page.",
     fitScreen: "Fit to the screen",
     fullSize: "Full size",
+    // fix round decision 5: who ticked and when
+    checkedBy: "Checked by {name} on {date} at {time}.",
+    checkedAt: "Checked on {date} at {time}.",
     rowsHeading: "Rows read from the page",
     lowFirst: "Marked rows come first. Any row can be wrong, so check every row against the page.",
     lowMark: "Look first",

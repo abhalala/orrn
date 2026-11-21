@@ -2,10 +2,13 @@ import { Button } from "@orrn/ui/components/button";
 import { Dialog } from "@orrn/ui/components/dialog";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { Maximize2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
 import { can, useMe } from "@/shared/lib/me";
+import { trpc } from "@/shared/utils/trpc";
 
 import {
   blockVisionOf,
@@ -240,6 +243,7 @@ export function VisionCheckPanel({
             {say("ingest.vision.tickNote")}
           </p>
           <ActionError error={act.error} />
+          {ticked && candidate.block.modelCheckedAt ? <CheckedBy userId={candidate.block.modelCheckedBy ?? null} at={candidate.block.modelCheckedAt} /> : null}
           {approve ? (
             <Can do="ingest.merge">
               <div>
@@ -442,7 +446,9 @@ export function PageZoom({
   const [fit, setFit] = useState(false);
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={title} maxWidth={1600}>
-      <ZoomBody hint={say("ingest.vision.zoomHint")}>{images(fit)}</ZoomBody>
+      <ZoomBody label={title} hint={say("ingest.vision.zoomHint")}>
+        {images(fit)}
+      </ZoomBody>
       <div>
         <Button variant="secondary" size="sm" aria-pressed={fit} data-testid="vision-zoom-fit" onClick={() => setFit((f) => !f)}>
           {say(fit ? "ingest.vision.fullSize" : "ingest.vision.fitScreen")}
@@ -452,12 +458,12 @@ export function PageZoom({
   );
 }
 
-/** The zoom view's box: scrolls both ways, and touch pans and pinches inside it. */
-export function ZoomBody({ hint, children }: { hint: string; children: ReactNode }) {
+/** The zoom view's box: scrolls both ways, touch pans and pinches inside it, and a keyboard pans it with the arrow keys. */
+export function ZoomBody({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <p className="m-0 text-[14px] leading-6 text-muted-foreground">{hint}</p>
-      <div data-testid="vision-zoom" className="max-h-[70dvh] max-w-full overflow-auto overscroll-contain rounded-card border border-border bg-white" style={{ touchAction: "pan-x pan-y pinch-zoom" }}>
+      <div data-testid="vision-zoom" tabIndex={0} role="region" aria-label={label} className="max-h-[70dvh] max-w-full overflow-auto overscroll-contain rounded-card border border-border bg-white" style={{ touchAction: "pan-x pan-y pinch-zoom" }}>
         {children}
       </div>
     </div>
@@ -474,4 +480,19 @@ function BandZoomImage({ artifactId, page, band, alt, fit }: { artifactId: strin
   const image = usePageImage(artifactId, page, band);
   const url = image.data?.url ?? null;
   return url ? <ZoomImage url={url} alt={alt} fit={fit} /> : null;
+}
+
+/** Who ticked the table and when (decision 5), next to Approve: "Checked by Asha on 20 Nov at 14:05." */
+function CheckedBy({ userId, at }: { userId: string | null; at: number }) {
+  const { say } = useSay();
+  const fmt = useFmt();
+  const members = useQuery({ ...trpc.company.membersList.queryOptions(), enabled: userId !== null, staleTime: 5 * 60_000 });
+  const member = userId ? (members.data ?? []).find((m) => m.userId === userId) : undefined;
+  const name = member ? member.user.name || member.user.email : null;
+  const vars = { date: fmt.date(at), time: fmt.time(at) };
+  return (
+    <p data-testid="vision-checked-by" className="m-0 text-[14px] leading-6 text-muted-foreground">
+      {name ? say("ingest.vision.checkedBy", { ...vars, name }) : say("ingest.vision.checkedAt", vars)}
+    </p>
+  );
 }

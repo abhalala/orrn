@@ -1,5 +1,5 @@
 import type { ArtifactKind } from "./types";
-import { ingestErrorWords } from "./errors";
+import { beginRefusalWords, ingestErrorWords } from "./errors";
 import { readFailedKey, type FileProblem, type FileProblemKey } from "./limits";
 
 export { readFailedKey };
@@ -15,6 +15,9 @@ import type { UploadStep } from "./upload";
  */
 export function uploadFailureProblem(error: unknown, at: { kind: ArtifactKind | null; step: UploadStep | null }): FileProblem {
   if (error instanceof ReadError) return { key: readFailedKey(at.kind) };
+  // The storage quota is checked again when the parts start: the same words as at begin, with the size.
+  const limit = beginRefusalWords(error);
+  if (limit) return { key: limit.key as FileProblemKey, vars: limit.vars };
   const words = ingestErrorWords(error, "action");
   if (at.step === "saving") {
     // No server sentence of its own: the request never got an answer, or a part PUT was refused by the storage.

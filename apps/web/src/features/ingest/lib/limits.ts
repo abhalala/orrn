@@ -88,7 +88,12 @@ export type FileProblemKey =
   | "ingest.upload.error.partsMissing"
   | "ingest.upload.error.digest"
   | "ingest.upload.error.ranOut"
-  | "ingest.upload.error.stopped";
+  | "ingest.upload.error.stopped"
+  | "ingest.upload.refused.tooBigKind"
+  | "ingest.upload.refused.fileTooBig"
+  | "ingest.upload.refused.fileTooBigMax"
+  | "ingest.upload.refused.storageFull"
+  | "ingest.upload.refused.storageFullMax";
 
 /** `key` is a dictionary key and `vars` its variables, ready for `t(key, vars)`. */
 export type FileProblem = { key: FileProblemKey; vars?: Record<string, string | number> };

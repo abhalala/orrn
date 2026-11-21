@@ -65,3 +65,34 @@ describe("Try again does not hash a large file again (S2)", () => {
     expect(calls).toBe(2);
   });
 });
+
+describe("limit refusals name the limit and who can raise it (decision 3)", () => {
+  const refusal = (message: string) => ({ message, data: { code: "BAD_REQUEST" } });
+
+  test("at begin: too big for the plant, too big for orrn, storage full, and the old per-kind refusal without a vault", async () => {
+    const { problemFromError } = await import("./upload");
+    expect(problemFromError(refusal("scan.pdf is too big. The largest file for this plant is 100 MB. Godseye staff can raise it."), "scan.pdf")).toEqual({
+      key: "ingest.upload.refused.fileTooBig", vars: { name: "scan.pdf", size: "100 MB" },
+    });
+    expect(problemFromError(refusal("scan.pdf is too big. The largest file orrn can take is 2048 MB."), "scan.pdf")).toEqual({
+      key: "ingest.upload.refused.fileTooBigMax", vars: { name: "scan.pdf", size: "2048 MB" },
+    });
+    expect(problemFromError(refusal("This plant's file storage is full (50 GB). Godseye staff can raise it."), "scan.pdf")).toEqual({
+      key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" },
+    });
+    expect(problemFromError(refusal("big.xlsx is too big. The limit for this kind of file is 20 MB."), "big.xlsx")).toEqual({
+      key: "ingest.upload.refused.tooBigKind", vars: { name: "big.xlsx", limit: "20" },
+    });
+  });
+
+  test("storage full when the parts start (uploadStart) keeps the same words, not a generic refusal", () => {
+    expect(uploadFailureProblem(refusal("This plant's file storage is full (50 GB). Godseye staff can raise it."), { kind: "pdf_scan", step: "saving" })).toEqual({
+      key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" },
+    });
+  });
+
+  test("the strip says them with their values", () => {
+    const shown = uploadStrip([item({ problem: { key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" } } })], [])[0];
+    expect(shown).toMatchObject({ words: { key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" } } });
+  });
+});

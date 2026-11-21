@@ -283,10 +283,12 @@ describe("the page image full size (decision 10)", () => {
     const client = new QueryClient();
     const body = (fit: boolean) =>
       renderToStaticMarkup(
-        createElement(QueryClientProvider, { client }, createElement(zoom.ZoomBody, { hint: "Pinch" }, createElement(zoom.ZoomImage, { url: "http://localhost/p.jpg", alt: "Page 2 of 3 of scan.pdf", fit }))),
+        createElement(QueryClientProvider, { client }, createElement(zoom.ZoomBody, { label: "Page 2 of 3", hint: "Pinch" }, createElement(zoom.ZoomImage, { url: "http://localhost/p.jpg", alt: "Page 2 of 3 of scan.pdf", fit }))),
       );
     const full = body(false);
     expect(full).toContain("pinch-zoom");
+    // A keyboard can reach the box and pan it.
+    expect(full).toMatch(/data-testid="vision-zoom" tabindex="0" role="region" aria-label="Page 2 of 3"/);
     expect(full).toContain("overflow-auto");
     expect(full).toMatch(/<img[^>]*alt="Page 2 of 3 of scan.pdf"[^>]*class="[^"]*max-w-none/);
     expect(body(true)).toMatch(/<img[^>]*class="[^"]*w-full/);
@@ -300,5 +302,36 @@ describe("the page check layout (N1)", () => {
     expect(columns).toContain("grid-cols-1");
     expect(columns).toContain("lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]");
     expect(columns).not.toContain("md:grid-cols-2");
+  });
+});
+
+describe("who ticked and when (decision 5)", () => {
+  const at = Date.UTC(2026, 10, 20, 8, 35);
+  const withMembers = (c: CandidateDetail, members: unknown[]) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData([["auth", "me"], { type: "query" }], { company: { role: "owner", settings: {} }, isPlatformAdmin: false });
+    client.setQueryData([["company", "membersList"], { type: "query" }], members);
+    client.setQueryData(lib.visionKeys.rows(c.id), staged);
+    client.setQueryData(lib.visionKeys.image(c.artifactId, 2), { url: "http://localhost/x", expiresAt: 0 });
+    return renderToStaticMarkup(
+      createElement(QueryClientProvider, { client }, createElement(VisionCheckPanel, { candidate: c, bar: bar(c), approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} })),
+    );
+  };
+
+  test("a ticked table names who ticked it and when, after the tick and before Approve", () => {
+    const html = withMembers(detail({ modelChecked: true, modelCheckedBy: "u7", modelCheckedAt: at }), [{ userId: "u7", user: { name: "Asha Patel", email: "asha@example.test" } }]);
+    const line = html.match(/<p data-testid="vision-checked-by"[^>]*>(.*?)<\/p>/)![1]!;
+    expect(line).toMatch(/^Checked by Asha Patel on .+ at .+\.$/);
+    expect(html.indexOf("vision-tick")).toBeLessThan(html.indexOf("vision-checked-by"));
+    expect(html.indexOf("vision-checked-by")).toBeLessThan(html.indexOf("vision-approve"));
+  });
+
+  test("someone no longer in the plant: only when", () => {
+    const html = withMembers(detail({ modelChecked: true, modelCheckedBy: "gone", modelCheckedAt: at }), []);
+    expect(html.match(/<p data-testid="vision-checked-by"[^>]*>(.*?)<\/p>/)![1]).toMatch(/^Checked on .+ at .+\.$/);
+  });
+
+  test("not ticked: no line", () => {
+    expect(withMembers(detail(), [])).not.toContain("vision-checked-by");
   });
 });
