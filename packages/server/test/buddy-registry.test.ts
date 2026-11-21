@@ -68,7 +68,7 @@ const NEVER = [
   "ingest.vision.finishRest",
 ];
 
-/** Release 2 of the import (feat/vision-read): the only paths `pending` may name. */
+/** Release 2 of the import (PR #12, merged 2026-11-21): decided ahead in `pending`, moved to `paths` at the rebase. */
 const RELEASE_2 = [
   "ingest.vision.readPage",
   "ingest.vision.pages",
@@ -85,7 +85,11 @@ const RELEASE_2 = [
   "ingest.artifact.uploadAbort",
   "ingest.vision.nextBatch",
   "ingest.vision.finishRest",
+  "ingest.vision.waiting",
 ];
+
+/** Paths of a branch that has not merged yet, the only ones `pending` may name. None today. */
+const PENDING: string[] = [];
 
 /** §12.1: what the buddy can do in an import. */
 const IMPORT_TOOLS = [
@@ -146,8 +150,8 @@ describe("every router and every ingest procedure has a decision", () => {
     const { reg, BUDDY_DECISIONS } = await load();
     const stale = Object.keys(BUDDY_DECISIONS.paths).filter((p) => !reg.has(p));
     expect(stale).toEqual([]);
-    // Pending paths are release 2 of the import; once it merges they exist and must move to `paths`.
-    expect(Object.keys(BUDDY_DECISIONS.pending).sort()).toEqual([...RELEASE_2].sort());
+    // Pending paths belong to an unmerged branch; once it merges they exist and must move to `paths`.
+    expect(Object.keys(BUDDY_DECISIONS.pending).sort()).toEqual([...PENDING].sort());
     for (const p of Object.keys(BUDDY_DECISIONS.pending)) {
       expect({ p, existsNow: reg.has(p) }).toEqual({ p, existsNow: false });
     }
@@ -167,6 +171,22 @@ describe("every router and every ingest procedure has a decision", () => {
     expect(decideBuddyPath("ingest.vision.check").kind).toBe("deny");
     expect(decideBuddyPath("ingest.vision.start").kind).toBe("deny");
     expect(decideBuddyPath("ingest.vision.readPage").kind).toBe("allow");
+  });
+
+  test("release 2 has merged: each of its procedures exists, has its own entry in paths, and the registry carries it", async () => {
+    const { reg, BUDDY_DECISIONS } = await load();
+    const paths = BUDDY_DECISIONS.paths as Record<string, { kind: string }>;
+    for (const p of RELEASE_2) {
+      expect({ p, exists: reg.has(p), inPaths: Object.prototype.hasOwnProperty.call(paths, p) }).toEqual({ p, exists: true, inPaths: true });
+      expect(reg.get(p)?.decision.kind).toBe(paths[p]!.kind);
+    }
+    // The tick, the uploads and the page-image steps stay denied; the reads and readPage stay allowed.
+    for (const p of ["ingest.vision.check", "ingest.vision.readUrl", "ingest.artifact.uploadStart", "ingest.vision.nextBatch", "ingest.vision.finishRest"]) {
+      expect({ p, kind: reg.get(p)?.decision.kind }).toEqual({ p, kind: "deny" });
+    }
+    for (const p of ["ingest.vision.pages", "ingest.vision.waiting", "ingest.vision.readPage"]) {
+      expect({ p, kind: reg.get(p)?.decision.kind }).toEqual({ p, kind: "allow" });
+    }
   });
 });
 

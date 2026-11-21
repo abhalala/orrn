@@ -233,6 +233,10 @@ ingest.artifact.get	query	allow
 ingest.artifact.list	query	allow
 ingest.artifact.putBlocks	mutation	deny
 ingest.artifact.putRows	mutation	deny
+ingest.artifact.uploadAbort	mutation	deny
+ingest.artifact.uploadComplete	mutation	deny
+ingest.artifact.uploadStart	mutation	deny
+ingest.artifact.uploadTickets	mutation	deny
 ingest.candidate.approve	mutation	deny
 ingest.candidate.confirmNear	mutation	allow
 ingest.candidate.discard	mutation	deny
@@ -259,6 +263,18 @@ ingest.rows.skipNoDate	mutation	deny
 ingest.shape.make	mutation	allow
 ingest.shape.save	mutation	deny
 ingest.status	query	allow
+ingest.vision.bandTickets	mutation	deny
+ingest.vision.check	mutation	deny
+ingest.vision.finishRest	mutation	deny
+ingest.vision.fixCell	mutation	deny
+ingest.vision.nextBatch	mutation	deny
+ingest.vision.pages	query	allow
+ingest.vision.readPage	mutation	allow
+ingest.vision.readUrl	query	deny
+ingest.vision.skipPage	mutation	deny
+ingest.vision.start	mutation	deny
+ingest.vision.typePage	mutation	deny
+ingest.vision.waiting	query	allow
 invite.acceptByToken	mutation	deny
 invite.create	mutation	deny
 invite.list	query	deny
@@ -319,6 +335,7 @@ platform.companiesAudit	query	deny
 platform.companiesGet	query	deny
 platform.companiesList	query	deny
 platform.companiesReactivate	mutation	deny
+platform.companiesSetLimits	mutation	deny
 platform.companiesSuspend	mutation	deny
 platform.edgeNodeCreate	mutation	deny
 platform.edgeNodeIssueEnrollmentToken	mutation	deny

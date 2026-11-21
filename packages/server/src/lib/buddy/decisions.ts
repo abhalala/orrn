@@ -148,13 +148,7 @@ export const BUDDY_DECISIONS = {
     "ingest.rows.skipNoDate": deny("Row by row keep or refuse is a check against the file, made on the review page."),
     "ingest.candidate.repickHeader": deny("The person picks the header row while they see the sheet."),
     "ingest.shape.save": deny("The person saves a layout while they see the sheet."),
-  } satisfies Record<string, BuddyDecision>,
-
-  /**
-   * Release 2 of the import (`feat/vision-read`, not merged yet). Decided ahead of the merge (§12.3); the
-   * test accepts these paths missing from `appRouter` only because they are in this named list.
-   */
-  pending: {
+    // Release 2 of the import (PR #12, merged 2026-11-21), moved here from `pending` at the rebase.
     "ingest.vision.readPage": allow,
     "ingest.vision.pages": allow,
     "ingest.vision.check": deny(
@@ -166,14 +160,21 @@ export const BUDDY_DECISIONS = {
     "ingest.vision.typePage": deny("Typing a page is done against the page image, in the browser."),
     "ingest.vision.fixCell": deny("Fixing a cell is done against the page image, in the browser."),
     "ingest.vision.readUrl": deny("Mints a signed link to a page image; the image stays in the browser."),
-    // Review S8: the release 2 upload parts and batch controls.
+    // Release 2 (PR #12, merged 2026-11-21): the upload parts and batch controls (review S8).
     "ingest.artifact.uploadStart": deny("Upload: file bytes come from the browser only (§12.2)."),
     "ingest.artifact.uploadTickets": deny("Upload tickets for file parts, which come from the browser only (§12.2)."),
     "ingest.artifact.uploadComplete": deny("Upload: file bytes come from the browser only (§12.2)."),
     "ingest.artifact.uploadAbort": deny("Upload: file bytes come from the browser only (§12.2)."),
     "ingest.vision.nextBatch": deny("Hands out page image tickets for the next batch; the images come from the browser only."),
     "ingest.vision.finishRest": deny("Skips the pages not read yet; that is a check against the pages, made in the browser."),
+    "ingest.vision.waiting": allow, // "Tables waiting for a check", a read-only list.
   } satisfies Record<string, BuddyDecision>,
+
+  /**
+   * Release 2 of the import (`feat/vision-read`, not merged yet). Decided ahead of the merge (§12.3); the
+   * test accepts these paths missing from `appRouter` only because they are in this named list.
+   */
+  pending: {} satisfies Record<string, BuddyDecision>,
 } as const;
 
 export type BuddyRouterKey = keyof typeof BUDDY_DECISIONS.routers;
