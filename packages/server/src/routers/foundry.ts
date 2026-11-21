@@ -65,6 +65,7 @@ import { actionProcedure, anyActionProcedure, companyProcedure, router } from ".
 import { requestApprovalInsert } from "../lib/approval";
 import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { settingsPatchSql } from "../lib/companySettings";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
@@ -861,10 +862,10 @@ const castsRouter = router({
         const [year, month] = input.start.period.split("-").map(Number) as [number, number];
         noCastThatMonth = sql`not exists (select 1 from ${cast} c0 where c0.company_id = ${ctx.companyId} and c0.year = ${year} and c0.month = ${month})`;
       }
-      const settings = { ...(row.settings ?? {}), castSeriesStart: input.start };
       const landed = and(eq(company.id, ctx.companyId), noCastThatMonth);
+      // Council round 1, A3: only this key, against the row's value when the write runs.
       await atomicBatch(ctx.db, [
-        ctx.db.update(company).set({ settings }).where(landed),
+        ctx.db.update(company).set({ settings: settingsPatchSql({ castSeriesStart: input.start }) }).where(landed),
         auditInsertGuarded(
           auditCtx(ctx),
           { action: "foundry.castSeries.set", subjectType: "company", subjectId: ctx.companyId, meta: { castSeriesStart: input.start, previous } },

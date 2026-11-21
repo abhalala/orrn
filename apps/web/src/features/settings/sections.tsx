@@ -9,7 +9,9 @@ import { DataTab } from "./data-tab";
 import { DevicesTab } from "./devices-tab";
 import { ModulesTab } from "./modules-tab";
 import { PrintingTab } from "./printing-tab";
+import { SecurityTab } from "./security-tab";
 import { ShiftsTab } from "./shifts-tab";
+import { SignInTab } from "./sign-in-tab";
 import { StandardsTab } from "./standards-tab";
 import { SupportTab } from "./support-tab";
 import { TeamTab } from "./team-tab";
@@ -25,6 +27,8 @@ export type SettingsSection = {
   id: string;
   labelKey: MessageKey;
   requires?: readonly Action[];
+  /** The person's own account, not the plant's: hidden while a Godseye admin impersonates the plant. */
+  ownAccount?: boolean;
   render(): ReactNode;
 };
 
@@ -38,6 +42,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   // Devices: `device.list` is users.manage. Backup: `backup.status` is settings.update.
   { id: "devices", labelKey: "settings.tabs.devices", requires: ["users.manage"], render: () => <DevicesTab /> },
   { id: "backup", labelKey: "settings.tabs.backup", requires: ["settings.update"], render: () => <BackupTab /> },
+  // Security: "Require secure sign-in". Owners and admins see it; only an owner may save (the server judges).
+  { id: "security", labelKey: "settings.tabs.security", requires: ["settings.update"], render: () => <SecurityTab /> },
+  // Sign-in: every person's own ways in (passkeys, Google, password, authenticator app); no `requires`.
+  { id: "sign-in", labelKey: "settings.tabs.signIn", ownAccount: true, render: () => <SignInTab /> },
   { id: "support", labelKey: "settings.tabs.support", requires: ["support.request"], render: () => <SupportTab /> },
   { id: "about", labelKey: "settings.tabs.about", render: () => <AboutTab /> },
   { id: "printing", labelKey: "settings.tabs.printing", render: () => <PrintingTab /> },

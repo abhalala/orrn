@@ -23,6 +23,14 @@ jobs:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       MODEL_ACCESS_CLIENT_ID: ${{ secrets.MODEL_ACCESS_CLIENT_ID }}
       MODEL_ACCESS_CLIENT_SECRET: ${{ secrets.MODEL_ACCESS_CLIENT_SECRET }}
+      # Google sign-in. Optional: without both the sign-in screens hide Google. Set the pair together.
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Native passkeys. Optional, not secrets (a repo variable or a secret works): without them the apps hide their passkey button.
+      # The Apple Team ID and the Android release certificate SHA-256 (the Android passkey origin is derived from it; a given hash must agree).
+      ORRN_APPLE_TEAM_ID: ${{ vars.ORRN_APPLE_TEAM_ID || secrets.ORRN_APPLE_TEAM_ID }}
+      ORRN_ANDROID_CERT_SHA256: ${{ vars.ORRN_ANDROID_CERT_SHA256 || secrets.ORRN_ANDROID_CERT_SHA256 }}
+      ANDROID_APK_KEY_HASH: ${{ vars.ANDROID_APK_KEY_HASH || secrets.ANDROID_APK_KEY_HASH }}
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

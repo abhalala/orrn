@@ -21,16 +21,18 @@ describe("file kinds", () => {
     expect(detectFileKind("export", "application/pdf")?.kind).toBe("pdf_text");
     expect(detectFileKind("export", "application/octet-stream")).toBeNull();
   });
-  test("each kind has its MB limit from plan A9", () => {
-    expect(detectFileKind("a.xlsx")?.limitMb).toBe(20);
-    expect(detectFileKind("a.csv")?.limitMb).toBe(50);
-    expect(detectFileKind("a.sql")?.limitMb).toBe(100);
-    expect(detectFileKind("a.pdf")?.limitMb).toBe(25);
-    expect(detectFileKind("a.png")?.limitMb).toBe(10);
+  test("no kind carries a size limit any more (limits brief part B): the kind is all detection gives", () => {
+    expect(detectFileKind("a.xlsx")).toEqual({ kind: "sheet" });
+    expect(detectFileKind("a.csv")).toEqual({ kind: "csv" });
+    expect(detectFileKind("a.sql")).toEqual({ kind: "sql" });
+    expect(detectFileKind("a.pdf")).toEqual({ kind: "pdf_text" });
+    expect(detectFileKind("a.png")).toEqual({ kind: "image" });
+    expect("maxFileBytes" in DEFAULT_LIMITS).toBe(false);
   });
   test("the default limits are the plan A9 numbers", () => {
     expect(DEFAULT_LIMITS.filesPerUpload).toBe(20);
-    expect(DEFAULT_LIMITS.blocksPerFile).toBe(50);
+    // Fix round decision 1: 200 tables a file for every plant (was 50).
+    expect(DEFAULT_LIMITS.blocksPerFile).toBe(200);
     expect(DEFAULT_LIMITS.columnsPerBlock).toBe(200);
     expect(DEFAULT_LIMITS.rawRowsPerFile).toBe(200_000);
     expect(DEFAULT_LIMITS.stagedRowsPerBlock).toBe(50_000);
@@ -44,23 +46,25 @@ describe("file kinds", () => {
 });
 
 describe("file size problems", () => {
-  test("at the limit passes, one byte over is refused with name and limit", () => {
+  test("no file is refused for its size: the old limits and far past them pass (limits brief part B)", () => {
     expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) })).toBeNull();
-    expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) + 1 })).toEqual({
-      key: "ingest.drop.tooBig",
-      vars: { name: "a.xlsx", limit: 20 },
-    });
-    expect(fileSizeProblem({ name: "a.csv", size: mb(50) })).toBeNull();
-    expect(fileSizeProblem({ name: "a.sql", size: mb(100) + 1 })?.vars?.limit).toBe(100);
-    expect(fileSizeProblem({ name: "a.pdf", size: mb(25) + 1 })?.vars?.limit).toBe(25);
-    expect(fileSizeProblem({ name: "a.jpg", size: mb(10) + 1 })?.vars?.limit).toBe(10);
+    expect(fileSizeProblem({ name: "a.xlsx", size: mb(20) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.csv", size: mb(50) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.sql", size: mb(100) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.pdf", size: mb(25) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.jpg", size: mb(10) + 1 })).toBeNull();
+    expect(fileSizeProblem({ name: "a.csv", size: mb(5000) })).toBeNull();
   });
   test("an unknown type cannot be read", () => {
     expect(fileSizeProblem({ name: "a.docx", size: 10 })).toEqual({ key: "ingest.drop.wrongType", vars: { name: "a.docx" } });
   });
   test("raw rows: 200,000 passes, one more is refused", () => {
     expect(rowCountProblem("a.csv", 200_000)).toBeNull();
-    expect(rowCountProblem("a.csv", 200_001)).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv" } });
+    expect(rowCountProblem("a.csv", 200_001)).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv", limit: "200,000" } });
+  });
+  test("raw rows: the plant's own limit from ingest.status, lowered or raised", () => {
+    expect(rowCountProblem("a.csv", 501, { ...DEFAULT_LIMITS, rawRowsPerFile: 500 })).toEqual({ key: "ingest.drop.tooManyRows", vars: { name: "a.csv", limit: "500" } });
+    expect(rowCountProblem("a.csv", 250_000, { ...DEFAULT_LIMITS, rawRowsPerFile: 300_000 })).toBeNull();
   });
 });
 
@@ -70,6 +74,11 @@ describe("files per upload", () => {
     const { taken, left } = takeFiles(files);
     expect(taken).toHaveLength(MAX_FILES);
     expect(left).toEqual([20, 21, 22]);
+  });
+  test("takes the plant's own number when the status sends one", () => {
+    const files = Array.from({ length: 23 }, (_, i) => i);
+    expect(takeFiles(files, 3)).toEqual({ taken: [0, 1, 2], left: Array.from({ length: 20 }, (_, i) => i + 3) });
+    expect(takeFiles(files, 60).left).toEqual([]);
   });
 });
 
@@ -94,8 +103,17 @@ describe("cells and chunks", () => {
     expect(ROWS_PER_CALL).toBe(500);
     expect(rowPages([])).toEqual([]);
   });
-  test("block calls hold 50 and totals add up", () => {
-    expect(BLOCKS_PER_CALL).toBe(50);
+  test("block calls hold 200 (a whole file, decision 1) and totals add up", () => {
+    expect(BLOCKS_PER_CALL).toBe(200);
     expect(totalRows([{ rowCount: 10 }, { rowCount: 5 }])).toBe(15);
+  });
+});
+
+describe("tables per file follow the server (decision 1)", () => {
+  test("the browser's tables per file, the batch line and the server's limit are one number", async () => {
+    const { INGEST_LIMITS } = await import("@orrn/server/lib/ingest/types");
+    const { VISION_TABLES_PER_FILE } = await import("./vision-model");
+    expect(DEFAULT_LIMITS.blocksPerFile).toBe(INGEST_LIMITS.blocksPerFile);
+    expect(VISION_TABLES_PER_FILE).toBe(INGEST_LIMITS.blocksPerFile);
   });
 });

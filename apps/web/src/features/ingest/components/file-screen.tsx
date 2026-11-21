@@ -4,11 +4,12 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 
 import { can, useMe } from "@/shared/lib/me";
 
-import { useAnnouncer, useArtifact } from "../lib";
+import { isVisualKind, KEPT_UNREAD, readFailedKey, useAnnouncer, useArtifact, useIngestStatus, visionReadyOf } from "../lib";
 import { fileRows, fileSubtitle, fileYear, fillAnswerWords, vaultWords } from "../lib/file-model";
 import { FileYearLine } from "./file-year-line";
 import { ImportRows, StatusRegion, useDocTitle, useListActions, useSay } from "./list-kit";
 import { ActionError, ProgressBar, QueryPanel } from "./shared";
+import { VisionFilePanel } from "./vision-file-panel";
 
 /**
  * `/ingest/files/:id` (work order 3.5): the file's name as the title, rows, tables and the day under it, one muted
@@ -20,6 +21,7 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
   const { data: me } = useMe();
   const { say, words, plant } = useSay();
   const artifact = useArtifact(artifactId);
+  const status = useIngestStatus();
   const announcer = useAnnouncer();
   const data = artifact.data;
   useDocTitle(data ? say("ingest.docTitle.page", { name: data.fileName }) : null);
@@ -33,6 +35,9 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
     announce: announcer.announce,
   });
   const year = data ? fileYear(data, plant.day) : null;
+  // A PDF or photo: its pages panel says where the read stands, so the sheet reader's bar and empty state do not.
+  const visual = data ? isVisualKind(data.kind) : false;
+  const pagesShown = Boolean(data && visual && (data.readState === "reading" || (String(data.readState) === KEPT_UNREAD && visionReadyOf(status.data))));
 
   return (
     <>
@@ -54,11 +59,12 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
                 </p>
               ) : null}
             </div>
-            {data.readState === "reading" ? <ProgressBar value={null} label={t("ingest.read.working")} /> : null}
-            {data.readState === "failed" ? <p className="m-0 text-[14px] leading-6 text-tone-red-ink">{t("ingest.read.failed")}</p> : null}
+            {data.readState === "reading" && !visual ? <ProgressBar value={null} label={t("ingest.read.working")} /> : null}
+            <VisionFilePanel artifact={data} visionReady={visionReadyOf(status.data)} announce={announcer.announce} />
+            {data.readState === "failed" ? <p className="m-0 text-[14px] leading-6 text-tone-red-ink">{t(readFailedKey(data.kind))}</p> : null}
             {year && year.show ? <FileYearLine artifactId={data.id} line={year} confirmed={data.periodConfirmed} announce={announcer.announce} /> : null}
             <ActionError error={error} />
-            {rows.length === 0 && data.readState !== "reading" ? (
+            {rows.length === 0 && data.readState !== "reading" && !pagesShown ? (
               <div className="rounded-card border border-border bg-card">
                 <EmptyState title={t("ingest.empty.title")} body={t("ingest.empty.body")} />
               </div>

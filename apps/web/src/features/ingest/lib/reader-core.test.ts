@@ -149,10 +149,10 @@ describe("limits on blocks", () => {
     }
   });
 
-  test("50 blocks pass, 51 stop the read", () => {
+  test("200 blocks pass, 201 stop the read (decision 1)", () => {
     const pieces = (n: number) => Array.from({ length: n }, (_, i) => ({ sheetName: `S${i}`, block: block(2, 1) }));
-    expect(finishBlocks(pieces(50))).toHaveLength(50);
-    expect(() => finishBlocks(pieces(51))).toThrow(ReadStop);
+    expect(finishBlocks(pieces(200))).toHaveLength(200);
+    expect(() => finishBlocks(pieces(201))).toThrow(ReadStop);
   });
 
   test("a block over the staged rows limit is split into parts with the same headers", () => {
@@ -164,8 +164,8 @@ describe("limits on blocks", () => {
     expect(out.every((b) => b.input.headers.join() === "h0,h1")).toBe(true);
   });
 
-  test("a part count that pushes past 50 blocks stops the read", () => {
-    expect(() => finishBlocks([{ sheetName: "A", block: block(1, 60) }], { ...READ_LIMITS, maxRowsPerBlock: 1 })).toThrow(ReadStop);
+  test("a part count that pushes past 200 blocks stops the read", () => {
+    expect(() => finishBlocks([{ sheetName: "A", block: block(1, 210) }], { ...READ_LIMITS, maxRowsPerBlock: 1 })).toThrow(ReadStop);
   });
 
   test("cells keep up to 2,000 characters for the server to cut at 200, with its reason code", () => {
@@ -243,6 +243,29 @@ describe("dispatch by kind", () => {
     expect((await readFileBlocks(fileOf("a,b\n1,2\n"), "csv", deps()))[0]!.rows).toEqual([["1", "2"]]);
     expect((await readFileBlocks(fileOf("id,n\n1,a\n"), "sql", deps()))[0]!.input.sheetName).toBe("t0");
     await expect(readFileBlocks(fileOf(""), "image", deps())).rejects.toBeInstanceOf(ReadStop);
+  });
+});
+
+describe("browser memory (limits brief part B.4)", () => {
+  const fileOf = (text: string) => new File([text], "x");
+  const limits = { ...READ_LIMITS, maxRawRows: 4 };
+
+  test("a CSV is read as a stream; rows past the plant's limit stop the read with too_many_rows", async () => {
+    expect((await readFileBlocks(fileOf("a,b\n1,2\n3,4\n"), "csv", deps({ limits })))[0]!.rows).toEqual([["1", "2"], ["3", "4"]]);
+    await expect(readFileBlocks(fileOf("a,b\n1,2\n3,4\n5,6\n7,8\n9,9\n"), "csv", deps({ limits }))).rejects.toMatchObject({ failure: { code: "too_many_rows" } });
+  });
+
+  test("a newline inside quotes does not count as a row", async () => {
+    const text = 'a,b\n"x\ny\nz\nw",2\n3,4\n';
+    const blocks = await readFileBlocks(fileOf(text), "csv", deps({ limits }));
+    expect(blocks[0]!.rows.length).toBe(2);
+  });
+
+  test("CSV and SQL text past what this browser holds, and a workbook past its size, stop with too_large_to_read", async () => {
+    const browser = { sheetBytes: 10, textChars: 8 };
+    await expect(readFileBlocks(fileOf("a,b\n1,2\n3,4\n"), "csv", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
+    await expect(readFileBlocks(fileOf("id,n\n1,a\n2,b\n"), "sql", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
+    await expect(readFileBlocks(new File([new Uint8Array(11)], "b.xlsx"), "sheet", deps({ browser }))).rejects.toMatchObject({ failure: { code: "too_large_to_read" } });
   });
 });
 
@@ -341,5 +364,49 @@ describe("review: E5 source guard", () => {
     const { readFileSync } = await import("node:fs");
     const src = readFileSync(new URL("./reader-core.ts", import.meta.url), "utf8");
     expect(src).not.toMatch(/Math\.(max|min)\(\s*[^)]*\.\.\./);
+  });
+});
+
+describe("the CSV stream holds rows, never the whole text (decision 13)", () => {
+  const limits = { ...READ_LIMITS, maxRawRows: 4 };
+  async function* pieces(...parts: string[]): AsyncGenerator<string> {
+    for (const p of parts) yield p;
+  }
+
+  test("with the real engine, the CSV is parsed chunk by chunk: the whole-text reader is never called", async () => {
+    const { engine } = await import("./engine");
+    const strict: ReaderEngine = {
+      ...engine,
+      blocksFromCsv() {
+        throw new Error("the whole text was gathered");
+      },
+    };
+    const { readCsvChunks } = await import("./reader-core");
+    const blocks = await readCsvChunks(pieces("Code,Name\nR1,An", "gle\nR2,Channel\n"), null, { engine: strict });
+    expect(blocks[0]!.rows).toEqual([["R1", "Angle"], ["R2", "Channel"]]);
+  });
+
+  test("the same tables as the whole-text reader, whatever the chunk edges (inside quotes, between CR and LF, inside the first 4,096 characters)", async () => {
+    const { engine } = await import("./engine");
+    const { readCsvChunks } = await import("./reader-core");
+    const filler = Array.from({ length: 300 }, (_, i) => `R${i},"Pipe, ${i}",${i}.5`).join("\r\n");
+    const text = `Code,Name,Weight\r\n"Q1","line one\r\nline two",2\r\n${filler}\r\n`;
+    const whole = await readCsvText(text, { engine, limits: { ...READ_LIMITS } });
+    for (const cut of [5, 22, 23, 24, 31, 4095, 4096, 4097, text.length - 1]) {
+      const streamed = await readCsvChunks(pieces(text.slice(0, cut), text.slice(cut)), null, { engine });
+      expect(streamed.map((b) => b.rows)).toEqual(whole.map((b) => b.rows));
+    }
+  });
+
+  test("an inch mark in an unquoted cell does not hide the rows after it, so the row stop still fires (N7)", async () => {
+    const { engine } = await import("./engine");
+    const { readCsvChunks } = await import("./reader-core");
+    async function* lines(): AsyncGenerator<string> {
+      // Past the first 4,096 characters, where the delimiter is chosen and rows start to count.
+      yield 'Item,Size\nPipe 1",2\n';
+      for (let i = 2; i < 600; i++) yield `Pipe ${i},${i}\n`;
+      throw new Error("read on past the rows per file");
+    }
+    await expect(readCsvChunks(lines(), null, { engine, limits })).rejects.toMatchObject({ failure: { code: "too_many_rows" } });
   });
 });

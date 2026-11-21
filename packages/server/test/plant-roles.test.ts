@@ -102,6 +102,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // Infinity Portal (owner decision 2026-11-10): owner and admin upload and merge.
   "ingest.upload": ["admin"],
   "ingest.merge": ["admin"],
+  // Item 16 (owner decision "Price-viewers tick, admin approves").
+  "ingest.check": ["admin", "office", "manager", "accountant"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -530,8 +532,8 @@ describe("many plants per person (spec P10)", () => {
     expect(me.company?.role).toBe("accountant");
     expect(me.memberships).toEqual(
       expect.arrayContaining([
-        { companyId: a.companyId, name: expect.any(String), role: "accountant" },
-        { companyId: b.companyId, name: expect.any(String), role: "office" },
+        { companyId: a.companyId, name: expect.any(String), role: "accountant", setupPending: true },
+        { companyId: b.companyId, name: expect.any(String), role: "office", setupPending: true },
       ]),
     );
     expect(me.memberships).toHaveLength(2);
@@ -568,7 +570,7 @@ describe("many plants per person (spec P10)", () => {
     const me = await env.callerForUser(users.packer.id).auth.me();
     expect(me.company?.id).toBe(companyId);
     expect(me.company?.role).toBe("packer");
-    expect(me.memberships).toEqual([{ companyId, name: expect.any(String), role: "packer" }]);
+    expect(me.memberships).toEqual([{ companyId, name: expect.any(String), role: "packer", setupPending: true }]);
   });
 
   test("company.switch checks membership and becomes the default without a header", async () => {

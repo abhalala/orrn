@@ -1,7 +1,7 @@
 import type { createDb } from "@orrn/db";
 import { company, membership, platformAdmin } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { resolveImpersonation } from "./impersonation";
 
@@ -36,6 +36,12 @@ export type ActiveMembership = {
   companyId: string;
   role: CompanyRole;
   companyStatus: "pending" | "active" | "suspended";
+  /**
+   * The plant requires secure sign-in (`company.settings.requireStrongSignIn`; council round 1, A4):
+   * `companyProcedure` accepts only a session made with a passkey, Google or the authenticator code.
+   * Absent on an impersonation membership (support is never held by it).
+   */
+  requireStrongSignIn?: boolean;
 };
 
 /**
@@ -50,6 +56,10 @@ export async function listActiveMemberships(db: Db, userId: string) {
       role: membership.role,
       companyStatus: company.status,
       name: company.name,
+      /** Null while this plant's onboarding is open for the person (plan 2026-11-18, Task 9). */
+      onboardedAt: membership.onboardedAt,
+      /** 1 when the plant requires secure sign-in (council round 1, A4). */
+      strict: sql<number | null>`json_extract(${company.settings}, '$.requireStrongSignIn')`,
     })
     .from(membership)
     .innerJoin(company, eq(company.id, membership.companyId))
@@ -73,7 +83,13 @@ export async function resolveTenantContext(
     : undefined;
   const chosen = requested ?? memberships[0];
   const ownMember: ActiveMembership | null = chosen
-    ? { id: chosen.id, companyId: chosen.companyId, role: chosen.role, companyStatus: chosen.companyStatus }
+    ? {
+        id: chosen.id,
+        companyId: chosen.companyId,
+        role: chosen.role,
+        companyStatus: chosen.companyStatus,
+        requireStrongSignIn: Number(chosen.strict) === 1,
+      }
     : null;
 
   const [platform] = userId

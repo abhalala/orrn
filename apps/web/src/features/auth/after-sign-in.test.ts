@@ -43,3 +43,39 @@ describe("destinationAfterSignIn", () => {
     expect(destinationAfterSignIn(null, "//evil.com")).toBe("/today");
   });
 });
+
+describe("destinationAfterSignIn: several plants (plan 2026-11-18, Task 9)", () => {
+  const two = {
+    memberships: [
+      { companyId: "c1", name: "Fourcubes", role: "owner" as const },
+      { companyId: "c2", name: "Other", role: "packer" as const },
+    ],
+  };
+
+  test("lands on the picker, carrying a same-origin next", () => {
+    expect(destinationAfterSignIn(me(two))).toBe("/choose-plant");
+    expect(destinationAfterSignIn(me(two), "/b/26I4086?c=fourcubes")).toBe("/choose-plant?next=%2Fb%2F26I4086%3Fc%3Dfourcubes");
+    expect(destinationAfterSignIn(me(two), "//evil.example")).toBe("/choose-plant");
+  });
+});
+
+describe("destinationAfterSignIn: back to an invite (plan 2026-11-18, Task 8)", () => {
+  test("an invite page next wins over every home, so the join happens there", () => {
+    const invite = "/invite/2f1c6a0e-1b7d-4c55-9a51-3e2d8f0b9a77";
+    expect(destinationAfterSignIn(me(), invite)).toBe(invite);
+    expect(destinationAfterSignIn(me({ company: null }), invite)).toBe(invite);
+    expect(destinationAfterSignIn(me({ user: { mustChangePassword: true } }), invite)).toBe(invite);
+    expect(
+      destinationAfterSignIn(
+        me({ memberships: [{ companyId: "c1", name: "A", role: "owner" }, { companyId: "c2", name: "B", role: "packer" }] } as never),
+        invite,
+      ),
+    ).toBe(invite);
+  });
+
+  test("only a real invite path counts", () => {
+    expect(destinationAfterSignIn(me({ company: null }), "/invite")).toBe("/no-access");
+    expect(destinationAfterSignIn(me({ company: null }), "/invitex/abc")).toBe("/no-access");
+    expect(destinationAfterSignIn(me({ company: null }), "//evil.com/invite/abc")).toBe("/no-access");
+  });
+});

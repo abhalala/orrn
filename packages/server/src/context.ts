@@ -1,12 +1,18 @@
-import { createAuth } from "@orrn/auth";
+import { configureAuthHooks, createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
 import type { Context as HonoContext } from "hono";
 
+import { acceptLiveInvitesFor } from "./lib/acceptInvite";
 import type { IngestSource } from "./lib/ingest/source";
 import { COMPANY_HEADER, IMPERSONATE_HEADER, resolveTenantContext } from "./lib/tenantContext";
 
 export type { ImpersonationInfo } from "./lib/tenantContext";
 export type { IngestSource } from "./lib/ingest/source";
+
+// Google sign-up accepts the person's live invites through the same step `invite.acceptByToken`
+// uses (plan 2026-11-18). `@orrn/auth` cannot import this package, so it is lent here, once, when
+// the module that serves every request loads. Tested in test/auth-google.test.ts.
+configureAuthHooks({ acceptLiveInvitesFor });
 
 export type CreateContextOptions = {
   context: HonoContext;
@@ -40,6 +46,8 @@ export async function createContext({ context }: CreateContextOptions) {
     request: context.req.raw,
     session,
     ...tenant,
+    // Optional in the type so contexts built elsewhere (tests, the Infinity Portal adapters) need not name it.
+    ...({ waitUntil: workerWaitUntil(context) } as { waitUntil?: (job: Promise<unknown>) => void }),
     /**
      * Set only by the Infinity Portal merge adapters on the context they pass to `createCaller`
      * (plan A6). Procedures copy it into `audit_log.meta.source`. Never read from a request.
@@ -47,6 +55,20 @@ export async function createContext({ context }: CreateContextOptions) {
      */
     ...({} as { ingestSource?: IngestSource }),
   };
+}
+
+/**
+ * The Worker's `waitUntil`: work that runs after the answer has gone (plan 2026-11-18, Task 8 fix
+ * round 1: the invite page's set-password email, so a match answers as fast as a mismatch). Undefined
+ * where there is no execution context (Hono throws on `executionCtx` then); callers await instead.
+ */
+function workerWaitUntil(context: HonoContext): ((job: Promise<unknown>) => void) | undefined {
+  try {
+    const ctx = context.executionCtx;
+    return (job) => ctx.waitUntil(job);
+  } catch {
+    return undefined;
+  }
 }
 
 export type Context = Awaited<ReturnType<typeof createContext>>;

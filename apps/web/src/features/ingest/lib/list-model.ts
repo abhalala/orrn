@@ -12,7 +12,9 @@ import {
 } from "./model";
 import type { HeaderAskView } from "./header-step";
 import type { PlantUnits } from "./plant-units";
+import { readFailedKey } from "./limits";
 import type { UploadItem } from "./upload";
+import { visionProgressWords, visionShare } from "./vision-words";
 import type { ArtifactSummary, CandidateSummary } from "./types";
 
 /**
@@ -427,8 +429,9 @@ export function uploadStrip(
         break;
       }
       case "saving":
-        words = { key: "ingest.read.uploading" };
-        progress = null;
+        // A file that goes in parts says how many are stored (limits brief part B).
+        words = item.saved ? { key: "ingest.read.uploadingParts", vars: { done: count(item.saved.parts), total: count(item.saved.total) } } : { key: "ingest.read.uploading" };
+        progress = item.saved?.total ? item.saved.parts / item.saved.total : null;
         break;
       case "sending":
         progress = item.sent?.total ? item.sent.rows / item.sent.total : null;
@@ -441,10 +444,26 @@ export function uploadStrip(
         words = item.problem ? { key: item.problem.key, vars: item.problem.vars } : null;
         break;
       case "failed":
-        words = { key: "ingest.read.failed" };
+        // The real error's words (decision 12); a file orrn could not read says so, and only a sheet hears "save as Excel".
+        words =
+          item.problem && item.problem.key !== "ingest.read.failed"
+            ? { key: item.problem.key, vars: item.problem.vars }
+            : { key: readFailedKey(item.kind) };
         break;
       case "kept":
-        words = { key: "ingest.kept.added" };
+        words =
+          item.keptWhy === "cannotOpen"
+            ? { key: "ingest.vision.cannotOpen" }
+            : item.keptWhy === "tooLargeToRead"
+              ? { key: item.notStored ? "ingest.read.tooLargeNotSaved" : "ingest.read.tooLargeToRead", vars: { name: item.name } }
+              : { key: "ingest.kept.added" };
+        break;
+      case "pages":
+        words = item.pages ? visionProgressWords(item.pages) : { key: "ingest.vision.opening" };
+        progress = item.pages ? visionShare(item.pages) : null;
+        break;
+      case "pagesLeft":
+        words = { key: "ingest.vision.someLeft", vars: { count: item.pagesLeft ?? 0 } };
         break;
       case "asking":
       case "done":
@@ -459,7 +478,7 @@ export function uploadStrip(
       : null;
     const actions: ("retry" | "open" | "review")[] = [];
     if (item.step === "failed") actions.push("retry");
-    if (item.step === "seenBefore" && item.artifactId) actions.push("open");
+    if ((item.step === "seenBefore" || item.step === "pagesLeft") && item.artifactId) actions.push("open");
     if (found && found.firstCandidateId) actions.push("review");
     return {
       kind: "upload",

@@ -127,6 +127,9 @@ export const PLANT_ACTIONS = [
   // Infinity Portal (plan 2026-11-10, A8): bring old files in, and merge approved imports into live tables.
   "ingest.upload", // upload files, answer questions, map columns, hold or discard an import
   "ingest.merge", // approve imports and run the merge
+  // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
+  // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
+  "ingest.check",
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -253,6 +256,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Owner decision 2026-11-10: owner and admin may upload and merge; the same person may do both.
   "ingest.upload": ["admin"],
   "ingest.merge": ["admin"],
+  // Item 16: the people who see prices tick a model-read table; the admin approves it.
+  "ingest.check": ["admin", "office", "manager", "accountant"],
   "support.request": [
     "admin",
     "manager",
@@ -426,6 +431,10 @@ export type Me = {
     mustChangePassword?: boolean;
     /** A credential (email + password) login exists. False for a magic-link account until it sets one. */
     hasPassword?: boolean;
+    /** The account has at least one passkey (plan 2026-11-18). */
+    hasPasskey?: boolean;
+    /** A Google account is linked (plan 2026-11-18). */
+    hasGoogle?: boolean;
   };
   company: {
     id: string;
@@ -439,9 +448,16 @@ export type Me = {
     /** Resolved units and formats for this plant's screens (`screenPrefs`). Absent on old payloads. */
     units?: ResolvedPrefs;
     navOrder?: MemberNavOrder | null;
+    /** The plant requires a passkey, Google or the authenticator app of every member (plan 2026-11-18, Task 9). */
+    requireStrongSignIn?: boolean;
+    /** This plant's onboarding is still open for the person (`membership.onboarded_at` is null). Absent on old payloads. */
+    setupPending?: boolean;
   } | null;
-  /** Every active company the user belongs to (spec P10); `company` is the active one. */
-  memberships?: { companyId: string; name: string; role: CompanyRole }[];
+  /**
+   * Every active company the user belongs to (spec P10); `company` is the active one. `setupPending`:
+   * that plant's onboarding is still open for the person (the plant picker's "Setup pending").
+   */
+  memberships?: { companyId: string; name: string; role: CompanyRole; setupPending?: boolean }[];
   isPlatformAdmin: boolean;
   platformRole?: PlatformStaffRole | null;
   impersonation?: {
@@ -451,6 +467,15 @@ export type Me = {
     expiresAt: string;
   } | null;
 };
+
+/**
+ * A strong method: the authenticator app, a passkey or a linked Google account (plan 2026-11-18). A
+ * plant that requires secure sign-in asks for one; the server refuses to remove the last one while such
+ * a plant holds the person (`COMPANY_REQUIRES_STRONG_METHOD`). The one rule for web and native over `Me`.
+ */
+export function hasStrongMethod(me: Pick<Me, "user">): boolean {
+  return me.user.twoFactorEnabled === true || me.user.hasPasskey === true || me.user.hasGoogle === true;
+}
 
 /**
  * Check if a given me-shaped object is allowed to perform an action.

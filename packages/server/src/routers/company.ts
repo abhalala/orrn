@@ -23,12 +23,12 @@ import {
   type Shift,
   type ThresholdError,
 } from "@orrn/domain";
-import { atomicBatch, type OrrnDb } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { companyTimezone, DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow, zonedYmd } from "../lib/dayWindow";
 import { ageingSettingsInput } from "../lib/ageingContracts";
-import { companyStandards, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
+import { companyStandards, settingsPatchSql, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
 
@@ -46,6 +46,30 @@ const standardPair = z.object({
   standard: z.string().trim().max(MAX_STANDARD_TEXT),
   cml: z.string().trim().max(MAX_STANDARD_TEXT),
 });
+
+/**
+ * The audit row's `changed` / `previous` for a settings save. A dotted patch key (`press.balanceWarnBp`)
+ * is shown as its parent object, as the audit screens read it (`changed.press.balanceWarnBp`), with
+ * `previous` the parent as it was read.
+ */
+function auditChange(patch: Record<string, unknown>, settings: Record<string, unknown>) {
+  const changed: Record<string, unknown> = {};
+  const previous: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const dot = key.indexOf(".");
+    if (dot < 0) {
+      changed[key] = value;
+      previous[key] = settings[key] ?? null;
+      continue;
+    }
+    const parent = key.slice(0, dot);
+    const before = settings[parent];
+    const base = before && typeof before === "object" && !Array.isArray(before) ? (before as Record<string, unknown>) : {};
+    changed[parent] = { ...base, ...((changed[parent] as Record<string, unknown> | undefined) ?? {}), [key.slice(dot + 1)]: value };
+    previous[parent] = before ?? null;
+  }
+  return { changed, previous };
+}
 
 export const companyRouter = router({
   /**
@@ -221,9 +245,18 @@ export const companyRouter = router({
         driftAmberMaxBp: bpInput.optional(),
         recoveryBands: z.object({ greenMinBp: bpInput, amberMinBp: bpInput }).nullable().optional(),
         pressBalanceWarnBp: bpInput.optional(),
+        /**
+         * "Require secure sign-in" (Settings > Security; plan 2026-11-18, Task 9): every member must keep a
+         * passkey, Google or the authenticator app. The owner's alone (an admin holds `settings.update`
+         * but is refused); it has its own audit row, `company.security.update`.
+         */
+        requireStrongSignIn: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.requireStrongSignIn !== undefined && ctx.role !== "owner") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only an owner can change secure sign-in" });
+      }
       const [row] = await ctx.db
         .select({ settings: company.settings })
         .from(company)
@@ -357,7 +390,8 @@ export const companyRouter = router({
         }
         if (input.recoveryBands !== undefined) patch.recoveryBands = input.recoveryBands;
         if (input.pressBalanceWarnBp !== undefined) {
-          patch.press = { ...((row.settings?.press ?? {}) as Record<string, unknown>), balanceWarnBp: input.pressBalanceWarnBp };
+          // One key inside `press`, patched in SQL against the row as it is then (council round 2).
+          patch["press.balanceWarnBp"] = input.pressBalanceWarnBp;
         }
       }
       if (input.castSeriesStart !== undefined) {
@@ -381,19 +415,53 @@ export const companyRouter = router({
       if (input.shifts !== undefined) {
         patch.shifts = await checkedShifts(ctx.db, ctx.companyId, input.shifts, readFloorSettings(row.settings).shifts);
       }
-      const settings = { ...(row.settings ?? {}), ...patch };
+      const strict = input.requireStrongSignIn;
+      const securitySent = strict !== undefined;
+      // The general row is written for every other call (an empty one included, as before); a call that
+      // only sends the security policy writes the security row alone, or nothing when it is unchanged.
+      const generalRow = Object.keys(patch).length > 0 || !securitySent;
+      // Council round 1, A3: only the keys this call names are written, against the row's value when the
+      // write runs (`settingsPatchSql`), so a save that started before the owner changed the policy never
+      // turns it back. The policy's own audit row is written only when the value it replaces differs, and
+      // it is written BEFORE the key in the same batch, so it names the value actually replaced.
+      const policyDiffers = securitySent ? sql`coalesce(json_extract(${company.settings}, '$.requireStrongSignIn'), 0) != ${strict ? 1 : 0}` : null;
 
-      await atomicBatch(ctx.db, [
-        ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),
-        auditInsert(ctx, {
-          action: "company.settings.update",
-          subjectType: "company",
-          subjectId: ctx.companyId,
-          meta: { changed: patch, previous: Object.fromEntries(Object.keys(patch).map((k) => [k, (row.settings ?? {})[k] ?? null])) },
-        }),
+      const [after] = await atomicBatchLast<{ settings: Record<string, unknown> | null }>(ctx.db, [
+        ...(Object.keys(patch).length > 0
+          ? [ctx.db.update(company).set({ settings: settingsPatchSql(patch) }).where(eq(company.id, ctx.companyId))]
+          : []),
+        ...(generalRow
+          ? [
+              auditInsert(ctx, {
+                action: "company.settings.update",
+                subjectType: "company",
+                subjectId: ctx.companyId,
+                meta: auditChange(patch, row.settings ?? {}),
+              }),
+            ]
+          : []),
+        ...(securitySent && policyDiffers
+          ? [
+              auditInsertGuarded(
+                ctx,
+                {
+                  action: "company.security.update",
+                  subjectType: "company",
+                  subjectId: ctx.companyId,
+                  meta: { requireStrongSignIn: { from: !strict, to: strict } },
+                },
+                { from: company, where: and(eq(company.id, ctx.companyId), policyDiffers) },
+              ),
+              ctx.db
+                .update(company)
+                .set({ settings: settingsPatchSql({ requireStrongSignIn: strict }) })
+                .where(and(eq(company.id, ctx.companyId), policyDiffers)),
+            ]
+          : []),
+        ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)),
       ]);
 
-      return { settings };
+      return { settings: (after?.settings ?? {}) as Record<string, unknown> };
     }),
 
   /**

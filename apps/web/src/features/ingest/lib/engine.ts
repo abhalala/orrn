@@ -1,5 +1,5 @@
 import {
-  HintError, parseCsv, readPdfTextBlocks, readSheet, SqlReader, sqlTablesToBlocks,
+  CsvParser, HintError, parseCsv, readPdfTextBlocks, readSheet, SqlReader, sqlTablesToBlocks,
   type BlockHints, type ReadBlock as EngineRead,
 } from "@orrn/ingest";
 
@@ -39,6 +39,11 @@ export const engine: ReaderEngine = {
     // The package picks the delimiter (tab or semicolon before comma when numbers carry digit grouping).
     const matrix = parseCsv(text);
     return { blocks: read(matrix, opts), rawRows: matrix.length };
+  },
+
+  createCsvReader() {
+    const parser = new CsvParser();
+    return { push: (chunk) => parser.push(chunk), rowCount: () => parser.rows.length, end: () => parser.end() };
   },
 
   createSqlReader() {

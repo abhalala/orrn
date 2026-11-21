@@ -356,6 +356,29 @@ describe("auth log redaction", () => {
     expect(redactAuthLog("someone%40example.com")).toBe("[redacted email]");
   });
 
+  // Council round 1, A8: a link inside a callbackURL inside another URL is encoded twice (or more).
+  test("masks invite and reset tokens at any depth of percent-encoding, any letter case", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const token = "tok_9f8e7d6c5b4a";
+    for (const [raw, kept] of [
+      [`https://app.test/invite/${token}`, "https://app.test/invite/[redacted]"],
+      [`next=%2Finvite%2F${token}`, "next=%2Finvite%2F[redacted]"],
+      [`next=%252Finvite%252F${token}`, "next=%252Finvite%252F[redacted]"],
+      [`next=%25252finvite%25252f${token}&x=1`, "next=%25252finvite%25252f[redacted]&x=1"],
+      [`cb=%252Freset-password%252F${token}`, "cb=%252Freset-password%252F[redacted]"],
+      [`mixed=%2F%2Finvite%252F${token}`, "mixed=%2F%2Finvite%252F[redacted]"],
+    ] as const) {
+      const out = redactAuthLog(raw) as string;
+      expect(out).toBe(kept);
+      expect(out).not.toContain(token);
+    }
+  });
+
+  test("redacts an address percent-encoded twice", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    expect(redactAuthLog("someone%2540example.com")).toBe("[redacted email]");
+  });
+
   test("redacts an address with non-ASCII letters and an address in an object key", async () => {
     const { redactAuthLog } = await import("@orrn/auth/logger");
     expect(redactAuthLog("josé@example.com")).toBe("[redacted email]");

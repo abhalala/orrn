@@ -21,6 +21,8 @@ import {
 
 import { auditInsert } from "../audit";
 import { now } from "../clock";
+import { effectiveLimits } from "../effectiveLimits";
+import { MIB, PLANT_LIMITS } from "../plantLimits";
 import { createId } from "../id";
 import { pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { shapeBot } from "./engines";
@@ -38,11 +40,15 @@ import {
   type ArtifactRow,
 } from "./core";
 import { guessArtifactPeriod } from "./period";
+import { visionAllSettled } from "./vision";
+import { goesInParts, madeFromParts, partCountFor, quotaGuard, RAW_PART_BYTES, storageFullWords, uploadComplete } from "./upload-parts";
 import { canonicalKey, CANONICAL_MAX_BYTES, digestKey, ingestVault, issueTicket, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NO_STORAGE,
   isKeptUnread,
+  isVisualKind,
+  VISION_NOT_SETTLED,
   type ArtifactBeginOut,
   type ArtifactDetail,
   type ArtifactSummary,
@@ -55,9 +61,36 @@ import {
 
 const OPEN_STATES_EXCLUDED = ["merged", "discarded"] as const;
 
+/**
+ * With no vault nothing can go in parts, so the old size refusal by kind holds, with the old words (fix round
+ * decision 2; exactly as on origin/main 9dacab0d). With a vault the plant's `uploadFileMiB` holds instead.
+ */
+export const NO_VAULT_MAX_FILE_BYTES = {
+  sheet: 20 * 1024 * 1024,
+  csv: 50 * 1024 * 1024,
+  sql: 100 * 1024 * 1024,
+  pdf_text: 25 * 1024 * 1024,
+  pdf_scan: 25 * 1024 * 1024,
+  image: 10 * 1024 * 1024,
+} as const satisfies Record<ArtifactKind, number>;
+
 function mb(n: number): number {
   return Math.round(n / 1024 / 1024);
 }
+
+/** "2 GB" for a whole number of GiB, else "300 MB". */
+function sizeWords(mib: number): string {
+  return mib % 1024 === 0 ? `${mib / 1024} GB` : `${mib} MB`;
+}
+
+/** The plant's largest file per upload (`uploadFileMiB`), passed: the words name the limit and who can raise it. */
+export function fileTooBigWords(fileName: string, limitMiB: number): string {
+  return limitMiB >= PLANT_LIMITS.uploadFileMiB.ceiling
+    ? `${fileName} is too big. The largest file orrn can take is ${sizeWords(limitMiB)}.`
+    : `${fileName} is too big. The largest file for this plant is ${sizeWords(limitMiB)}. orrn support can raise it.`;
+}
+
+
 
 /** Rows staged in candidates that are neither merged nor discarded (plan A9, 300,000 per plant). */
 export async function openStagedRows(ctx: Pick<IngestCtx, "db" | "companyId">): Promise<number> {
@@ -117,18 +150,24 @@ export async function beginArtifact(
   ctx: IngestCtx,
   input: { sha256: string; fileName: string; sizeBytes: number; contentType: string | null; kind: ArtifactKind; note?: string },
 ): Promise<ArtifactBeginOut> {
-  const limit = INGEST_LIMITS.maxFileBytes[input.kind];
-  if (input.sizeBytes > limit) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${input.fileName} is too big. The limit for this kind of file is ${mb(limit)} MB.` });
+  const ready = vaultReady();
+  // No vault: nothing goes in parts, so the old refusal by kind holds, before the kind check as on origin/main.
+  if (!ready) {
+    const limit = NO_VAULT_MAX_FILE_BYTES[input.kind];
+    if (input.sizeBytes > limit) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: `${input.fileName} is too big. The limit for this kind of file is ${mb(limit)} MB.` });
+    }
   }
   // M-2: the kind the browser sends must agree with the file's name and type.
   if (!kindFits(input.kind, input.fileName, input.contentType)) throw new TRPCError({ code: "BAD_REQUEST", message: KIND_MISMATCH });
-  const ready = vaultReady();
   // A PDF or photo is only kept in this release, so with no vault there is nothing to keep it in.
   const keptOnly = isKeptUnread(input.kind);
   if (keptOnly && !ready) throw new TRPCError({ code: "PRECONDITION_FAILED", message: KEPT_UNREAD_NO_STORAGE });
-  const ticketFor = (artifactId: string) =>
-    issueTicket(ctx, {
+  const inParts = goesInParts(input.sizeBytes);
+  const partsOut = inParts ? { partSize: RAW_PART_BYTES, partCount: partCountFor(input.sizeBytes) } : null;
+  /** The single signed PUT for a file of one part; null for a file that goes in parts (`parts` says how). */
+  const ticketFor = async (artifactId: string): Promise<ArtifactBeginOut["upload"]> =>
+    inParts ? null : issueTicket(ctx, {
       purpose: "ingest-raw",
       companyId: ctx.companyId,
       userId: ctx.session.user.id,
@@ -146,6 +185,27 @@ export async function beginArtifact(
     .from(ingestArtifact)
     .where(and(eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.sha256, input.sha256)))
     .limit(1);
+  // With a vault: the plant's largest file per upload (security M1). A file already stored opens as before.
+  const limits = ready ? await effectiveLimits(ctx) : null;
+  if (limits && existing?.vaultState !== "stored" && input.sizeBytes > limits.uploadFileMiB * MIB) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: fileTooBigWords(input.fileName, limits.uploadFileMiB) });
+  }
+  /** Bytes of an existing file are about to be sent: it counts against the quota from now (pending, touched). */
+  const attachBytes = async (row: ArtifactRow) => {
+    const at = now();
+    await guardedBatch(
+      ctx.db,
+      [
+        ctx.db
+          .update(ingestArtifact)
+          .set({ vaultState: "pending", updatedAt: at })
+          .where(and(eq(ingestArtifact.id, row.id), eq(ingestArtifact.companyId, ctx.companyId), ne(ingestArtifact.vaultState, "stored"))),
+        ingestAbortUnlessChanged(ctx.db),
+        ...quotaGuard(ctx, row.id, at, limits!.vaultQuotaGiB),
+      ],
+      { code: "PRECONDITION_FAILED", message: storageFullWords(limits!.vaultQuotaGiB) },
+    );
+  };
   if (existing && existing.sizeBytes === input.sizeBytes && !keptOnly && (rereadable(existing) || (await allDiscarded(ctx, existing.id)))) {
     // A file whose read failed, or that gave no table (a scan or photo before the vision read), is read
     // again from the start. Its old sheets, candidates and rows go; the stored bytes stay (A4, A10).
@@ -180,34 +240,26 @@ export async function beginArtifact(
       { code: "CONFLICT", message: "This file is being read in another tab. Reload and try again." },
     );
     let upload: ArtifactBeginOut["upload"] = null;
-    if (existing.vaultState !== "stored" && ready) {
+    const needsBytes = existing.vaultState !== "stored" && ready;
+    if (needsBytes) {
+      await attachBytes(existing);
       upload = await ticketFor(existing.id);
-      if (existing.vaultState === "not_stored") {
-        await ctx.db
-          .update(ingestArtifact)
-          .set({ vaultState: "pending" })
-          .where(and(eq(ingestArtifact.id, existing.id), eq(ingestArtifact.companyId, ctx.companyId)));
-      }
     }
-    return { artifactId: existing.id, existing: false, uploadedAt: existing.createdAt.getTime(), upload };
+    return { artifactId: existing.id, existing: false, uploadedAt: existing.createdAt.getTime(), upload, parts: needsBytes ? partsOut : null };
   }
   if (existing) {
     // The same bytes again: open the existing artifact. When its bytes are not in the vault yet and
     // the vault is ready now, hand out a ticket to attach them (plan A2, "No R2").
     let upload: ArtifactBeginOut["upload"] = null;
-    if (existing.vaultState !== "stored" && ready && existing.sizeBytes === input.sizeBytes) {
+    const sendsBytes = existing.vaultState !== "stored" && ready && existing.sizeBytes === input.sizeBytes;
+    if (sendsBytes) {
+      await attachBytes(existing);
       upload = await ticketFor(existing.id);
-      if (existing.vaultState === "not_stored") {
-        await ctx.db
-          .update(ingestArtifact)
-          .set({ vaultState: "pending" })
-          .where(and(eq(ingestArtifact.id, existing.id), eq(ingestArtifact.companyId, ctx.companyId)));
-      }
     }
-    return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload };
+    return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload, parts: sendsBytes ? partsOut : null };
   }
 
-  if (!keptOnly && (await openStagedRows(ctx)) >= INGEST_LIMITS.openRowsPerPlant) {
+  if (!keptOnly && (await openStagedRows(ctx)) >= (await effectiveLimits(ctx)).openRowsPerPlant) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Too many rows are waiting. Merge or discard older imports first." });
   }
 
@@ -236,7 +288,9 @@ export async function beginArtifact(
         subjectId: id,
         meta: { fileName: input.fileName, sha256: input.sha256, sizeBytes: input.sizeBytes, kind: input.kind, stored: ready },
       }),
-    ]);
+      // The plant's storage quota, counted with this file in the same batch, so two begins at once cannot both pass.
+      ...(limits ? quotaGuard(ctx, id, at, limits.vaultQuotaGiB) : []),
+    ], { code: "PRECONDITION_FAILED", message: limits ? storageFullWords(limits.vaultQuotaGiB) : "File storage is not set up for this plant yet" });
   } catch (e) {
     // Two tabs began the same file at once: the unique (company, sha256) index lets one in.
     if (/UNIQUE constraint failed: ingest_artifact/.test(String((e as Error)?.message ?? e))) {
@@ -244,7 +298,7 @@ export async function beginArtifact(
     }
     throw e;
   }
-  return { artifactId: id, existing: false, uploadedAt: at.getTime(), upload: ready ? await ticketFor(id) : null };
+  return { artifactId: id, existing: false, uploadedAt: at.getTime(), upload: ready ? await ticketFor(id) : null, parts: ready ? partsOut : null };
 }
 
 /** A failed read, or a read that found no table (a scan or photo the browser cannot read), may run again. */
@@ -285,6 +339,8 @@ export async function commitRaw(ctx: IngestCtx, artifactId: string): Promise<{ v
   if (!bucket) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File storage is not set up for this plant yet" });
   const head = await bucket.head(rawKey(ctx.companyId, a.sha256));
   if (!head) throw new TRPCError({ code: "BAD_REQUEST", message: "The file has not arrived yet. Try again." });
+  // An object made from parts counts as stored only once its whole SHA-256 is checked.
+  if (madeFromParts(head)) return uploadComplete(ctx, artifactId);
   if (head.size !== a.sizeBytes) throw new TRPCError({ code: "BAD_REQUEST", message: "The stored file size does not match" });
   await ctx.db
     .update(ingestArtifact)
@@ -312,6 +368,38 @@ export function capRow(cells: readonly string[]): { raw: string[]; reasons: stri
     }
   }
   return { raw, reasons };
+}
+
+/**
+ * One pending staged row as putRows and the vision read insert it: the row key and id of plan B1,
+ * the cells cut to the caps, every column named (AGENTS section 2, multi-row inserts).
+ */
+export async function stagedRowOf(
+  ctx: Pick<IngestCtx, "companyId">,
+  r: { artifactId: string; ordinal: number; rowIndex: number; cells: readonly string[]; candidateId: string; target: string | null; doubts: RowDoubtView[] | null; at: Date },
+) {
+  const rowKey = await rowKeyOf(r.artifactId, r.ordinal, r.rowIndex);
+  const { raw, reasons } = capRow(r.cells);
+  return {
+    id: await stagedRowIdOf(rowKey, r.target),
+    companyId: ctx.companyId,
+    rowKey,
+    candidateId: r.candidateId,
+    rowIndex: r.rowIndex,
+    raw,
+    values: null,
+    entered: null,
+    state: "pending" as const,
+    reasons: reasons.length ? reasons : null,
+    doubts: r.doubts,
+    matchId: null,
+    diff: null,
+    decision: null,
+    mergeState: "open" as const,
+    committedType: null,
+    committedId: null,
+    updatedAt: r.at,
+  };
 }
 
 type RowDoubtIn = { row: number; code: DoubtCode; line: number; page?: number };
@@ -377,31 +465,18 @@ export async function putRows(
 
   const at = now();
   const rows = await Promise.all(
-    input.rows.map(async (cells, i) => {
-      const rowIndex = input.fromIndex + i;
-      const rowKey = await rowKeyOf(artifact.id, block.ordinal, rowIndex);
-      const { raw, reasons } = capRow(cells);
-      return {
-        id: await stagedRowIdOf(rowKey, primary.target),
-        companyId: ctx.companyId,
-        rowKey,
+    input.rows.map((cells, i) =>
+      stagedRowOf(ctx, {
+        artifactId: artifact.id,
+        ordinal: block.ordinal,
+        rowIndex: input.fromIndex + i,
+        cells,
         candidateId: primary.id,
-        rowIndex,
-        raw,
-        values: null,
-        entered: null,
-        state: "pending" as const,
-        reasons: reasons.length ? reasons : null,
-        doubts: doubts.get(rowIndex) ?? null,
-        matchId: null,
-        diff: null,
-        decision: null,
-        mergeState: "open" as const,
-        committedType: null,
-        committedId: null,
-        updatedAt: at,
-      };
-    }),
+        target: primary.target,
+        doubts: doubts.get(input.fromIndex + i) ?? null,
+        at,
+      }),
+    ),
   );
 
   const statements: SqliteBatchItem[] = [
@@ -433,6 +508,13 @@ export async function completeArtifact(
   const a = await loadArtifact(ctx, input.artifactId);
   // A kept PDF or photo has nothing to read: complete leaves it as it is.
   if (a.readState === "kept_unread") return { canonicalUploads: [] };
+  const visual = isVisualKind(a.kind);
+  // Contract section 4: a PDF or photo read page by page completes once every planned page is read,
+  // typed or skipped. Its rows live in staged rows and its page images are the evidence, so it gets no
+  // canonical uploads.
+  if (visual && a.readState === "reading" && !input.readError && !(await visionAllSettled(ctx, a))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: VISION_NOT_SETTLED });
+  }
   const blocks = await ctx.db
     .select()
     .from(ingestBlock)
@@ -507,7 +589,7 @@ export async function completeArtifact(
     throw new TRPCError({ code: "BAD_REQUEST", message: "This file could not be read." });
   }
 
-  if (!vaultReady()) return { canonicalUploads: [] };
+  if (!vaultReady() || visual) return { canonicalUploads: [] };
   const canonicalUploads = await Promise.all(
     blocks.map(async (b) => {
       const t = await issueTicket(ctx, {
@@ -681,6 +763,7 @@ export function istMidnight(at: Date): Date {
 }
 
 export async function ingestStatus(ctx: IngestCtx): Promise<IngestStatus> {
+  const plant = await effectiveLimits(ctx);
   const [run] = await ctx.db
     .select({ id: ingestMergeRun.id })
     .from(ingestMergeRun)
@@ -693,7 +776,11 @@ export async function ingestStatus(ctx: IngestCtx): Promise<IngestStatus> {
   return {
     botReady: shapeBot.botReady(),
     vaultReady: vaultReady(),
-    limits: INGEST_LIMITS,
+    // Contract section 7: PDFs and photos are read page by page only with a vault and a model route.
+    visionReady: vaultReady() && shapeBot.botReady(),
+    // The plant's own values for the limits staff may set (`effectiveLimits`), the rest as in code.
+    limits: { ...INGEST_LIMITS, filesPerUpload: plant.filesPerUpload, rawRowsPerFile: plant.rawRowsPerFile, openRowsPerPlant: plant.openRowsPerPlant },
+    visionPagesPerBatch: plant.visionPagesPerBatch,
     activeRunId: run?.id ?? null,
     botToday: { calls: Number(today?.calls ?? 0), costMicroUsd: Number(today?.cost ?? 0) },
   };

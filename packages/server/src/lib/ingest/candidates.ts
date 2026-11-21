@@ -49,7 +49,9 @@ import {
 import { chunk, IN_LIST_CHUNK, mapInChunks, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
+import { effectiveLimits } from "../effectiveLimits";
 import { createId } from "../id";
+import { modelCaps } from "../plantLimits";
 import { defaultCatalogue, runShapeAttempt, type SampleStats } from "./bot";
 import {
   artifactSummary,
@@ -58,6 +60,7 @@ import {
   candidateChange,
   candidateCounts,
   decodeCursor,
+  EDITABLE_STATES,
   encodeCursor,
   guardedBatch,
   ingestAbortUnlessChanged,
@@ -66,6 +69,7 @@ import {
   loadCandidate,
   loadCandidateAt,
   maskCells,
+  modelTickHeld,
   MOVED,
   RATE_FIELDS,
   rateMaskColumns,
@@ -102,9 +106,14 @@ import { aliasMoveRefusal } from "./merge/rowchecks";
 import { openStuckParts } from "./stuck";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
+import { abortIfAbandoned } from "./upload-parts";
 import {
   INGEST_LIMITS,
   KEPT_UNREAD_NOT_READ,
+  VISION_CHECK_MODEL_ONLY,
+  VISION_CHECK_NEEDS_PRICES,
+  VISION_REPICK_MODEL,
+  VISION_ROWS_WRITTEN,
   isKeptUnread,
   type BlockInput,
   type ReaderFacts,
@@ -173,13 +182,13 @@ export async function learnedHoles(ctx: Pick<IngestCtx, "db" | "companyId">): Pr
   return out;
 }
 
-function stateForFit(fit: FitResult): CandidateState {
+export function stateForFit(fit: FitResult): CandidateState {
   if (fit.fit === "exact") return "processing";
   if (fit.fit === "near") return "needs_confirm";
   return "needs_shape";
 }
 
-function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
+export function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
   if (fit.fit === "near" && fit.diff) return { ...fit.diff, name: fit.name };
   if (fit.tie) return { tie: true, alternatives: fit.alternatives };
   return null;
@@ -397,8 +406,9 @@ export async function putBlocks(
     return e && !changed.includes(e) ? e.rowCount : b.rowCount;
   };
   const totalRows = input.blocks.reduce((n, b) => n + keptCount(b), 0);
-  if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
+  const { rawRowsPerFile } = await effectiveLimits(ctx);
+  if (totalRows > rawRowsPerFile) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than ${rawRowsPerFile.toLocaleString("en-US")} rows. Split it and try again.` });
   }
 
   const learned = await learnedHoles(ctx);
@@ -726,6 +736,8 @@ export async function skipNoDateLines(ctx: IngestCtx, input: { candidateId: stri
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
     // Rule 11.3: marked as skipped by this action, so a later Yes can take the lines back.
     ctx.db.update(ingestStagedRow).set({ decision: "skip", bulkSkip: "no_date", updatedAt: now() }).where(noDateWhere(c.id)),
+    // The tick rule (contract section 7): skipped lines change which rows of a model-read table are written.
+    clearModelTick(ctx, c.blockId),
     recountStatement(ctx, c.id),
     auditInsert(ctx, { action: "ingest.rows.skip_no_date", subjectType: "ingest_candidate", subjectId: c.id, meta: { count } }),
   ]);
@@ -1051,8 +1063,17 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertNotDerived(c);
   assertState(c, ["needs_shape"], "This sheet does not need the helper");
-  // No PDF or photo goes to a model in this release (owner's decision).
-  if (isKeptUnread((await loadArtifact(ctx, c.artifactId)).kind)) throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
+  // Release 2: a table read from a page (or typed from one) takes the helper like any sheet. A PDF or
+  // photo still kept, or a block of one that did not come from a page, does not.
+  {
+    const art = await loadArtifact(ctx, c.artifactId);
+    if (isKeptUnread(art.kind)) {
+      const b = await loadBlock(ctx, c.blockId);
+      if (art.readState === "kept_unread" || (b.readBy !== "model" && !b.readerFacts?.vision)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
+      }
+    }
+  }
   // Claim the candidate before any model call, so a second tab gets CONFLICT before it spends (A8).
   let seq = input.expectSeq;
   if (shapeBot.botReady()) {
@@ -1077,6 +1098,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
   const result = await runShapeAttempt({
     env: anthropicEnv(),
     store: botRunStore(ctx),
+    caps: modelCaps(await effectiveLimits(ctx)),
     companyId: ctx.companyId,
     userId: ctx.session.user.id,
     candidateId: c.id,
@@ -1288,6 +1310,8 @@ export async function answerDoubts(
       .update(ingestStagedRow)
       .set(input.answer === "right" ? { doubtBy: ctx.session.user.id, updatedAt: now() } : { decision: "skip", updatedAt: now() })
       .where(where),
+    // The tick rule: a doubted row taken in ("right") or left out ("skip") changes which rows are written.
+    clearModelTick(ctx, c.blockId),
     recountStatement(ctx, c.id),
   ];
   await guardedBatch(ctx.db, statements);
@@ -1298,6 +1322,37 @@ export async function answerDoubts(
  * Plan B7 decisions on rows. The rows re-run from the first decided one (state processing), so the
  * decision passes through the same classification as everything else.
  */
+/**
+ * Clears the vision tick of a model-read block, with who set it and when (a no-op on any other block). Goes
+ * in the batch of every action that changes a cell or which rows are written (contract section 7, the tick
+ * rule): `vision.fixCell`, `rows.decide`, `rows.answerDoubts`, `rows.skipNoDate`, and a fill-above change.
+ */
+export function clearModelTick(ctx: Pick<IngestCtx, "db" | "companyId">, blockId: string): SqliteBatchItem {
+  return ctx.db
+    .update(ingestBlock)
+    .set({ modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
+    .where(and(eq(ingestBlock.id, blockId), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model")));
+}
+
+/**
+ * Rule 11.3 with the tick rule: a fill-above change fills or leaves blank the order numbers of every order
+ * sheet of the file, so every model-read order sheet the change re-runs (processing, ready, held) needs
+ * its page checked again. An approved, merging or merged sheet is not re-run and keeps its tick.
+ */
+function clearOrderTicks(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string): SqliteBatchItem {
+  return ctx.db
+    .update(ingestBlock)
+    .set({ modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
+    .where(
+      and(
+        eq(ingestBlock.artifactId, artifactId),
+        eq(ingestBlock.companyId, ctx.companyId),
+        eq(ingestBlock.readBy, "model"),
+        sql`${ingestBlock.id} in (select k.block_id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders' and k.state in ('processing', 'ready', 'held'))`,
+      ),
+    );
+}
+
 export async function decideRows(
   ctx: IngestCtx,
   input: { candidateId: string; rowIds: string[]; decision: RowDecision; matchId?: string; expectSeq: number },
@@ -1354,7 +1409,7 @@ export async function decideRows(
     // A derived list has no recipe to re-run: a skip lands on the rows at once and the list keeps its
     // state (A12).
     if (input.decision !== "skip") throw new TRPCError({ code: "BAD_REQUEST", message: "Rows of this list can only be skipped" });
-    const derived: SqliteBatchItem[] = [...candidateChange(ctx, c.id, input.expectSeq, {})];
+    const derived: SqliteBatchItem[] = [...candidateChange(ctx, c.id, input.expectSeq, {}), clearModelTick(ctx, c.blockId)];
     for (const r of rows) {
       derived.push(
         ctx.db
@@ -1370,6 +1425,8 @@ export async function decideRows(
   const from = Math.min(...rows.map((r) => r.rowIndex));
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
+    // Contract section 7: a changed row of a model-read table needs the page checked again.
+    clearModelTick(ctx, c.blockId),
   ];
   for (const r of rows) {
     statements.push(
@@ -1591,14 +1648,17 @@ async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: readon
       ),
     );
   // State-guarded, not seq-guarded: othersAgainAfter may move the same sheets in the same batch.
-  return others
+  return [
+    clearOrderTicks(ctx, artifactId),
+    ...others
     .filter((o) => !except.includes(o.id))
     .map((o) =>
       ctx.db
         .update(ingestCandidate)
         .set({ state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: now() })
         .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.state, ["processing", "ready", "held"]))),
-    );
+    ),
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -1682,14 +1742,22 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
         : { field, unit, side, answer: String(a.answer), note: `The person said ${seen} are in ${String(a.answer)}` };
     });
   const statements: SqliteBatchItem[] = [
-    ...candidateChange(ctx, c.id, input.expectSeq, {
-      state: "approved",
-      openQuestions: 0,
-      approvedBy: ctx.session.user.id,
-      approvedAt: now(),
-      reasonCode: null,
-      reasonDetail: null,
-    }),
+    // Contract section 7: the tick is checked in the approve write's own WHERE, so a tick cleared after
+    // the read above fails the batch.
+    ...candidateChange(
+      ctx,
+      c.id,
+      input.expectSeq,
+      {
+        state: "approved",
+        openQuestions: 0,
+        approvedBy: ctx.session.user.id,
+        approvedAt: now(),
+        reasonCode: null,
+        reasonDetail: null,
+      },
+      modelTickHeld(c.blockId),
+    ),
     // Rule 10.2, inside the batch: a re-put or a pick that lands first wins.
     ctx.db
       .update(ingestArtifact)
@@ -1756,7 +1824,15 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       auditInsert(ctx, { action: "ingest.hole.save", subjectType: "ingest_hole", subjectId: v.holeId, meta: { version: v.version, madeBy: v.madeBy } }),
     );
   }
-  await guardedBatch(ctx.db, statements);
+  try {
+    await guardedBatch(ctx.db, statements);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "CONFLICT") {
+      const now2 = await loadBlock(ctx, c.blockId);
+      if (now2.readBy === "model" && !now2.modelChecked) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Check these rows against the page first" });
+    }
+    throw e;
+  }
   return candidateDetail(ctx, c.id);
 }
 
@@ -1898,6 +1974,8 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
   // Sheets that waited on this one check again at once (item 3).
   const again = await othersAgainAfter(ctx, c, "discarded", now());
   if (again.length) await ctx.db.batch(again as never);
+  // Security L6: the file's last live sheet went while its bytes were still arriving: abort that upload.
+  await abortIfAbandoned(ctx, c.artifactId);
   return candidateDetail(ctx, c.id);
 }
 
@@ -1909,6 +1987,11 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
 export async function repickHeader(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<{ artifactId: string; ordinal: number }> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   if (c.parentId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the row on the sheet this list came from" });
+  // Contract section 6: a table read from a page has no header row to pick again.
+  {
+    const b = await loadBlock(ctx, c.blockId);
+    if (b.readBy === "model" || b.readerFacts?.vision) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_REPICK_MODEL });
+  }
   const kin = await ctx.db
     .select({ id: ingestCandidate.id, state: ingestCandidate.state, rowsWritten: ingestCandidate.rowsWritten, recipeLocked: ingestCandidate.recipeLocked, target: ingestCandidate.target })
     .from(ingestCandidate)
@@ -2128,3 +2211,138 @@ export async function mergeRunView(ctx: IngestCtx, runId: string): Promise<Merge
 }
 
 export { artifactSummary, MOVED, answerKey };
+
+// ---------------------------------------------------------------------------
+// Vision read: the person's tick (contract section 7)
+// ---------------------------------------------------------------------------
+
+/** The rate columns of a block: by header, and by every recipe of its sheets (plan A8, D8). */
+async function blockRateColumns(ctx: IngestCtx, block: { id: string; headers: string[] }): Promise<Set<number>> {
+  const siblings = await ctx.db
+    .select({ recipe: ingestCandidate.recipe })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, block.id)));
+  return rateMaskColumns(block.headers, siblings.map((x) => x.recipe));
+}
+
+/**
+ * "I checked these rows against the page": sets or clears the tick of a model-read table. Only a block
+ * read from a page takes it, and only while its sheet may still change. The candidate's seq moves, so
+ * a tab that read the old tick gets CONFLICT on approve.
+ */
+export async function visionCheck(ctx: IngestCtx, input: { candidateId: string; expectSeq: number; checked: boolean }): Promise<CandidateDetail> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  const block = await loadBlock(ctx, c.blockId);
+  if (block.readBy !== "model") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_CHECK_MODEL_ONLY });
+  assertState(c, EDITABLE_STATES, "Rows of this import can no longer change");
+  // Decision 6: a person who sees "Hidden" in a rate column cannot say they checked every cell.
+  if (input.checked && !seesRates(ctx) && (await blockRateColumns(ctx, block)).size > 0) {
+    throw new TRPCError({ code: "FORBIDDEN", message: VISION_CHECK_NEEDS_PRICES });
+  }
+  const at = now();
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, {}),
+    ctx.db
+      .update(ingestBlock)
+      .set(input.checked ? { modelChecked: true, modelCheckedBy: ctx.session.user.id, modelCheckedAt: at } : { modelChecked: false, modelCheckedBy: null, modelCheckedAt: null })
+      .where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.readBy, "model"))),
+    ingestAbortUnlessChanged(ctx.db),
+    auditInsert(ctx, { action: "ingest.vision.check", subjectType: "ingest_candidate", subjectId: c.id, meta: { checked: input.checked, blockId: block.id } }),
+  ]);
+  return candidateDetail(ctx, c.id);
+}
+
+/**
+ * "Fix this cell" (contract section 7): a person corrects one cell of a model-read table against its page.
+ * The row goes back to pending and the tick is cleared in the same batch. A sheet that was checking or
+ * checked (processing, ready, held) goes back to processing from row 0, as an answer does (`setAnswer`,
+ * `periodRerun`: the same `candidateChange` set); a sheet still waiting for its layout (needs_shape,
+ * needs_confirm) keeps its state, since the dry run cannot run before it has one, and a failed sheet stays
+ * failed (its file read failed; a cell cannot repair that; fix round N3). Refused once any row of the sheet
+ * is written.
+ */
+export async function visionFixCell(
+  ctx: IngestCtx,
+  input: { candidateId: string; expectSeq: number; rowIndex: number; col: number; text: string },
+): Promise<CandidateDetail> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
+  const block = await loadBlock(ctx, c.blockId);
+  if (block.readBy !== "model") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_CHECK_MODEL_ONLY });
+  assertState(c, EDITABLE_STATES, "Rows of this import can no longer change");
+  if (c.rowsWritten > 0 || c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+  if (input.col >= block.columnCount) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
+  const [row] = await ctx.db
+    .select()
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.companyId, ctx.companyId), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.rowIndex, input.rowIndex)))
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
+  if (row.mergeState !== "open") throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+  // A viewer without order.price never reads or writes a rate cell (plan A8, D8).
+  const rateCols = await blockRateColumns(ctx, block);
+  const rateCell = rateCols.has(input.col);
+  if (!seesRates(ctx) && rateCell) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
+  }
+  const text = input.text.slice(0, INGEST_LIMITS.cellChars);
+  const raw = [...row.raw];
+  while (raw.length <= input.col) raw.push("");
+  const from = raw[input.col] ?? "";
+  raw[input.col] = text;
+  const at = now();
+  const rerun = c.state === "processing" || c.state === "ready" || c.state === "held";
+  const statements: SqliteBatchItem[] = [
+    ...candidateChange(ctx, c.id, input.expectSeq, rerun ? { state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null } : {}),
+    // The row changes only while no row of the sheet is written, checked in the statement itself.
+    ctx.db
+      .update(ingestStagedRow)
+      .set({ raw, state: "pending", values: null, entered: null, diff: null, matchId: null, decision: null, bulkSkip: null, updatedAt: at })
+      .where(
+        and(
+          eq(ingestStagedRow.id, row.id),
+          eq(ingestStagedRow.candidateId, c.id),
+          eq(ingestStagedRow.mergeState, "open"),
+          sql`not exists (select 1 from ingest_staged_row w where w.candidate_id = ${c.id} and w.merge_state = 'written')`,
+        ),
+      ),
+    ingestAbortUnlessChanged(ctx.db),
+    clearModelTick(ctx, block.id),
+    recountStatement(ctx, c.id),
+    auditInsert(ctx, {
+      action: "ingest.vision.fix",
+      subjectType: "ingest_candidate",
+      subjectId: c.id,
+      // Security L5: a rate cell's text stays out of the audit row (audit readers may not see rates).
+      meta: rateCell ? { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from: null, to: null, rate: true } : { blockId: block.id, rowIndex: input.rowIndex, col: input.col, from, to: text },
+    }),
+  ];
+  // The block's sample shows the first rows: it shows the fixed cell too. A person typed the cell, so its
+  // text-layer mark (contract section 11.5) goes.
+  const blockSet: Partial<typeof ingestBlock.$inferInsert> = {};
+  if (input.rowIndex < block.sample.length) {
+    blockSet.sample = block.sample.map((r, i) => {
+      if (i !== input.rowIndex) return r;
+      const next = [...r];
+      while (next.length <= input.col) next.push("");
+      next[input.col] = text;
+      return next;
+    });
+  }
+  const vision = block.readerFacts?.vision;
+  if (vision?.unseen?.some(([r, col]) => r === input.rowIndex && col === input.col)) {
+    blockSet.readerFacts = { ...block.readerFacts!, vision: { ...vision, unseen: vision.unseen.filter(([r, col]) => !(r === input.rowIndex && col === input.col)) } };
+  }
+  if (Object.keys(blockSet).length > 0) {
+    statements.push(ctx.db.update(ingestBlock).set(blockSet).where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId))));
+  }
+  try {
+    await guardedBatch(ctx.db, statements);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "CONFLICT" && (await loadCandidate(ctx, c.id)).serverSeq === input.expectSeq) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: VISION_ROWS_WRITTEN });
+    }
+    throw e;
+  }
+  return candidateDetail(ctx, c.id);
+}

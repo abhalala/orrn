@@ -4,7 +4,9 @@ import * as XLSX from "xlsx";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { makeParty, q } from "./helpers/orders-api";
-import { API_URL } from "./helpers/ports";
+import { API_URL, WEB_ORIGIN } from "./helpers/ports";
+import { freshPlant, signInPlant } from "./helpers/fresh-plant";
+import { createHash } from "node:crypto";
 
 /**
  * Infinity Portal: the browser flow, on the local stack, against the rebuilt screens (work order 3.1 to 3.6).
@@ -720,7 +722,8 @@ test.describe("imports portal", () => {
   test("a PDF is kept and not read", async ({ page }) => {
     const name = `packing-list-${STAMP}.pdf`;
     await openPortal(page, "admin");
-    await upload(page, name, Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"), "application/pdf");
+    // The run's stamp in the bytes: the same bytes from an earlier run on this local database would be "added before".
+    await upload(page, name, Buffer.from(`%PDF-1.4\n% ${STAMP}\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`), "application/pdf");
     const entry = stripRow(page, name);
     const noStorage = page.getByText(/^PDFs and photos need file storage/);
     // With storage the file is kept and listed under its own heading; with none the upload is refused in the server's words.
@@ -731,5 +734,84 @@ test.describe("imports portal", () => {
     await expect(kept.getByText("Reading PDFs and photos comes in a later release.")).toBeVisible();
     await expect(kept.getByText(name)).toBeVisible();
     await expect(stripRow(page, name).getByRole("link", { name: /^Review/ })).toHaveCount(0);
+  });
+});
+
+/**
+ * Chunked raw upload (limits brief part B) on the local stack: real workerd (DigestStream, FixedLengthStream) and local
+ * R2 multipart (`orrn-ingest-vault-local`). A fresh plant, so its staged rows and kept files touch no other spec.
+ */
+test.describe("files over one part (16 MiB)", () => {
+  const PART = 16 * 1024 * 1024;
+  const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
+  test("the API path: parts with their digests, a wrong part refused, complete checks the whole file, and Range reads", async ({ page }) => {
+    test.setTimeout(180_000);
+    const plant = await freshPlant("Chunk API");
+    await signInPlant(page, plant, "owner");
+    const api = page.context().request;
+    const call = async <T,>(path: string, input: unknown): Promise<T> => {
+      const res = await api.post(`${API_URL}/trpc/${path}`, { headers: { origin: WEB_ORIGIN }, data: input });
+      expect(res.ok(), `${path} returned ${res.status()}: ${await res.text()}`).toBe(true);
+      return (await res.json()).result.data as T;
+    };
+    const status = await (await api.get(`${API_URL}/trpc/ingest.status`, { headers: { origin: WEB_ORIGIN } })).json();
+    test.skip(!status.result.data.vaultReady, "no local vault on this stack");
+
+    // A synthetic PDF padded past one part: header, then filler bytes, different on every run.
+    const bytes = Buffer.alloc(PART + 70_000, 0x20);
+    bytes.write(`%PDF-1.4\n% chunked ${Date.now()} ${Math.random()}\n`, 0);
+    const parts = [bytes.subarray(0, PART), bytes.subarray(PART)];
+    const begin = await call<{ artifactId: string; upload: unknown; parts: { partSize: number; partCount: number } | null }>("ingest.artifact.begin", {
+      sha256: sha(bytes), fileName: "padded.pdf", sizeBytes: bytes.length, contentType: "application/pdf", kind: "pdf_scan",
+    });
+    expect(begin.upload).toBeNull();
+    expect(begin.parts).toEqual({ partSize: PART, partCount: 2 });
+    const start = await call<{ done: number[] }>("ingest.artifact.uploadStart", { artifactId: begin.artifactId, parts: parts.map(sha) });
+    expect(start.done).toEqual([]);
+    const { tickets } = await call<{ tickets: { part: number; url: string }[] }>("ingest.artifact.uploadTickets", { artifactId: begin.artifactId, parts: [1, 2] });
+    // A part whose bytes do not match its digest is refused by the Worker as it streams.
+    const wrong = Buffer.from(parts[1]!);
+    wrong[5] = 0x41;
+    const refused = await api.put(tickets[1]!.url, { data: wrong, headers: { origin: WEB_ORIGIN, "content-type": "application/octet-stream" } });
+    expect(refused.status()).toBe(400);
+    expect(await refused.text()).toBe("The part does not match its digest");
+    for (const t of tickets) {
+      const res = await api.put(t.url, { data: parts[t.part - 1]!, headers: { origin: WEB_ORIGIN, "content-type": "application/octet-stream" } });
+      expect(res.status(), await res.text()).toBe(200);
+    }
+    expect((await call<{ done: number[] }>("ingest.artifact.uploadStart", { artifactId: begin.artifactId, parts: parts.map(sha) })).done).toEqual([1, 2]);
+    expect(await call("ingest.artifact.uploadComplete", { artifactId: begin.artifactId })).toEqual({ vaultState: "stored" });
+
+    // Read back by range: 206 with the range headers visible to the web origin.
+    const link = await (await api.get(`${API_URL}/trpc/ingest.vision.readUrl?input=${encodeURIComponent(JSON.stringify({ artifactId: begin.artifactId, what: "raw" }))}`, { headers: { origin: WEB_ORIGIN } })).json();
+    const url = link.result.data.url as string;
+    const ranged = await api.get(url, { headers: { origin: WEB_ORIGIN, range: `bytes=${PART - 2}-${PART + 1}` } });
+    expect(ranged.status()).toBe(206);
+    expect(ranged.headers()["content-range"]).toBe(`bytes ${PART - 2}-${PART + 1}/${bytes.length}`);
+    expect(ranged.headers()["access-control-expose-headers"]?.toLowerCase()).toContain("content-range");
+    expect(Buffer.from(await ranged.body()).equals(bytes.subarray(PART - 2, PART + 2))).toBe(true);
+  });
+
+  test("a CSV over one part goes up in parts through the screen and is read", async ({ page }) => {
+    test.setTimeout(240_000);
+    const plant = await freshPlant("Chunk CSV");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await signInPlant(page, plant, "owner");
+    await page.goto("/ingest");
+    await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 30_000 });
+    const note = "n".repeat(880);
+    const lines = ["Party name,City,Note"];
+    for (let i = 0; i < 19_500; i++) lines.push(`Party ${i},Rajkot,${note}${i}`);
+    const csv = Buffer.from(`${lines.join("\n")}\n`);
+    expect(csv.length).toBeGreaterThan(PART);
+    const name = `big-${Date.now()}.csv`;
+    await upload(page, name, csv);
+    await waitRead(page, name).catch(async () => {
+      await expect(stripRow(page, name).getByText(/^Finished reading\. \d+ tables?/)).toBeVisible({ timeout: 180_000 });
+    });
+    const art = await (await page.context().request.get(`${API_URL}/trpc/ingest.artifact.list?input=${encodeURIComponent(JSON.stringify({ limit: 10 }))}`, { headers: { origin: WEB_ORIGIN } })).json();
+    const mine = (art.result.data.items as { fileName: string; vaultState: string }[]).find((a) => a.fileName === name);
+    expect(mine?.vaultState).toBe("stored");
   });
 });

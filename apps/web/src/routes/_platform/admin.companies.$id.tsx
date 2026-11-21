@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { CompanyAccessTab } from "@/features/admin/company-access-tab";
 import { CompanyAuditTab } from "@/features/admin/company-audit-tab";
+import { CompanyLimitsTab } from "@/features/admin/company-limits-tab";
 import { CompanyPlanTab } from "@/features/admin/company-plan-tab";
 import { CompanyPrintingTab } from "@/features/admin/company-printing-tab";
 import { formatDay } from "@/features/admin/format";
@@ -23,11 +24,12 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-const TABS = ["plan", "printing", "access", "audit"] as const;
+const TABS = ["plan", "limits", "printing", "access", "audit"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_KEYS: Record<Tab, MessageKey> = {
   plan: "admin.company.tabs.plan",
+  limits: "admin.company.tabs.limits",
   printing: "admin.company.tabs.printing",
   access: "admin.company.tabs.access",
   audit: "admin.company.tabs.audit",
@@ -48,7 +50,7 @@ export const Route = createFileRoute("/_platform/admin/companies/$id")({
 
 /**
  * One company in Godseye (spec §3): facts, suspend or reactivate, and the
- * tabs Plan and modules, Printing (print stations, moved from /admin/spool)
+ * tabs Plan and modules, Limits (the plant's limits, limits brief section A), Printing (print stations, moved from /admin/spool)
  * and Access (support sessions). The tab lives in `?tab=` so a link can open
  * it (stopping a support session returns to `?tab=access`).
  */
@@ -120,6 +122,7 @@ function AdminCompany() {
         onValueChange={(next) => void navigate({ search: { tab: next as Tab }, replace: true })}
       >
         {tab === "plan" ? <CompanyPlanTab company={company} /> : null}
+        {tab === "limits" ? <CompanyLimitsTab company={company} /> : null}
         {tab === "printing" ? <CompanyPrintingTab company={company} /> : null}
         {tab === "access" ? <CompanyAccessTab detail={detail.data} /> : null}
         {tab === "audit" ? <CompanyAuditTab companyId={company.id} /> : null}

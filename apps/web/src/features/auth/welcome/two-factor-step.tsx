@@ -2,7 +2,7 @@ import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Copy } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/shared/lib/auth-client";
@@ -57,7 +57,8 @@ async function copyText(text: string, done: string) {
 }
 
 /**
- * Turn on two-factor (owners during first setup). Better Auth's `twoFactor.enable`
+ * Turn on two-factor (the authenticator app; rendered by `SecureSignInStep` when
+ * a plant requires secure sign-in, and by Settings > Sign-in). Better Auth's `twoFactor.enable`
  * needs the password: the one just set in the password step, or typed here.
  * The QR is drawn in the browser (`qrcode`, loaded on demand) so the secret
  * never leaves the device; the old page sent it to a Google chart URL.
@@ -68,11 +69,23 @@ export function TwoFactorStep({
   password,
   onDone,
   headingRef,
+  title,
+  lead,
+  headingLevel = 1,
+  footer,
 }: {
   userId: string;
   password: string | null;
   onDone(): void;
   headingRef?: Ref<HTMLHeadingElement>;
+  /** The step's heading, when a caller names it (default "Turn on two-factor"). */
+  title?: string;
+  /** One line above the instructions saying why the step is asked (a plant's policy). */
+  lead?: string;
+  /** 3 inside a page with its own h1 (Settings > Sign-in). */
+  headingLevel?: 1 | 3;
+  /** Under the form until two-factor is on ("Choose another way", "Cancel"); not beside the backup codes. */
+  footer?: ReactNode;
 }) {
   const { t } = useT();
   const [phase, setPhase] = useState<Phase>(password ? "loading" : "confirm");
@@ -98,7 +111,7 @@ export function TwoFactorStep({
       const { data, error } = await authClient.twoFactor.enable({ password: pw, issuer: "orrn" });
       if (error || !data) {
         setPhase("confirm");
-        if (error?.code === "INVALID_PASSWORD" || error?.status === 400 || error?.status === 401) {
+        if (error?.code !== "STRONG_SIGN_IN_NEEDED" && (error?.code === "INVALID_PASSWORD" || error?.status === 400 || error?.status === 401)) {
           setPasswordError("welcome.twoFactor.wrongPassword");
           requestAnimationFrame(() => passwordRef.current?.focus());
         } else {
@@ -178,7 +191,12 @@ export function TwoFactorStep({
   if (phase === "backup" && setup) {
     return (
       <div className="flex flex-col gap-6">
-        <StepHeading headingRef={backupHeading} title={t("welcome.twoFactor.backupTitle")} body={t("welcome.twoFactor.backupBody")} />
+        <StepHeading
+          level={headingLevel}
+          headingRef={backupHeading}
+          title={t("welcome.twoFactor.backupTitle")}
+          body={t("welcome.twoFactor.backupBody")}
+        />
         <ul
           aria-label={t("welcome.twoFactor.backupTitle")}
           className="m-0 grid list-none grid-cols-2 gap-2 rounded-card border border-border bg-card p-4"
@@ -210,10 +228,16 @@ export function TwoFactorStep({
   return (
     <div className="flex flex-col gap-6">
       <StepHeading
+        level={headingLevel}
         headingRef={headingRef}
-        title={t("welcome.twoFactor.title")}
+        title={title ?? t("welcome.twoFactor.title")}
         body={phase === "confirm" ? t("welcome.twoFactor.confirmBody") : t("welcome.twoFactor.body")}
       />
+      {lead ? (
+        <p data-testid="secure-sign-in-lead" className="m-0 -mt-3 max-w-[52ch] text-[15px] leading-6 font-medium text-foreground">
+          {lead}
+        </p>
+      ) : null}
 
       {phase === "confirm" ? (
         <form
@@ -304,6 +328,7 @@ export function TwoFactorStep({
           </Button>
         </form>
       )}
+      {footer}
     </div>
   );
 }

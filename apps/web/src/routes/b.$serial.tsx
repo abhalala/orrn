@@ -17,6 +17,7 @@ import { buildTimeline } from "@/features/stock/timeline";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { isCompanySlug } from "@/shared/lib/bundle-qr";
 import { loadMe } from "@/shared/lib/guards";
+import { needsWelcome } from "@/shared/lib/home";
 import { useLengthUnit } from "@/shared/lib/length";
 import { bundleDetailPath } from "@/shared/lib/paths";
 import { isNotFound } from "@/shared/lib/session-errors";
@@ -54,8 +55,8 @@ export const Route = createFileRoute("/b/$serial")({
   beforeLoad: async ({ context }) => {
     const me = await loadMe(context.queryClient);
     if (me) {
-      const needsWelcome = me.user.mustChangePassword || (me.company && !me.impersonation && !me.user.onboardingCompleted);
-      if (needsWelcome) throw redirect({ to: "/welcome" });
+      // The same rule as the tenant guard: a password chore, this plant's open setup or its secure step.
+      if (needsWelcome(me)) throw redirect({ to: "/welcome" });
     }
     return { me };
   },

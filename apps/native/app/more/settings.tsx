@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Screen } from "@/components/ui/screen";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
+import { PasskeysSection } from "@/features/settings/passkeys";
 import { sortMembers, TEAM_ACTIONS } from "@/features/settings/team";
 import { THEME_PREFS, type ThemePref } from "@/lib/theme-pref";
 import { readThemePref, storeThemePref } from "@/lib/theme-store";
@@ -23,9 +24,10 @@ const THEME_LABEL: Record<ThemePref, MessageKey> = {
 };
 
 /**
- * Settings on the phone: language and colours for this phone, the company's
- * length unit and time zone (read only), and the team. Company settings and
- * team changes are made on the web.
+ * Settings on the phone: language and colours for this phone, the person's
+ * passkeys (add one for this phone only after "Is this your own phone?"; plan
+ * 2026-11-18), the company's length unit and time zone (read only), and the
+ * team. Company settings and team changes are made on the web.
  */
 export default function SettingsScreen() {
   const { t } = useT();
@@ -56,6 +58,8 @@ export default function SettingsScreen() {
           />
         </View>
       </Section>
+
+      <PasskeysSection />
 
       {company ? (
         <Section title={t("settings.tabs.company")}>

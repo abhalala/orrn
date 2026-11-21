@@ -25,11 +25,16 @@ import {
   useIngestStatus,
   unfinishedFiles,
   useIngestUpload,
+  visionReadyOf,
 } from "../lib";
 import { CandidateBoard } from "./candidate-board";
+import { VisionWaitingPanel } from "./check-screens";
 import { StatusRegion, useDocTitle, useSay } from "./list-kit";
 import { QueryPanel } from "./shared";
 import { KeptFiles, StagedFiles, UnfinishedFiles, UploadStrip } from "./upload-strip";
+
+/** The words of one page's answer in the strip, said once each in the status region. */
+const PAGE_ANSWER = new Set(["ingest.vision.pageRead", "ingest.vision.pageNotRead", "ingest.vision.pageTyped", "ingest.vision.pageSkipped"]);
 
 /**
  * `/ingest` (work order 3.1 and 3.2): the header with "Add files", the files being added, and the list of imports.
@@ -58,6 +63,7 @@ export function IngestUploadScreen() {
   useDryRunQueue(processingIds);
   const activeRunId = status.data?.activeRunId ?? null;
   const limit = status.data?.limits.filesPerUpload ?? DEFAULT_LIMITS.filesPerUpload;
+  const visionReady = visionReadyOf(status.data);
 
   const [staged, setStaged] = useState<File[]>([]);
   const [note, setNote] = useState("");
@@ -77,7 +83,7 @@ export function IngestUploadScreen() {
     const { taken, left: over } = takeFiles([...staged, ...files], limit);
     setStaged(taken);
     setLeft(over.length);
-    if (over.length > 0) announce(say("ingest.drop.left", { count: over.length }));
+    if (over.length > 0) announce(say("ingest.drop.left", { count: over.length, max: limit }));
   };
   const start = () => {
     if (staged.length === 0) return;
@@ -111,7 +117,16 @@ export function IngestUploadScreen() {
         if (step !== null) announce(`${entry.name}. ${words(entry.words)}`);
         continue;
       }
-      const key = entry.found && entry.found.count > 0 ? `${entry.id}:found` : entry.step === "failed" || entry.step === "refused" || entry.step === "seenBefore" || entry.step === "kept" ? `${entry.id}:${entry.step}` : null;
+      // A PDF or photo read page by page: each page's answer is said once ("Page 2 of 5 read, 1 table.").
+      if (entry.step === "pages" && entry.words && PAGE_ANSWER.has(entry.words.key)) {
+        const pageKey = `${entry.id}:page:${String(entry.words.vars?.page ?? "")}`;
+        if (!told.current.has(pageKey)) {
+          told.current.add(pageKey);
+          announce(`${entry.name}. ${words(entry.words)}`);
+        }
+        continue;
+      }
+      const key = entry.found && entry.found.count > 0 ? `${entry.id}:found` : entry.step === "failed" || entry.step === "refused" || entry.step === "seenBefore" || entry.step === "kept" || entry.step === "pagesLeft" ? `${entry.id}:${entry.step}` : null;
       if (!key || told.current.has(key)) continue;
       told.current.add(key);
       if (entry.found && entry.found.count > 0) announce(`${entry.name}. ${foundSummary(say, entry.found)}`);
@@ -184,7 +199,7 @@ export function IngestUploadScreen() {
           <UploadCloud aria-hidden="true" className="size-7" />
           <h2 className="m-0 font-display text-[20px] font-bold leading-tight">{coarse ? t("ingest.drop.add") : t("ingest.drop.title")}</h2>
           <p id={hintId} className="m-0 max-w-[440px] text-[14px] leading-6 text-muted-foreground">
-            {t("ingest.drop.hint")}
+            {visionReady ? t("ingest.vision.dropHint", { max: limit }) : t("ingest.drop.hint", { max: limit })}
           </p>
           <Button ref={focus.ref("choose-files")} variant="secondary" aria-describedby={hintId} onClick={choose}>
             {t("ingest.drop.choose")}
@@ -194,7 +209,7 @@ export function IngestUploadScreen() {
 
       <UnfinishedFiles files={unfinished} />
 
-      {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
+      {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left, max: limit })}</p> : null}
 
       {showStrip ? (
         <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
@@ -215,6 +230,9 @@ export function IngestUploadScreen() {
         </section>
       ) : null}
 
+      {/* Item 16: the tables read from a page that wait for someone who sees prices to tick them. */}
+      {can(me, "ingest.check") ? <VisionWaitingPanel alwaysShow={false} /> : null}
+
       <QueryPanel query={candidates}>
         {list.length > 0 ? (
           <CandidateBoard
@@ -232,7 +250,7 @@ export function IngestUploadScreen() {
         ) : null}
       </QueryPanel>
 
-      <KeptFiles files={kept} storageOff={status.data?.vaultReady === false} />
+      <KeptFiles files={kept} storageOff={status.data?.vaultReady === false} visionReady={visionReady} />
     </div>
   );
 }

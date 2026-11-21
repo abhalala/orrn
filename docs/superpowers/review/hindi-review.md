@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -285,7 +285,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
 | `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
-### auth (117)
+### auth (157)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -301,6 +301,17 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `login.showPassword` | Show password | पासवर्ड दिखाएं |
 | `login.showPasswordAgain` | Show repeated password | दोहराया पासवर्ड दिखाएं |
 | `login.forgot` | Forgot password? | पासवर्ड भूल गए? |
+| `login.or` | or | या |
+| `login.passkey` | Sign in with a passkey | पासकी से साइन इन करें |
+| `login.google` | Continue with Google | Google से जारी रखें |
+| `login.finishing` | Signing you in | साइन इन हो रहा है |
+| `login.passwordLink` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `login.passwordLinkSending` | Sending | भेज रहे हैं |
+| `login.passwordLinkSent` | If {email} has an orrn account, a link to set a password is on its way. It works for one hour. | अगर {email} का orrn अकाउंट है, तो पासवर्ड बनाने का लिंक आ रहा है। यह एक घंटे तक चलेगा। |
+| `login.strongSignInNeeded` | {plant} needs a passkey, Google or your authenticator code. Sign in with one of them. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPlant` | This plant needs a passkey, Google or your authenticator code. Sign in with one of them. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। इनमें से किसी एक से साइन इन करें। |
+| `login.strongSignInNeededPhone` | {plant} needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web with your passkey or Google, then turn on the authenticator app in Settings > Sign-in. | {plant} के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर अपनी पासकी या Google से साइन इन करें, फिर सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
+| `login.strongSignInNeededPhonePlant` | This plant needs a passkey, Google or your authenticator code. If this phone can't use a passkey or Google, sign in on the web with your passkey or Google, then turn on the authenticator app in Settings > Sign-in. | इस प्लांट के लिए पासकी, Google या आपका authenticator कोड चाहिए। अगर इस फ़ोन पर पासकी या Google नहीं चलता, तो वेब पर अपनी पासकी या Google से साइन इन करें, फिर सेटिंग्स > साइन इन में authenticator ऐप चालू करें। |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -324,6 +335,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
 | `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `errors.googleNotInvited` | This Google account has no orrn invite. Ask your admin to invite this email, or sign in another way. | इस Google अकाउंट के लिए orrn का कोई इनवाइट नहीं है। अपने एडमिन से इस ईमेल को इनवाइट करने को कहें, या दूसरे तरीके से साइन इन करें। |
+| `errors.googleNotForStaff` | Godseye staff accounts can't use Google. Sign in with a passkey, or with your password and code. | Godseye स्टाफ अकाउंट Google से साइन इन नहीं कर सकते। पासकी से, या अपने पासवर्ड और कोड से साइन इन करें। |
+| `errors.googleEmailNotVerified` | Google hasn't verified this email address. Sign in another way. | Google ने इस ईमेल की पुष्टि नहीं की है। दूसरे तरीके से साइन इन करें। |
+| `errors.googleLinkFromSettings` | This account already has a passkey or authenticator app. Sign in with it, then link Google in Settings > Sign-in. | इस अकाउंट में पहले से पासकी या ऑथेंटिकेटर ऐप है। उससे साइन इन करें, फिर सेटिंग्स > साइन इन में Google जोड़ें। |
+| `errors.passkeyCancelled` | Passkey sign-in was cancelled. Try again, or sign in another way. | पासकी से साइन इन रद्द हो गया। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyNotFound` | orrn doesn't know this passkey. Try another one, or sign in another way. | orrn इस पासकी को नहीं पहचानता। दूसरी पासकी आज़माएं, या दूसरे तरीके से साइन इन करें। |
+| `errors.signInFailed` | Sign-in didn't finish. Try again, or sign in another way. | साइन इन पूरा नहीं हुआ। फिर से कोशिश करें, या दूसरे तरीके से साइन इन करें। |
+| `errors.passkeyAddCancelled` | Adding the passkey was cancelled. Try again when you're ready. | पासकी जोड़ना रद्द हो गया। जब तैयार हों, फिर से कोशिश करें। |
+| `errors.passkeyExists` | This device already has a passkey for your account. | इस डिवाइस पर आपके अकाउंट की पासकी पहले से है। |
+| `errors.passkeyAddFailed` | Couldn't add the passkey. Try again. | पासकी नहीं जुड़ी। फिर से कोशिश करें। |
+| `errors.signInAgain` | For your safety, this needs a recent sign-in. Sign in again, then try once more. | आपकी सुरक्षा के लिए इसके लिए हाल का साइन इन चाहिए। फिर से साइन इन करें, फिर एक बार और कोशिश करें। |
+| `errors.googleLinkOtherEmail` | That Google account has another email. Link the Google account that uses this account's email. | उस Google अकाउंट का ईमेल अलग है। वह Google अकाउंट जोड़ें जिसका ईमेल इस अकाउंट वाला ही है। |
+| `errors.googleLinkTaken` | That Google account already signs in to another orrn account. | वह Google अकाउंट पहले से किसी दूसरे orrn अकाउंट में साइन इन करता है। |
+| `errors.googleLinkFailed` | Google wasn't linked. Try again. | Google नहीं जुड़ा। फिर से कोशिश करें। |
+| `errors.noPasswordYet` | This account doesn't have a password yet. Email yourself a link to set one, or sign in another way. | इस अकाउंट का अभी कोई पासवर्ड नहीं है। पासवर्ड बनाने का लिंक ईमेल पर मंगाएं, या दूसरे तरीके से साइन इन करें। |
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
 | `brand.headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
 | `brand.sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
@@ -366,14 +392,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
 | `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.noPasswordTitle` | Your account doesn't have a password yet. | आपके अकाउंट का अभी कोई पासवर्ड नहीं है। |
+| `invite.noPasswordBody` | Sign in a way you already use, or set a password by email. Then you join. | जिस तरीके से आप साइन इन करते हैं उससे साइन इन करें, या ईमेल से पासवर्ड बनाएं। फिर आप जुड़ जाएंगे। |
+| `invite.setPasswordLead` | Set a password by email | ईमेल से पासवर्ड बनाएं |
+| `invite.setPasswordHint` | Type the email this invite was sent to. The link brings you back here to join. | वही ईमेल लिखें जिस पर यह इनवाइट आया था। लिंक आपको जुड़ने के लिए यहीं वापस लाएगा। |
+| `invite.setPasswordSubmit` | Email me a link to set a password | पासवर्ड बनाने का लिंक ईमेल करें |
+| `invite.setPasswordSending` | Sending | भेज रहे हैं |
+| `invite.setPasswordSent` | If that's the email this invite was sent to, a link is on its way. Open it, choose a password, and it brings you back here to join. It works for one hour. | अगर यह वही ईमेल है जिस पर इनवाइट आया था, तो लिंक आ रहा है। उसे खोलें, पासवर्ड चुनें, और वह आपको जुड़ने के लिए यहीं वापस लाएगा। यह एक घंटे तक चलेगा। |
 | `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
 | `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
 | `continue.button` | Continue | आगे बढ़ें |
 | `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
 | `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
 | `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
-| `continue.refusedTitle` | Sign in with your password | अपने पासवर्ड से साइन इन करें |
-| `continue.refusedBody` | This account already has a password and an authenticator code, so a sign-in link can't open it. Sign in with your password. If you forgot it, choose a new one. | इस अकाउंट में पासवर्ड और ऑथेंटिकेटर कोड है, इसलिए साइन इन लिंक से यह नहीं खुलेगा। पासवर्ड से साइन इन करें। भूल गए हों तो नया पासवर्ड चुनें। |
+| `continue.refusedTitle` | Sign in your usual way | अपने हमेशा वाले तरीके से साइन इन करें |
+| `continue.refusedBody` | This account already has its own way to sign in (a password, a passkey or Google), so a sign-in link can't open it. Go to sign in and use that. If you use a password and forgot it, choose a new one. | इस अकाउंट में साइन इन का अपना तरीका पहले से है (पासवर्ड, पासकी या Google), इसलिए साइन इन लिंक से यह नहीं खुलेगा। साइन इन पर जाएं और वही तरीका इस्तेमाल करें। अगर आप पासवर्ड इस्तेमाल करते हैं और भूल गए हैं, तो नया पासवर्ड चुनें। |
 | `continue.forgotLink` | Forgot password | पासवर्ड भूल गए |
 | `forgot.title` | Forgot your password? | पासवर्ड भूल गए? |
 | `forgot.body` | Enter your work email. If an account exists, we'll send a link to choose a new password. | अपना वर्क ईमेल लिखें। अकाउंट होगा तो नया पासवर्ड चुनने का लिंक भेज देंगे। |
@@ -397,6 +430,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `reset.askAgain` | Send a new link | नया लिंक भेजें |
 | `reset.failed` | The password didn't change. Try again, or ask for a new link. | पासवर्ड नहीं बदला। फिर कोशिश करें या नया लिंक मांगें। |
 | `reset.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `reset.backToInvite` | Back to your invite | अपने इनवाइट पर वापस जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
 | `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
@@ -404,15 +438,21 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
 | `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
+| `choosePlant.title` | Choose a plant | प्लांट चुनें |
+| `choosePlant.body` | You work in more than one plant. Pick the one to open. You can switch later from the menu. | आप एक से ज़्यादा प्लांट में काम करते हैं। जो खोलना है उसे चुनें। बाद में मेन्यू से बदल सकते हैं। |
+| `choosePlant.setupPending` | Setup pending | सेटअप बाकी |
+| `choosePlant.opening` | Opening {name} | {name} खुल रहा है |
+| `choosePlant.failed` | Couldn't open that plant. Try again. | वह प्लांट नहीं खुला। फिर कोशिश करें। |
+| `choosePlant.another` | Choose another plant | दूसरा प्लांट चुनें |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (58)
+### welcome (71)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `steps.password` | Password | पासवर्ड |
-| `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
+| `steps.secureSignIn` | Secure sign-in | सुरक्षित साइन-इन |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
@@ -425,6 +465,15 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `password.submit` | Save password | पासवर्ड सेव करें |
 | `password.submitting` | Saving | सेव हो रहा है |
 | `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
+| `secure.title` | Secure your sign-in | अपना साइन-इन सुरक्षित करें |
+| `secure.required` | {company} needs a passkey, Google or an authenticator code to sign in. A password alone no longer opens it. | {company} में साइन इन के लिए पासकी, Google या authenticator कोड चाहिए। सिर्फ़ पासवर्ड से यह अब नहीं खुलता। |
+| `secure.choose` | Choose one way to continue. You can add more later in Settings. | आगे बढ़ने के लिए एक तरीका चुनें। बाद में सेटिंग में और जोड़ सकते हैं। |
+| `secure.passkey` | Add a passkey | पासकी जोड़ें |
+| `secure.passkeyHint` | Sign in with your fingerprint, face or screen lock. Nothing to type. | अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। कुछ टाइप नहीं करना। |
+| `secure.authenticator` | Use an authenticator app | authenticator ऐप इस्तेमाल करें |
+| `secure.authenticatorHint` | Type a 6-digit code from an app on your phone after your password. | पासवर्ड के बाद अपने फ़ोन के ऐप का 6 अंकों का कोड टाइप करें। |
+| `secure.googleHint` | Sign in with the Google account for {email}. | {email} वाले Google अकाउंट से साइन इन करें। |
+| `secure.otherWay` | Choose another way | दूसरा तरीका चुनें |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
 | `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
@@ -469,6 +518,10 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `done.goAdmin` | Open Godseye | Godseye खोलें |
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
+| `done.passkeyTitle` | Sign in faster next time | अगली बार जल्दी साइन इन करें |
+| `done.passkeyBody` | Add a passkey and sign in with your fingerprint, face or screen lock. You can skip this. | पासकी जोड़ें और अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। चाहें तो इसे छोड़ दें। |
+| `done.passkeyAdd` | Add a passkey | पासकी जोड़ें |
+| `done.passkeyAdded` | Passkey added. Next time, sign in with it. | पासकी जुड़ गई। अगली बार इसी से साइन इन करें। |
 
 ### today (136)
 
@@ -2215,7 +2268,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (276)
+### settings (348)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2243,6 +2296,73 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `tabs.printing` | Printing | प्रिंटिंग |
 | `tabs.data` | Data | डेटा |
 | `tabs.units` | Units | इकाइयाँ |
+| `tabs.security` | Security | सुरक्षा |
+| `tabs.signIn` | Sign-in | साइन-इन |
+| `security.title` | Sign-in | साइन-इन |
+| `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
+| `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
+| `security.requireHint` | Everyone signs in to this plant with a passkey, Google or their authenticator code. A password alone no longer opens it: a person who signs in that way is signed out and asked for one of them. Anyone who has none is asked to add one the next time they open this plant. | इस प्लांट में हर कोई पासकी, Google या अपने authenticator कोड से साइन इन करता है। सिर्फ़ पासवर्ड से यह प्लांट अब नहीं खुलता: जो ऐसे साइन इन करता है, उसे साइन आउट करके इनमें से एक माँगा जाता है। जिसके पास इनमें से कोई नहीं है, उसे अगली बार यह प्लांट खोलने पर एक जोड़ने को कहा जाएगा। |
+| `security.ownerOnly` | Only an owner can change this. | इसे सिर्फ़ मालिक बदल सकता है। |
+| `security.saved` | Secure sign-in saved. | सुरक्षित साइन-इन सेव हुआ। |
+| `security.saveFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |
+| `signIn.title` | Your sign-in | आपका साइन-इन |
+| `signIn.body` | How you sign in to orrn. This is your own account, the same in every plant. | आप orrn में कैसे साइन इन करते हैं। यह आपका अपना अकाउंट है, हर प्लांट में एक जैसा। |
+| `signIn.loadFailed` | Couldn't load your sign-in methods. Check your connection and try again. | आपके साइन-इन के तरीके लोड नहीं हुए। कनेक्शन देखें और फिर कोशिश करें। |
+| `signIn.passkeys` | Passkeys | पासकी |
+| `signIn.passkeysHint` | Sign in with your fingerprint, face or screen lock. | अपनी उंगली, चेहरे या स्क्रीन लॉक से साइन इन करें। |
+| `signIn.noPasskeys` | No passkeys yet. | अभी कोई पासकी नहीं है। |
+| `signIn.passkeyUnnamed` | Passkey | पासकी |
+| `signIn.added` | Added {date} | {date} को जोड़ी |
+| `signIn.addPasskey` | Add a passkey | पासकी जोड़ें |
+| `signIn.noPasskeySupport` | This browser can't make passkeys. Use another browser or device to add one. | यह ब्राउज़र पासकी नहीं बना सकता। पासकी जोड़ने के लिए दूसरा ब्राउज़र या डिवाइस इस्तेमाल करें। |
+| `signIn.passkeyAdded` | Passkey added. | पासकी जुड़ गई। |
+| `signIn.rename` | Rename | नाम बदलें |
+| `signIn.renameTitle` | Rename passkey | पासकी का नाम बदलें |
+| `signIn.nameLabel` | Name | नाम |
+| `signIn.nameHint` | Like Office laptop or My phone. | जैसे ऑफ़िस लैपटॉप या मेरा फ़ोन। |
+| `signIn.nameRequired` | Type a name. | नाम टाइप करें। |
+| `signIn.renamed` | Passkey renamed. | पासकी का नाम बदल गया। |
+| `signIn.removeTitle` | Remove this passkey? | यह पासकी हटाएं? |
+| `signIn.removeBody` | {name} won't sign you in any more. | {name} से अब आप साइन इन नहीं कर पाएंगे। |
+| `signIn.removed` | Passkey removed. | पासकी हट गई। |
+| `signIn.google` | Google | Google |
+| `signIn.googleHint` | Sign in with the Google account for {email}. | {email} वाले Google अकाउंट से साइन इन करें। |
+| `signIn.linked` | Linked | जुड़ा है |
+| `signIn.notLinked` | Not linked | नहीं जुड़ा |
+| `signIn.linkGoogle` | Link Google | Google जोड़ें |
+| `signIn.unlink` | Unlink | हटाएं |
+| `signIn.unlinkTitle` | Unlink Google? | Google हटाएं? |
+| `signIn.unlinkBody` | You won't be able to sign in with Google any more. | आप अब Google से साइन इन नहीं कर पाएंगे। |
+| `signIn.unlinked` | Google unlinked. | Google हट गया। |
+| `signIn.linkTitle` | Link Google? | Google जोड़ें? |
+| `signIn.password` | Password | पासवर्ड |
+| `signIn.passwordHint` | Sign in with your email and a password. | अपने ईमेल और पासवर्ड से साइन इन करें। |
+| `signIn.passwordSet` | Set | सेट है |
+| `signIn.passwordNotSet` | Not set | सेट नहीं |
+| `signIn.setPassword` | Set a password | पासवर्ड सेट करें |
+| `signIn.changePassword` | Change password | पासवर्ड बदलें |
+| `signIn.passwordLinkBody` | We email you a link to choose the password. Choosing it signs you out everywhere, then you sign in with it. | हम आपको पासवर्ड चुनने का लिंक ईमेल करेंगे। पासवर्ड चुनते ही आप हर जगह से साइन आउट हो जाएंगे, फिर उसी से साइन इन करें। |
+| `signIn.sendLink` | Email me the link | मुझे लिंक ईमेल करें |
+| `signIn.linkSent` | We sent a link to {email}. It works once, for an hour. | हमने {email} पर लिंक भेजा है। यह एक बार, एक घंटे तक चलेगा। |
+| `signIn.linkFailed` | Couldn't send the link. Try again in a few minutes. | लिंक नहीं भेजा जा सका। कुछ मिनट बाद फिर कोशिश करें। |
+| `signIn.authenticator` | Authenticator app | authenticator ऐप |
+| `signIn.authenticatorHint` | A 6-digit code from an app on your phone, asked after your password. | आपके फ़ोन के ऐप का 6 अंकों का कोड, पासवर्ड के बाद पूछा जाता है। |
+| `signIn.turnOn` | Turn on | चालू करें |
+| `signIn.turnOff` | Turn off | बंद करें |
+| `signIn.needsPassword` | Set a password first. The code is asked after your password. | पहले पासवर्ड सेट करें। कोड पासवर्ड के बाद पूछा जाता है। |
+| `signIn.turnOffBody` | Type your password to turn off the authenticator app. | authenticator ऐप बंद करने के लिए अपना पासवर्ड टाइप करें। |
+| `signIn.turnedOn` | Authenticator app turned on. | authenticator ऐप चालू हो गया। |
+| `signIn.turnedOff` | Authenticator app turned off. | authenticator ऐप बंद हो गया। |
+| `signIn.reasonLast` | This is your last way to sign in. Add another one first. | यह साइन इन करने का आपका आखिरी तरीका है। पहले दूसरा तरीका जोड़ें। |
+| `signIn.reasonPlant` | A plant you belong to requires secure sign-in. Keep a passkey, Google or the authenticator app, or add another one first. | आपका एक प्लांट सुरक्षित साइन-इन ज़रूरी रखता है। पासकी, Google या authenticator ऐप रखें, या पहले कोई दूसरा जोड़ें। |
+| `signIn.signInAgain` | Sign in again | फिर से साइन इन करें |
+| `signIn.busy` | Another change to your sign-in is still saving. Try again in a moment. | आपके साइन-इन का एक और बदलाव अभी सेव हो रहा है। थोड़ी देर में फिर कोशिश करें। |
+| `signIn.linkWipesIntro` | Your email isn't confirmed yet. Linking Google confirms it, and then: | आपका ईमेल अभी पक्का नहीं हुआ है। Google जोड़ने से वह पक्का हो जाएगा, और फिर: |
+| `signIn.linkWipesPassword` | Your password is removed. | आपका पासवर्ड हट जाएगा। |
+| `signIn.linkWipesPasskeys` | Your {count:passkey is\|passkeys are} removed. | आपकी {count:पासकी हट जाएगी\|सभी पासकी हट जाएंगी}। |
+| `signIn.linkWipesAuthenticator` | Your authenticator app is turned off. | आपका authenticator ऐप बंद हो जाएगा। |
+| `signIn.linkWipesDevices` | You're signed out on your other devices. | आप अपने दूसरे डिवाइस पर साइन आउट हो जाएंगे। |
+| `signIn.linkWipesAfter` | After that you sign in with Google. | उसके बाद आप Google से साइन इन करेंगे। |
 | `units.title` | Units and formats | इकाइयाँ और रूप |
 | `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
 | `units.weight` | Weight | वज़न |
@@ -2323,10 +2443,15 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `team.inviteLink.copied` | Link copied | लिंक कॉपी हो गया |
 | `team.inviteLink.expires` | It works once and expires on {date}. | यह एक बार चलेगा और {date} को खत्म होगा। |
 | `team.inviteLink.show` | Show link | लिंक दिखाएं |
+| `team.inviteLink.resentTitle` | New invite link for {email} | {email} के लिए नया इनवाइट लिंक |
+| `team.inviteLink.oldLinkDead` | The old link no longer works. | पुराना लिंक अब नहीं चलेगा। |
+| `team.inviteLink.previews` | Sending the link on WhatsApp is safe: the preview doesn't use the invite. They join only when they open the link and tap Join. | WhatsApp पर लिंक भेजना ठीक है: उसका प्रीव्यू इनवाइट इस्तेमाल नहीं करता। वे तभी जुड़ेंगे जब लिंक खोलकर जुड़ने का बटन दबाएंगे। |
 | `team.pending` | Pending invites | बाकी इनवाइट |
 | `team.expires` | Link works until {date} | लिंक {date} तक चलेगा |
 | `team.revoke` | Cancel invite | इनवाइट कैंसल करें |
 | `team.revoked` | Invite cancelled | इनवाइट कैंसल हो गया |
+| `team.resend` | Resend | फिर से भेजें |
+| `team.resendFailed` | Couldn't make a new link. Try again. | नया लिंक नहीं बन सका। फिर से कोशिश करें। |
 | `team.changeRole` | Change role | रोल बदलें |
 | `team.roleChanged` | Role changed | रोल बदल गया |
 | `team.remove` | Remove from team | टीम से हटाएं |
@@ -3022,7 +3147,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (352)
+### admin (384)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3085,6 +3210,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
 | `company.sections` | Company sections | कंपनी के हिस्से |
 | `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.limits` | Limits | सीमाएं |
 | `company.tabs.printing` | Printing | प्रिंटिंग |
 | `company.tabs.access` | Access | एक्सेस |
 | `company.tabs.audit` | Audit | ऑडिट |
@@ -3186,6 +3312,37 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `support.failed` | That didn't send. Try again. | यह नहीं गया। फिर कोशिश करें। |
 | `support.earlierReply` | Reply sent {time} | जवाब {time} को भेजा गया |
 | `support.readOnly` | Your role can read requests but not answer them. | आपकी भूमिका अनुरोध पढ़ सकती है, जवाब नहीं दे सकती। |
+| `limits.intro` | Limits for this plant. Each one follows the orrn default until you set it. | इस प्लांट की सीमाएं। जब तक आप कोई सीमा तय नहीं करते, वह orrn की डिफ़ॉल्ट पर चलती है। |
+| `limits.names.dayModelCalls` | Model calls a day | रोज़ मॉडल कॉल |
+| `limits.names.dayModelCostCents` | Model spend a day | रोज़ मॉडल खर्च |
+| `limits.names.blockModelCalls` | Model tries per table | हर टेबल पर मॉडल की कोशिशें |
+| `limits.names.visionPagesPerBatch` | Pages read at a time | एक बार में पढ़े जाने वाले पेज |
+| `limits.names.filesPerUpload` | Files per upload | एक अपलोड में फ़ाइलें |
+| `limits.names.rawRowsPerFile` | Rows per file | हर फ़ाइल में लाइनें |
+| `limits.names.openRowsPerPlant` | Rows waiting to merge | मर्ज के इंतज़ार में लाइनें |
+| `limits.names.uploadFileMiB` | Largest file per upload | एक अपलोड में सबसे बड़ी फ़ाइल |
+| `limits.names.vaultQuotaGiB` | Storage for this plant | इस प्लांट की फ़ाइल जगह |
+| `limits.hints.dayModelCalls` | Reads by the model in one plant day. The day starts at midnight India time. | एक प्लांट दिन में मॉडल कितनी बार पढ़े। दिन भारत के समय से आधी रात को शुरू होता है। |
+| `limits.hints.dayModelCostCents` | What the model may spend in one plant day, in US dollars. | एक प्लांट दिन में मॉडल कितना खर्च कर सकता है, अमेरिकी डॉलर में। |
+| `limits.hints.blockModelCalls` | Tries on one table or one page part before it waits for a person. | किसी व्यक्ति के देखने से पहले एक टेबल या पेज के एक हिस्से पर कितनी कोशिशें हों। |
+| `limits.hints.visionPagesPerBatch` | Pages of one PDF or photo read in one go. | एक PDF या फ़ोटो के कितने पेज एक बार में पढ़े जाएं। |
+| `limits.hints.filesPerUpload` | Files taken from one pick or drop. | एक बार चुनने या डालने में कितनी फ़ाइलें ली जाएं। |
+| `limits.hints.rawRowsPerFile` | A file with more rows than this is refused. | इससे ज़्यादा लाइनों वाली फ़ाइल नहीं ली जाती। |
+| `limits.hints.openRowsPerPlant` | Rows from imports not merged or discarded yet. New files wait above this. | इम्पोर्ट की वे लाइनें जो अभी मर्ज नहीं हुईं या हटाई नहीं गईं। इससे ऊपर नई फ़ाइलें रुकती हैं। |
+| `limits.hints.uploadFileMiB` | A larger file is refused when it is added. Set in MB. | इससे बड़ी फ़ाइल डालते समय नहीं ली जाती। MB में। |
+| `limits.hints.vaultQuotaGiB` | Original files kept for this plant, uploads still going included. A new file that goes past this is refused. Set in GB. | इस प्लांट की रखी गई असली फ़ाइलें, चल रहे अपलोड भी। इससे ऊपर जाने वाली नई फ़ाइल नहीं ली जाती। GB में। |
+| `limits.defaultValue` | Default {value} | डिफ़ॉल्ट {value} |
+| `limits.ceiling` | Up to {max} | ज़्यादा से ज़्यादा {max} |
+| `limits.usesDefault` | Uses the default | डिफ़ॉल्ट पर है |
+| `limits.setHere` | Set for this plant | इस प्लांट के लिए तय |
+| `limits.useDefault` | Use default | डिफ़ॉल्ट रखें |
+| `limits.invalid` | Enter a whole number from 1 to {max}. | 1 से {max} तक की पूरी संख्या डालें। |
+| `limits.invalidMoney` | Enter an amount from {min} to {max}. | {min} से {max} तक की रकम डालें। |
+| `limits.costBuys` | About {count} parts of busy pages a day, at about 7 US cents a part. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से, हर हिस्सा लगभग 7 अमेरिकी सेंट का। |
+| `limits.callsBuy` | About {count} parts of busy pages a day. The model calls a day stop first. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से। रोज़ मॉडल कॉल की सीमा पहले पूरी होती है। |
+| `limits.save` | Save limits | सीमाएं सेव करें |
+| `limits.saved` | Limits saved | सीमाएं सेव हो गईं |
+| `limits.unsaved` | Changes not saved | बदलाव सेव नहीं हुए |
 | `plan.plan` | Plan | प्लान |
 | `plan.plans.starter` | Starter | स्टार्टर |
 | `plan.plans.growth` | Growth | ग्रोथ |
@@ -3334,8 +3491,8 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
 | `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
 | `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
-| `requests.hasPassword` | This owner already signs in with a password. Ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
-| `requests.approvedHasPassword` | Approved. This owner already signs in with a password. Ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.hasPassword` | This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner can already sign in with a password, a passkey or Google. Ask them to sign in that way. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड, पासकी या Google से साइन इन कर सकते हैं। उनसे उसी तरीके से साइन इन करने को कहें। |
 | `requests.approvedAskAdmin` | Approved. Your role can't send sign-in links. Ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
 | `requests.unverifiedAccount` | Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again. | मंज़ूर नहीं हुई। इस ईमेल पर पहले से एक अकाउंट है, पर उसने कभी साबित नहीं किया कि यह मेलबॉक्स उसका है। मांगने वाले से उसी पते से "पासवर्ड भूल गए" इस्तेमाल करने को कहें, फिर दोबारा मंज़ूर करें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
@@ -3740,7 +3897,7 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (259)
+### native (269)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3751,6 +3908,9 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer. Sign in, set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
 | `staffTitle` | Godseye is on the web | Godseye वेब पर है |
 | `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
+| `finishOnWebTitle` | Finish setting up on the web | सेटअप वेब पर पूरा करें |
+| `finishOnWebBody` | {company} needs a few setup steps first. Open orrn.in in your phone's browser or on a computer, sign in and finish them, then come back here. | {company} में पहले कुछ सेटअप बाकी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे पूरा करें, फिर यहाँ वापस आएं। |
+| `secureOnWebBody` | {company} requires secure sign-in. Open orrn.in in your phone's browser or on a computer, sign in and set it up, then come back here. | {company} में सुरक्षित साइन-इन ज़रूरी है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके उसे सेट करें, फिर यहाँ वापस आएं। |
 | `checkAgain` | Check again | फिर से जांचें |
 | `tooManyTries` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `codeTimedOut` | That took too long. Sign in again. | बहुत देर हो गई। फिर से साइन इन करें। |
@@ -3763,6 +3923,11 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
 | `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 | `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
+| `passkey.ownPhoneTitle` | Is this your own phone? | क्या यह आपका अपना फ़ोन है? |
+| `passkey.ownPhoneBody` | Anyone who can unlock this phone could sign in as you with its passkey. Add one only on a phone nobody else uses, never on a shared floor phone. | जो भी इस फ़ोन को अनलॉक कर सकता है, वह इसकी पासकी से आपके नाम से साइन इन कर सकता है। पासकी सिर्फ़ उसी फ़ोन पर जोड़ें जिसे कोई और इस्तेमाल नहीं करता, फ़्लोर के साझा फ़ोन पर कभी नहीं। |
+| `passkey.ownPhoneConfirm` | Yes, add a passkey | हां, पासकी जोड़ें |
+| `passkey.unavailable` | This phone can't use passkeys yet. | यह फ़ोन अभी पासकी इस्तेमाल नहीं कर सकता। |
+| `passkey.manageOnWeb` | To rename or remove a passkey, open Settings on orrn.in. | पासकी का नाम बदलने या उसे हटाने के लिए orrn.in पर Settings खोलें। |
 | `pack.openSession` | Open session {code} | सेशन {code} खोलें |
 | `pack.sessionLine` | {bundles} {bundles:bundle\|bundles}, {kg} kg | {bundles} bundle, {kg} kg |
 | `pack.showMore` | Show more sessions | और सेशन दिखाएं |
@@ -3884,6 +4049,8 @@ Counts: 8171 screen strings in 50 groups, 45 guides with 866 strings.
 | `invite.failed` | orrn didn't answer. Check the connection and try again. | orrn से जवाब नहीं आया। कनेक्शन देखें और फिर कोशिश करें। |
 | `invite.twoFactor` | This account asks for a code at sign in. Sign in first, then open the invite link again. | इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.afterSetPassword` | Open the link in the email and set a password. Then come back here and sign in with it. | ईमेल में आया लिंक खोलें और पासवर्ड बनाएं। फिर यहाँ वापस आकर उससे साइन इन करें। |
+| `invite.signInNow` | Sign in with my new password | नए पासवर्ड से साइन इन करें |
 | `invite.signedInTitle` | Join as {email} | {email} से जुड़ें |
 | `invite.signedInBody` | You are signed in. Accept the invite to join this team with this account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
 | `invite.accept` | Join the team | टीम से जुड़ें |
@@ -6963,21 +7130,20 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (539)
+### ingest (679)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Imports | इम्पोर्ट |
 | `lead` | Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक orrn में कुछ नहीं बदलता। |
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
-| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में 20 फ़ाइलें तक। |
+| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to {max} files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में {max} फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
-| `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
-| `drop.tooManyRows` | {name} has more than 200,000 rows. Split it and try again. | {name} में 2,00,000 से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
-| `drop.openLimit` | More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में 3,00,000 से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
+| `drop.tooManyRows` | {name} has more than {limit} rows. Split it and try again. | {name} में {limit} से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `drop.openLimit` | More than {limit} rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में {limit} से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
 | `drop.wrongType` | {name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो नहीं है। इनमें से कोई चुनें। |
-| `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
+| `drop.left` | {count} {count:file was\|files were} left out. Add up to {max} files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में {max} फ़ाइलें तक जोड़ें। |
 | `drop.add` | Add files | फ़ाइलें जोड़ें |
 | `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
 | `drop.openIt` | Open it | इसे खोलें |
@@ -6987,7 +7153,11 @@ Please check, Lalubhai:
 | `drop.keptNoStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए चालू नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
+| `read.uploadingParts` | Saving the original file: {done} of {total} parts | असली फ़ाइल सेव कर रहे हैं: {total} में से {done} हिस्से |
+| `read.tooLargeToRead` | {name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} सेव हो गई। यह इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
+| `read.tooLargeNotSaved` | {name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
+| `read.failedPage` | orrn could not open this file on this device. Check that the file opens, then add it again. | orrn इस डिवाइस पर यह फ़ाइल नहीं खोल पाया। देखें कि फ़ाइल खुलती है, फिर इसे दोबारा डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
@@ -7020,6 +7190,18 @@ Please check, Lalubhai:
 | `skipNoDate.keep` | Keep them | इन्हें रहने दें |
 | `fillChange.title` | Change the answer to Yes? | जवाब बदलकर हां करें? |
 | `fillChange.body` | Lines you skipped with "Skip these lines" come back and are checked again. Lines you skipped one by one stay skipped. | "ये लाइनें छोड़ें" से छोड़ी गई लाइनें वापस आएंगी और फिर से जांची जाएंगी। एक-एक करके छोड़ी गई लाइनें छोड़ी ही रहेंगी। |
+| `upload.error.partsMissing` | Some parts of the file did not arrive. Add the same file again to send them. | फ़ाइल के कुछ हिस्से नहीं पहुंचे। उन्हें भेजने के लिए वही फ़ाइल फिर डालें। |
+| `upload.error.digest` | The saved file did not match the file you chose. Add it again. | सेव हुई फ़ाइल आपकी चुनी फ़ाइल से मेल नहीं खाई। इसे फिर डालें। |
+| `upload.error.ranOut` | The upload took too long and stopped. Add the same file again. | अपलोड में बहुत देर लगी और वह रुक गया। वही फ़ाइल फिर डालें। |
+| `upload.error.checkRunning` | This file is still being checked. Wait a minute, then try again. | इस फ़ाइल की जांच अभी चल रही है। एक मिनट रुकें, फिर कोशिश करें। |
+| `upload.error.checkFailed` | orrn could not check this file after it arrived. Remove it from the list and add it again. | फ़ाइल पहुंचने के बाद orrn उसकी जांच नहीं कर सका। इसे सूची से हटाएं और फिर डालें। |
+| `upload.error.someoneElse` | Someone else is sending this file now. Try again when they finish. | कोई और अभी यह फ़ाइल भेज रहा है। उनका काम पूरा होने पर फिर कोशिश करें। |
+| `upload.error.stopped` | The upload stopped before every part arrived. Press "Try again" to carry on from the parts already saved. | सारे हिस्से पहुंचने से पहले अपलोड रुक गया। जो हिस्से सेव हो चुके हैं उनके आगे से भेजने के लिए "फिर से कोशिश करें" दबाएं। |
+| `upload.refused.tooBigKind` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
+| `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. orrn support can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। orrn सपोर्ट इसे बढ़ा सकता है। |
+| `upload.refused.fileTooBigMax` | {name} is too big. The largest file orrn can take is {size}. | {name} बहुत बड़ी है। orrn में सबसे बड़ी फ़ाइल {size} की हो सकती है। |
+| `upload.refused.storageFull` | This plant's file storage is full ({size}). orrn support can raise it. | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। orrn सपोर्ट इसे बढ़ा सकता है। |
+| `upload.refused.storageFullMax` | This plant's file storage is full ({size}). | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
@@ -7358,7 +7540,132 @@ Please check, Lalubhai:
 | `reason.customer_missing` | Not merged. Customer {name} is not in orrn. Add the customer, then press Check again. | मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर "फिर से जांचें" दबाएं। |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
-| `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
+| `vision.check` | Checked against the page. | लाइनें पेज से मिला ली गईं। |
+| `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to {max} files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में {max} फ़ाइलें तक। |
+| `vision.keptNote` | Open a file to read its pages. | पेज पढ़ने के लिए फ़ाइल खोलें। |
+| `vision.opening` | Opening the pages | पेज खोले जा रहे हैं |
+| `vision.rendering` | Making page {page} of {total} | पेज {page} / {total} तैयार हो रहा है |
+| `vision.sending` | Sending page {page} of {total} | पेज {page} / {total} भेजा जा रहा है |
+| `vision.reading` | Reading page {page} of {total} | पेज {page} / {total} पढ़ा जा रहा है |
+| `vision.readingBand` | Reading part {band} of {bands} of page {page} of {total} | पेज {page} / {total} का हिस्सा {band} / {bands} पढ़ा जा रहा है |
+| `vision.cutting` | Cutting page {page} of {total} into parts | पेज {page} / {total} को हिस्सों में काटा जा रहा है |
+| `vision.finishing` | Checking every page is done | देख रहे हैं कि हर पेज पूरा हुआ या नहीं |
+| `vision.pageRead` | Page {page} of {total} read, {count} {count:table\|tables}. | पेज {page} / {total} पढ़ लिया, {count} {count:टेबल\|टेबल}। |
+| `vision.pageNotRead` | Page {page} of {total} not read. | पेज {page} / {total} नहीं पढ़ा गया। |
+| `vision.pageTyped` | Page {page} of {total} typed. | पेज {page} / {total} टाइप कर दिया। |
+| `vision.pageSkipped` | Page {page} of {total} skipped. | पेज {page} / {total} छोड़ दिया। |
+| `vision.someLeft` | {count} {count:page is\|pages are} not read. Open the file to read, type or skip {count:it\|them}. | {count} {count:पेज\|पेज} नहीं पढ़े गए। फ़ाइल खोलकर {count:उसे\|उन्हें} पढ़ें, टाइप करें या छोड़ें। |
+| `vision.cannotOpen` | orrn could not open the pages of this file in this browser. The file is kept. | orrn इस ब्राउज़र में इस फ़ाइल के पेज नहीं खोल पाया। फ़ाइल रख ली गई है। |
+| `vision.readFile` | Read this file | यह फ़ाइल पढ़ें |
+| `vision.readFileNote` | orrn reads each page with the model. You check every table against its page before anything is imported. | orrn हर पेज मॉडल से पढ़वाता है। कुछ भी इम्पोर्ट होने से पहले आप हर टेबल को उसके पेज से मिलाते हैं। |
+| `vision.carryOn` | Carry on reading | पढ़ना जारी रखें |
+| `vision.pagesTitle` | Pages | पेज |
+| `vision.pageName` | Page {page} | पेज {page} |
+| `vision.tables` | {count} {count:table\|tables} | {count} {count:टेबल\|टेबल} |
+| `vision.bands` | {read} of {total} parts read | {total} में से {read} हिस्से पढ़े गए |
+| `vision.state.waiting` | Not sent yet | अभी भेजा नहीं गया |
+| `vision.state.ready` | Waiting to be read | पढ़े जाने के इंतज़ार में |
+| `vision.state.read` | Read | पढ़ लिया |
+| `vision.state.not_read` | Not read | नहीं पढ़ा गया |
+| `vision.state.typed` | Typed | टाइप किया |
+| `vision.state.skipped` | Skipped | छोड़ा गया |
+| `vision.reason.no_table` | No table found on this page. | इस पेज पर कोई टेबल नहीं मिली। |
+| `vision.reason.refused` | The model would not read this page. | मॉडल ने यह पेज पढ़ने से मना कर दिया। |
+| `vision.reason.invalid` | The model's answer did not fit the page, twice. | मॉडल का जवाब दो बार पेज से मेल नहीं खाया। |
+| `vision.reason.too_long` | This page has too many rows to read at once. | इस पेज पर एक बार में पढ़ने के लिए बहुत ज़्यादा लाइनें हैं। |
+| `vision.reason.error` | The model could not be reached. | मॉडल से संपर्क नहीं हो पाया। |
+| `vision.reason.cap_page` | This page was tried as many times as allowed. | यह पेज जितनी बार हो सकता था, उतनी बार आज़माया जा चुका है। |
+| `vision.reason.cap_day_calls` | The model has read as many pages as allowed today. Try again tomorrow. | मॉडल आज जितने पेज पढ़ सकता था, पढ़ चुका है। कल फिर कोशिश करें। |
+| `vision.reason.cap_day_cost` | Today's spend on the model is used up. Try again tomorrow. | मॉडल पर आज का खर्च पूरा हो गया। कल फिर कोशिश करें। |
+| `vision.reason.page_too_large` | This page image is too large. | इस पेज की इमेज बहुत बड़ी है। |
+| `vision.reason.unsupported_page` | This page image cannot be read. | इस पेज की इमेज पढ़ी नहीं जा सकती। |
+| `vision.reason.too_many_tables` | This file already holds as many tables as one file may. | इस फ़ाइल में पहले ही उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। |
+| `vision.readAgain` | Read again | फिर से पढ़ें |
+| `vision.typePage` | Type this page | यह पेज टाइप करें |
+| `vision.skipPage` | Skip this page | यह पेज छोड़ें |
+| `vision.actionFor` | {action}, page {page} | {action}, पेज {page} |
+| `vision.finish` | Finish | पूरा करें |
+| `vision.finishNote` | Every page is read, typed or skipped. Finish to check the tables. | हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। टेबल जांचने के लिए पूरा करें। |
+| `vision.notDone` | Read, type or skip each page, then finish. | हर पेज पढ़ें, टाइप करें या छोड़ें, फिर पूरा करें। |
+| `vision.cap` | orrn reads pages 1 to {max} of {total} first. | {total} में से पहले पेज 1 से {max} तक पढ़े जाएंगे। |
+| `vision.readNext` | Read next pages | अगले पेज पढ़ें |
+| `vision.readNextNote` | Reads pages {from} to {to}. | पेज {from} से {to} तक पढ़े जाएंगे। |
+| `vision.readRanges` | Pages read: {ranges}. | पढ़े गए पेज: {ranges}। |
+| `vision.range` | {from} to {to} | {from} से {to} |
+| `vision.rangeOne` | {page} | {page} |
+| `vision.restLine` | Pages {from} to {to} of {total} are not read yet. | {total} में से पेज {from} से {to} तक अभी नहीं पढ़े गए। |
+| `vision.dayCostLine` | Today's spend on the model is used up. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल पर खर्च की सीमा पूरी हो गई। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
+| `vision.dayCallsLine` | The model has read as many pages as allowed today. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
+| `vision.fullLine` | This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported. | इस फ़ाइल में {max} टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल जांची और इम्पोर्ट की जा सकती हैं। |
+| `vision.skipRest` | Skip the rest and finish | बाकी छोड़ें और पूरा करें |
+| `vision.skipRestNote` | Pages not read yet are skipped. The tables read so far stay. | जो पेज अभी नहीं पढ़े गए वे छोड़ दिए जाएंगे। अब तक पढ़ी गई टेबल बनी रहेंगी। |
+| `vision.finishEarly` | Finish without pages {from} to {to} | पेज {from} से {to} के बिना पूरा करें |
+| `vision.finishEarlyNote` | Every page so far is read, typed or skipped. Read the next pages, or finish now and leave pages {from} to {to} not read. | अब तक का हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। अगले पेज पढ़ें, या अभी पूरा करें और पेज {from} से {to} बिना पढ़े छोड़ दें। |
+| `vision.type.title` | Type page {page} | पेज {page} टाइप करें |
+| `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। पहले कॉलम के नाम, फिर पेज की हर लाइन। |
+| `vision.type.tableTitle` | Table name (if the page has one) | टेबल का नाम (अगर पेज पर है) |
+| `vision.type.header` | Column {n} name | कॉलम {n} का नाम |
+| `vision.type.cell` | Row {row}, column {col} | लाइन {row}, कॉलम {col} |
+| `vision.type.addRow` | Add a row | लाइन जोड़ें |
+| `vision.type.addColumn` | Add a column | कॉलम जोड़ें |
+| `vision.type.removeRow` | Remove row {row} | लाइन {row} हटाएं |
+| `vision.type.save` | Save the table | टेबल सेव करें |
+| `vision.type.needHeader` | Give every column a name. | हर कॉलम को नाम दें। |
+| `vision.type.needRow` | Type at least one row. | कम से कम एक लाइन टाइप करें। |
+| `vision.pageHeading` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
+| `vision.partAlt` | Page {page} of {count} of {file}, part {part} of {parts} | {file} का पेज {page} / {count}, हिस्सा {part} / {parts} |
+| `vision.imageFailed` | The page image did not load. | पेज की इमेज लोड नहीं हुई। |
+| `vision.openFull` | Open the page full size | पेज पूरे साइज़ में खोलें |
+| `vision.zoomHint` | Pinch or scroll to move around the page. | पेज पर घूमने के लिए दो उंगलियों से ज़ूम करें या स्क्रोल करें। |
+| `vision.fitScreen` | Fit to the screen | स्क्रीन के बराबर करें |
+| `vision.fullSize` | Full size | पूरा साइज़ |
+| `vision.checkedBy` | Checked by {name} on {date} at {time}. | {name} ने {date} को {time} बजे जाँचा। |
+| `vision.checkedAt` | Checked on {date} at {time}. | {date} को {time} बजे जाँचा गया। |
+| `vision.checkOnlyLead` | Check each row against the page, then tick. The admin approves the table. | हर लाइन पेज से मिलाएं, फिर टिक करें। टेबल को एडमिन मंज़ूर करेगा। |
+| `vision.waiting.title` | Tables waiting for a check | जाँच के लिए रुकी टेबल |
+| `vision.waiting.lead` | Each table was read from a page. Open it, check every row against the page, then tick. | हर टेबल किसी पेज से पढ़ी गई है। उसे खोलें, हर लाइन पेज से मिलाएं, फिर टिक करें। |
+| `vision.waiting.empty` | No table is waiting for a check. | कोई टेबल जाँच के लिए नहीं रुकी है। |
+| `vision.waiting.line` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.waiting.open` | Check | जाँचें |
+| `vision.waiting.openLabel` | Check {file}, page {page} | {file}, पेज {page} जाँचें |
+| `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
+| `vision.lowFirst` | Marked rows come first. Any row can be wrong, so check every row against the page. | निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं। |
+| `vision.lowMark` | Look first | पहले देखें |
+| `vision.unseenMark` | These digits are not in the PDF's text. Check them against the page. | ये अंक PDF के टेक्स्ट में नहीं हैं। इन्हें पेज से मिलाएं। |
+| `vision.blank` | Blank | खाली |
+| `vision.rowHeader` | Row | लाइन |
+| `vision.fixColumn` | Column | कॉलम |
+| `vision.rowName` | Row {n} | लाइन {n} |
+| `vision.typed` | Typed by hand from page {page}. | पेज {page} से हाथ से टाइप किया गया। |
+| `vision.tick` | I checked these rows against the page | मैंने ये लाइनें पेज से मिलाकर देख लीं |
+| `vision.tickNote` | Look at each row on the page. Fix a cell that is wrong, then tick. | पेज पर हर लाइन देखें। जो सेल गलत हो उसे सुधारें, फिर टिक करें। |
+| `vision.tickFirst` | Tick that you checked the rows against the page, then approve. | टिक करें कि आपने लाइनें पेज से मिला लीं, फिर मंज़ूर करें। |
+| `vision.fixCell` | Fix this cell | यह सेल सुधारें |
+| `vision.fixCellName` | Fix row {row}, {column} | लाइन {row}, {column} सुधारें |
+| `vision.fixLabel` | Row {row}, {column} | लाइन {row}, {column} |
+| `vision.fixSave` | Save the cell | सेल सेव करें |
+| `vision.fixed` | Cell saved. Check the rows again, then tick. | सेल सेव हो गया। लाइनें फिर से देखें, फिर टिक करें। |
+| `vision.error.uploadFirst` | This page is not sent yet. Read the file again. | यह पेज अभी भेजा नहीं गया। फ़ाइल फिर से पढ़ें। |
+| `vision.error.notSettled` | Some pages are not read yet. Read, type or skip each page first. | कुछ पेज अभी पढ़े नहीं गए। पहले हर पेज पढ़ें, टाइप करें या छोड़ें। |
+| `vision.error.fromPage` | This table was read from a page. Fix a cell or discard it. | यह टेबल एक पेज से पढ़ी गई थी। कोई सेल सुधारें या इसे हटा दें। |
+| `vision.error.onlyFromPage` | Only a table read from a page is checked against it. | सिर्फ़ पेज से पढ़ी गई टेबल ही उस पेज से मिलाई जाती है। |
+| `vision.error.pastPages` | This page is past the pages read for this file. | यह पेज इस फ़ाइल के पढ़े जाने वाले पेजों से आगे है। |
+| `vision.error.pageRead` | This page is already read. | यह पेज पहले ही पढ़ा जा चुका है। |
+| `vision.error.notPageByPage` | This file is not being read page by page. | यह फ़ाइल पेज दर पेज नहीं पढ़ी जा रही है। |
+| `vision.error.onlyVisual` | Only PDFs and photos are read page by page. | सिर्फ़ PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। |
+| `vision.error.rowsWritten` | Rows of this sheet are already written. Its rows cannot change now. | इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसकी लाइनें नहीं बदल सकतीं। |
+| `vision.error.noStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए सेट नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
+| `vision.error.notRead` | orrn cannot read PDFs and photos on this plant yet. The file is kept. | orrn इस प्लांट पर अभी PDF और फ़ोटो नहीं पढ़ सकता। फ़ाइल रख ली गई है। |
+| `vision.error.notSaved` | The original file is not saved yet. Upload the same file again, then approve. | असली फ़ाइल अभी सेव नहीं हुई है। वही फ़ाइल फिर से अपलोड करें, फिर मंज़ूर करें। |
+| `vision.error.fileRead` | This file is already read. | यह फ़ाइल पहले ही पढ़ी जा चुकी है। |
+| `vision.error.checkFirst` | Check these rows against the page first. | पहले इन लाइनों को पेज से मिलाकर देखें। |
+| `vision.error.fileGone` | This file is no longer there. | यह फ़ाइल अब नहीं है। |
+| `vision.error.fileFull` | This file already holds the most tables one file can hold. Finish it to use the tables read so far. | इस फ़ाइल में पहले से उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। अब तक पढ़ी गई टेबल इस्तेमाल करने के लिए इसे पूरा करें। |
+| `vision.error.rebuildFailed` | The tables read from this page could not be written. Skip this page. | इस पेज से पढ़ी गई टेबल लिखी नहीं जा सकीं। यह पेज छोड़ दें। |
+| `vision.error.needsPrices` | Someone who can see prices must check this table. | इस टेबल को वही जाँचे जिसे रेट दिखते हैं। |
+| `vision.error.fileRowsFull` | This file has more rows than one file may hold in this plant. Split it and try again. | इस फ़ाइल में इस प्लांट की एक फ़ाइल की सीमा से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `vision.error.openRowsFull` | Too many rows from imports are waiting to merge in this plant. Merge or discard imports first. | इस प्लांट में इम्पोर्ट की बहुत ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। पहले इम्पोर्ट मर्ज करें या हटाएं। |
 | `rate.hidden` | Hidden | छिपा है |
 | `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
 | `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |
@@ -7770,7 +8077,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (311)
+### audit (326)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7872,6 +8179,9 @@ Please check, Lalubhai:
 | `actions.app_release__update` | App build changed | ऐप बिल्ड बदला |
 | `actions.approval__approved` | Request approved | रिक्वेस्ट मंज़ूर की |
 | `actions.approval__rejected` | Request rejected | रिक्वेस्ट नामंज़ूर की |
+| `actions.auth__google__link` | Google sign-in linked | Google साइन-इन जोड़ा |
+| `actions.auth__passkey__add` | Passkey added | पासकी जोड़ी |
+| `actions.auth__passkey__remove` | Passkey removed | पासकी हटाई |
 | `actions.auth__password_force_change` | Password change asked for | पासवर्ड बदलने को कहा |
 | `actions.auth__password_set` | Password set | पासवर्ड सेट किया |
 | `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |
@@ -7885,6 +8195,7 @@ Please check, Lalubhai:
 | `actions.cast__close_request` | Cast close sent for approval | कास्ट बंद करने की मंज़ूरी मांगी |
 | `actions.cast__open` | Cast opened | कास्ट खोला |
 | `actions.company__settings__update` | Plant settings changed | प्लांट की सेटिंग्स बदलीं |
+| `actions.company__security__update` | Secure sign-in changed | सुरक्षित साइन-इन बदला |
 | `actions.company__switch` | Switched plant | प्लांट बदला |
 | `actions.count__cancel` | Stock count cancelled | स्टॉक गिनती रद्द की |
 | `actions.count__close` | Stock count closed | स्टॉक गिनती बंद की |
@@ -7974,6 +8285,15 @@ Please check, Lalubhai:
 | `actions.ingest__block__repick` | Header row opened again | कॉलम के नाम वाली लाइन फिर से खोली |
 | `actions.ingest__block__reput` | Table put again | टेबल फिर से डाली गई |
 | `actions.ingest__rows__skip_no_date` | Lines with no date skipped | बिना तारीख की लाइनें छोड़ी गईं |
+| `actions.ingest__vision__start` | PDF or photo read page by page | PDF या फ़ोटो पेज दर पेज पढ़ी |
+| `actions.ingest__vision__page` | Page read by the model | मॉडल ने पेज पढ़ा |
+| `actions.ingest__vision__bands` | Page cut into parts to read | पढ़ने के लिए पेज हिस्सों में काटा |
+| `actions.ingest__vision__skip` | Page skipped | पेज छोड़ा |
+| `actions.ingest__vision__type` | Page typed by hand | पेज हाथ से लिखा |
+| `actions.ingest__vision__check` | Table checked against its page | टेबल को उसके पेज से मिलाया |
+| `actions.ingest__vision__fix` | Cell of a page table fixed | पेज की टेबल का खाना ठीक किया |
+| `actions.ingest__vision__batch` | Next pages planned for reading | अगले पेज पढ़ने के लिए तय किए |
+| `actions.ingest__vision__rest` | File finished without the remaining pages | बाकी पेज छोड़कर फ़ाइल पूरी की |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
 | `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |
@@ -7988,6 +8308,7 @@ Please check, Lalubhai:
 | `actions.member__invite` | Team member invited | टीम मेंबर को इनवाइट किया |
 | `actions.member__invite__accept` | Invite accepted | इनवाइट स्वीकार किया |
 | `actions.member__invite__revoke` | Invite cancelled | इनवाइट रद्द किया |
+| `actions.member__invite__resend` | Invite sent again | इनवाइट फिर से भेजा |
 | `actions.member__remove` | Team member removed | टीम मेंबर हटाया |
 | `actions.member__updateRole` | Team member's role changed | टीम मेंबर का रोल बदला |
 | `actions.nitriding__add` | Nitriding logged | नाइट्राइडिंग दर्ज की |
@@ -8010,6 +8331,7 @@ Please check, Lalubhai:
 | `actions.plan__create` | Press plan created | प्रेस प्लान बनाया |
 | `actions.plan__release` | Press plan released to the press | प्रेस प्लान प्रेस को भेजा |
 | `actions.plan__update` | Press plan changed | प्रेस प्लान बदला |
+| `actions.platform__company__limits__update` | Plant limits changed by orrn support | orrn सपोर्ट ने प्लांट की सीमाएं बदलीं |
 | `actions.platform__company__modules__update` | Plant modules changed by orrn support | orrn सपोर्ट ने प्लांट के मॉड्यूल बदले |
 | `actions.platform__waitlist__signInLink` | Owner sign-in link made | मालिक का साइन-इन लिंक बनाया |
 | `actions.portal__certificate__issue` | Test certificate issued to the party | पार्टी को टेस्ट सर्टिफ़िकेट दिया |

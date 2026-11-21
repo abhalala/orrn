@@ -7,7 +7,10 @@ import { CloudflareStateStore } from "alchemy/state";
 import { config } from "dotenv";
 
 import { deployMasterKey } from "./masterKey";
+import { nativePasskeyBindings } from "./nativePasskeys";
+import { SERVER_OBSERVABILITY } from "./observability";
 import { optionalR2Bucket } from "./optionalR2";
+import { WEB_EDGE_SCRIPT } from "./webEdge";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 
@@ -98,53 +101,8 @@ const webBindings = {
   VITE_PUBLIC_URL: webPublicUrl,
 };
 
-// Edge rules for the web Worker:
-// 1. Plain-HTTP requests get a permanent redirect to HTTPS (browsers showed
-//    "Not secure" for http://orrn.in because nothing upgraded the request).
-// 2. "www." hosts redirect to the apex host.
-// 3. Unknown HTML routes fall back to the SPA shell.
-// 4. Every HTTPS response carries HSTS so browsers stop trying HTTP at all.
-//    No includeSubDomains/preload: tenant and print-station hosts decide for
-//    themselves.
-const spaFallbackScript = `
-const HSTS = "max-age=31536000";
-
-function withHsts(response) {
-  const headers = new Headers(response.headers);
-  headers.set("Strict-Transport-Security", HSTS);
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    const redirectStatus = request.method === "GET" || request.method === "HEAD" ? 301 : 308;
-
-    if (!isLocal && url.protocol === "http:") {
-      url.protocol = "https:";
-      return Response.redirect(url.toString(), redirectStatus);
-    }
-    if (url.hostname.startsWith("www.")) {
-      url.hostname = url.hostname.slice(4);
-      return Response.redirect(url.toString(), redirectStatus);
-    }
-
-    let response = await env.ASSETS.fetch(request);
-    if (response.status === 404 && request.method === "GET") {
-      const accept = request.headers.get("accept") ?? "";
-      if (accept.includes("text/html")) {
-        response = await env.ASSETS.fetch(new Request(new URL("/", url), request));
-      }
-    }
-    return isLocal ? response : withHsts(response);
-  },
-};
-`;
+// Edge rules for the web Worker (HTTPS, www, SPA fallback, HSTS, `/.well-known`): infra/webEdge.ts.
+const spaFallbackScript = WEB_EDGE_SCRIPT;
 
 const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
@@ -206,7 +164,23 @@ const ingestVault = await optionalR2Bucket("ingest-vault", {
   feature: "the import file vault",
   probe: r2Probe,
   forget: forgetR2State("ingest-vault"),
-  create: () => R2Bucket("ingest-vault", { adopt: true, delete: false }),
+  create: () =>
+    R2Bucket("ingest-vault", {
+      adopt: true,
+      delete: false,
+      // Security M1 / L6 (fix round 2026-11-20): a multipart upload left unfinished is aborted after 1 day, so its
+      // parts stop costing; R2's own default is 7 days. Only an abort rule: no object is ever deleted by age (raw files
+      // are kept forever). `upload-parts.ts` resumes a plan only within 20 hours (PLAN_RESUME_MS) and the daily cron
+      // clears what is left. This PUT replaces the bucket's lifecycle rules, including R2's default abort rule.
+      lifecycle: [
+        {
+          id: "abort-unfinished-uploads-1d",
+          conditions: { prefix: "" },
+          enabled: true,
+          abortMultipartUploadsTransition: { condition: { maxAge: 86_400, type: "Age" } },
+        },
+      ],
+    }),
 });
 
 /**
@@ -230,6 +204,33 @@ if (Boolean(modelAccessClientId) !== Boolean(modelAccessClientSecret)) {
 if (!anthropicApiKey && (anthropicBaseUrl || modelAccessClientId || modelAccessClientSecret)) {
   console.warn("Imports   -> a base URL or Access value is set but ANTHROPIC_API_KEY is not; the helper stays off.");
 }
+
+/**
+ * Google sign-in (plan 2026-11-18). Optional: without it the sign-in screens hide Google. Both or
+ * neither: a half-set pair binds nothing and says so, so the Worker never sees a lone id or secret.
+ * The client id is not a secret; the client secret is an encrypted binding. Values are never printed.
+ */
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+const googleConfigured = Boolean(googleClientId && googleClientSecret);
+console.log(`Google    -> ${googleConfigured ? "configured" : "not configured"}`);
+if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
+  console.warn("Google    -> GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together; Google sign-in stays off until both are.");
+}
+
+/**
+ * Native passkeys (plan 2026-11-18, Task 6). Optional owner values, not secrets:
+ * - `ORRN_APPLE_TEAM_ID`: the web build writes `/.well-known/apple-app-site-association` with it, and the
+ *   Worker gets it so `auth.methods.native.ios` tells the iPhone app to show its passkey button.
+ * - `ORRN_ANDROID_CERT_SHA256`: the release certificate's SHA-256; the web build writes
+ *   `/.well-known/assetlinks.json` with it. `ANDROID_APK_KEY_HASH` (the Android passkey origin's hash,
+ *   `passkey-config.ts`) is derived from it; a given hash must agree, and none is bound without it
+ *   (infra/nativePasskeys.ts).
+ * The web build reads both from this process's environment (Alchemy's build inherits it).
+ */
+const { appleTeamId, androidApkKeyHash, warnings: passkeyWarnings } = nativePasskeyBindings(process.env);
+for (const warning of passkeyWarnings) console.warn(`Passkeys  -> ${warning}`);
+console.log(`Passkeys  -> iOS app ${appleTeamId ? "associated" : "not configured"}, Android app ${androidApkKeyHash ? "associated" : "not configured"}`);
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -273,6 +274,8 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // Invocation records would keep every signed ticket in the query string (item 20); console lines stay.
+  observability: SERVER_OBSERVABILITY,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
@@ -300,6 +303,11 @@ export const server = await Worker("server", {
     ...(anthropicBaseUrl ? { ANTHROPIC_BASE_URL: anthropicBaseUrl } : {}),
     ...(modelAccessClientId ? { MODEL_ACCESS_CLIENT_ID: modelAccessClientId } : {}),
     ...(modelAccessClientSecret ? { MODEL_ACCESS_CLIENT_SECRET: alchemy.secret(modelAccessClientSecret) } : {}),
+    // Google sign-in: both or neither (see above). The secret is an encrypted binding.
+    ...(googleConfigured ? { GOOGLE_CLIENT_ID: googleClientId, GOOGLE_CLIENT_SECRET: alchemy.secret(googleClientSecret) } : {}),
+    // Native passkeys (see above): absent value = no binding, and that app hides its passkey button.
+    ...(appleTeamId ? { ORRN_APPLE_TEAM_ID: appleTeamId } : {}),
+    ...(androidApkKeyHash ? { ANDROID_APK_KEY_HASH: androidApkKeyHash } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",

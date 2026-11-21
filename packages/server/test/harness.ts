@@ -35,10 +35,14 @@ export const D1_MAX_PARAMS = 100;
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
 
-/** `sessionId` is the Better Auth session row id for the "current session" (optional). */
+/**
+ * `sessionId` is the Better Auth session row id for the "current session" (optional).
+ * `signInMethod` is how that session was made (`session.sign_in_method`, council round 1 A4); left out,
+ * the session is like one made before the column existed (not a strong sign-in).
+ */
 type CallerAs =
-  | { role: CompanyRole; companyId: string; sessionId?: string }
-  | { platformRole: PlatformStaffRole; sessionId?: string }
+  | { role: CompanyRole; companyId: string; sessionId?: string; signInMethod?: string }
+  | { platformRole: PlatformStaffRole; sessionId?: string; signInMethod?: string }
   | null;
 
 export type TestEnv = {
@@ -57,7 +61,7 @@ export type TestEnv = {
    */
   callerForUser(
     userId: string,
-    opts?: { company?: string; impersonate?: string; sessionId?: string },
+    opts?: { company?: string; impersonate?: string; sessionId?: string; signInMethod?: string },
   ): ReturnType<typeof appRouter.createCaller>;
   /** Insert a bare user (no membership); returns its id. */
   seedUser(name?: string): Promise<string>;
@@ -87,12 +91,52 @@ export type TestEnv = {
    * deterministically to simulate a race. `fn`'s own batches don't re-trigger it.
    */
   beforeNextBatch(fn: () => Promise<unknown>): void;
+  /**
+   * Run `fn` once, right before the first statement whose SQL matches `pattern` reaches D1, whether it
+   * runs alone (`run`/`all`/`first`/`raw`) or inside a `batch()`. Lets a test pause a request at its
+   * actual write (council round 2: a removal paused after its checks, while another one runs).
+   */
+  beforeStatement(pattern: RegExp, fn: () => Promise<unknown>): void;
   /** Most parameters bound to one statement since the last reset (or since start). */
   peakParams(): number;
   resetPeakParams(): void;
 };
 
-type BatchHook = { next: (() => Promise<unknown>) | null; peakParams: number };
+type StatementHook = { pattern: RegExp; fn: () => Promise<unknown> };
+type BatchHook = { next: (() => Promise<unknown>) | null; peakParams: number; statement: StatementHook | null };
+
+/** The SQL of every statement handed out, so `batch()` can match the statements it is given. */
+const statementSql = new WeakMap<object, string>();
+
+/** Takes the pending statement hook when `query` matches it. */
+function takeStatementHook(hook: BatchHook, query: string | undefined): (() => Promise<unknown>) | null {
+  const pending = hook.statement;
+  if (!pending || query === undefined || !pending.pattern.test(query)) return null;
+  hook.statement = null;
+  return pending.fn;
+}
+
+const realStatement = new WeakMap<object, D1PreparedStatement>();
+
+const RUN_METHODS = new Set(["run", "all", "first", "raw"]);
+
+/** A statement whose run methods first wait for a matching `beforeStatement` hook. */
+function pausable(stmt: D1PreparedStatement, query: string, hook: BatchHook): D1PreparedStatement {
+  statementSql.set(stmt, query);
+  return new Proxy(stmt, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof prop === "string" && RUN_METHODS.has(prop) && typeof value === "function") {
+        return async (...args: unknown[]) => {
+          const fn = takeStatementHook(hook, query);
+          if (fn) await fn();
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
 
 /**
  * Wraps a D1 binding so `prepare(sql).bind(...args)` throws when more than 100
@@ -108,7 +152,15 @@ function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
           const fn = hook.next;
           hook.next = null;
           if (fn) await fn();
-          return target.batch(statements);
+          for (const stmt of statements) {
+            const paused = takeStatementHook(hook, statementSql.get(stmt));
+            if (paused) {
+              await paused();
+              break;
+            }
+          }
+          // The real statements (a pausable proxy is not one D1's batch accepts).
+          return target.batch(statements.map((stmt) => realStatement.get(stmt) ?? stmt));
         };
       }
       if (prop === "prepare") {
@@ -122,7 +174,15 @@ function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
                     throw new Error("D1_TOO_MANY_PARAMS");
                   }
                   hook.peakParams = Math.max(hook.peakParams, args.length);
-                  return stmtTarget.bind(...args);
+                  const bound = stmtTarget.bind(...args);
+                  if (!hook.statement) {
+                    statementSql.set(bound, query);
+                    return bound;
+                  }
+                  const wrapped = pausable(bound, query, hook);
+                  realStatement.set(wrapped, bound);
+                  statementSql.set(wrapped, query);
+                  return wrapped;
                 };
               }
               const value = Reflect.get(stmtTarget, stmtProp, stmtTarget);
@@ -170,7 +230,7 @@ export async function createTestEnv(): Promise<TestEnv> {
   const rawD1 = await mf.getD1Database("DB");
   await applyMigrations(rawD1);
 
-  const batchHook: BatchHook = { next: null, peakParams: 0 };
+  const batchHook: BatchHook = { next: null, peakParams: 0, statement: null };
   const d1 = withParamLimit(rawD1, batchHook);
   workersEnv.DB = d1;
 
@@ -255,7 +315,7 @@ export async function createTestEnv(): Promise<TestEnv> {
           ...base,
           session: {
             user: { id: u.id, name: u.name, email: u.email },
-            session: { id: as.sessionId ?? "test-session" },
+            session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
           } as unknown as Context["session"],
           membership: null,
           companyId: null,
@@ -279,17 +339,20 @@ export async function createTestEnv(): Promise<TestEnv> {
       if (!row) {
         throw new Error(`No ${as.role} member in company ${as.companyId}; call seedCompany() first`);
       }
+      // The plant's policy, read as resolveTenantContext reads it (council round 1, A4).
+      const [plant] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, as.companyId)).limit(1);
       return {
         ...base,
         session: {
           user: { id: row.userId, name: row.name, email: row.email },
-          session: { id: as.sessionId ?? "test-session" },
+          session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
         } as unknown as Context["session"],
         membership: {
           id: row.membershipId,
           companyId: as.companyId,
           role: as.role,
           companyStatus: "active" as const,
+          requireStrongSignIn: (plant?.settings as Record<string, unknown> | undefined)?.requireStrongSignIn === true,
         },
         companyId: as.companyId,
         role: as.role,
@@ -311,7 +374,7 @@ export async function createTestEnv(): Promise<TestEnv> {
     return id;
   }
 
-  function callerForUser(userId: string, opts: { company?: string; impersonate?: string; sessionId?: string } = {}) {
+  function callerForUser(userId: string, opts: { company?: string; impersonate?: string; sessionId?: string; signInMethod?: string } = {}) {
     return appRouter.createCaller(async (): Promise<Context> => {
       const [u] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
       if (!u) throw new Error(`No user ${userId}`);
@@ -326,7 +389,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         request: new Request("https://api.test"),
         session: {
           user: { id: u.id, name: u.name, email: u.email },
-          session: { id: opts.sessionId ?? "test-session" },
+          session: { id: opts.sessionId ?? "test-session", signInMethod: opts.signInMethod ?? null },
         } as unknown as Context["session"],
         ...tenant,
       };
@@ -406,6 +469,9 @@ export async function createTestEnv(): Promise<TestEnv> {
     plantStock,
     beforeNextBatch(fn) {
       batchHook.next = fn;
+    },
+    beforeStatement(pattern, fn) {
+      batchHook.statement = { pattern, fn };
     },
     peakParams() {
       return batchHook.peakParams;

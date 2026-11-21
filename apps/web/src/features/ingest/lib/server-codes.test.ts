@@ -9,6 +9,7 @@ import { answerFromValue } from "./answers";
 import { decisionOptions, questionView } from "./model";
 import { ingestErrorWords } from "./errors";
 import { KNOWN_REFUSAL_CODES, orderFacts, poLabel, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
+import { VISION_NOT_READ_REASONS, VISION_PAGE_STATES } from "./vision-types";
 
 /**
  * The server's code lists and the words the web has for them. When the server adds a question, a row reason or a
@@ -64,7 +65,10 @@ const NOT_ROW_REASONS = new Set([
   "sample_too_large", "summary_only", "too_many_columns", "unsupported_page", "unsupported_target", "vault_required",
 ]);
 
-const SERVER_CODES_WITH_WORDS = new Set<string>([...KNOWN_REFUSAL_CODES, ...SILENT_REASONS]);
+/** The vision read's page states and not-read reasons: worded by `ingest.vision.state.*` and `ingest.vision.reason.*` (test below). */
+const VISION_PAGE_CODES = new Set<string>([...VISION_PAGE_STATES, ...VISION_NOT_READ_REASONS]);
+
+const SERVER_CODES_WITH_WORDS = new Set<string>([...KNOWN_REFUSAL_CODES, ...SILENT_REASONS, ...VISION_PAGE_CODES]);
 
 const get = (tree: unknown, key: string): unknown =>
   key.split(".").reduce<unknown>((node, part) => (node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined), tree);
@@ -77,6 +81,15 @@ describe("server codes have words", () => {
       unworded.push(`${code} (${file})`);
     }
     expect(unworded).toEqual([]);
+  });
+
+  test("every page state and not-read reason of the vision read has words in English and Hindi", () => {
+    for (const state of VISION_PAGE_STATES) {
+      expect({ state, en: typeof get(en, `ingest.vision.state.${state}`), hi: typeof get(hi, `ingest.vision.state.${state}`) }).toEqual({ state, en: "string", hi: "string" });
+    }
+    for (const reason of VISION_NOT_READ_REASONS) {
+      expect({ reason, en: typeof get(en, `ingest.vision.reason.${reason}`), hi: typeof get(hi, `ingest.vision.reason.${reason}`) }).toEqual({ reason, en: "string", hi: "string" });
+    }
   });
 
   test("the scan finds the reasons the screens were built for", () => {

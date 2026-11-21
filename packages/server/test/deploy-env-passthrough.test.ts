@@ -47,4 +47,19 @@ describe("deploy env reaches alchemy through turbo", () => {
     const allowed = passThrough();
     for (const n of ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "MODEL_ACCESS_CLIENT_ID", "MODEL_ACCESS_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
   });
+
+  test("the Google sign-in pair passes through and both workflows set it", () => {
+    const allowed = passThrough();
+    for (const n of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]) expect(allowed.has(n)).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
+      expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]));
+    }
+  });
+
+  test("the native passkey values pass through and both workflows set them (web build and Worker read them)", () => {
+    const names = ["ORRN_APPLE_TEAM_ID", "ORRN_ANDROID_CERT_SHA256", "ANDROID_APK_KEY_HASH"];
+    const allowed = passThrough();
+    for (const n of names) expect(allowed.has(n)).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(names));
+  });
 });

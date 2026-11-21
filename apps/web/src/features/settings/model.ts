@@ -17,7 +17,9 @@ import {
   type StandardPair,
   type Standards,
 } from "@orrn/domain";
+import { mayHandOutRole } from "@orrn/domain";
 import type { CompanyRole } from "@orrn/i18n";
+import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 export type LengthUnitSetting = "mm" | "inch";
@@ -61,9 +63,9 @@ export function timezoneOptions(current: string, supported?: readonly string[]):
   return [...new Set([DEFAULT_TIMEZONE, current, ...list])].sort((a, b) => a.localeCompare(b));
 }
 
-/** Roles one person may hand out when inviting: only an owner can invite an owner. */
+/** Roles one person may hand out when inviting: only an owner can invite an owner (the server's rule). */
 export function invitableRoles(myRole: CompanyRole | string | undefined, all: readonly CompanyRole[]): CompanyRole[] {
-  return all.filter((role) => role !== "owner" || myRole === "owner");
+  return all.filter((role) => mayHandOutRole(myRole, role));
 }
 
 export function isExpired(expiresAt: Date | string | number, now = Date.now()): boolean {
@@ -368,4 +370,14 @@ export function castBookStart(text: string): number | null {
   if (!/^\d{1,5}$/.test(s)) return null;
   const n = Number(s);
   return n >= 1 && n <= 99_999 ? n : null;
+}
+
+/**
+ * Whether a Settings tab shows for this person: a role with one of `requires` (the tab's procedures would
+ * refuse anyone else), and never the person's own account (`ownAccount`, Sign-in) while a Godseye admin
+ * impersonates the plant.
+ */
+export function sectionVisible(section: { requires?: readonly Action[]; ownAccount?: boolean }, me: Me | undefined): boolean {
+  if (section.ownAccount && me?.impersonation) return false;
+  return !section.requires || canAny(me, section.requires);
 }

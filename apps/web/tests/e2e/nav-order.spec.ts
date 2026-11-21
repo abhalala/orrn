@@ -36,6 +36,11 @@ async function secondPlantFor(plant: FreshPlant): Promise<string> {
     const made = (await invite.json()) as { token: string; companyId: string };
     await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email, password } });
     await api.post(`${API_URL}/trpc/invite.acceptByToken`, { data: { token: made.token } });
+    // Onboarding is per plant (plan 2026-11-18, Task 9): finish the new (now active) plant's company step too.
+    const onboarded = await api.post(`${API_URL}/trpc/auth.completeOnboarding`, {
+      data: { facilityLocation: "Testpur", primaryContact: "+91 90000 00000", timezone: "Asia/Kolkata", pressCount: 1 },
+    });
+    expect(onboarded.ok(), `auth.completeOnboarding returned ${onboarded.status()}`).toBe(true);
     return made.companyId;
   } finally {
     await api.dispose();

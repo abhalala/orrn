@@ -79,7 +79,7 @@ has a `step`:
 | `sending` | bar from `item.sent` (rows sent of total) |
 | `done` | link to `/ingest/files/$artifactId` and the file's candidates; if `item.notStored`, `ingest.vault.off` |
 | `seenBefore` | `ingest.drop.seenBefore` with `date = item.seenOn` (ms; `uploadStrip` formats it); "Open it" to the artifact |
-| `refused` | `t(item.problem.key, item.problem.vars)`. These are `ingest.drop.tooBig`, `ingest.drop.tooManyRows`, `ingest.drop.openLimit` |
+| `refused` | `t(item.problem.key, item.problem.vars)`. These are `ingest.drop.tooManyRows`, `ingest.drop.openLimit` |
 | `failed` | `ingest.read.failed`; the Retry button calls `retry(id)` |
 
 Check a file before adding it with `fileSizeProblem(file, limits)` if you want to refuse it in the drop zone;
@@ -344,3 +344,36 @@ that line). `group.held` stays, as the work order says, for segment labels; no m
   server marks `kept_unread`. `unfinishedFiles` lists files a closed page left half way.
 - `usePlantUnits` reads `me.company.units`, the set the plant formatter provider holds. `plantUnitsFor(settings)` is for tests.
 - `server-codes.test.ts` reads the server's ingest sources and fails when a row reason has no words.
+
+## Reading PDFs and photos page by page (import portal release 2)
+
+Contract: `docs/superpowers/plans/2026-11-20-vision-read.md`. Words: `ingest.vision.*` (en, hi, and a partial gu in
+`packages/i18n/src/ingest/gu.ts`).
+
+- `status.visionReady` (`visionReadyOf`) turns it on. Without it a PDF or photo is kept exactly as before, with the old words.
+- `vision-render.ts`: `openVisualSource(file, kind)` gives `{ pageCount, render(page), close }`. pdfjs and its worker load by
+  dynamic `import()` inside `openPdf` only. Sizes and quality come from `VISION_PARAMS` (`pdfCanvasSize`, `photoCanvasSize`);
+  `plannedPages`, `capLine` (no longer on a screen; the file page uses the batch lines below).
+- Batches (contract section 12): `batchStart(api, artifactId)` wraps the api for "Read next pages" (carry on from the first
+  open page, or `vision.nextBatch` and read only the new pages); the pump stops at a day cap and never completes a file with
+  pages past the plan (`canFinishOf`). `visionBatch(pages, batchSize)` is the file page's batch state, `openForModel` the
+  server's open-page rule.
+- `vision-pump.ts`: `runVisionPump(artifactId, source, { api, onProgress })`: `vision.start` with the file's whole page count,
+  render and PUT each ticket (a 403 asks start again), `readPage` per page while `next === "retry"` (at most
+  `PAGE_READS_PER_PASS`), then `artifact.complete` once `vision.pages` is settled. `vision-words.ts` words each step.
+- `vision-read.ts`: `readVisualBytes` (open, pump, close) and the upload's `vision` hook. A file the browser cannot open, or a
+  plant that cannot read now (no storage, no model), stays kept.
+- Upload steps: `pages` (bar and words from the pump), `pagesLeft` (link to the file page). Each page's answer is said once.
+- File page (`vision-file-panel.tsx`): `useVisionPages`, `useVisionFileRead` ("Read this file" fetches the raw bytes by
+  `vision.readUrl`), `useVisionPageActions` (read again, skip, type, finish), `visionPageRow`, `visionFileActions`.
+- Review (`vision-check-panel.tsx`): `usePageImage` (asked again after 8 minutes and on focus), `useVisionRows` (every staged row),
+  `visionRows` (rows with a cell whose digits are not in the PDF's text first, then rows under `lowConfidence`, then the rest;
+  blank and unseen cells marked; confidence only orders, it never says a row is right), `useVisionCheckActions` (tick, fix a cell). `decisionBar` keeps
+  Approve out of the bar until the tick and says `vision.tickFirst` (`blocked.to === "tick"`); `bar.vision.approve` is the
+  Approve the panel draws after its checkbox. `isFromPage(block)` hides the header pick and the put again.
+- Section 11 (EVAL): `vision-bands.ts` is pure. `planTextBands` (text layer picks the line boundary, ink projection picks the
+  blank row) and `planScanBands` (ink lines) cut a page into `bandCountFor` bands with edges covering every pixel row once
+  and no cut through ink; the header strip (first line as wide as the table) goes on bands 2..k of a text PDF.
+  `pageTextJson` gives the page text whole or null. `PageSource.text` and `PageSource.bands` draw them; the pump sends
+  `start.texts` before any page is read. `waitsOnBands` pages offer Type and Skip.
+- Server sentences of the contract's section 8b are matched by text first in `errors.ts` (`VISION_SENTENCES`).

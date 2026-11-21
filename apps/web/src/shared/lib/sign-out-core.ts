@@ -1,6 +1,7 @@
 import { clearDraft } from "../../features/pack/use-pack-draft";
 import { beginSessionChange, cancelSessionChange, warnLeaving } from "../../features/press/outbox-session";
 import { clearImpersonation } from "./impersonation";
+import { clearPlantChosen } from "./plant-chosen";
 
 /**
  * The steps of every sign-out, without the browser's auth client and query cache (they are passed
@@ -44,6 +45,8 @@ export async function signOutAndResetWith(onDone: () => void, online: () => bool
       signedOut = true;
       clearImpersonation();
       clearPackDraft();
+      // The next sign-in in this tab picks a plant again (plant picker, plan 2026-11-18).
+      clearPlantChosen();
       deps.clearCache();
       onDone();
     });

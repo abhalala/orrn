@@ -79,15 +79,51 @@ export async function resetAfterSignOut(queryClient: QueryClient): Promise<void>
 }
 
 /**
+ * The plant requires secure sign-in (council round 1, A4): the server refuses every tenant call made
+ * with a session that was not made with a passkey, Google or the authenticator code, with
+ * `data.meta.reason` `STRONG_SIGN_IN_NEEDED` (the person has one of them: sign out and ask for it) or
+ * `STRONG_METHOD_NEEDED` (they have none: `auth.me` again, and the gate shows "finish on the web").
+ * Decided on the code, never the server's sentence. Mirrors web `shared/lib/strong-sign-in.ts`.
+ */
+export type StrongSignInRefusal = { reason: "STRONG_SIGN_IN_NEEDED" | "STRONG_METHOD_NEEDED"; plant: string | null };
+
+export function strongSignInRefusal(error: unknown): StrongSignInRefusal | null {
+  const data = (error && typeof error === "object" ? (error as { data?: { code?: unknown; meta?: { reason?: unknown; plant?: unknown } | null } | null }) : null)
+    ?.data;
+  if (data?.code !== "FORBIDDEN") return null;
+  const reason = data.meta?.reason;
+  if (reason !== "STRONG_SIGN_IN_NEEDED" && reason !== "STRONG_METHOD_NEEDED") return null;
+  const plant = typeof data.meta?.plant === "string" && data.meta.plant.trim() ? data.meta.plant.trim().slice(0, 120) : null;
+  return { reason, plant };
+}
+
+let onStrongSignIn: ((refusal: StrongSignInRefusal) => void) | null = null;
+/** The root layout signs out and leaves the sign-in screen a notice (`lib/sign-in-notice.ts`). */
+export function registerStrongSignInHandler(handler: ((refusal: StrongSignInRefusal) => void) | null): void {
+  onStrongSignIn = handler;
+}
+
+/**
  * Global query/mutation error hook. A 401 anywhere means the session ended
  * mid-use: re-check `auth.me` so the gate moves to sign-in. `auth.me`'s own
  * 401 is already what the gate reads, so it must not trigger another fetch.
+ * A plant's secure sign-in refusal: see `strongSignInRefusal`.
  */
 export async function handleSessionError(
   queryClient: QueryClient,
   error: unknown,
   queryKey?: QueryKey,
 ): Promise<void> {
+  const strong = strongSignInRefusal(error);
+  if (strong?.reason === "STRONG_SIGN_IN_NEEDED") {
+    onStrongSignIn?.(strong);
+    return;
+  }
+  if (strong?.reason === "STRONG_METHOD_NEEDED") {
+    if (queryKey && isAuthMeQueryKey(queryKey)) return;
+    await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY, exact: true });
+    return;
+  }
   if (!isUnauthorized(error)) return;
   if (queryKey && isAuthMeQueryKey(queryKey)) return;
   await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY, exact: true });

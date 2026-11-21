@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { feedback } from "@/lib/feedback";
 import { Field } from "@/components/ui/field";
 import { ScreenTitle } from "@/components/ui/screen-title";
+import { AltSignIn, useAltSignInButtons } from "@/features/auth/alt-sign-in";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
 import { AnimatedView } from "@/lib/nativewind-interop";
 import { afterPassword, afterTotp, cleanTotp, totpInputError } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
+import { signInNotice, strongNoticeText } from "@/lib/sign-in-notice";
 import { webUrl } from "@/lib/web-url";
 import { FORGOT_PASSWORD_PATH } from "@/lib/web-link";
 
@@ -31,6 +33,9 @@ function haptic(kind: "success" | "error") {
 
 /**
  * Email + password, then the authenticator code for 2FA accounts (audit N5).
+ * Passkey and Google sit level with the form under an "or" (plan 2026-11-18,
+ * R5; `AltSignIn`), each only where it can work, and never ask for the code.
+ * Every way in ends in the same `afterSignIn` (plant picker included).
  * No self sign-up (N15): people join by invite. On success the gate moves to
  * the tabs by itself; this screen never navigates.
  */
@@ -43,7 +48,13 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ email?: MessageKey; password?: MessageKey }>({});
   const [formError, setFormError] = useState<MessageKey | null>(null);
+  /** A passkey or Google attempt's message, shown under those buttons; a password attempt clears it. */
+  const [altError, setAltError] = useState<MessageKey | null>(null);
   const passwordRef = useRef<TextInput>(null);
+  /** A plant that requires secure sign-in just signed this phone out (council round 1, A4). Read once. */
+  const [notice] = useState(() => signInNotice.take());
+  const offered = useAltSignInButtons();
+  const noticeText = notice ? strongNoticeText(notice, offered) : null;
 
   /** Shows a form error. It renders in a live region, which Android reads by itself. */
   function fail(key: MessageKey) {
@@ -59,6 +70,7 @@ export default function SignInScreen() {
     if (!password) errors.password = "errors.required";
     setFieldErrors(errors);
     setFormError(null);
+    setAltError(null);
     const first = errors.email ?? errors.password;
     if (first) {
       // Shown under the field in a live region (components/ui/field.tsx).
@@ -132,6 +144,16 @@ export default function SignInScreen() {
               <ScreenTitle>{title}</ScreenTitle>
               <Text className="font-sans text-base leading-6 text-ink-muted">{subtitle}</Text>
             </View>
+
+            {notice && step === "password" ? (
+              <Text
+                testID="strong-sign-in-notice"
+                accessibilityRole="alert"
+                className="rounded-input bg-tone-blue-tint px-4 py-3 font-sans-medium text-[15px] leading-6 text-tone-blue-ink"
+              >
+                {noticeText?.params ? t(noticeText.key, noticeText.params) : noticeText ? t(noticeText.key) : null}
+              </Text>
+            ) : null}
 
             {step === "password" ? (
               <View className="gap-4">
@@ -217,6 +239,15 @@ export default function SignInScreen() {
                   label={t("auth.login.forgot")}
                   disabled={busy}
                   onPress={() => void Linking.openURL(webUrl(FORGOT_PASSWORD_PATH)).catch(() => {})}
+                />
+                <AltSignIn
+                  finish={afterSignIn}
+                  error={altError}
+                  onError={(key) => {
+                    setAltError(key);
+                    if (key) setFormError(null);
+                  }}
+                  disabled={busy}
                 />
               </View>
             ) : (

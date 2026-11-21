@@ -27,6 +27,12 @@ bun run --cwd apps/web dev:bare
 The web app reads `apps/web/.env.development.local` (gitignored); copy `apps/web/.env.example` if it is
 missing. Native uses `apps/native/.env.example` the same way.
 
+Passkeys (plan 2026-11-18) are pinned to the web dev origin. The relying party is its host (`localhost`) and the only
+origin that may answer a passkey challenge is `WEB_PUBLIC_URL`: `http://localhost:3002` here, or the worktree's own web
+port, which `dev:local` passes as a `--var` override. Open the web app at exactly that origin to add or use a passkey;
+`127.0.0.1` or another port fails the origin check. Google stays hidden locally unless `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are both set for the worker.
+
 ## Worktrees: one port pair each
 
 Up to ten worktrees can run dev servers and Playwright at once. Each gets its own ports from the environment:
@@ -266,8 +272,8 @@ into the gitignored `apps/server/.dev.local-account.local`); the e2e helper `sig
 ## Migrations: numbering map
 
 Migrations are Drizzle SQL files in `packages/db/src/migrations` with a journal (`meta/_journal.json`) and one snapshot each;
-`bun run db:generate` writes them (a clean run must write nothing). The head today is `0048_membership_preferences`: 49 files, `0000` to
-`0048`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
+`bun run db:generate` writes them (a clean run must write nothing). The head today is `0053_ingest_model_checked_by`: 54 files, `0000` to
+`0053`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
 previous snapshot and its journal `when` must stay above the previous one (the db tests check both). Never edit a shipped
 migration. Lanes that carry a migration are renumbered consecutively at merge (decision D30) and their snapshot regenerated
 on top of the new head; the SQL header of a renumbered file says what it was called before.
@@ -299,6 +305,11 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0042 | cast legacy code | `cast.legacy_code`, unique per plant; continue an imported paper cast alongside its series number |
 | 0047 | dispatch late entry | `dispatch.late_entry`, `late_entry_reason`, `late_entry_approval_id` (arch 52). Chained after 0046 (the session revoke, which changes no schema) |
 | 0048 | membership preferences | `membership.preferences`, per-person and per-plant JSON preferences, starting with the side menu order |
+| 0049 | ingest | Infinity Portal: the `ingest_*` tables and `customer_alias` (raw file bytes stay in R2) |
+| 0050 | passkey | `passkey`, the Better Auth passkey plugin's table (public keys only; not in plant backups) |
+| 0051 | membership_onboarded | `membership.onboarded_at` (onboarding per plant), backfilled from `user.onboarding_completed` with the membership's `created_at` |
+| 0052 | session_sign_in_method | `session.sign_in_method`: how each session was made (passkey, google, totp, password, magicLink or other) |
+| 0053 | ingest_model_checked_by | `ingest_block.model_checked_by`, `model_checked_at`: who set the vision tick and when (release 2 fix round) |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.

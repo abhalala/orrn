@@ -55,7 +55,7 @@ function unguardedPart(src: string): string {
 }
 
 describe("route table", () => {
-  const declared = [...ROOT_ROUTES.app, ...ROOT_ROUTES.auth, ...ROOT_ROUTES.noAccess, ...ROOT_ROUTES.public];
+  const declared = [...ROOT_ROUTES.app, ...ROOT_ROUTES.auth, ...ROOT_ROUTES.noAccess, ...ROOT_ROUTES.choosePlant, ...ROOT_ROUTES.public];
 
   test("every root screen on disk is listed in exactly one ROOT_ROUTES group (a new screen must pick one)", () => {
     const onDisk = screensIn(APP);
@@ -72,6 +72,7 @@ describe("route table", () => {
     expect(ROOT_ROUTES.app).toContain("more");
     expect(ROOT_ROUTES.auth).toEqual(["(auth)"]);
     expect(ROOT_ROUTES.noAccess).toEqual(["no-access"]);
+    expect(ROOT_ROUTES.choosePlant).toEqual(["choose-plant"]);
   });
 
   test("each tab has a screen; tabs with detail pages have their own stack", () => {
@@ -104,13 +105,18 @@ describe("gate wiring in app/_layout.tsx (N3)", () => {
     app: `state === "${routeForMe({ user: { mustChangePassword: false }, company: { id: "c" } } as never)}"`,
     auth: `state === "${routeForMe(null)}"`,
     noAccess: `state === "${routeForMe({ user: { mustChangePassword: false }, company: null } as never)}"`,
+    choosePlant: `state === "${routeForMe(
+      { user: { mustChangePassword: false }, company: { id: "c" }, memberships: [{ companyId: "c" }, { companyId: "d" }] } as never,
+      true,
+    )}"`,
   };
 
-  test("the expected guards are the three gate routes", () => {
+  test("the expected guards are the four gate routes", () => {
     expect(expectedGuard).toEqual({
       app: 'state === "/(tabs)/today"',
       auth: 'state === "/(auth)/sign-in"',
       noAccess: 'state === "/no-access"',
+      choosePlant: 'state === "/choose-plant"',
     });
   });
 
@@ -118,7 +124,7 @@ describe("gate wiring in app/_layout.tsx (N3)", () => {
     const blocks = protectedBlocks(ROOT_LAYOUT);
     const byGroup = Object.fromEntries(blocks.flatMap((b) => b.groups.map((g) => [g, b.guard])));
     expect(byGroup).toEqual(expectedGuard);
-    expect(blocks.map((b) => b.groups.length)).toEqual([1, 1, 1]);
+    expect(blocks.map((b) => b.groups.length)).toEqual([1, 1, 1, 1]);
   });
 
   test("only index and ROOT_ROUTES.public render outside a Stack.Protected", () => {

@@ -15,7 +15,9 @@ import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { beginSessionChange, cancelSessionChange, warnLeaving } from "@/features/press/outbox-session";
-import { useMe } from "@/shared/lib/me";
+import { ME_STALE_MS } from "@/shared/lib/guards";
+import { needsWelcome } from "@/shared/lib/home";
+import { useMe, type Me } from "@/shared/lib/me";
 import { expectPlant } from "@/shared/lib/plant-sync";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
@@ -25,7 +27,8 @@ import { canStartSwitch, switcherPlants } from "./plant-switcher-model";
 /**
  * Switching plants, shared by the header control and the command palette: `plants` is null when there is nothing to
  * switch to (one plant, or impersonating). `pick` calls `company.switch` and, on success, leaves the old plant's page,
- * drops its cached queries and reloads `auth.me`.
+ * drops its cached queries and reloads `auth.me`, then goes on to /welcome when the new plant's `me` says its setup
+ * or secure sign-in is still owed (`needsWelcome`).
  */
 export function usePlantSwitch() {
   const { t } = useT();
@@ -46,6 +49,16 @@ export function usePlantSwitch() {
         await navigate({ to: "/today" as never });
         dropTenantQueries(queryClient);
         await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+        // Today's guard ran on the old plant's cached `me`. The new plant may require secure sign-in or
+        // still owe its setup (plan 2026-11-18, Task 9): read its `me` and send the person to /welcome then.
+        // A failed read must not reach `onError` (that would unpause the outbox after a real switch); the
+        // frame already reloads the page when `me` cannot be read after a switch (tenant-fmt.tsx). The
+        // invalidate above has just refetched an active `me`: `staleTime` takes that answer instead of
+        // asking again (an inactive one was only marked stale, so it is fetched here).
+        const fresh = (await queryClient
+          .fetchQuery({ ...trpc.auth.me.queryOptions(), staleTime: ME_STALE_MS })
+          .catch(() => null)) as Me | null;
+        if (fresh && needsWelcome(fresh)) await navigate({ to: "/welcome", replace: true });
       },
       onError: () => {
         cancelSessionChange();

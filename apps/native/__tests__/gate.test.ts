@@ -6,7 +6,7 @@ import { en } from "@orrn/i18n/en";
 import { hi } from "@orrn/i18n/hi";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { noAccessReason, offlineKind, resolveGate, routeForMe } from "../lib/gate";
+import { noAccessReason, offlineKind, phoneSetupPending, resolveGate, routeForMe } from "../lib/gate";
 import { RequestTimeoutError } from "../lib/request-timeout";
 
 function makeMe(overrides: Omit<Partial<Me>, "user"> & { user?: Partial<Me["user"]> } = {}): Me {
@@ -137,5 +137,89 @@ describe("set-password copy (ruling T28-1: the person may own only a phone)", ()
     expect(en.native.setPasswordBody).toMatch(/phone's browser/);
     expect(hi.native.setPasswordBody).toContain("orrn.in");
     expect(hi.native.setPasswordBody).toContain("ब्राउज़र");
+  });
+});
+
+describe("plants on the phone (plan 2026-11-18, Task 9)", () => {
+  const two = {
+    memberships: [
+      { companyId: "c1", name: "Fourcubes", role: "packer" as const, setupPending: false },
+      { companyId: "c2", name: "Ravi Aluminium", role: "owner" as const, setupPending: true },
+    ],
+  };
+  const plant = (company: Partial<NonNullable<Me["company"]>>) => ({
+    company: { id: "c1", name: "Fourcubes", slug: "fourcubes", status: "active", plan: null, role: "packer" as const, ...company },
+  });
+
+  test("a sign-in of a person in several plants opens the picker; a cold start does not", () => {
+    expect(routeForMe(makeMe(two), true)).toBe("/choose-plant");
+    expect(routeForMe(makeMe(two), false)).toBe("/(tabs)/today");
+    expect(routeForMe(makeMe(two))).toBe("/(tabs)/today");
+    expect(resolveGate({ hasSession: true, me: makeMe(two), error: null, isPending: false, plantChoicePending: true })).toBe("/choose-plant");
+  });
+
+  test("the picker shows Setup pending only where an owner or admin owes the setup (floor roles never)", () => {
+    expect(phoneSetupPending({ role: "owner", setupPending: true })).toBe(true);
+    expect(phoneSetupPending({ role: "admin", setupPending: true })).toBe(true);
+    for (const role of ["packer", "operator", "supervisor", "dispatcher", "viewer"]) {
+      expect(phoneSetupPending({ role, setupPending: true })).toBe(false);
+    }
+    expect(phoneSetupPending({ role: "owner", setupPending: false })).toBe(false);
+    expect(phoneSetupPending({ role: "owner" })).toBe(false);
+  });
+
+  test("the native picker screen uses the floor-role rule for its chip", () => {
+    const src = readFileSync(join(import.meta.dir, "../app/choose-plant.tsx"), "utf8");
+    expect(src).toContain("phoneSetupPending(plant)");
+    expect(src).not.toContain("plant.setupPending === true");
+  });
+
+  test("one plant never opens the picker; a temp password comes first", () => {
+    expect(routeForMe(makeMe({ memberships: [two.memberships[0]!] }), true)).toBe("/(tabs)/today");
+    expect(routeForMe(makeMe({ ...two, user: { mustChangePassword: true } }), true)).toBe("/no-access");
+  });
+
+  test("a plant that requires secure sign-in, without a strong method: finish on the web (any role)", () => {
+    for (const role of ["packer", "operator", "owner"] as const) {
+      const me = makeMe(plant({ role, requireStrongSignIn: true, setupPending: false }));
+      expect(routeForMe(me)).toBe("/no-access");
+      expect(noAccessReason(me)).toBe("secure-on-web");
+    }
+    expect(routeForMe(makeMe({ ...plant({ requireStrongSignIn: true }), user: { hasPasskey: true } }))).toBe("/(tabs)/today");
+    expect(routeForMe(makeMe({ ...plant({ requireStrongSignIn: true }), user: { twoFactorEnabled: true } }))).toBe("/(tabs)/today");
+  });
+
+  test("an owner's or admin's open plant setup: finish on the web; a floor role's never blocks (T28-1)", () => {
+    for (const role of ["owner", "admin"] as const) {
+      const me = makeMe(plant({ role, setupPending: true }));
+      expect(routeForMe(me)).toBe("/no-access");
+      expect(noAccessReason(me)).toBe("finish-on-web");
+    }
+    for (const role of ["packer", "operator", "manager", "viewer"] as const) {
+      expect(routeForMe(makeMe(plant({ role, setupPending: true })))).toBe("/(tabs)/today");
+    }
+    // An older auth.me without setupPending: the floor app opens as before.
+    expect(routeForMe(makeMe(plant({ role: "owner" })))).toBe("/(tabs)/today");
+  });
+
+  test("the plant choice store", async () => {
+    const { plantChoice } = await import("../lib/plant-choice");
+    let calls = 0;
+    const off = plantChoice.subscribe(() => calls++);
+    plantChoice.set(true);
+    expect(plantChoice.get()).toBe(true);
+    plantChoice.set(true);
+    plantChoice.set(false);
+    expect(plantChoice.get()).toBe(false);
+    expect(calls).toBe(2);
+    off();
+  });
+
+  test("the finish-on-the-web copy points to orrn.in in the phone's browser and names the plant", () => {
+    for (const key of ["finishOnWebBody", "secureOnWebBody"] as const) {
+      expect(en.native[key]).toContain("orrn.in");
+      expect(en.native[key]).toContain("{company}");
+      expect(hi.native[key]).toContain("orrn.in");
+    }
   });
 });

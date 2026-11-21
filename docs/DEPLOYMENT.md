@@ -52,6 +52,10 @@ Triggered on push to `main` via `.github/workflows/deploy-dev.yml`.
 | `ORRN_MASTER_KEY`      | Base64 32-byte tenant crypto key |
 | `PURELYMAIL_SMTP_PASSWORD` | Purelymail SMTP password for `system@orrn.in` (the only email sender; required in production) |
 | `WEBHOOK_BASE_URL`     | Optional var                     |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional **secrets** (the workflow reads them from secrets only). Google OAuth Web client; dev redirect URI `https://api.dev.orrn.app/api/auth/callback/google`. Set both or neither; unset hides Google |
+| `ORRN_APPLE_TEAM_ID`   | Optional var (or secret). Apple Team ID; unset hides the iPhone app's passkey button |
+| `ORRN_ANDROID_CERT_SHA256` | Optional var (or secret). SHA-256 of the certificate that signs the installed Android app; unset hides the Android passkey button |
+| `ANDROID_APK_KEY_HASH` | Leave unset: derived from `ORRN_ANDROID_CERT_SHA256`; a value that disagrees turns Android passkeys off |
 
 
 Workflow sets `WEB_DOMAIN=dev.orrn.app`, `API_DOMAIN=api.dev.orrn.app`, etc.
@@ -66,7 +70,11 @@ Triggered via **Actions → Deploy Production → Run workflow**.
 | `CLOUDFLARE_ZONE_ID_IN`                                         | Zone ID for `orrn.in`                                    |
 | Same auth/alchemy secrets as dev, **different values** for prod |                                                          |
 | `WEBHOOK_BASE_URL`                                              | Public API base for webhooks, e.g. `https://api.orrn.in` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ORRN_APPLE_TEAM_ID`, `ORRN_ANDROID_CERT_SHA256` | As dev, optional. Google redirect URI `https://api.orrn.in/api/auth/callback/google` |
 
+
+How to make the Google client and find the Apple and Android values, in plain steps: `docs/OWNER_HANDOVER.md` section 11.
+A Team ID or fingerprint that is set but malformed fails the web build.
 
 Prod uses separate Alchemy stage `production` (isolated D1 + Worker names from `dev`).
 
@@ -160,6 +168,10 @@ Waitlist / magic-link invites use `WEB_PUBLIC_URL` (`https://orrn.in` in prod).
 ## Native app
 
 Set `EXPO_PUBLIC_SERVER_URL=https://api.orrn.in` in EAS production env (or `.env.production`).
+
+Passkeys and Google sign-in need a new development build (`react-native-passkey`, `expo-web-browser`). A build for the dev
+site needs `ORRN_PASSKEY_RP_ID=dev.orrn.app` at prebuild (the iOS `webcredentials` entitlement; default `orrn.in`).
+Google is hidden in the Android app for now (shared-phone rule).
 
 ## D1 migration `0005_platform_staff_role`
 

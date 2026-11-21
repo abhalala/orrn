@@ -17,6 +17,8 @@ import { ME_QUERY_KEY, resetAfterSignOut, resetTenantQueries } from "./session";
 export const SIGN_OUT_WAIT_MS = 1_500;
 
 type Presence = { changed(): void };
+/** The "a plant pick is owed" store (lib/plant-choice.ts); optional so older callers and tests need not pass it. */
+type PlantChoice = { set(pending: boolean): void };
 
 export type SignOutDeps = {
   /** Starts the Better Auth sign-out (wipes the cookie locally, then tells the server). */
@@ -24,6 +26,7 @@ export type SignOutDeps = {
   presence: Presence;
   queryClient: QueryClient;
   waitMs?: number;
+  plantChoice?: PlantChoice;
 };
 
 /**
@@ -33,7 +36,9 @@ export type SignOutDeps = {
  * the next one (AGENTS.md, audit N10). The server call gets `waitMs` to finish;
  * it keeps running in the background after that.
  */
-export async function signOutWith({ authSignOut, presence, queryClient, waitMs = SIGN_OUT_WAIT_MS }: SignOutDeps): Promise<void> {
+export async function signOutWith({ authSignOut, presence, queryClient, waitMs = SIGN_OUT_WAIT_MS, plantChoice }: SignOutDeps): Promise<void> {
+  // The next person picks their own plant after their own sign-in.
+  plantChoice?.set(false);
   let request: Promise<unknown>;
   try {
     // Offline or failing: the cookie is already gone locally.
@@ -60,15 +65,18 @@ export type AfterSignInDeps = {
   /** Loads `auth.me` with the new cookie. */
   fetchMe: () => Promise<unknown>;
   presence: Presence;
+  plantChoice?: PlantChoice;
 };
 
 /**
- * After a successful sign-in (password or TOTP): drop anything cached for a
- * previous person, load `auth.me` with the new cookie, and only then tell the
- * gate, so it moves straight to the right screens with no loading flash.
+ * After a successful sign-in (password, TOTP or an invite): drop anything cached
+ * for a previous person, owe a plant pick (a person in several plants picks one
+ * before the app, plan 2026-11-18), load `auth.me` with the new cookie, and only
+ * then tell the gate, so it moves straight to the right screens with no loading flash.
  */
-export async function afterSignInWith({ queryClient, fetchMe, presence }: AfterSignInDeps): Promise<void> {
+export async function afterSignInWith({ queryClient, fetchMe, presence, plantChoice }: AfterSignInDeps): Promise<void> {
   await resetTenantQueries(queryClient);
+  plantChoice?.set(true);
   try {
     await fetchMe();
   } catch {
