@@ -9,33 +9,21 @@ import { buddyCall, buddyGrant, buddyLink } from "@orrn/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
-import { companyProcedure, router } from "../index";
+import { router } from "../index";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
-import { buddyAccess, roleMayUseBuddy } from "../lib/buddy/access";
-import { confirmDraft, listMyDrafts, rejectDraft } from "../lib/buddy/drafts";
+import { buddyAccess } from "../lib/buddy/access";
+import { buddyDraftsRouter } from "./buddyDrafts";
+import { buddyProcedure } from "./buddyProcedure";
 import { hashBuddyToken, newBuddyToken } from "../lib/buddy/token";
-import type { BuddyCallView, BuddyDraftView, BuddyGrantCreated, BuddyStatusView } from "../lib/buddy/views";
+import type { BuddyCallView, BuddyGrantCreated, BuddyStatusView } from "../lib/buddy/views";
 
 /** A grant lives a year; the owner can revoke it at any time in Settings > Buddy. */
 export const BUDDY_GRANT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
-const NOT_ALLOWED = "You don't have permission to do that";
-
-/** Browser session, active membership, a role in `BUDDY_ROLES` with `buddy.use`, no impersonation. */
-const buddyProcedure = companyProcedure.use(({ ctx, next }) => {
-  const via = (ctx as { via?: string }).via;
-  if (via === "buddy" || ctx.impersonation || !roleMayUseBuddy(ctx.role)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: NOT_ALLOWED });
-  }
-  return next({ ctx });
-});
-
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
-
-const draftIdInput = z.strictObject({ draftId: z.string().min(1).max(64) });
 
 export const buddyRouter = router({
   status: buddyProcedure.query(async ({ ctx }): Promise<BuddyStatusView> => {
@@ -168,11 +156,5 @@ export const buddyRouter = router({
     }),
   }),
 
-  drafts: router({
-    /** The person's pending drafts and their last 20 decided ones. */
-    listMine: buddyProcedure.query(({ ctx }): Promise<BuddyDraftView[]> => listMyDrafts(ctx)),
-    /** Runs the draft's procedure under this request's own session; a second confirm replays the result. */
-    confirm: buddyProcedure.input(draftIdInput).mutation(({ ctx, input }): Promise<BuddyDraftView> => confirmDraft(ctx, input.draftId)),
-    reject: buddyProcedure.input(draftIdInput).mutation(({ ctx, input }): Promise<BuddyDraftView> => rejectDraft(ctx, input.draftId)),
-  }),
+  drafts: buddyDraftsRouter,
 });
