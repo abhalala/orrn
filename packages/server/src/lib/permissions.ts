@@ -127,6 +127,9 @@ export const PLANT_ACTIONS = [
   // Infinity Portal (plan 2026-11-10, A8): bring old files in, and merge approved imports into live tables.
   "ingest.upload", // upload files, answer questions, map columns, hold or discard an import
   "ingest.merge", // approve imports and run the merge
+  // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
+  // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
+  "ingest.check",
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -253,6 +256,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Owner decision 2026-11-10: owner and admin may upload and merge; the same person may do both.
   "ingest.upload": ["admin"],
   "ingest.merge": ["admin"],
+  // Item 16: the people who see prices tick a model-read table; the admin approves it.
+  "ingest.check": ["admin", "office", "manager", "accountant"],
   "support.request": [
     "admin",
     "manager",

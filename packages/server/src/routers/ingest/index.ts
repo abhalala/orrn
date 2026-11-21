@@ -2,7 +2,10 @@
  * Infinity Portal router (plan B5). Files come in, each table becomes a candidate, a person approves or
  * holds, and one merge writes every approved candidate through the existing procedures.
  *
- * Guards: U = `ingest.upload`, M = `ingest.merge`, R = either. Every mutation that changes a candidate
+ * Guards: U = `ingest.upload`, M = `ingest.merge`, R = either. K = `ingest.check` (item 16, owner decision "Price-viewers
+ * tick, admin approves"): the tick; V = any of the three, for the review reads a checker needs (`candidate.get`,
+ * `rows.list`, the page image, the waiting list). A caller with only `ingest.check` is held to model-read tables there
+ * (`check-scope.ts`). Every mutation that changes a candidate
  * takes `expectSeq` and fails with CONFLICT when the candidate's `serverSeq` moved. The ingest router is
  * not in `ROUTER_MODULE`: it spans modules, and the merge inherits the gates of the procedures it calls.
  */
@@ -109,11 +112,14 @@ import { dryRunStep } from "../../lib/ingest/dryrun";
 import { uploadAbort, uploadComplete, uploadStart, uploadTickets, type PartTicketOut, type UploadStartOut } from "../../lib/ingest/upload-parts";
 import { visionBandTickets, visionFinishRest, visionNextBatch, visionPages, visionReadPage, visionReadUrl, visionSkipPage, visionStart, visionTypePage } from "../../lib/ingest/vision";
 import { mergeEngine } from "../../lib/ingest/engines";
+import { assertCheckable, assertCheckableRead, visionWaiting, type VisionWaitingItem } from "../../lib/ingest/check-scope";
 import type { IngestCtx } from "../../lib/ingest/types";
 
 const U = actionProcedure("ingest.upload");
 const M = actionProcedure("ingest.merge");
 const R = anyActionProcedure("ingest.upload", "ingest.merge");
+const K = actionProcedure("ingest.check");
+const V = anyActionProcedure("ingest.upload", "ingest.merge", "ingest.check");
 
 /** The guarded procedure context, narrowed to what the ingest libraries take. */
 function ix(ctx: IngestCtx): IngestCtx {
@@ -154,7 +160,10 @@ export const ingestRouter = router({
 
   candidate: router({
     list: R.input(candidateListInput).query(({ ctx, input }): Promise<Page<CandidateSummary>> => listCandidates(ix(ctx), input)),
-    get: R.input(candidateIdInput).query(({ ctx, input }): Promise<CandidateDetail> => candidateDetail(ix(ctx), input.candidateId)),
+    get: V.input(candidateIdInput).query(async ({ ctx, input }): Promise<CandidateDetail> => {
+      await assertCheckable(ix(ctx), input.candidateId);
+      return candidateDetail(ix(ctx), input.candidateId);
+    }),
     setTarget: U.input(setTargetInput).mutation(({ ctx, input }): Promise<CandidateDetail> => setTarget(ix(ctx), input)),
     confirmNear: U.input(confirmNearInput).mutation(({ ctx, input }): Promise<CandidateDetail> => confirmNear(ix(ctx), input)),
     approve: M.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => approveCandidate(ix(ctx), input)),
@@ -186,9 +195,17 @@ export const ingestRouter = router({
     pages: R.input(artifactIdInput).query(({ ctx, input }): Promise<VisionPagesOut> => visionPages(ix(ctx), input)),
     skipPage: U.input(visionPageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionSkipPage(ix(ctx), input)),
     typePage: U.input(visionTypePageInput).mutation(({ ctx, input }): Promise<VisionPageView> => visionTypePage(ix(ctx), input)),
-    readUrl: R.input(visionReadUrlInput).query(({ ctx, input }): Promise<VisionReadUrlOut> => visionReadUrl(ix(ctx), input)),
-    // Fix round decision 5: the tick takes the action Approve takes.
-    check: M.input(visionCheckInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionCheck(ix(ctx), input)),
+    readUrl: V.input(visionReadUrlInput).query(async ({ ctx, input }): Promise<VisionReadUrlOut> => {
+      await assertCheckableRead(ix(ctx), input);
+      return visionReadUrl(ix(ctx), input);
+    }),
+    // Item 16: the tick takes ingest.check (a price column also takes order.price, in visionCheck). Approve keeps M.
+    check: K.input(visionCheckInput).mutation(async ({ ctx, input }): Promise<CandidateDetail> => {
+      await assertCheckable(ix(ctx), input.candidateId);
+      return visionCheck(ix(ctx), input);
+    }),
+    /** Item 16: "Tables waiting for a check", read only. */
+    waiting: V.query(({ ctx }): Promise<VisionWaitingItem[]> => visionWaiting(ix(ctx))),
     fixCell: U.input(visionFixCellInput).mutation(({ ctx, input }): Promise<CandidateDetail> => visionFixCell(ix(ctx), input)),
   }),
 
@@ -197,7 +214,10 @@ export const ingestRouter = router({
   }),
 
   rows: router({
-    list: R.input(rowsListInput).query(({ ctx, input }): Promise<Page<StagedRowView>> => listRows(ix(ctx), input)),
+    list: V.input(rowsListInput).query(async ({ ctx, input }): Promise<Page<StagedRowView>> => {
+      await assertCheckable(ix(ctx), input.candidateId);
+      return listRows(ix(ctx), input);
+    }),
     decide: U.input(rowsDecideInput).mutation(({ ctx, input }): Promise<CandidateCounts> => decideRows(ix(ctx), input)),
     // Rule 11.2: "Skip these {count} lines", every line of the sheet refused for a missing date.
     skipNoDate: U.input(candidateSeqInput).mutation(({ ctx, input }): Promise<{ skipped: number; counts: CandidateCounts }> => skipNoDateLines(ix(ctx), input)),

@@ -1,7 +1,7 @@
 /**
  * Vision read, release 2 fix round: the tick "I checked these rows against the page".
- * - Decision 5 / security L2: who set the tick and when are stored; the tick takes the action Approve takes
- *   (ingest.merge).
+ * - Decision 5 / security L2: who set the tick and when are stored. Item 16: the tick takes ingest.check (and
+ *   order.price on a table with a price column); Approve keeps ingest.merge.
  * - Decision 5 / N1 / L3: every action that changes which rows of a model-read table are written clears the
  *   tick in its own batch: rows.decide (already), rows.answerDoubts, rows.skipNoDateLines, and a fill-above
  *   change that re-runs the file's order sheets.
@@ -99,14 +99,17 @@ describe("who ticked and when (decision 5, security L2)", () => {
     expect(await tickOf(candidates[0]!)).toEqual(cleared);
   });
 
-  test("the tick takes the action Approve takes (ingest.merge), not upload rights alone", async () => {
+  // Item 16 (owner decision "Price-viewers tick, admin approves") moved the tick from ingest.merge to ingest.check;
+  // the role matrix of the tick is in ingest-vision-check-role.test.ts. Approve keeps ingest.merge.
+  test("the tick takes ingest.check, not upload rights alone; Approve keeps ingest.merge", async () => {
     const router = readFileSync(join(import.meta.dir, "../src/routers/ingest/index.ts"), "utf8");
-    expect(router).toMatch(/\bcheck: M\.input\(visionCheckInput\)/);
+    expect(router).toMatch(/\bconst K = actionProcedure\("ingest\.check"\)/);
+    expect(router).toMatch(/\bcheck: K\.input\(visionCheckInput\)/);
     expect(router).toMatch(/\bapprove: M\./);
-    // A role with neither is refused, as before.
+    // A role without ingest.check is refused, as before.
     const { p, candidates } = await modelSheets([PARTIES]);
     const seq = (await detail(p.owner, candidates[0]!)).serverSeq;
-    await expect(p.as("manager").ingest.vision.check({ candidateId: candidates[0]!, expectSeq: seq, checked: true })).rejects.toThrow("You don't have permission to do that");
+    await expect(p.as("supervisor").ingest.vision.check({ candidateId: candidates[0]!, expectSeq: seq, checked: true })).rejects.toThrow("You don't have permission to do that");
   });
 });
 
