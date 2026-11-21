@@ -43,7 +43,8 @@ export function VisionCheckPanel({
   tickRef,
 }: {
   candidate: CandidateDetail;
-  bar: DecisionBar;
+  /** The review's decision bar, for Approve. Left out on the check-only review (item 16): no Approve there. */
+  bar?: DecisionBar;
   approveBusy: boolean;
   approveWorking: boolean;
   onApprove: (id: BarActionId) => void;
@@ -89,7 +90,7 @@ export function VisionCheckPanel({
   const pageVars = { page: vision.page, count: vision.pageCount };
   const url = image.data?.url ?? null;
   const ticked = candidate.block.modelChecked;
-  const approve = bar.vision?.approve ?? null;
+  const approve = bar?.vision?.approve ?? null;
   const lowCount = rows.filter((r) => r.low || r.unseen).length;
 
   return (
@@ -209,8 +210,8 @@ export function VisionCheckPanel({
 
       {!typed ? (
         <div className="flex flex-col gap-3 border-t border-border pt-4">
-          {/* The tick takes the same action as Approve (decision 5). */}
-          <Can do="ingest.merge">
+          {/* Item 16: the tick takes ingest.check (a price column also takes order.price); Approve keeps ingest.merge. */}
+          <Can do="ingest.check">
             <div className="flex min-h-11 items-center gap-3">
               <input
                 ref={tickRef}

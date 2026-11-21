@@ -28,6 +28,7 @@ import {
   visionReadyOf,
 } from "../lib";
 import { CandidateBoard } from "./candidate-board";
+import { VisionWaitingPanel } from "./check-screens";
 import { StatusRegion, useDocTitle, useSay } from "./list-kit";
 import { QueryPanel } from "./shared";
 import { KeptFiles, StagedFiles, UnfinishedFiles, UploadStrip } from "./upload-strip";
@@ -228,6 +229,9 @@ export function IngestUploadScreen() {
           <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} onHeader={upload.answerHeader} storageNoticeShown={status.data?.vaultReady === false} />
         </section>
       ) : null}
+
+      {/* Item 16: the tables read from a page that wait for someone who sees prices to tick them. */}
+      {can(me, "ingest.check") ? <VisionWaitingPanel alwaysShow={false} /> : null}
 
       <QueryPanel query={candidates}>
         {list.length > 0 ? (

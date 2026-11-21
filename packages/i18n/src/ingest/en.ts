@@ -614,6 +614,16 @@ export const ingestEn = {
     // fix round decision 5: who ticked and when
     checkedBy: "Checked by {name} on {date} at {time}.",
     checkedAt: "Checked on {date} at {time}.",
+    // item 16: the people who see prices check a table read from a page; the admin approves it
+    checkOnlyLead: "Check each row against the page, then tick. The admin approves the table.",
+    waiting: {
+      title: "Tables waiting for a check",
+      lead: "Each table was read from a page. Open it, check every row against the page, then tick.",
+      empty: "No table is waiting for a check.",
+      line: "Page {page} of {count}",
+      open: "Check",
+      openLabel: "Check {file}, page {page}",
+    },
     rowsHeading: "Rows read from the page",
     lowFirst: "Marked rows come first. Any row can be wrong, so check every row against the page.",
     lowMark: "Look first",

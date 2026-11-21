@@ -104,6 +104,16 @@ export const guIngest = {
       fullSize: "પૂરી સાઇઝ",
       checkedBy: "{name} એ {date} એ {time} વાગ્યે તપાસ્યું.",
       checkedAt: "{date} એ {time} વાગ્યે તપાસ્યું.",
+      // item 16. Unsure: "તપાસની રાહ જોતા" for "waiting for a check" and "મંજૂર કરશે" for "approves"; needs a native-speaker read.
+      checkOnlyLead: "દરેક લાઇન પેજ સાથે મેળવો, પછી ટિક કરો. ટેબલ એડમિન મંજૂર કરશે.",
+      waiting: {
+        title: "તપાસની રાહ જોતા ટેબલ",
+        lead: "દરેક ટેબલ કોઈ પેજ પરથી વંચાયું છે. તેને ખોલો, દરેક લાઇન પેજ સાથે મેળવો, પછી ટિક કરો.",
+        empty: "કોઈ ટેબલ તપાસની રાહમાં નથી.",
+        line: "પેજ {page} / {count}",
+        open: "તપાસો",
+        openLabel: "{file}, પેજ {page} તપાસો",
+      },
       rowsHeading: "પેજ પરથી વાંચેલી લાઇન",
       lowFirst: "નિશાનીવાળી લાઇન પહેલાં દેખાય છે. કોઈ પણ લાઇન ખોટી હોઈ શકે, એટલે દરેક લાઇન પેજ સાથે મેળવો.",
       lowMark: "પહેલાં જુઓ",

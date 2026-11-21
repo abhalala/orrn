@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8486 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7130,7 +7130,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (672)
+### ingest (679)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7622,6 +7622,13 @@ Please check, Lalubhai:
 | `vision.fullSize` | Full size | पूरा साइज़ |
 | `vision.checkedBy` | Checked by {name} on {date} at {time}. | {name} ने {date} को {time} बजे जाँचा। |
 | `vision.checkedAt` | Checked on {date} at {time}. | {date} को {time} बजे जाँचा गया। |
+| `vision.checkOnlyLead` | Check each row against the page, then tick. The admin approves the table. | हर लाइन पेज से मिलाएं, फिर टिक करें। टेबल को एडमिन मंज़ूर करेगा। |
+| `vision.waiting.title` | Tables waiting for a check | जाँच के लिए रुकी टेबल |
+| `vision.waiting.lead` | Each table was read from a page. Open it, check every row against the page, then tick. | हर टेबल किसी पेज से पढ़ी गई है। उसे खोलें, हर लाइन पेज से मिलाएं, फिर टिक करें। |
+| `vision.waiting.empty` | No table is waiting for a check. | कोई टेबल जाँच के लिए नहीं रुकी है। |
+| `vision.waiting.line` | Page {page} of {count} | पेज {page} / {count} |
+| `vision.waiting.open` | Check | जाँचें |
+| `vision.waiting.openLabel` | Check {file}, page {page} | {file}, पेज {page} जाँचें |
 | `vision.rowsHeading` | Rows read from the page | पेज से पढ़ी गई लाइनें |
 | `vision.lowFirst` | Marked rows come first. Any row can be wrong, so check every row against the page. | निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं। |
 | `vision.lowMark` | Look first | पहले देखें |

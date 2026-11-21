@@ -608,6 +608,16 @@ export const ingestHi = {
     fullSize: "पूरा साइज़",
     checkedBy: "{name} ने {date} को {time} बजे जाँचा।",
     checkedAt: "{date} को {time} बजे जाँचा गया।",
+    // item 16. Unsure: "रुकी" for "waiting" in the list title and empty line; needs a native-speaker read.
+    checkOnlyLead: "हर लाइन पेज से मिलाएं, फिर टिक करें। टेबल को एडमिन मंज़ूर करेगा।",
+    waiting: {
+      title: "जाँच के लिए रुकी टेबल",
+      lead: "हर टेबल किसी पेज से पढ़ी गई है। उसे खोलें, हर लाइन पेज से मिलाएं, फिर टिक करें।",
+      empty: "कोई टेबल जाँच के लिए नहीं रुकी है।",
+      line: "पेज {page} / {count}",
+      open: "जाँचें",
+      openLabel: "{file}, पेज {page} जाँचें",
+    },
     rowsHeading: "पेज से पढ़ी गई लाइनें",
     lowFirst: "निशान वाली लाइनें पहले दिखती हैं। कोई भी लाइन गलत हो सकती है, इसलिए हर लाइन पेज से मिलाएं।",
     lowMark: "पहले देखें",

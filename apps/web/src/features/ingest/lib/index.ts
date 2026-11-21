@@ -55,3 +55,6 @@ export { readVisualBytes, uploadVisionHook, cannotReadNow, type VisualReadOutcom
 export { visionApi, setVisionApiForTests, type VisionApi } from "./vision-api";
 export * from "./vision-model";
 export { useVisionPages, usePageImage, useVisionRows, useVisionFileRead, useVisionPageActions, useVisionCheckActions, visionKeys, PAGE_LINK_FRESH_MS, type FileReadPhase } from "./use-vision";
+
+// Item 16: ingest.check, the price viewers' read-only review and the list of tables waiting for a check.
+export { ingestAccessOf, useVisionWaiting, waitingKey, type IngestAccessKind, type VisionWaitingItem } from "./check-access";
