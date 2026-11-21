@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8480 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8482 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7130,7 +7130,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (666)
+### ingest (668)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7157,6 +7157,7 @@ Please check, Lalubhai:
 | `read.tooLargeToRead` | {name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} सेव हो गई। यह इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.tooLargeNotSaved` | {name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files. | {name} इस ब्राउज़र के पढ़ने के लिए बहुत बड़ी है। ज़्यादा मेमोरी वाले कंप्यूटर पर खोलें, या इसे छोटी फ़ाइलों में बांटें। |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
+| `read.failedPage` | orrn could not open this file on this device. Check that the file opens, then add it again. | orrn इस डिवाइस पर यह फ़ाइल नहीं खोल पाया। देखें कि फ़ाइल खुलती है, फिर इसे दोबारा डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
@@ -7195,6 +7196,7 @@ Please check, Lalubhai:
 | `upload.error.checkRunning` | This file is still being checked. Wait a minute, then try again. | इस फ़ाइल की जांच अभी चल रही है। एक मिनट रुकें, फिर कोशिश करें। |
 | `upload.error.checkFailed` | orrn could not check this file after it arrived. Remove it from the list and add it again. | फ़ाइल पहुंचने के बाद orrn उसकी जांच नहीं कर सका। इसे सूची से हटाएं और फिर डालें। |
 | `upload.error.someoneElse` | Someone else is sending this file now. Try again when they finish. | कोई और अभी यह फ़ाइल भेज रहा है। उनका काम पूरा होने पर फिर कोशिश करें। |
+| `upload.error.stopped` | The upload stopped before every part arrived. Press "Try again" to carry on from the parts already saved. | सारे हिस्से पहुंचने से पहले अपलोड रुक गया। जो हिस्से सेव हो चुके हैं उनके आगे से भेजने के लिए "फिर से कोशिश करें" दबाएं। |
 | `upload.refused.tooBigKind` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
 | `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. Godseye staff can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। Godseye स्टाफ़ इसे बढ़ा सकता है। |
 | `upload.refused.fileTooBigMax` | {name} is too big. The largest file orrn can take is {size}. | {name} बहुत बड़ी है। orrn में सबसे बड़ी फ़ाइल {size} की हो सकती है। |

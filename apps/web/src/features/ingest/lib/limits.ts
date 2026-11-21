@@ -77,6 +77,7 @@ export type FileProblemKey =
   | "ingest.drop.wrongType"
   | "ingest.drop.keptNoStorage"
   | "ingest.read.failed"
+  | "ingest.read.failedPage"
   | "ingest.error.network"
   | "ingest.error.action"
   | "ingest.error.forbidden"
@@ -86,7 +87,8 @@ export type FileProblemKey =
   | "ingest.error.load"
   | "ingest.upload.error.partsMissing"
   | "ingest.upload.error.digest"
-  | "ingest.upload.error.ranOut";
+  | "ingest.upload.error.ranOut"
+  | "ingest.upload.error.stopped";
 
 /** `key` is a dictionary key and `vars` its variables, ready for `t(key, vars)`. */
 export type FileProblem = { key: FileProblemKey; vars?: Record<string, string | number> };
@@ -197,6 +199,11 @@ export function sniffKind(head: Uint8Array, declared: ArtifactKind): ArtifactKin
 /** Kinds this release reads in the browser: sheets, CSV and database dumps. */
 export function isReadableKind(kind: ArtifactKind): boolean {
   return kind === "sheet" || kind === "csv" || kind === "sql";
+}
+
+/** "orrn could not read this file": the sheet words ("save it as Excel or CSV"), or the words for a PDF or a photo (decision 12). */
+export function readFailedKey(kind: ArtifactKind | null): FileProblemKey {
+  return kind !== null && isKeptKind(kind) ? "ingest.read.failedPage" : "ingest.read.failed";
 }
 
 /** PDFs and photos: uploaded and kept in the vault, marked "kept, not read yet" (owner decision, 2026-11-11). No reader runs on them. */

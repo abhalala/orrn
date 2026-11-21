@@ -35,6 +35,8 @@ export const ingestEn = {
     tooLargeToRead: "{name} is saved. It is too large for this browser to read. Try a computer with more memory, or split it into smaller files.",
     tooLargeNotSaved: "{name} is too large for this browser to read. Try a computer with more memory, or split it into smaller files.",
     failed: "orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again.",
+    // fix round decision 12: a PDF or a photo never hears "save it as Excel"
+    failedPage: "orrn could not open this file on this device. Check that the file opens, then add it again.",
     canonicalMissing: "The file was imported. The backup copy of its rows could not be saved, which does not change this import.",
     sending: "Sending {done} of {total} rows",
     stalled: "The rest of this file never arrived. Drop the same file again to continue.",
@@ -86,6 +88,8 @@ export const ingestEn = {
       checkRunning: "This file is still being checked. Wait a minute, then try again.",
       checkFailed: "orrn could not check this file after it arrived. Remove it from the list and add it again.",
       someoneElse: "Someone else is sending this file now. Try again when they finish.",
+      // fix round decision 12: no answer while the parts go
+      stopped: "The upload stopped before every part arrived. Press \"Try again\" to carry on from the parts already saved.",
     },
     // fix round: refusals of artifact.begin (decisions 2 and 3)
     refused: {

@@ -4,7 +4,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 
 import { can, useMe } from "@/shared/lib/me";
 
-import { isVisualKind, KEPT_UNREAD, useAnnouncer, useArtifact, useIngestStatus, visionReadyOf } from "../lib";
+import { isVisualKind, KEPT_UNREAD, readFailedKey, useAnnouncer, useArtifact, useIngestStatus, visionReadyOf } from "../lib";
 import { fileRows, fileSubtitle, fileYear, fillAnswerWords, vaultWords } from "../lib/file-model";
 import { FileYearLine } from "./file-year-line";
 import { ImportRows, StatusRegion, useDocTitle, useListActions, useSay } from "./list-kit";
@@ -61,7 +61,7 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
             </div>
             {data.readState === "reading" && !visual ? <ProgressBar value={null} label={t("ingest.read.working")} /> : null}
             <VisionFilePanel artifact={data} visionReady={visionReadyOf(status.data)} announce={announcer.announce} />
-            {data.readState === "failed" ? <p className="m-0 text-[14px] leading-6 text-tone-red-ink">{t("ingest.read.failed")}</p> : null}
+            {data.readState === "failed" ? <p className="m-0 text-[14px] leading-6 text-tone-red-ink">{t(readFailedKey(data.kind))}</p> : null}
             {year && year.show ? <FileYearLine artifactId={data.id} line={year} confirmed={data.periodConfirmed} announce={announcer.announce} /> : null}
             <ActionError error={error} />
             {rows.length === 0 && data.readState !== "reading" && !pagesShown ? (

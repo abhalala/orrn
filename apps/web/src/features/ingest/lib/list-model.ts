@@ -12,6 +12,7 @@ import {
 } from "./model";
 import type { HeaderAskView } from "./header-step";
 import type { PlantUnits } from "./plant-units";
+import { readFailedKey } from "./limits";
 import type { UploadItem } from "./upload";
 import { visionProgressWords, visionShare } from "./vision-words";
 import type { ArtifactSummary, CandidateSummary } from "./types";
@@ -443,8 +444,11 @@ export function uploadStrip(
         words = item.problem ? { key: item.problem.key, vars: item.problem.vars } : null;
         break;
       case "failed":
-        // The chunked upload's own refusals have words of their own; anything else keeps the read words.
-        words = item.problem?.key.startsWith("ingest.upload.") ? { key: item.problem.key } : { key: "ingest.read.failed" };
+        // The real error's words (decision 12); a file orrn could not read says so, and only a sheet hears "save as Excel".
+        words =
+          item.problem && item.problem.key !== "ingest.read.failed"
+            ? { key: item.problem.key, vars: item.problem.vars }
+            : { key: readFailedKey(item.kind) };
         break;
       case "kept":
         words =

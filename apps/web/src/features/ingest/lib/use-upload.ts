@@ -4,12 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { refreshIngest } from "./actions";
 import { DEFAULT_LIMITS, detectFileKind, takeFiles } from "./limits";
 import { useIngestStatus } from "./queries";
-import { ingestErrorWords } from "./errors";
-import type { FileProblemKey } from "./limits";
 import type { HeaderReply } from "./header-step";
-import { hashFileWithParts, ReadError, readFile } from "./reader-client";
+import { hashFileWithParts, readFile } from "./reader-client";
 import { ingestApi } from "./trpc-api";
 import { uploadOneFile, type UploadItem } from "./upload";
+import { memoHash, uploadFailureProblem } from "./upload-problem";
 import { visionApi } from "./vision-api";
 import { uploadVisionHook } from "./vision-read";
 import { visionReadyOf } from "./vision-types";
@@ -36,12 +35,14 @@ export function useIngestUpload(): {
   const counter = useRef(0);
   const waiting = useRef(new Map<string, { resolve: (reply: HeaderReply) => void; reject: (error: unknown) => void }>());
   const [tick, setTick] = useState(0);
+  // "Try again" on a large file does not hash it all again before the missing parts go (S2).
+  const hash = useRef(memoHash(hashFileWithParts)).current;
 
   /** Where each file is, for remove: a file taken off while it is saving in parts has its upload aborted. */
-  const where = useRef(new Map<string, { artifactId: string | null; step: UploadItem["step"] | null }>());
+  const where = useRef(new Map<string, { artifactId: string | null; step: UploadItem["step"] | null; kind: UploadItem["kind"] }>());
   const patch = useCallback((id: string, p: Partial<UploadItem>) => {
-    const was = where.current.get(id) ?? { artifactId: null, step: null };
-    where.current.set(id, { artifactId: p.artifactId ?? was.artifactId, step: p.step ?? was.step });
+    const was = where.current.get(id) ?? { artifactId: null, step: null, kind: null };
+    where.current.set(id, { artifactId: p.artifactId ?? was.artifactId, step: p.step ?? was.step, kind: p.kind ?? was.kind });
     setItems((all) => all.map((i) => (i.id === id ? { ...i, ...p } : i)));
   }, []);
 
@@ -97,7 +98,7 @@ export function useIngestUpload(): {
     if (!entry) return;
     const ctl = new AbortController();
     running.current = { id: nextId, ctl };
-    void uploadOneFile(entry.file, { api: ingestApi(), limits, reader: { hash: hashFileWithParts, read: readFile } }, {
+    void uploadOneFile(entry.file, { api: ingestApi(), limits, reader: { hash, read: readFile } }, {
       onItem: (p) => patch(nextId, p),
       signal: ctl.signal,
       note: entry.note,
@@ -109,9 +110,9 @@ export function useIngestUpload(): {
     })
       .catch((error: unknown) => {
         if ((error as { name?: string } | null)?.name === "AbortError") return;
-        // A file orrn could not read says so; a network or server failure says that instead.
-        const key = error instanceof ReadError ? "ingest.read.failed" : (ingestErrorWords(error, "action").key as FileProblemKey);
-        patch(nextId, { step: "failed", problem: { key } });
+        // The real error (decision 12): a dropped part says the upload stopped and can go on; a PDF never hears "save as Excel".
+        const at = where.current.get(nextId);
+        patch(nextId, { step: "failed", problem: uploadFailureProblem(error, { kind: at?.kind ?? detectFileKind(entry.file.name, entry.file.type, limits)?.kind ?? null, step: at?.step ?? null }) });
       })
       .finally(() => {
         running.current = null;
@@ -119,7 +120,7 @@ export function useIngestUpload(): {
         // Wake the effect for the next queued file.
         setTick((t) => t + 1);
       });
-  }, [nextId, limits, patch, qc, tick, visionReady]);
+  }, [nextId, limits, patch, qc, tick, visionReady, hash]);
 
   return { items, add, retry, remove, answerHeader, busy };
 }
