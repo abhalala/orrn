@@ -27,7 +27,7 @@ const EDITABLE = new Set(["ready", "held", "needs_confirm", "needs_shape"]);
 
 /**
  * The check of a table read from a page (import portal release 2): the page image beside the rows the model read
- * (stacked under 768 px), marked rows first (digits not in the PDF's text, then rows rated low), blank cells marked, "Fix this cell" per row, then a
+ * (stacked under 1024 px, the rows in the wider column above it; the page opens full size), marked rows first (digits not in the PDF's text, then rows rated low), blank cells marked, "Fix this cell" per row, then a
  * real checkbox "I checked these rows against the page" and Approve after it. Keyboard order: the rows, the tick, Approve.
  * A table typed by hand from a page shows the page and its rows and needs no tick.
  */
@@ -94,7 +94,7 @@ export function VisionCheckPanel({
       <h2 id={headingId} className="m-0 text-[16px] font-semibold">
         {say("ingest.vision.rowsHeading")}
       </h2>
-      <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2">
+      <div data-testid="vision-columns" className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <figure className="m-0 flex min-w-0 flex-col gap-2">
           <figcaption className="text-[14px] font-medium">{say("ingest.vision.pageHeading", pageVars)}</figcaption>
           {url && imageFailed !== url ? (

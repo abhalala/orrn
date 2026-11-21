@@ -55,21 +55,31 @@ export function usePageImage(artifactId: string, page: number | null, band?: num
 /** Most rows one table read from a page holds is 500; 10 pages of 100 leave room. */
 const ROW_PAGES = 10;
 
+/** Thrown when a table has more rows than the check reads: the check fails loudly rather than show part of the table (N10). */
+export class TooManyRowsToCheck extends Error {
+  constructor() {
+    super("The table has more rows than the page check reads");
+  }
+}
+
+/** Every row of a table, page by page; past `maxPages` pages it throws instead of stopping without a word. */
+export async function readAllRows<T>(list: (cursor: string | undefined) => Promise<{ items: T[]; nextCursor?: string | null }>, maxPages: number = ROW_PAGES): Promise<T[]> {
+  const out: T[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page += 1) {
+    const res = await list(cursor);
+    out.push(...res.items);
+    if (!res.nextCursor) return out;
+    cursor = res.nextCursor;
+  }
+  throw new TooManyRowsToCheck();
+}
+
 /** Every staged row of a table read from a page, for the check against the page (rows the model doubted go first). */
 export function useVisionRows(candidateId: string, enabled: boolean): UseQueryResult<StagedRowView[]> {
   return useQuery({
     queryKey: visionKeys.rows(candidateId),
-    queryFn: async () => {
-      const out: StagedRowView[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < ROW_PAGES; page += 1) {
-        const res = await ingestApi().rowsList({ candidateId, cursor });
-        out.push(...res.items);
-        if (!res.nextCursor) break;
-        cursor = res.nextCursor;
-      }
-      return out;
-    },
+    queryFn: () => readAllRows<StagedRowView>((cursor) => ingestApi().rowsList({ candidateId, cursor })),
     enabled,
     meta: INLINE_ERROR_META,
   });

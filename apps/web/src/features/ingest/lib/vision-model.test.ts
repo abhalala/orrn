@@ -167,3 +167,16 @@ describe("a page read in bands (section 11.3)", () => {
     expect(visionPageRow(page({ next: "retry" }), true).actions).toEqual([]);
   });
 });
+
+describe("the page check reads every row or says it could not (N10)", () => {
+  test("rows over several pages are all read; past the last page it throws instead of stopping quietly", async () => {
+    const { readAllRows, TooManyRowsToCheck } = await import("./use-vision");
+    const pages = (n: number) => async (cursor: string | undefined) => {
+      const at = Number(cursor ?? 0);
+      return { items: [at], nextCursor: at + 1 < n ? String(at + 1) : null };
+    };
+    expect(await readAllRows(pages(3), 10)).toEqual([0, 1, 2]);
+    expect(await readAllRows(pages(10), 10)).toHaveLength(10);
+    await expect(readAllRows(pages(11), 10)).rejects.toBeInstanceOf(TooManyRowsToCheck);
+  });
+});

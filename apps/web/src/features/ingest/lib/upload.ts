@@ -10,7 +10,7 @@ import { planReput, rememberFile, type ReputAction, type StoredBlock } from "./r
 import { settleHeaders } from "./settle";
 import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
 import type { VisionProgress } from "./vision-pump";
-import { hashFileParts } from "./sha256";
+import { hashFileParts, RAW_PART_BYTES } from "./sha256";
 import { sendParts } from "./upload-parts";
 
 /**
@@ -235,6 +235,8 @@ export async function uploadOneFile(
     if (begin.parts) {
       // Over one part: each part PUT with its digest, the missing ones only on a resume, then the whole-file check.
       onItem({ step: "saving", saved: { parts: 0, total: begin.parts.partCount } });
+      // The worker's digests are of RAW_PART_BYTES parts: a server that cuts the file otherwise needs them again (N8).
+      if (begin.parts.partSize !== RAW_PART_BYTES) partDigests = null;
       partDigests ??= (await hashFileParts(file, { partSize: begin.parts.partSize, signal })).parts;
       if (!partDigests || partDigests.length !== begin.parts.partCount) throw new Error("part digests do not match the part count");
       await sendParts({ api, file, artifactId, partSize: begin.parts.partSize, parts: partDigests, fetch: send, signal, onProgress: (saved) => onItem({ saved }) });

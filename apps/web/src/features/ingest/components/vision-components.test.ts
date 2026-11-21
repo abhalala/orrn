@@ -292,3 +292,13 @@ describe("the page image full size (decision 10)", () => {
     expect(body(true)).toMatch(/<img[^>]*class="[^"]*w-full/);
   });
 });
+
+describe("the page check layout (N1)", () => {
+  test("stacked until 1024 px, then the rows get the wider column", () => {
+    const html = panel(detail());
+    const columns = html.match(/<div data-testid="vision-columns" class="([^"]*)"/)![1]!;
+    expect(columns).toContain("grid-cols-1");
+    expect(columns).toContain("lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]");
+    expect(columns).not.toContain("md:grid-cols-2");
+  });
+});

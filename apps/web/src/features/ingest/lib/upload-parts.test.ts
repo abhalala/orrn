@@ -118,6 +118,27 @@ describe("uploadOneFile with parts", () => {
     expect(t.item.notStored).toBe(false);
   });
 
+  test("digests of the worker's part size are made again when the server cuts the file otherwise, even at the same count (N8)", async () => {
+    const s = fakeServer();
+    const sent: string[][] = [];
+    const api = {
+      ...s.api,
+      artifactUploadStart: async (i: { parts: string[] }) => (sent.push(i.parts), s.api.artifactUploadStart(i)),
+      artifactBegin: async () => ({ artifactId: "A1", existing: false, uploadedAt: 1, upload: null, parts: { partSize: 4, partCount: 3 } }),
+      artifactComplete: async () => ({ canonicalUploads: [] }),
+      artifactGet: async () => ({ readState: "reading", vaultState: "stored", blocks: [] }),
+    } as unknown as IngestApi;
+    const pdf = new File(["%PDF-1.7\n", "x"], "big.pdf", { type: "application/pdf" });
+    await uploadOneFile(pdf, {
+      api,
+      limits: DEFAULT_LIMITS,
+      fetch: s.fetch,
+      reader: { hash: async () => ({ sha256: "a".repeat(64), parts: digests(3) }), read: async () => { throw new Error("not read"); } },
+    }, { onItem: () => {} });
+    expect(sent[0]).toHaveLength(3);
+    expect(sent[0]).not.toEqual(digests(3));
+  });
+
   test("a sheet too large for this browser to read is kept with plain words, not refused", async () => {
     const reported: unknown[] = [];
     const api = {
