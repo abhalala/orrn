@@ -155,6 +155,22 @@ test("a PDF is read page by page, checked against its page, then approved", asyn
   await expect(image).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
 
+  // The page opens full size (decision 10): a dialog with the page at its own width, the same text alternative; focus
+  // stays inside, Escape closes it and focus goes back to the button.
+  const openFull = check.getByRole("button", { name: "Open the page full size" });
+  await openFull.click();
+  const zoomDialog = page.getByRole("dialog", { name: "Page 1 of 2" });
+  await expect(zoomDialog).toBeVisible();
+  const big = zoomDialog.getByRole("img", { name: `Page 1 of 2 of ${FILE}` });
+  await expect.poll(() => big.evaluate((el) => (el as HTMLImageElement).getBoundingClientRect().width)).toBeGreaterThan(1000);
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Tab");
+    expect(await zoomDialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(zoomDialog).toBeHidden();
+  await expect(openFull).toBeFocused();
+
   // The row whose digits are not in the PDF's text comes first, its cell marked in words; then the row rated low. The
   // blank Leg cell is marked.
   const rows = check.getByTestId("vision-row");
