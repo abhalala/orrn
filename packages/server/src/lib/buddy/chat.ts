@@ -153,11 +153,9 @@ async function pendingNotes(db: Context["db"], companyId: string, userId: string
     .limit(NOTES_PER_TURN);
   const lines = rows.map((r) => {
     const state = r.status === "pending" ? "expired" : r.status;
-    const report = (r.resultJson as { report?: { outcome?: unknown; summary?: unknown } } | null)?.report;
-    const tail =
-      r.kind === "dryRun" && report && typeof report.outcome === "string"
-        ? `; dry run ${oneLine(report.outcome, 20)}${typeof report.summary === "string" && report.summary.trim() ? `: ${oneLine(report.summary, 200)}` : ""}`
-        : "";
+    // Only the outcome: the report's summary is typed in the browser, and browser text never reaches the instructions.
+    const report = (r.resultJson as { report?: { outcome?: unknown } } | null)?.report;
+    const tail = r.kind === "dryRun" && report && typeof report.outcome === "string" ? `; dry run ${oneLine(report.outcome, 20)}` : "";
     return `draft ${r.id} (${oneLine(r.summary, 120)}): ${state}${tail}`;
   });
   return { rows, lines };
