@@ -11,6 +11,7 @@ import {
   classifiedRows,
   decisionBar,
   helperOffer,
+  hiddenPriceColumns,
   nextNeedsYou,
   progressStep,
   questionList,
@@ -139,7 +140,8 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const act = useReviewActions({ candidate, focus, announce, decidedText });
   const discard = useDiscardFlow(candidate, { onDone: () => void navigate({ to: "/ingest" }), count: plant.count });
 
-  const bar = decisionBar(candidate, { can: { merge: canMerge, upload: canUpload }, botReady, editorOpen });
+  const pricesHidden = hiddenPriceColumns(candidate.block.headers, candidate.target, canSeePrices).some(Boolean);
+  const bar = decisionBar(candidate, { can: { merge: canMerge, upload: canUpload }, botReady, editorOpen, pricesHidden });
   const offer = helperOffer(candidate, botReady);
   const year = yearLine(candidate, plant.day);
   const questions = questionList(withYearQuestion(candidate), candidate.target);

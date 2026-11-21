@@ -602,6 +602,11 @@ export const ingestEn = {
     pageAlt: "Page {page} of {count} of {file}",
     partAlt: "Page {page} of {count} of {file}, part {part} of {parts}",
     imageFailed: "The page image did not load.",
+    // fix round decision 10: the page image full size
+    openFull: "Open the page full size",
+    zoomHint: "Pinch or scroll to move around the page.",
+    fitScreen: "Fit to the screen",
+    fullSize: "Full size",
     rowsHeading: "Rows read from the page",
     lowFirst: "Marked rows come first. Any row can be wrong, so check every row against the page.",
     lowMark: "Look first",

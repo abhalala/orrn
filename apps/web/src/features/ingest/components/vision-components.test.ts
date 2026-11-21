@@ -18,6 +18,7 @@ let renderToStaticMarkup: typeof import("react-dom/server").renderToStaticMarkup
 let lib: typeof import("../lib");
 let VisionCheckPanel: typeof import("./vision-check-panel").VisionCheckPanel;
 let DecisionBarCard: typeof import("./decision-bar").DecisionBarCard;
+let zoom: typeof import("./vision-check-panel");
 
 beforeAll(async () => {
   const root = new URL("../../../../", import.meta.url).pathname;
@@ -42,6 +43,7 @@ beforeAll(async () => {
   lib = await server.ssrLoadModule("/src/features/ingest/lib/index.ts");
   VisionCheckPanel = (await server.ssrLoadModule("/src/features/ingest/components/vision-check-panel.tsx")).VisionCheckPanel;
   DecisionBarCard = (await server.ssrLoadModule("/src/features/ingest/components/decision-bar.tsx")).DecisionBarCard;
+  zoom = await server.ssrLoadModule("/src/features/ingest/components/vision-check-panel.tsx");
 }, 30_000);
 
 afterAll(async () => {
@@ -234,5 +236,59 @@ describe("the page check", () => {
 
   test("a sheet read by the parser draws nothing here", () => {
     expect(panel(detail({ readBy: "parser", vision: null }))).toBe("");
+  });
+});
+
+describe("hidden prices (decision 6)", () => {
+  const rated = (modelChecked = false) => detail({ headers: ["Code", "Rate"], modelChecked });
+  const barFor = (c: CandidateDetail, pricesHidden: boolean) =>
+    lib.decisionBar(c, { can: { merge: true, upload: true }, botReady: true, editorOpen: false, pricesHidden });
+
+  test("a person who sees Hidden in a cell cannot tick: the box waits and says someone who can see prices must check", () => {
+    const c = rated();
+    const html = render(createElement(VisionCheckPanel, { candidate: c, bar: barFor(c, true), approveBusy: false, approveWorking: false, onApprove: () => {}, tickRef: () => {} }), c, "admin");
+    expect(html).toContain("Hidden");
+    const tick = html.match(/<input[^>]*data-testid="vision-tick"[^>]*>/)![0];
+    expect(tick).toContain('aria-disabled="true"');
+    expect(html).toContain("Someone who can see prices must check this table.");
+    expect(html.match(/<button[^>]*data-testid="vision-approve"[^>]*>/)![0]).toContain('aria-disabled="true"');
+  });
+
+  test("the bar says the same, and its link still goes to the tick", () => {
+    expect(barFor(rated(), true).blocked).toEqual({ words: { key: "ingest.vision.error.needsPrices" }, to: "tick" });
+    expect(barFor(rated(), false).blocked).toEqual({ words: { key: "ingest.vision.tickFirst" }, to: "tick" });
+    expect(lib.hiddenPriceColumns(["Code", "Rate"], "dies", false)).toEqual([false, true]);
+    expect(lib.hiddenPriceColumns(["Code", "Rate"], "dies", true)).toEqual([false, false]);
+  });
+
+  test("someone who can see prices ticks as before", () => {
+    const html = panel(rated());
+    expect(html).not.toContain("Someone who can see prices must check this table.");
+    expect(html.match(/<input[^>]*data-testid="vision-tick"[^>]*>/)![0]).not.toContain('aria-disabled="true"');
+  });
+});
+
+describe("the page image full size (decision 10)", () => {
+  test("a button opens the page full size; the image keeps its text alternative", () => {
+    const html = panel(detail());
+    const open = html.match(/<button[^>]*data-testid="vision-open-full"[^>]*>.*?<\/button>/)![0];
+    expect(open).toContain('aria-haspopup="dialog"');
+    expect(open).toContain("Open the page full size");
+    expect(html).toContain('alt="Page 2 of 3 of scan.pdf"');
+    // The button comes before the rows, so the keyboard order stays rows, tick, Approve.
+    expect(html.indexOf("vision-open-full")).toBeLessThan(html.indexOf('data-testid="vision-row"'));
+  });
+
+  test("the zoom view draws the image at its own size in a box that pans and pinches, or fitted to the screen", () => {
+    const client = new QueryClient();
+    const body = (fit: boolean) =>
+      renderToStaticMarkup(
+        createElement(QueryClientProvider, { client }, createElement(zoom.ZoomBody, { hint: "Pinch" }, createElement(zoom.ZoomImage, { url: "http://localhost/p.jpg", alt: "Page 2 of 3 of scan.pdf", fit }))),
+      );
+    const full = body(false);
+    expect(full).toContain("pinch-zoom");
+    expect(full).toContain("overflow-auto");
+    expect(full).toMatch(/<img[^>]*alt="Page 2 of 3 of scan.pdf"[^>]*class="[^"]*max-w-none/);
+    expect(body(true)).toMatch(/<img[^>]*class="[^"]*w-full/);
   });
 });

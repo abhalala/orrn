@@ -60,6 +60,11 @@ export type BarContext = {
   botReady: boolean;
   /** The "Map columns myself" editor is open: "Map columns for me" turns secondary. */
   editorOpen: boolean;
+  /**
+   * The person sees "Hidden" in a column of this table (a rate without `order.price`). A table read from a page then
+   * cannot be ticked by them (decision 6): the bar says someone who can see prices must check it.
+   */
+  pricesHidden?: boolean;
 };
 
 export type DecisionBar = {
@@ -179,7 +184,7 @@ export function decisionBar(
   const tickable = fromPage && c.block?.readBy === "model" && blockVisionOf(c.block)?.typed !== true;
   const needsTick = tickable && c.block?.modelChecked !== true;
   let visionApprove: BarButton | null = null;
-  const tickFirst = { words: { key: "ingest.vision.tickFirst" }, to: "tick" as const };
+  const tickFirst = { words: { key: ctx.pricesHidden ? "ingest.vision.error.needsPrices" : "ingest.vision.tickFirst" }, to: "tick" as const };
   const discard: OverflowItem = { id: "discard", words: { key: "ingest.action.discard" } };
 
   switch (c.state) {
