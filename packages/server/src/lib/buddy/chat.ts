@@ -23,8 +23,8 @@
  * Hermes's rendering of a tool result.
  */
 import { isStrongSession } from "@orrn/auth/session-method";
-import { buddyDraft, buddyGrant, company } from "@orrn/db/schema";
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { buddyDraft, company } from "@orrn/db/schema";
+import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Context } from "../../context";
@@ -132,9 +132,9 @@ type NoteRow = {
 /**
  * The server's notes (decision 7, review S4, S5): the final state of this person's drafts in this plant that Hermes
  * has not been told yet (`noted_at` null), wherever they were decided (the bubble or Settings > Buddy). A pending draft
- * past its 24 hours counts as expired. A dry run's report (`result.report`, D's `buddy.drafts.report`) rides on its
- * draft's note. Only the state, the draft's own title and the report outcome go to Hermes: never a result, never a
- * failure text.
+ * past its 24 hours counts as expired. A dry run's outcome (`result_json.dryRun`, stored by the server when the browser
+ * reports) and an answers draft's applied count ride on the draft's note (`noteTail`). Only the state, the draft's own
+ * title and those server values go to Hermes: never a result, never a failure text, never browser text.
  */
 async function pendingNotes(db: Context["db"], companyId: string, userId: string, at: Date): Promise<{ rows: NoteRow[]; lines: string[] }> {
   const since = new Date(at.getTime() - NOTE_WINDOW_MS);
@@ -151,14 +151,37 @@ async function pendingNotes(db: Context["db"], companyId: string, userId: string
     .where(and(eq(buddyDraft.companyId, companyId), eq(buddyDraft.requestedByUserId, userId), isNull(buddyDraft.notedAt), noteDue(at, since)))
     .orderBy(asc(buddyDraft.createdAt))
     .limit(NOTES_PER_TURN);
-  const lines = rows.map((r) => {
-    const state = r.status === "pending" ? "expired" : r.status;
-    // Only the outcome: the report's summary is typed in the browser, and browser text never reaches the instructions.
-    const report = (r.resultJson as { report?: { outcome?: unknown } } | null)?.report;
-    const tail = r.kind === "dryRun" && report && typeof report.outcome === "string" ? `; dry run ${oneLine(report.outcome, 20)}` : "";
-    return `draft ${r.id} (${oneLine(r.summary, 120)}): ${state}${tail}`;
-  });
+  const lines = rows.map((r) => `draft ${r.id} (${oneLine(r.summary, 120)}): ${r.status === "pending" ? "expired" : r.status}${noteTail(r)}`);
   return { rows, lines };
+}
+
+/** The server's dry run outcome (`result_json.dryRun`, computed from the candidate's own state; S2, decision 3). */
+const DRY_RUN_OUTCOMES: ReadonlySet<string> = new Set(["done", "stopped", "failed"]);
+/** A candidate state word as the server stores it; anything else is left out of the instructions. */
+const STATE_WORD = /^[a-z_]{1,30}$/;
+
+function storedDryRun(resultJson: unknown): { outcome: string; state: string | null } | null {
+  const d = (resultJson as { dryRun?: { outcome?: unknown; state?: unknown } } | null)?.dryRun;
+  if (!d || typeof d.outcome !== "string" || !DRY_RUN_OUTCOMES.has(d.outcome)) return null;
+  return { outcome: d.outcome, state: typeof d.state === "string" && STATE_WORD.test(d.state) ? d.state : null };
+}
+
+/**
+ * What follows the state, server numbers and words only (never browser text, a result or a failure text):
+ * - a confirmed dry run: `; dry run done (ready)` once the server stored its outcome, else `; dry run not finished` (N5);
+ * - a failed answers draft that stopped part way: ` (applied 12 of 30)` (N6, `result_json.applied`).
+ */
+function noteTail(r: NoteRow): string {
+  if (r.kind === "dryRun" && r.status === "confirmed") {
+    const d = storedDryRun(r.resultJson);
+    return d ? `; dry run ${d.outcome}${d.state ? ` (${d.state})` : ""}` : "; dry run not finished";
+  }
+  if (r.status === "failed") {
+    const a = (r.resultJson as { applied?: { done?: unknown; total?: unknown } } | null)?.applied;
+    const n = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 100_000;
+    if (a && n(a.done) && n(a.total)) return ` (applied ${a.done} of ${a.total})`;
+  }
+  return "";
 }
 
 /**
@@ -174,12 +197,13 @@ function noteDue(at: Date, since: Date) {
 }
 
 /**
- * Marks the notes Hermes took. Each row is marked only while it still reads as it did when the note was written
- * (same status, same report state), so a report that lands meanwhile is noted next turn.
+ * Marks the notes Hermes took, once the turn completed (S1, decision 2). Each row is marked only while it still reads
+ * as it did when the note was written (same status, same dry run outcome state), so an outcome that lands during the
+ * turn is noted next turn.
  */
 async function markNoted(db: Context["db"], companyId: string, rows: NoteRow[], at: Date): Promise<void> {
   if (rows.length === 0) return;
-  const reported = (r: NoteRow) => Boolean((r.resultJson as { report?: unknown } | null)?.report);
+  const reported = (r: NoteRow) => Boolean((r.resultJson as { dryRun?: unknown } | null)?.dryRun);
   const groups = new Map<string, string[]>();
   for (const r of rows) {
     const key = `${r.status}|${reported(r) ? 1 : 0}`;
@@ -187,7 +211,7 @@ async function markNoted(db: Context["db"], companyId: string, rows: NoteRow[], 
   }
   for (const [key, ids] of groups) {
     const [status, rep] = key.split("|") as [NoteRow["status"], string];
-    const reportState = rep === "1" ? sql`json_extract(${buddyDraft.resultJson}, '$.report') is not null` : sql`json_extract(${buddyDraft.resultJson}, '$.report') is null`;
+    const reportState = rep === "1" ? sql`json_extract(${buddyDraft.resultJson}, '$.dryRun') is not null` : sql`json_extract(${buddyDraft.resultJson}, '$.dryRun') is null`;
     await db
       .update(buddyDraft)
       .set({ notedAt: at })
@@ -262,17 +286,6 @@ export function normaliseFrame(f: ParsedFrame): ChatEvent[] | "completed" | "fai
   return [];
 }
 
-/** The person's newest live grant here (to scope draft events and the chat log row), if any. */
-async function liveGrantId(ctx: Context & { companyId: string }, userId: string): Promise<string | null> {
-  const g = await ctx.db
-    .select({ id: buddyGrant.id })
-    .from(buddyGrant)
-    .where(and(eq(buddyGrant.companyId, ctx.companyId), eq(buddyGrant.userId, userId), isNull(buddyGrant.revokedAt)))
-    .orderBy(desc(buddyGrant.createdAt))
-    .get();
-  return g?.id ?? null;
-}
-
 /** `application/json` (any parameters). Anything else could be a cross-site form, which needs no preflight. */
 function isJsonBody(request: Request): boolean {
   const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
@@ -287,7 +300,8 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
   if (!ctx.companyId || !ctx.membership || !ctx.role) return empty(403);
   const access = await buddyAccess(ctx);
   if (!access.person) return empty(403);
-  if (!access.configured || !access.listed || !access.link) return empty(404);
+  // No live, unexpired grant (revoked or past `expires_at`): the same 404, and Hermes is never called (D-L1).
+  if (!access.configured || !access.listed || !access.link || !access.grantId) return empty(404);
   if (ctx.membership.requireStrongSignIn === true) {
     const method = (ctx.session.session as { signInMethod?: unknown } | undefined)?.signInMethod;
     if (!isStrongSession(method)) return empty(403);
@@ -301,7 +315,7 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
 
   const companyId = ctx.companyId;
   const userId = ctx.session.user.id;
-  const grantId = await liveGrantId({ ...ctx, companyId }, userId);
+  const grantId = access.grantId;
   const started = now();
   const conversationId = body.conversationId ?? newConversationId();
 
@@ -373,13 +387,6 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
 
   const db = ctx.db;
   const upstreamBody = upstream.body;
-  // Hermes took the turn, so it has the notes: mark them, so the next turn does not repeat them. A failure here only
-  // means the notes come again.
-  try {
-    await markNoted(db, companyId, notes.rows, now());
-  } catch {
-    // the notes come again next turn
-  }
   const seenDrafts = new Set<string>();
   const newDrafts = async (): Promise<ChatEvent[]> => {
     if (!grantId) return [];
@@ -415,6 +422,13 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
         for await (const f of sseFrames(upstreamBody)) {
           const r = normaliseFrame(f);
           if (r === "completed") {
+            // Hermes finished the turn, so it has the notes: mark them only now (S1, decision 2). A failed, cut-off or
+            // dropped turn leaves them for the next turn. A failure here only means the notes come again.
+            try {
+              await markNoted(db, companyId, notes.rows, now());
+            } catch {
+              // the notes come again next turn
+            }
             for (const d of await newDrafts()) send(d);
             send({ type: "done", conversationId });
             outcome = "ok";

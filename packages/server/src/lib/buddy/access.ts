@@ -6,14 +6,17 @@
  * - The plant: its slug is in `BUDDY_COMPANIES`.
  * - The stage: the four `HERMES_*` names are set.
  * - The link: the person has an active `buddy_link` in this plant (made by "Connect Hermes").
+ * - The grant: the person holds a grant here that is neither revoked nor past `expires_at` (D-L1): without one the
+ *   chat answers 404 and the launcher hides, the same way for a revoked and a run-out key.
  */
 import { isAllowedWebOrigin } from "@orrn/auth/origins";
 import { env } from "@orrn/env/server";
-import { buddyLink, company } from "@orrn/db/schema";
+import { buddyGrant, buddyLink, company } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 
 import type { Context } from "../../context";
+import { now } from "../clock";
 import { isDevLocalOrigin } from "../devOrigins";
 import { BUDDY_ROLES, can } from "../permissions";
 import { companyListed, hermesReady, type BuddyEnv } from "./config";
@@ -41,6 +44,8 @@ export type BuddyAccess = {
   configured: boolean;
   /** The person's active link in this plant, if any. */
   link: { id: string; hermesProfile: string } | null;
+  /** The person's newest grant here that is not revoked and not past `expires_at`, if any (D-L1). */
+  grantId: string | null;
 };
 
 /**
@@ -60,7 +65,7 @@ export function requestOriginAllowed(request: Request | null | undefined): boole
  * A person whose role may not use the buddy reads nothing at all (review N4).
  */
 export async function buddyAccess(ctx: BuddyAccessCtx, known: { plant?: { slug: string; status: string } } = {}): Promise<BuddyAccess> {
-  const none: BuddyAccess = { person: false, listed: false, configured: false, link: null };
+  const none: BuddyAccess = { person: false, listed: false, configured: false, link: null, grantId: null };
   const userId = ctx.session?.user.id;
   if (!userId || !ctx.companyId || ctx.impersonation || ctx.via === "buddy") return none;
   const person = roleMayUseBuddy(ctx.role);
@@ -70,17 +75,24 @@ export async function buddyAccess(ctx: BuddyAccessCtx, known: { plant?: { slug: 
     known.plant ??
     (await ctx.db.select({ slug: company.slug, status: company.status }).from(company).where(eq(company.id, ctx.companyId)).get());
   const listed = plant?.status === "active" && companyListed(buddyEnv(), plant.slug);
-  if (!listed) return { person, listed, configured, link: null };
+  if (!listed) return { person, listed, configured, link: null, grantId: null };
   const link = await ctx.db
     .select({ id: buddyLink.id, hermesProfile: buddyLink.hermesProfile })
     .from(buddyLink)
     .where(and(eq(buddyLink.companyId, ctx.companyId), eq(buddyLink.userId, userId), eq(buddyLink.status, "active")))
     .orderBy(desc(buddyLink.createdAt))
     .get();
-  return { person, listed, configured, link: link ?? null };
+  if (!link) return { person, listed, configured, link: null, grantId: null };
+  const grant = await ctx.db
+    .select({ id: buddyGrant.id })
+    .from(buddyGrant)
+    .where(and(eq(buddyGrant.companyId, ctx.companyId), eq(buddyGrant.userId, userId), isNull(buddyGrant.revokedAt), or(isNull(buddyGrant.expiresAt), gt(buddyGrant.expiresAt, now()))))
+    .orderBy(desc(buddyGrant.createdAt))
+    .get();
+  return { person, listed, configured, link, grantId: grant?.id ?? null };
 }
 
-/** `auth.me.buddy` (§13): on this stage, the role may, the plant is listed, and the person is connected. */
+/** `auth.me.buddy` (§13): on this stage, the role may, the plant is listed, and the person is connected with a live grant. */
 export function buddyOn(access: BuddyAccess): boolean {
-  return access.person && access.listed && access.configured && access.link !== null;
+  return access.person && access.listed && access.configured && access.link !== null && access.grantId !== null;
 }

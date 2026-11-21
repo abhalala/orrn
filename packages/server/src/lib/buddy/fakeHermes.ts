@@ -15,6 +15,7 @@
  *
  * Messages that steer it:
  *   "/fail ..."     -> response.failed
+ *   "/drop ..."     -> a few text frames, then the stream ends with no response.completed (a dropped turn)
  *   "/slow ..."     -> 2 s between text frames
  *   "/offline ..."  -> HTTP 200 with an HTML page (what a bad Access token returns)
  *   "/call <path> <json>" or "/draft <path> <json>" -> a real orrn MCP `orrn_call` when an orrn token is set
@@ -82,6 +83,13 @@ export async function* fakeHermesFrames(message: string, opts: FakeHermesOptions
 
   if (message.startsWith("/fail")) {
     yield f("response.failed", { type: "response.failed", response: { ...env("failed"), error: "fake failure" } });
+    return;
+  }
+
+  if (message.startsWith("/drop")) {
+    const msgId = `${id}_msg`;
+    yield f("response.output_item.added", { type: "response.output_item.added", output_index: 1, item: { id: msgId, type: "message", status: "in_progress", role: "assistant", content: [] } });
+    yield f("response.output_text.delta", { type: "response.output_text.delta", item_id: msgId, output_index: 1, content_index: 0, delta: "Part of ", logprobs: [] });
     return;
   }
 
