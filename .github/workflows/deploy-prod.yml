@@ -32,13 +32,11 @@ jobs:
       # Google sign-in. Optional: without both the sign-in screens hide Google. Set the pair together.
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-      # orrn buddy (Hermes). Optional: without all four HERMES_* the bubble is hidden and /buddy/chat answers 404.
-      HERMES_BASE_URL: ${{ secrets.HERMES_BASE_URL }}
-      HERMES_ACCESS_CLIENT_ID: ${{ secrets.HERMES_ACCESS_CLIENT_ID }}
-      HERMES_ACCESS_CLIENT_SECRET: ${{ secrets.HERMES_ACCESS_CLIENT_SECRET }}
-      HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
+      # orrn buddy (Hermes): the four HERMES_* secrets are on the deploy step only (security L6), not here.
       # Company slugs that may connect the buddy (v1: fourcubesllp). Not a secret.
       BUDDY_COMPANIES: ${{ vars.BUDDY_COMPANIES }}
+      # The buddy's own Hermes profile. Optional, not a secret: unset = orrn-buddy.
+      BUDDY_HERMES_PROFILE: ${{ vars.BUDDY_HERMES_PROFILE }}
       # Native passkeys. Optional, not secrets (a repo variable or a secret works): without them the apps hide their passkey button.
       # The Apple Team ID and the Android release certificate SHA-256 (the Android passkey origin is derived from it; a given hash must agree).
       ORRN_APPLE_TEAM_ID: ${{ vars.ORRN_APPLE_TEAM_ID || secrets.ORRN_APPLE_TEAM_ID }}
@@ -94,6 +92,13 @@ jobs:
 
       - name: Deploy production
         run: bun run deploy:prod
+        # orrn buddy (Hermes). Optional: without all four the bubble is hidden and /buddy/chat answers 404. Only this
+        # step sees them, so no install script or other step can read them (security L6).
+        env:
+          HERMES_BASE_URL: ${{ secrets.HERMES_BASE_URL }}
+          HERMES_ACCESS_CLIENT_ID: ${{ secrets.HERMES_ACCESS_CLIENT_ID }}
+          HERMES_ACCESS_CLIENT_SECRET: ${{ secrets.HERMES_ACCESS_CLIENT_SECRET }}
+          HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
 
       - name: Verify production database preservation
         run: bun packages/server/scripts/production-safety.ts verify

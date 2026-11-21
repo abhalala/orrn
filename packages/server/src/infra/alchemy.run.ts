@@ -229,6 +229,8 @@ const hermesAccessClientId = process.env.HERMES_ACCESS_CLIENT_ID?.trim() ?? "";
 const hermesAccessClientSecret = process.env.HERMES_ACCESS_CLIENT_SECRET?.trim() ?? "";
 const hermesApiKey = process.env.HERMES_API_KEY?.trim() ?? "";
 const buddyCompanies = process.env.BUDDY_COMPANIES?.trim() ?? "";
+// The buddy's own Hermes profile (owner decision 2026-11-20). Not a secret; unset = the Worker uses `orrn-buddy`.
+const buddyHermesProfile = process.env.BUDDY_HERMES_PROFILE?.trim() ?? "";
 const hermesMissing = Object.entries({
   HERMES_BASE_URL: hermesBaseUrl,
   HERMES_ACCESS_CLIENT_ID: hermesAccessClientId,
@@ -335,6 +337,7 @@ export const server = await Worker("server", {
     ...(hermesAccessClientSecret ? { HERMES_ACCESS_CLIENT_SECRET: alchemy.secret(hermesAccessClientSecret) } : {}),
     ...(hermesApiKey ? { HERMES_API_KEY: alchemy.secret(hermesApiKey) } : {}),
     ...(buddyCompanies ? { BUDDY_COMPANIES: buddyCompanies } : {}),
+    ...(buddyHermesProfile ? { BUDDY_HERMES_PROFILE: buddyHermesProfile } : {}),
     // Native passkeys (see above): absent value = no binding, and that app hides its passkey button.
     ...(appleTeamId ? { ORRN_APPLE_TEAM_ID: appleTeamId } : {}),
     ...(androidApkKeyHash ? { ANDROID_APK_KEY_HASH: androidApkKeyHash } : {}),

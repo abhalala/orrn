@@ -33,6 +33,40 @@ function jobEnvNames(workflow: string): string[] {
   return names;
 }
 
+type EnvBlock = { owner: "job" | string; names: string[] };
+
+/**
+ * Every `env:` block of a workflow with what owns it: `job` for the job-level block, else the step's `name:`.
+ * A step block belongs to the nearest `- name:` line above it at a smaller indent.
+ */
+function envBlocks(workflow: string): EnvBlock[] {
+  const lines = readFileSync(resolve(root, ".github/workflows", workflow), "utf8").split("\n");
+  const blocks: EnvBlock[] = [];
+  let step: { name: string; indent: number } | null = null;
+  let inSteps = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (/^\s*steps:\s*$/.test(line)) inSteps = true;
+    const stepHead = /^(\s*)- name:\s*(.+)$/.exec(line);
+    if (inSteps && stepHead) step = { name: stepHead[2]!.trim(), indent: stepHead[1]!.length };
+    const head = /^(\s*)env:\s*$/.exec(line);
+    if (!head) continue;
+    const indent = head[1]!.length;
+    const names: string[] = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j]!;
+      if (l.trim() === "" || l.trim().startsWith("#")) continue;
+      const m = /^(\s*)([A-Za-z_][A-Za-z0-9_]*):/.exec(l);
+      if (!m || m[1]!.length <= indent) break;
+      names.push(m[2]!);
+    }
+    blocks.push({ owner: inSteps && step && indent > step.indent ? step.name : "job", names });
+  }
+  return blocks;
+}
+
+const HERMES_SECRETS = ["HERMES_BASE_URL", "HERMES_ACCESS_CLIENT_ID", "HERMES_ACCESS_CLIENT_SECRET", "HERMES_API_KEY"];
+
 describe("deploy env reaches alchemy through turbo", () => {
   for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
     test(`${workflow}: every env name is in turbo.json globalPassThroughEnv`, () => {
@@ -55,6 +89,24 @@ describe("deploy env reaches alchemy through turbo", () => {
     for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
       expect(jobEnvNames(workflow)).toEqual(expect.arrayContaining(names));
     }
+  });
+
+  test("the HERMES secrets reach only the deploy step, never the job env or the install step (security L6)", () => {
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) {
+      const blocks = envBlocks(workflow);
+      const withHermes = blocks.filter((b) => b.names.some((n) => HERMES_SECRETS.includes(n)));
+      expect({ workflow, owners: withHermes.map((b) => b.owner) }).toEqual({ workflow, owners: [expect.stringMatching(/^Deploy (dev|prod)/)] });
+      expect(withHermes[0]!.names).toEqual(expect.arrayContaining(HERMES_SECRETS));
+      const yml = readFileSync(resolve(root, ".github/workflows", workflow), "utf8");
+      // The deploy step is the one that runs the deploy script.
+      const deployStep = yml.slice(yml.indexOf(`- name: ${withHermes[0]!.owner}`));
+      expect(deployStep).toMatch(/run: bun run deploy:(dev|prod)/);
+    }
+  });
+
+  test("the buddy's Hermes profile name passes through and both workflows set it", () => {
+    expect(passThrough().has("BUDDY_HERMES_PROFILE")).toBe(true);
+    for (const workflow of ["deploy-dev.yml", "deploy-prod.yml"]) expect(jobEnvNames(workflow)).toContain("BUDDY_HERMES_PROFILE");
   });
 
   test("the Google sign-in pair passes through and both workflows set it", () => {

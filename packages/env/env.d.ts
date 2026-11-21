@@ -87,6 +87,8 @@ export interface CloudflareEnv {
   HERMES_API_KEY?: string;
   /** Comma list of company slugs that may connect the buddy (v1: `fourcubesllp`). Unset = none. */
   BUDDY_COMPANIES?: string;
+  /** The buddy's own Hermes profile (owner decision 2026-11-20). Unset = `orrn-buddy`. */
+  BUDDY_HERMES_PROFILE?: string;
 }
 
 declare global {
