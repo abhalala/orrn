@@ -174,7 +174,7 @@ export const BUDDY_DECISIONS = {
    * Release 2 of the import (`feat/vision-read`, not merged yet). Decided ahead of the merge (§12.3); the
    * test accepts these paths missing from `appRouter` only because they are in this named list.
    */
-  pending: {} satisfies Record<string, BuddyDecision>,
+  pending: {} as Record<string, BuddyDecision>,
 } as const;
 
 export type BuddyRouterKey = keyof typeof BUDDY_DECISIONS.routers;

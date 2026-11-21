@@ -1365,8 +1365,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `clientRequestId` where the target takes one. Ingest targets get the candidate's current `expectSeq` at Confirm.
   A draft of a revoked grant is refused. Drafts live 24 h. The card shows the stored input in full (`fields`, `items`).
 - **Grants.** 30 days, renewable in Settings > Buddy. Mint and renew need a sign-in within 10 minutes plus the secure
-  sign-in check (`FRESH_SIGN_IN_NEEDED`). Revoked on password reset, sign out everywhere, removal from the plant and
-  any role change (`@orrn/auth/buddy-revoke`); nothing revives an old grant. Revoking expires the grant's pending drafts.
+  sign-in check (`FRESH_SIGN_IN_NEEDED`). Revoked on password reset, any password change (self-service or forced), sign out
+  everywhere, Google linked to an unverified account, removal from the plant and any role change (`@orrn/auth/buddy-revoke`); nothing revives an old grant. Revoking expires the grant's pending drafts.
 - **Limits.** Reserved before the call, in one conditional insert, per person and plant (a new grant does not reset
   them): 60 tool calls a minute, 20 drafts an hour (the draft insert itself), 30 chat turns an hour (`tool: "chat"`
   rows in `buddy_call`, no chat text stored). Results over 32 KB (bytes) are cut.

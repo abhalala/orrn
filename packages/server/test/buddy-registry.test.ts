@@ -175,7 +175,7 @@ describe("every router and every ingest procedure has a decision", () => {
 
   test("release 2 has merged: each of its procedures exists, has its own entry in paths, and the registry carries it", async () => {
     const { reg, BUDDY_DECISIONS } = await load();
-    const paths = BUDDY_DECISIONS.paths as Record<string, { kind: string }>;
+    const paths = BUDDY_DECISIONS.paths as Record<string, { kind: "allow" | "deny" }>;
     for (const p of RELEASE_2) {
       expect({ p, exists: reg.has(p), inPaths: Object.prototype.hasOwnProperty.call(paths, p) }).toEqual({ p, exists: true, inPaths: true });
       expect(reg.get(p)?.decision.kind).toBe(paths[p]!.kind);
