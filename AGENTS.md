@@ -1350,23 +1350,38 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   is pinned with its kind and decision in `packages/server/test/buddy-procedures.snapshot.tsv`: a new procedure fails
   `buddy-registry.test.ts` until it has a reviewed line (regenerate with `BUDDY_SNAPSHOT_WRITE=1 bun test
   test/buddy-registry.test.ts` and read the diff). Never callable, not even as drafts: the import tick, Approve, merge,
-  discard, uploads, row decisions, `ingest.rows.answerDoubts`, `approval.decide`, `dieInstance.closeOwnerOverride`.
+  discard, uploads, row decisions, `ingest.rows.answerDoubts`, `approval.decide`, `dieInstance.closeOwnerOverride`,
+  `die.share.create` (its link is derived from the request key, which is the draft id). A mutation in an allowed router
+  is denied until it is named in `BUDDY_DECISIONS.changes`, so the snapshot writer can never stamp it as allowed. The
+  snapshot's 4th column marks each path irreversible or reversible.
 - **MCP (`POST /mcp`).** `lib/buddy/mcp.ts`, JSON-RPC 2.0, tools `orrn_search`, `orrn_describe`, `orrn_call`,
-  `orrn_review_link`, `orrn_import_answers`, `orrn_import_dry_run`. Bearer is a grant token (`orrnb_…`, only its
+  `orrn_review_link`, `orrn_import_questions` (open questions only, paged by bytes with a cursor), `orrn_import_answers`
+  (at most 30 a draft), `orrn_import_dry_run`. Bearer is a grant token (`orrnb_…`, only its
   SHA-256 is stored); `contextFromGrant` builds a ctx with `via: "buddy"` and the grant's sign-in method, so
   `assertStrongSignIn` judges the grant like the session that made it. A request with an `Origin` header is 403.
   Queries run through `createCaller`; a mutation never runs from MCP: it becomes a `buddy_draft` (`needs_confirm`)
-  that records `x-hermes-platform`. A draft the card cannot show in full (over 40 fields, a value over 2,000
+  that records `x-hermes-platform`. Input keys the procedure does not take make no draft; a bare row array is stored
+  as `{ rows }`. Results never hold a secret: `stripSecrets` (`envelope.ts`) hides tokens, share links and signed URLs
+  in stored results and in everything Hermes is told. A draft the card cannot show in full (over 40 fields, a value over 2,000
   characters, over 200 items) is refused. The MCP files may not import ledger, doc number, approval, stock, print or
   router code (grep test in `buddy-mcp.test.ts`).
 - **Drafts run at most once.** The person confirms in orrn (`buddy.drafts.confirm({ draftId, via })`, a browser
   session, never the MCP token). Confirm and Reject are one atomic claim, and audit rows land only when the UPDATE
   matched. A stale claim is never run again: it settles `failed` ("check the screen"). The draft id is always the
-  `clientRequestId` where the target takes one. Ingest targets get the candidate's current `expectSeq` at Confirm.
-  A draft of a revoked grant is refused. Drafts live 24 h. The card shows the stored input in full (`fields`, `items`).
+  `clientRequestId` where the target takes one. Ingest targets get the candidate's current `expectSeq` at Confirm, but
+  only if the candidate has not moved past `buddy_draft.basis_seq` (the seq when drafted plus this person's earlier
+  pending drafts on it); otherwise it settles `failed` (`STALE_DRAFT_FAILURE`). The dry run outcome is read from the
+  candidate's own state when the browser reports (`result_json.dryRun`). A draft of a revoked or expired grant is
+  refused. Claims go stale after 2 minutes (15 for `ingest.vision.readPage`, 5 for answers drafts). Drafts live 24 h.
+  The card shows the stored input in full, with ids as names (`lib/buddy/draftNames.ts`); an irreversible draft with
+  an id that has no name, or with bidi controls (U+202A-202E, U+2066-2069), cannot be confirmed (`CONFIRM_BLOCKED`).
 - **Grants.** 30 days, renewable in Settings > Buddy. Mint and renew need a sign-in within 10 minutes plus the secure
   sign-in check (`FRESH_SIGN_IN_NEEDED`). Revoked on password reset, any password change (self-service or forced), sign out
-  everywhere, Google linked to an unverified account, removal from the plant and any role change (`@orrn/auth/buddy-revoke`); nothing revives an old grant. Revoking expires the grant's pending drafts.
+  everywhere, Google linked to an unverified account, removal from the plant, any role change, the plant suspended or delisted from `BUDDY_COMPANIES`, the plant dropping
+  secure sign-in (grants it refused), the person removing a passkey, the authenticator or Google, and the
+  `set-staff-password` ops script (`@orrn/auth/buddy-revoke`); nothing revives an old grant. Chat, MCP and Confirm need
+  a live, unexpired grant. Remaking a session without a sign-in (authenticator on or off) keeps the old `createdAt`
+  (`stampSession`), so the 10-minute check needs a real sign-in. Revoking expires the grant's pending drafts.
 - **Limits.** Reserved before the call, in one conditional insert, per person and plant (a new grant does not reset
   them): 60 tool calls a minute, 20 drafts an hour (the draft insert itself), 30 chat turns an hour (`tool: "chat"`
   rows in `buddy_call`, no chat text stored). Results over 32 KB (bytes) are cut.

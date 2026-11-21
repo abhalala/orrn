@@ -267,3 +267,29 @@ Differences from the contract above, as the code has them:
 - Chat turns are `buddy_call` rows with `tool: "chat"` and no text, for the 30 turns an hour limit.
 - The draft card says the ten import draft titles in the person's language. Other drafts show the server's English
   words.
+
+## 14. Delta round (lead decisions 2026-11-21, after two delta reviews of PR #13)
+
+- **Die share links are denied.** `die.share.create` makes its public link from the request key, and Confirm sets the
+  request key to the draft id, which Hermes and the audit log hold. The buddy sends the person to the die screen.
+  Stored results and everything Hermes is told never carry a token, share link or signed URL. Follow-up on main: make
+  `replayToken` a keyed hash.
+- **Notes are told only after the turn completes.** A failed, cut-off or dropped turn sends the same notes again.
+- **The dry run outcome comes from the table.** The browser's report only triggers the server read: `ready` or `held`
+  is done, `processing` is stopped, anything else failed, with the state word in the note.
+- **Stale drafts fail.** A draft on an import table stores the version it expects (`basis_seq`), counting the
+  person's earlier pending drafts on that table. If the table changed in any other way, Confirm refuses: "The sheet
+  changed after this was drafted. Ask Buddy again."
+- **Ids show as names.** The server resolves a name or code for every id input it can. An irreversible draft
+  (delete, cancel, merge, close and the like, pinned per path) cannot be confirmed while an id has no name or a value
+  holds bidi controls; the card says why. U+200C and U+200D are never touched.
+- **Many questions.** `orrn_import_questions` pages the open questions. A 4,000-row order book with 150 PO questions
+  reaches the review link in 7 drafts; the hourly ceiling is (20 − 2) × 30 = 540 questions.
+- **Desktop panel.** From 1024 px it docks as a full-height right column and the page moves left
+  (`--orrn-buddy-inset`). From 768 to 1023 px it is the modal sheet; phones keep the full-screen sheet.
+- **Grant lifecycle.** Expiry blocks Confirm, chat and MCP like revoke. Grants are also revoked when the plant is
+  suspended or delisted, when the plant drops secure sign-in (grants it refused), when the person removes a passkey,
+  the authenticator or Google, and by the `set-staff-password` script. A session remade without a sign-in keeps its
+  old `createdAt`, so enrolling a factor does not pass the 10-minute check.
+- **vayu step 4** sets `x-hermes-platform: api_server` on the `orrn-buddy` MCP server, and checks the profile's
+  `/tools list` and one live draft with `origin_platform = 'api_server'`.
