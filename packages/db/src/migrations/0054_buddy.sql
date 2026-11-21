@@ -1,7 +1,5 @@
 -- orrn buddy (design 2026-11-18, §13): buddy_link, buddy_grant, buddy_call, buddy_draft. Additive, four new tables.
--- Numbered after main's 0052; renumber at merge if another branch lands a 0053 first (decision D30).
--- Fix round 2026-11-20 (unshipped, changed in place): buddy_link.hermes_profile NOT NULL, buddy_grant renewed_at and
--- revoked_reason, buddy_draft origin_platform, decided_via, noted_at and kind.
+-- Numbered 0054 after main's 0053_ingest_model_checked_by (release 2, decision D30); snapshot regenerated at the rebase.
 
 CREATE TABLE `buddy_call` (
 	`id` text PRIMARY KEY NOT NULL,
