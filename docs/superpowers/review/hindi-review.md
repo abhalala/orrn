@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8910 screen strings in 51 groups, 45 guides with 866 strings.
+Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3727,7 +3727,7 @@ Counts: 8910 screen strings in 51 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (173)
+### refusal (174)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3903,6 +3903,7 @@ Counts: 8910 screen strings in 51 groups, 45 guides with 866 strings.
 | `buddyChangeFailed` | The change did not go through. | बदलाव नहीं हुआ। |
 | `buddyInputNotFit` | This change no longer fits the screen it was made for. Ask Buddy again. | यह बदलाव अब उस स्क्रीन से मेल नहीं खाता जिसके लिए बना था। Buddy से फिर से पूछें। |
 | `buddyStale` | The sheet changed after Buddy prepared this. Ask Buddy again. | Buddy के यह तैयार करने के बाद शीट बदल गई। Buddy से फिर से पूछें। |
+| `buddyConfirmBlocked` | This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make it on its own screen. | यह बदलाव वापस नहीं होता और कार्ड इसे साफ़ नहीं दिखा सकता, इसलिए यह यहां पक्का नहीं हो सकता। इसे नामंज़ूर करें, या इसकी अपनी स्क्रीन पर करें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
 ### native (269)

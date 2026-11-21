@@ -289,6 +289,8 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "buddyInputNotFit", re: /^The input does not fit\.?$/ },
   // Delta round S3: the sheet moved on since the draft was made (`STALE_DRAFT_FAILURE`, drafts.ts).
   { id: "buddyStale", re: /^The sheet changed after this was drafted\. Ask Buddy again\.?$/ },
+  // Delta round S4, D-L3: the server's backstop when Confirm is pressed on a blocked card (`CONFIRM_BLOCKED_TEXT`).
+  { id: "buddyConfirmBlocked", re: /^This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here\. Reject it, or make the change on its screen\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {

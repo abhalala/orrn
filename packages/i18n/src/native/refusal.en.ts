@@ -178,6 +178,7 @@ export const refusalEn = {
     buddyChangeFailed: "The change did not go through.",
     buddyInputNotFit: "This change no longer fits the screen it was made for. Ask Buddy again.",
     buddyStale: "The sheet changed after Buddy prepared this. Ask Buddy again.",
+    buddyConfirmBlocked: "This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make it on its own screen.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;

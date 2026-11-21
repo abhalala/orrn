@@ -348,6 +348,15 @@ describe("the new refusals read in the person's language", () => {
     }
   });
 
+  test("the CONFIRM_BLOCKED backstop sentence is said in the person's language too", () => {
+    const sentence = "This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make the change on its screen.";
+    for (const locale of ["en", "hi", "gu"] as const) {
+      const { t } = createI18n(locale);
+      expect(failureText(t, sentence)).toBe(t("refusal.buddyConfirmBlocked"));
+      expect(failureText(t, sentence)).not.toBe(t("refusal.unknown"));
+    }
+  });
+
   test("the server's CONFIRM_BLOCKED refusal is known by its reason, not its words", () => {
     expect(isConfirmBlocked({ data: { code: "PRECONDITION_FAILED", meta: { reason: "CONFIRM_BLOCKED" } } })).toBe(true);
     expect(isConfirmBlocked({ data: { code: "PRECONDITION_FAILED", meta: { reason: "OTHER" } } })).toBe(false);
