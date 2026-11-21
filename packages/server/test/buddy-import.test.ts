@@ -190,6 +190,14 @@ describe("orrn_import_answers", () => {
     expect(c.questions.find((q) => q.code === "magnitude_check")).toMatchObject({ answer: "kg" });
   });
 
+  test("more than 30 answers in one draft is refused (one Confirm request runs them all)", async () => {
+    const { p, token, candidateId } = await importPlant(2);
+    const answers = Array.from({ length: 31 }, (_, i) => ({ ...MAGNITUDE, subject: `weightG|g|below${i}`, answer: "as_is" }));
+    expect((await tool(env, token, "orrn_import_answers", { candidateId, answers })).status).toBe("invalid");
+    const n = await env.db.select({ n: sql<number>`count(*)` }).from(buddyDraft).where(eq(buddyDraft.companyId, p.companyId)).get();
+    expect(Number(n?.n)).toBe(0);
+  });
+
   test("an unknown question code makes no draft", async () => {
     const { p, token, candidateId } = await importPlant(2);
     const r = await tool(env, token, "orrn_import_answers", { candidateId, answers: [{ questionCode: "no_such_question", subject: "", answer: true }] });

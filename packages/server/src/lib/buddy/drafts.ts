@@ -245,12 +245,16 @@ async function runAnswers(caller: Caller, entry: BuddyProcedure, row: Row): Prom
   const { candidateId, answers } = row.inputJson as { candidateId: string; answers: { questionCode: string; subject: string; answer: unknown }[] };
   let applied = 0;
   let candidate: unknown = null;
+  let seq: number | null = null;
   for (const a of answers) {
     try {
-      const { serverSeq } = await candidateNow(caller, candidateId);
+      // The current expectSeq: read once, then the one each answer.set hands back (the candidate after that write).
+      const serverSeq = seq ?? (await candidateNow(caller, candidateId)).serverSeq;
       const one = { candidateId, questionCode: a.questionCode, subject: a.subject, answer: a.answer, expectSeq: serverSeq };
       if (refusedInput(entry.decision, one) || !validateInput(entry, one).ok) throw new TRPCError({ code: "BAD_REQUEST", message: "The input does not fit." });
       candidate = await callPath(caller, entry.path, one);
+      seq = (candidate as { serverSeq?: unknown } | null)?.serverSeq as number;
+      if (typeof seq !== "number") seq = null;
       applied += 1;
     } catch (error) {
       throw new AnswersStopped(applied, answers.length, error);

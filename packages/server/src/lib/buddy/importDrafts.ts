@@ -21,12 +21,18 @@ export type PreparedDraft = { path: string; kind: "answers" | "dryRun"; input: u
 type Prepared = { ok: true; draft: PreparedDraft } | { ok: false; envelope: Envelope };
 
 const id = z.string().min(1).max(64);
+/**
+ * Answers in one draft. Each costs an `ingest.answer.set` (about 15 D1 queries with the detail it returns) inside the
+ * one Confirm request, so 30 stays well under the Worker's per-request query limit (1,000). A sheet has far fewer
+ * open questions in practice.
+ */
+export const ANSWERS_PER_DRAFT = 30;
 const answersArgs = z.strictObject({
   candidateId: id,
   answers: z
     .array(z.strictObject({ questionCode: z.string().min(1).max(64), subject: z.string().max(200), answer: z.unknown() }))
     .min(1)
-    .max(200),
+    .max(ANSWERS_PER_DRAFT),
 });
 const dryRunArgs = z.strictObject({ candidateId: id });
 

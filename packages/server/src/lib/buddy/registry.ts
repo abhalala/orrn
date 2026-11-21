@@ -36,13 +36,17 @@ type AnyProcedure = {
 
 let cache: Map<string, BuddyProcedure> | null = null;
 
+/** Top-level field names of an object input, and of each object option of a union input (e.g. rows or { rows, clientRequestId }). */
 function fieldNames(inputs: Parser[]): string[] {
-  const names: string[] = [];
-  for (const p of inputs) {
+  const names = new Set<string>();
+  const visit = (p: unknown) => {
     const shape = (p as { shape?: Record<string, unknown> } | null)?.shape;
-    if (shape && typeof shape === "object") names.push(...Object.keys(shape));
-  }
-  return names;
+    if (shape && typeof shape === "object") for (const k of Object.keys(shape)) names.add(k);
+    const options = (p as { options?: unknown } | null)?.options;
+    if (Array.isArray(options)) for (const o of options) visit(o);
+  };
+  for (const p of inputs) visit(p);
+  return [...names];
 }
 
 function guardOf(proc: AnyProcedure): GuardActions | null {

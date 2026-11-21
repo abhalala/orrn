@@ -206,6 +206,19 @@ describe("at most once (review S1, S2, S3, N1, N2, N3; security L1, L3)", () => 
     expect(refused).toEqual([]);
   });
 
+  test("S3: a request key appears only at the top of an input, where Confirm can set it", async () => {
+    const { buddyRegistry, inputJsonSchema } = await import("../src/lib/buddy/registry");
+    const misses: string[] = [];
+    for (const entry of (await buddyRegistry()).values()) {
+      if (entry.decision.kind !== "allow" || entry.kind !== "mutation") continue;
+      const schema = JSON.stringify(inputJsonSchema(entry) ?? null);
+      for (const key of ["clientRequestId", "clientMutationId"]) {
+        if (schema.includes(`"${key}"`) && !entry.fields.includes(key)) misses.push(`${entry.path}.${key}`);
+      }
+    }
+    expect(misses).toEqual([]);
+  });
+
   test("N1: when the draft was settled elsewhere while the change ran, confirm writes no audit row of its own", async () => {
     const p = await buddyPlant(env);
     const { token } = await connect(p);
