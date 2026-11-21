@@ -7198,9 +7198,9 @@ Please check, Lalubhai:
 | `upload.error.someoneElse` | Someone else is sending this file now. Try again when they finish. | कोई और अभी यह फ़ाइल भेज रहा है। उनका काम पूरा होने पर फिर कोशिश करें। |
 | `upload.error.stopped` | The upload stopped before every part arrived. Press "Try again" to carry on from the parts already saved. | सारे हिस्से पहुंचने से पहले अपलोड रुक गया। जो हिस्से सेव हो चुके हैं उनके आगे से भेजने के लिए "फिर से कोशिश करें" दबाएं। |
 | `upload.refused.tooBigKind` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
-| `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. Godseye staff can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। Godseye स्टाफ़ इसे बढ़ा सकता है। |
+| `upload.refused.fileTooBig` | {name} is too big. The largest file for this plant is {size}. orrn support can raise it. | {name} बहुत बड़ी है। इस प्लांट के लिए सबसे बड़ी फ़ाइल {size} की हो सकती है। orrn सपोर्ट इसे बढ़ा सकता है। |
 | `upload.refused.fileTooBigMax` | {name} is too big. The largest file orrn can take is {size}. | {name} बहुत बड़ी है। orrn में सबसे बड़ी फ़ाइल {size} की हो सकती है। |
-| `upload.refused.storageFull` | This plant's file storage is full ({size}). Godseye staff can raise it. | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। Godseye स्टाफ़ इसे बढ़ा सकता है। |
+| `upload.refused.storageFull` | This plant's file storage is full ({size}). orrn support can raise it. | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। orrn सपोर्ट इसे बढ़ा सकता है। |
 | `upload.refused.storageFullMax` | This plant's file storage is full ({size}). | इस प्लांट का फ़ाइल स्टोरेज भर गया है ({size})। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
@@ -7594,8 +7594,8 @@ Please check, Lalubhai:
 | `vision.range` | {from} to {to} | {from} से {to} |
 | `vision.rangeOne` | {page} | {page} |
 | `vision.restLine` | Pages {from} to {to} of {total} are not read yet. | {total} में से पेज {from} से {to} तक अभी नहीं पढ़े गए। |
-| `vision.dayCostLine` | Today's spend on the model is used up. "Read next pages" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit. | आज मॉडल पर खर्च की सीमा पूरी हो गई। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर Godseye स्टाफ़ सीमा बढ़ा दे। |
-| `vision.dayCallsLine` | The model has read as many pages as allowed today. "Read next pages" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर Godseye स्टाफ़ सीमा बढ़ा दे। |
+| `vision.dayCostLine` | Today's spend on the model is used up. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल पर खर्च की सीमा पूरी हो गई। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
+| `vision.dayCallsLine` | The model has read as many pages as allowed today. "Read next pages" carries on from page {page} tomorrow, or sooner if orrn support raises the limit. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर orrn सपोर्ट सीमा बढ़ा दे। |
 | `vision.fullLine` | This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported. | इस फ़ाइल में {max} टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल जांची और इम्पोर्ट की जा सकती हैं। |
 | `vision.skipRest` | Skip the rest and finish | बाकी छोड़ें और पूरा करें |
 | `vision.skipRestNote` | Pages not read yet are skipped. The tables read so far stay. | जो पेज अभी नहीं पढ़े गए वे छोड़ दिए जाएंगे। अब तक पढ़ी गई टेबल बनी रहेंगी। |

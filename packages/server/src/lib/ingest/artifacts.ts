@@ -87,7 +87,7 @@ function sizeWords(mib: number): string {
 export function fileTooBigWords(fileName: string, limitMiB: number): string {
   return limitMiB >= PLANT_LIMITS.uploadFileMiB.ceiling
     ? `${fileName} is too big. The largest file orrn can take is ${sizeWords(limitMiB)}.`
-    : `${fileName} is too big. The largest file for this plant is ${sizeWords(limitMiB)}. Godseye staff can raise it.`;
+    : `${fileName} is too big. The largest file for this plant is ${sizeWords(limitMiB)}. orrn support can raise it.`;
 }
 
 

@@ -153,7 +153,7 @@ async function clearUpload(bucket: R2Bucket, companyId: string, sha256: string):
 export function storageFullWords(quotaGiB: number): string {
   return quotaGiB >= PLANT_LIMITS.vaultQuotaGiB.ceiling
     ? `This plant's file storage is full (${quotaGiB} GB).`
-    : `This plant's file storage is full (${quotaGiB} GB). Godseye staff can raise it.`;
+    : `This plant's file storage is full (${quotaGiB} GB). orrn support can raise it.`;
 }
 
 /**

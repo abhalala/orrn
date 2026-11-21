@@ -71,9 +71,9 @@ describe("chunked upload sentences (limits brief part B)", () => {
   test("fix round: begin refusals that name a file or a limit become a problem line with their values", () => {
     const e = (m: string) => new Error(m);
     expect(beginRefusalWords(e("big book.xlsx is too big. The limit for this kind of file is 20 MB."))).toEqual({ key: "ingest.upload.refused.tooBigKind", vars: { name: "big book.xlsx", limit: "20" } });
-    expect(beginRefusalWords(e("a.csv is too big. The largest file for this plant is 100 MB. Godseye staff can raise it."))).toEqual({ key: "ingest.upload.refused.fileTooBig", vars: { name: "a.csv", size: "100 MB" } });
+    expect(beginRefusalWords(e("a.csv is too big. The largest file for this plant is 100 MB. orrn support can raise it."))).toEqual({ key: "ingest.upload.refused.fileTooBig", vars: { name: "a.csv", size: "100 MB" } });
     expect(beginRefusalWords(e("a.pdf is too big. The largest file orrn can take is 2 GB."))).toEqual({ key: "ingest.upload.refused.fileTooBigMax", vars: { name: "a.pdf", size: "2 GB" } });
-    expect(beginRefusalWords(e("This plant's file storage is full (50 GB). Godseye staff can raise it."))).toEqual({ key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" } });
+    expect(beginRefusalWords(e("This plant's file storage is full (50 GB). orrn support can raise it."))).toEqual({ key: "ingest.upload.refused.storageFull", vars: { size: "50 GB" } });
     expect(beginRefusalWords(e("This plant's file storage is full (1024 GB)."))).toEqual({ key: "ingest.upload.refused.storageFullMax", vars: { size: "1024 GB" } });
     expect(beginRefusalWords(e("Too many rows are waiting. Merge or discard older imports first."))).toBeNull();
   });

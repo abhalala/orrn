@@ -94,9 +94,9 @@ export const ingestEn = {
     // fix round: refusals of artifact.begin (decisions 2 and 3)
     refused: {
       tooBigKind: "{name} is too big. The limit for this kind of file is {limit} MB.",
-      fileTooBig: "{name} is too big. The largest file for this plant is {size}. Godseye staff can raise it.",
+      fileTooBig: "{name} is too big. The largest file for this plant is {size}. orrn support can raise it.",
       fileTooBigMax: "{name} is too big. The largest file orrn can take is {size}.",
-      storageFull: "This plant's file storage is full ({size}). Godseye staff can raise it.",
+      storageFull: "This plant's file storage is full ({size}). orrn support can raise it.",
       storageFullMax: "This plant's file storage is full ({size}).",
     },
   },
@@ -581,8 +581,8 @@ export const ingestEn = {
     range: "{from} to {to}",
     rangeOne: "{page}",
     restLine: "Pages {from} to {to} of {total} are not read yet.",
-    dayCostLine: "Today's spend on the model is used up. \"Read next pages\" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit.",
-    dayCallsLine: "The model has read as many pages as allowed today. \"Read next pages\" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit.",
+    dayCostLine: "Today's spend on the model is used up. \"Read next pages\" carries on from page {page} tomorrow, or sooner if orrn support raises the limit.",
+    dayCallsLine: "The model has read as many pages as allowed today. \"Read next pages\" carries on from page {page} tomorrow, or sooner if orrn support raises the limit.",
     fullLine: "This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported.",
     skipRest: "Skip the rest and finish",
     skipRestNote: "Pages not read yet are skipped. The tables read so far stay.",

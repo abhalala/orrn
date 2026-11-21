@@ -83,18 +83,18 @@ export const UPLOAD_FINAL_SENTENCES: readonly (readonly [RegExp, string])[] = [
 /**
  * The refusals of `artifact.begin` that name a file or a limit (fix round decisions 2 and 3), as a problem line with
  * its values: the old refusal by kind when there is no vault, the plant's largest file per upload and its storage
- * quota. The words say Godseye staff can raise a limit unless it is already at its ceiling. Null for any other text.
+ * quota. The words say orrn support can raise a limit unless it is already at its ceiling. Null for any other text.
  * The upload strip's `problemFromError` (upload.ts) calls this.
  */
 export function beginRefusalWords(error: unknown): { key: string; vars: Record<string, string> } | null {
   const said = messageOf(error);
   let m = /^(.+) is too big\. The limit for this kind of file is (\d+) MB\.$/.exec(said);
   if (m) return { key: "ingest.upload.refused.tooBigKind", vars: { name: m[1]!, limit: m[2]! } };
-  m = /^(.+) is too big\. The largest file for this plant is (\d+ [MG]B)\. Godseye staff can raise it\.$/.exec(said);
+  m = /^(.+) is too big\. The largest file for this plant is (\d+ [MG]B)\. orrn support can raise it\.$/.exec(said);
   if (m) return { key: "ingest.upload.refused.fileTooBig", vars: { name: m[1]!, size: m[2]! } };
   m = /^(.+) is too big\. The largest file orrn can take is (\d+ [MG]B)\.$/.exec(said);
   if (m) return { key: "ingest.upload.refused.fileTooBigMax", vars: { name: m[1]!, size: m[2]! } };
-  m = /^This plant's file storage is full \((\d+ GB)\)\. Godseye staff can raise it\.$/.exec(said);
+  m = /^This plant's file storage is full \((\d+ GB)\)\. orrn support can raise it\.$/.exec(said);
   if (m) return { key: "ingest.upload.refused.storageFull", vars: { size: m[1]! } };
   m = /^This plant's file storage is full \((\d+ GB)\)\.$/.exec(said);
   if (m) return { key: "ingest.upload.refused.storageFullMax", vars: { size: m[1]! } };

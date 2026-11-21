@@ -594,7 +594,7 @@ describe("fix round: review of the fix (quota at uploadStart, sweep window, a sh
     await env.db.update(ingestArtifact).set({ updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) }).where(eq(ingestArtifact.id, f.artifactId));
     await pl.owner.ingest.artifact.begin({ sha256: hex(new TextEncoder().encode(randomUUID())), fileName: "full.pdf", sizeBytes: 1024 * 1024 * 1024 - 1000, contentType: "application/pdf", kind: "pdf_scan" });
     await expect(f.p.owner.ingest.artifact.uploadStart({ artifactId: f.artifactId, parts: f.parts.map(hex) })).rejects.toThrow(
-      "This plant's file storage is full (1 GB). Godseye staff can raise it.",
+      "This plant's file storage is full (1 GB). orrn support can raise it.",
     );
     expect(await raw.head(uploadPlanKey(pl.companyId, f.sha256))).toBeNull();
   });
@@ -654,7 +654,7 @@ describe("fix round: limits on file size and storage (decision 3)", () => {
     expect((await begin(pl, 2048 * MiB)).parts?.partCount).toBe(128);
     await expect(begin(pl, 2048 * MiB + 1)).rejects.toThrow("a.pdf is too big. The largest file orrn can take is 2 GB.");
     await staff().platform.companiesSetLimits({ companyId: pl.companyId, limits: { uploadFileMiB: 100 } });
-    await expect(begin(pl, 100 * MiB + 1, "csv")).rejects.toThrow("a.csv is too big. The largest file for this plant is 100 MB. Godseye staff can raise it.");
+    await expect(begin(pl, 100 * MiB + 1, "csv")).rejects.toThrow("a.csv is too big. The largest file for this plant is 100 MB. orrn support can raise it.");
     expect((await begin(pl, 100 * MiB, "csv")).parts?.partCount).toBe(7);
   });
 
@@ -665,7 +665,7 @@ describe("fix round: limits on file size and storage (decision 3)", () => {
     const two = await Promise.allSettled([begin(pl, 600 * MiB), begin(pl, 600 * MiB)]);
     expect(two.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const refused = two.find((r) => r.status === "rejected") as PromiseRejectedResult;
-    expect((refused.reason as Error).message).toBe("This plant's file storage is full (1 GB). Godseye staff can raise it.");
+    expect((refused.reason as Error).message).toBe("This plant's file storage is full (1 GB). orrn support can raise it.");
     expect((await begin(pl, 400 * MiB)).parts).not.toBeNull();
     // An upload begun more than a day ago holds no parts (lifecycle rule) and no longer counts.
     await env.db.update(ingestArtifact).set({ updatedAt: new Date(Date.now() - 25 * 60 * 60 * 1000) }).where(eq(ingestArtifact.companyId, pl.companyId));

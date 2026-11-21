@@ -24,6 +24,16 @@ describe("import words", () => {
     expect(ingestGu.filter(([, v]) => /(^|[\s(])રો([\s,.]|$)/.test(v)).map(([k]) => k)).toEqual([]);
   });
 
+  test("item 17: plant users never read Godseye on the import screens; a limit names orrn support", () => {
+    for (const dict of [en, hi, gu]) {
+      const words = flat((dict as unknown as { ingest: Tree }).ingest);
+      expect(words.filter(([, v]) => v.includes("Godseye")).map(([k]) => k)).toEqual([]);
+    }
+    const ingestEn = new Map(flat((en as unknown as { ingest: Tree }).ingest));
+    expect([...ingestEn].filter(([k]) => k.endsWith("fileTooBig") || k.endsWith("storageFull")).map(([, v]) => v.endsWith("orrn support can raise it."))).toEqual([true, true]);
+    expect(at(en, "ingest.vision.dayCostLine")).toContain("orrn support raises the limit");
+  });
+
   test("the day cap lines quote the button by its label in each language (N12)", () => {
     for (const key of ["ingest.vision.dayCostLine", "ingest.vision.dayCallsLine"]) {
       expect(at(en, key)).toContain(`"${at(en, "ingest.vision.readNext")}"`);
