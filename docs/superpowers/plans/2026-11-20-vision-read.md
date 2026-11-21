@@ -156,7 +156,7 @@ The block then goes through the normal fit, `shape.make` (no longer refused for 
 
 ## 7. Procedures (router `ingest.vision`)
 
-`U` = `ingest.upload`, `M` = `ingest.merge`, `R` = `ingest.upload` or `ingest.merge` (the file page's guard). Company
+`U` = `ingest.upload`, `M` = `ingest.merge`, `K` = `ingest.check` (admin, office, manager, accountant; item 16), `R` = `ingest.upload` or `ingest.merge` (the file page's guard). Company
 always from ctx.
 
 | Procedure | Guard | Input | Output |
@@ -166,8 +166,9 @@ always from ctx.
 | `vision.pages` | R | `{ artifactId }` | `VisionPagesOut = { pageCount, planned, pages: VisionPageView[], settled: boolean }` |
 | `vision.skipPage` | U | `{ artifactId, page }` | `VisionPageView` |
 | `vision.typePage` | U | `{ artifactId, page, title: string or null, headers: string[1..50], rows: string[][1..500] }` | `VisionPageView` (state `typed`) |
-| `vision.readUrl` (query) | R | `{ artifactId, what: "raw" }` or `{ artifactId, what: "page", page }` | `{ url, expiresAt }` |
-| `vision.check` | M (`ingest.merge`, the action Approve takes; fix round decision 5) | `{ candidateId, expectSeq, checked: boolean }` | `CandidateDetail` |
+| `vision.readUrl` (query) | R, or K for a page image of a model-read table (`check-scope.ts`) | `{ artifactId, what: "raw" }` or `{ artifactId, what: "page", page }` | `{ url, expiresAt }` |
+| `vision.check` | K (`ingest.check`; item 16, owner 2026-11-20: price viewers tick, admin approves). A table with a price column also needs `order.price`. Approve stays M. | `{ candidateId, expectSeq, checked: boolean }` | `CandidateDetail` |
+| `vision.waiting` (query) | K | none | the model-read tables waiting for a check that this person may open (at most 200) |
 | `vision.fixCell` | U | `{ candidateId, expectSeq, rowIndex, col, text: string max 200 }` | `CandidateDetail` |
 
 `VisionPageView = { page, state: VisionPageState, reason: VisionNotReadReason or null, canRetry: boolean, next: "retry" | "manual" | "done" | null, attempts: number, blockIds: string[], tables: number }`.
