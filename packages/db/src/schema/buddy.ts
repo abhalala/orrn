@@ -55,6 +55,12 @@ export const BUDDY_GRANT_REVOKE_REASONS = [
   "password_changed",
   /** Google linked to an account whose email was never proven: every other way in and session ends (google-guard.ts). */
   "google_linked_unverified",
+  /** The plant was suspended by platform staff (or grantContext saw it suspended). Lifting it never brings a grant back. */
+  "plant_suspended",
+  /** The plant left `BUDDY_COMPANIES` (grantContext saw it delisted). Listing it again never brings a grant back. */
+  "plant_delisted",
+  /** Secure sign-in stopped applying to the person (plant policy off, or their own factor removed). */
+  "secure_sign_in_off",
 ] as const;
 export type BuddyGrantRevokeReason = (typeof BUDDY_GRANT_REVOKE_REASONS)[number];
 
@@ -176,6 +182,12 @@ export const buddyDraft = sqliteTable(
     /** Set when a chat turn told Hermes the draft's final state (server-made notes, decision 7). */
     notedAt: integer("noted_at", { mode: "timestamp_ms" }),
     kind: text("kind", { enum: BUDDY_DRAFT_KINDS }).notNull().default("procedure"),
+    /**
+     * For a draft on an ingest candidate: the candidate's `serverSeq` the draft expects at Confirm (the seq when it was
+     * made, plus one for each earlier pending draft of the same turn on the same candidate). Confirm refuses the draft
+     * when the candidate moved any other way (delta S3). Never shown on the card.
+     */
+    basisSeq: integer("basis_seq"),
   },
   (table) => [
     index("buddy_draft_company_user_status_idx").on(table.companyId, table.requestedByUserId, table.status),

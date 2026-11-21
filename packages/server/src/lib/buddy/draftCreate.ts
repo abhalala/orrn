@@ -27,6 +27,8 @@ export type NewDraft = {
   summary: string;
   /** `x-hermes-platform` of the MCP request (decision 1), when Hermes sent it. */
   originPlatform: string | null;
+  /** Ingest drafts on a candidate: the candidate seq Confirm expects (delta S3). */
+  basisSeq?: number | null;
 };
 
 /** Stores the draft unless the person made 20 in the last hour in this plant. False when the limit refused it. */
@@ -60,6 +62,7 @@ export async function createBuddyDraft(ctx: BuddyContext, draft: NewDraft): Prom
         decidedVia: sql<string | null>`null`.as("decided_via"),
         notedAt: sql<number | null>`null`.as("noted_at"),
         kind: sql<string>`${draft.kind}`.as("kind"),
+        basisSeq: sql<number | null>`${draft.basisSeq ?? null}`.as("basis_seq"),
       })
       .from(company)
       .where(and(eq(company.id, companyId), underLimit)),

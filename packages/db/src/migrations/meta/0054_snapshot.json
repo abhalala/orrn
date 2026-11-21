@@ -3008,6 +3008,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'procedure'"
+        },
+        "basis_seq": {
+          "name": "basis_seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {

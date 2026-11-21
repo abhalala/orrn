@@ -1,5 +1,5 @@
 -- orrn buddy (design 2026-11-18, §13): buddy_link, buddy_grant, buddy_call, buddy_draft. Additive, four new tables.
--- Numbered 0054 after main's 0053_ingest_model_checked_by (release 2, decision D30); snapshot regenerated at the rebase.
+-- Numbered 0054 after main's 0053_ingest_model_checked_by (release 2, decision D30); snapshot regenerated at the rebase and in the delta round (buddy_draft.basis_seq).
 
 CREATE TABLE `buddy_call` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -41,6 +41,7 @@ CREATE TABLE `buddy_draft` (
 	`decided_via` text,
 	`noted_at` integer,
 	`kind` text DEFAULT 'procedure' NOT NULL,
+	`basis_seq` integer,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`requested_by_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`grant_id`) REFERENCES `buddy_grant`(`id`) ON UPDATE no action ON DELETE set null,
