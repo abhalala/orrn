@@ -26,8 +26,8 @@ const DRAFT: BuddyDraft = {
   kind: "procedure",
   title: "New order for KD Traders",
   fields: [
-    { key: "customerId", label: "Customer id", value: "KD Traders" },
-    { key: "lines", label: "Lines", value: "12170, 500 kg" },
+    { key: "customerId", label: "Customer id", value: "KD Traders", ref: { id: "cus_synth_kd", name: "KD Traders" }, marked: false },
+    { key: "lines", label: "Lines", value: "12170, 500 kg", ref: null, marked: false },
   ],
   items: null,
   status: "pending",
@@ -39,6 +39,8 @@ const DRAFT: BuddyDraft = {
   origin: "chat",
   decidedVia: null,
   drive: null,
+  irreversible: false,
+  confirmBlock: null,
 };
 
 type Calls = { sent: string[]; retried: string[]; newChat: number; open: boolean[]; confirmed: string[]; rejected: string[] };
@@ -540,9 +542,9 @@ describe("the v2 draft card shows exactly what Confirm runs (S10, M1)", () => {
     } finally {
       await view.cleanup();
     }
-    const other = await renderPanel({ state: withDraft, drafts: [{ ...DRAFT, fields: [{ key: "gstin", label: "Gstin", value: "24AAA" }] }] });
+    const other = await renderPanel({ state: withDraft, drafts: [{ ...DRAFT, fields: [{ key: "somethingNew", label: "Something new", value: "24AAA", ref: null, marked: false }] }] });
     try {
-      expect(other.q("buddy-draft")!.querySelector("dt")!.textContent).toBe("Gstin");
+      expect(other.q("buddy-draft")!.querySelector("dt")!.textContent).toBe("Something new");
     } finally {
       await other.cleanup();
     }
