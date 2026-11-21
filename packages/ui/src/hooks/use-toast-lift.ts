@@ -10,6 +10,9 @@ import { useEffect, useId, type RefObject } from "react";
  */
 export const TOAST_LIFT_VAR = "--orrn-toast-bottom";
 
+/** Set while something sits at the bottom right beside the page (the open Buddy panel): toasts start left of it. */
+export const TOAST_RIGHT_VAR = "--orrn-toast-right";
+
 /** Space between the top of the bar and the bottom of the lowest toast. */
 const GAP = 8;
 

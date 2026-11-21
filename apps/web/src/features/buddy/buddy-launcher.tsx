@@ -45,12 +45,25 @@ export function returnFocusTo(button: HTMLElement | null, schedule: (fn: () => v
 }
 
 /**
+ * The panel is open beside the page (from 768 px it is non-modal, N9) and the person pressed the button again, or
+ * reached it with Tab: take focus into the panel, to its message box when it has one. True when it moved focus.
+ */
+export function focusOpenPanel(doc: Document = document): boolean {
+  const dialog = doc.querySelector<HTMLElement>("[data-testid='buddy-panel']")?.closest<HTMLElement>("[role='dialog']");
+  if (!dialog) return false;
+  const box = dialog.querySelector<HTMLElement>("[data-testid='buddy-input']");
+  (box ?? dialog).focus();
+  return true;
+}
+
+/**
  * The closed bubble (design §4.5): a round button at the bottom right, mounted once in the `_tenant` layout. Only this
  * file is in the layout's chunk; the panel, the chat client and the draft cards load on the first open
  * (`buddy-panel.tsx`, a dynamic import) and then stay mounted, so the conversation and an open panel survive route
  * changes. Portalled to `body`, so the page's view transition never moves it. It sits above the phone tab bar and
  * above a screen's sticky action bar (the same `--orrn-toast-bottom` lift toasts use), below sheets, the command
- * palette and toasts (z-40).
+ * palette and toasts (z-40). From 768 px the open panel sits above it and is non-modal, so the button stays visible
+ * and pressing it again moves focus into the panel.
  */
 export function BuddyLauncher() {
   const { t } = useT();
@@ -71,6 +84,8 @@ export function BuddyLauncher() {
   if (!show || !me || typeof document === "undefined") return null;
 
   const openPanel = () => {
+    // Already open beside the page: the button is the way back into the panel.
+    if (open && focusOpenPanel()) return;
     setLoaded(true);
     setOpen(true);
   };

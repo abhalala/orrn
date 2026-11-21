@@ -10,7 +10,7 @@ import {
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-import { TOAST_LIFT_VAR } from "../hooks/use-toast-lift";
+import { TOAST_LIFT_VAR, TOAST_RIGHT_VAR } from "../hooks/use-toast-lift";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
@@ -49,7 +49,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       // A screen's sticky action bar lifts toasts above itself (`useToastLift` sets the
       // variable), so a toast never hides the next action. Default offsets otherwise.
-      offset={{ bottom: `max(24px, var(${TOAST_LIFT_VAR}, 0px))` }}
+      // The Buddy panel open beside the page (768 px and up) sets `--orrn-toast-right`, so toasts sit left of it
+      // instead of over its message box; never so far that a 356 px toast leaves the screen (16 px kept on the left).
+      offset={{
+        bottom: `max(24px, var(${TOAST_LIFT_VAR}, 0px))`,
+        right: `max(24px, min(var(${TOAST_RIGHT_VAR}, 0px), calc(100vw - 372px)))`,
+      }}
       mobileOffset={{ bottom: `max(16px, var(${TOAST_LIFT_VAR}, 0px))` }}
       // Toasts never take focus; sonner announces them in a polite live region.
       toastOptions={{

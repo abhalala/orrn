@@ -191,20 +191,71 @@ test("N8: opened by a click that does not focus the button (Safari), Escape stil
   await expect(launcher).toBeFocused();
 });
 
-test("the bubble is a dialog: focus goes in, Escape closes it and focus comes back to the button", async ({ page }) => {
-  await openOwner(page, "/today");
+const inDialog = (page: Page, name = "Buddy") =>
+  page.evaluate((name) => {
+    const dialog = document.activeElement?.closest("[role='dialog']");
+    return !!dialog && document.getElementById(dialog.getAttribute("aria-labelledby") ?? "")?.textContent === name;
+  }, name);
+
+test("phone: the bubble is a modal sheet: focus goes in and stays, Escape closes it and focus comes back to the button", async ({ page }) => {
+  await openOwner(page, "/today", "en", 375, 812);
   await openBubble(page);
   const dialog = panel(page);
   await expect(dialog).toHaveAttribute("aria-modal", "true");
-  await expect(page.getByTestId("buddy-input")).toBeFocused();
+  await expect(page.locator("[data-slot='sheet-overlay']")).toBeVisible();
+  // A phone keeps its keyboard down (N7): focus is on the dialog, not the box.
+  expect(await inDialog(page)).toBe(true);
   // Tab never leaves the dialog.
   for (let i = 0; i < 8; i++) {
     await page.keyboard.press("Tab");
-    expect(await page.evaluate(() => !!document.activeElement?.closest("[role='dialog']"))).toBe(true);
+    expect(await inDialog(page)).toBe(true);
   }
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(page.getByTestId("buddy-launcher")).toBeFocused();
+});
+
+// Was "the bubble is a dialog … Tab never leaves the dialog" at 1280 (the modal desktop sheet). Review N9: from 768 px
+// the panel is a non-modal dialog beside the page.
+test("desktop: the bubble is a non-modal dialog beside the page: no overlay, Tab and clicks reach the page, ⌘K works, the button takes focus back in, Escape closes it", async ({ page }) => {
+  await openOwner(page, "/today");
+  await openBubble(page);
+  const dialog = panel(page);
+  await expect(dialog).toHaveAttribute("aria-modal", "false");
+  await expect(page.locator("[data-slot='sheet-overlay']")).toHaveCount(0);
+  await expect(page.getByTestId("buddy-input")).toBeFocused();
+  // Nothing on the page is hidden from screen readers or inert.
+  expect(await page.evaluate(() => !!document.querySelector("main")?.closest("[aria-hidden='true'], [inert]"))).toBe(false);
+  // Tab is not trapped: it moves on past the panel's last control.
+  let left = false;
+  for (let i = 0; i < 12 && !left; i++) {
+    await page.keyboard.press("Tab");
+    left = !(await inDialog(page));
+  }
+  expect(left, "Tab leaves the panel").toBe(true);
+  await expect(dialog).toBeVisible();
+  // The page stays in use: a click on it leaves the panel open, and ⌘K opens the palette over both.
+  await page.locator("main h1").first().click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Scan or search" });
+  await expect(palette).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+  await expect(dialog).toBeVisible();
+  // Escape on the page is the page's own: the panel stays.
+  await page.locator("main h1").first().focus();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  // The way back in: the Buddy button, which stays in sight below the panel.
+  const launcher = page.getByTestId("buddy-launcher");
+  await expect(launcher).toBeVisible();
+  await launcher.click();
+  await expect(page.getByTestId("buddy-input")).toBeFocused();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(launcher).toBeFocused();
 });
 
 test("a question: the tool chip, the streamed answer, and the live region says the finished answer", async ({ page }) => {
@@ -333,8 +384,19 @@ for (const locale of ["en", "hi", "gu"] as const) {
       await say(page, "hello");
       await expect(page.getByTestId("buddy-turn").last()).toHaveAttribute("data-phase", "done", { timeout: 30_000 });
       const box = await page.getByTestId("buddy-panel").locator("xpath=ancestor::*[@role='dialog']").boundingBox();
-      if (size.width < 768) expect(box?.width).toBe(size.width);
-      else expect(box!.width).toBeLessThanOrEqual(400);
+      if (size.width < 768) {
+        expect(box?.width).toBe(size.width);
+        await expect(panel(page)).toHaveAttribute("aria-modal", "true");
+      } else {
+        expect(box!.width).toBeLessThanOrEqual(400);
+        // N9: beside the page, not over it: no overlay, the button below it in sight, the page heading clear of it.
+        await expect(panel(page)).toHaveAttribute("aria-modal", "false");
+        await expect(page.locator("[data-slot='sheet-overlay']")).toHaveCount(0);
+        const button = (await page.getByTestId("buddy-launcher").boundingBox())!;
+        expect(box!.y + box!.height, "panel ends above the button").toBeLessThanOrEqual(button.y);
+        const heading = (await page.locator("main h1").first().boundingBox())!;
+        expect(box!.y, "panel starts below the page heading").toBeGreaterThanOrEqual(heading.y + heading.height);
+      }
       await expectNoHorizontalScroll(page);
       await expectNoClippedText(page, "[role='dialog']");
       await bothSchemesClean(page, `bubble ${size.name} ${locale}`);

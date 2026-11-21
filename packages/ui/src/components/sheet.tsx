@@ -3,7 +3,7 @@
 import { useT } from "@orrn/i18n";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { useRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 
 import { escapeUnlessComboboxOpen } from "@orrn/ui/lib/escape";
 import { useReturnFocus } from "@orrn/ui/lib/return-focus";
@@ -27,6 +27,14 @@ export type SheetProps = {
    * `onOpenChange(false)`; the owner ignores it.
    */
   dismissible?: boolean;
+  /**
+   * False: a non-modal sheet (Radix `modal={false}`). No overlay, no focus
+   * trap, nothing behind is hidden from screen readers or made inert, and the
+   * page scrolls. Using the page (a click, focus moving out) does not close
+   * it; Escape closes it only when focus is inside it, so the page keeps its
+   * own Escape. It says `aria-modal="false"`. Default true.
+   */
+  modal?: boolean;
 };
 
 /**
@@ -36,22 +44,39 @@ export type SheetProps = {
  * that slides in from the right, full height, 440px wide. The body scrolls;
  * the header and footer stay put.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, description, className, onEscapeKeyDown, dismissible = true }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, children, footer, description, className, onEscapeKeyDown, dismissible = true, modal = true }: SheetProps) {
   const { t } = useT();
   const returnFocus = useReturnFocus(open);
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           data-slot="sheet-overlay"
           className="orrn-overlay fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] dark:bg-black/65"
         />
+        {/* Radix renders no overlay when the dialog is not modal. */}
         <DialogPrimitive.Content
+          ref={contentRef}
           data-slot="sheet"
+          {...(modal ? {} : { "aria-modal": "false" as const })}
           {...returnFocus}
           onEscapeKeyDown={(event) => {
+            // Non-modal: Radix hears Escape on the whole document. Only an Escape from inside the sheet closes it.
+            if (!modal && !(event.target instanceof Node && contentRef.current?.contains(event.target))) {
+              event.preventDefault();
+              return;
+            }
             onEscapeKeyDown?.(event);
             if (!event.defaultPrevented) escapeUnlessComboboxOpen(event);
+          }}
+          // Non-modal: the page stays in use beside the sheet, so a click or focus out there never closes it.
+          onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
+          // Non-modal: Radix's focus scope still loops Tab from the last control back to the first (it always passes
+          // `loop`), which would trap keyboard users after all. Stopping Tab here, before the scope's own keydown on
+          // this element, lets the browser move focus on to the page.
+          onKeyDownCapture={modal ? undefined : (event) => {
+            if (event.key === "Tab") event.stopPropagation();
           }}
           // No description: tell Radix explicitly so it doesn't point at a missing node.
           {...(description ? {} : { "aria-describedby": undefined })}

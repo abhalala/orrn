@@ -9,7 +9,7 @@ import { I18nProvider } from "@orrn/i18n";
 import { testMe } from "@/shell/palette/test-me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { returnFocusTo, showBuddy } from "./buddy-launcher";
+import { focusOpenPanel, returnFocusTo, showBuddy } from "./buddy-launcher";
 import { chatReducer, initialChat, type ChatState } from "./chat-model";
 import { failureText, reviewPath } from "./draft-card";
 import type { BuddyPanelBodyProps, DraftDecisions } from "./panel-body";
@@ -47,10 +47,34 @@ function stateWith(...steps: Parameters<typeof chatReducer>[1][]): ChatState {
   return steps.reduce(chatReducer, initialChat("c1"));
 }
 
+/** Phone 375 px (the full-screen modal sheet) or desktop 1280 px (the non-modal panel beside the page, N9). */
+type Viewport = "phone" | "desktop";
+const WIDTH: Record<Viewport, number> = { phone: 375, desktop: 1280 };
+
+/** Answers `min-width` queries for the given width; anything else goes to the matchMedia already installed. */
+function stubViewport(viewport: Viewport) {
+  const before = window.matchMedia;
+  window.matchMedia = ((query: string) => {
+    const min = /\(min-width:\s*(\d+)px\)/.exec(query);
+    if (min) return { matches: WIDTH[viewport] >= Number(min[1]), media: query, addEventListener() {}, removeEventListener() {} };
+    return before.call(window, query);
+  }) as never;
+  return () => {
+    window.matchMedia = before;
+  };
+}
+
 async function renderPanel(
-  props: Partial<Omit<BuddyPanelBodyProps, "chat">> & { state?: ChatState; busy?: boolean; role?: "owner" | "viewer"; locale?: "en" | "hi" } = {},
+  props: Partial<Omit<BuddyPanelBodyProps, "chat">> & {
+    state?: ChatState;
+    busy?: boolean;
+    role?: "owner" | "viewer";
+    locale?: "en" | "hi";
+    viewport?: Viewport;
+  } = {},
 ) {
   const { BuddyPanelBody } = await import("./panel-body");
+  const restoreViewport = stubViewport(props.viewport ?? "phone");
   const calls: Calls = { sent: [], retried: [], newChat: 0, open: [], confirmed: [], rejected: [] };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   qc.setQueryData(trpc.auth.me.queryOptions().queryKey, { ...testMe(props.role ?? "owner"), buddy: true } as never);
@@ -110,12 +134,13 @@ async function renderPanel(
     host.remove();
     opener.remove();
     document.body.innerHTML = "";
+    restoreViewport();
   };
-  return { calls, dialog, q, qa, opener, cleanup };
+  return { calls, dialog, q, qa, opener, host, cleanup };
 }
 
-describe("the Buddy panel is a real dialog", () => {
-  test("role dialog, aria-modal, named by its Buddy heading", async () => {
+describe("on a phone the Buddy panel is a modal dialog", () => {
+  test("role dialog, aria-modal, named by its Buddy heading, over a dimmed page", async () => {
     const view = await renderPanel();
     try {
       const dialog = view.dialog()!;
@@ -125,6 +150,11 @@ describe("the Buddy panel is a real dialog", () => {
       expect(document.getElementById(labelledBy)?.textContent).toBe("Buddy");
       expect(view.q("buddy-new-chat")?.textContent).toContain("New chat");
       expect(dialog.querySelector("textarea")?.getAttribute("aria-label")).toBe("Message to Buddy");
+      expect(document.querySelector("[data-slot='sheet-overlay']")).not.toBeNull();
+      // The page behind is hidden from screen readers while the sheet covers it.
+      expect(view.opener.getAttribute("aria-hidden")).toBe("true");
+      // Toasts stay where they are: nothing sits beside the page.
+      expect(document.documentElement.style.getPropertyValue("--orrn-toast-right")).toBe("");
     } finally {
       await view.cleanup();
     }
@@ -159,6 +189,92 @@ describe("the Buddy panel is a real dialog", () => {
     } finally {
       await view.cleanup();
     }
+  });
+});
+
+describe("from 768 px the Buddy panel is a non-modal dialog beside the page (N9)", () => {
+  test("still the Buddy dialog, but aria-modal false, no overlay, and the page is neither hidden nor inert", async () => {
+    const view = await renderPanel({ viewport: "desktop" });
+    try {
+      const dialog = view.dialog()!;
+      expect(dialog).not.toBeNull();
+      expect(dialog.getAttribute("aria-modal")).toBe("false");
+      expect(document.getElementById(dialog.getAttribute("aria-labelledby")!)?.textContent).toBe("Buddy");
+      expect(document.querySelector("[data-slot='sheet-overlay']")).toBeNull();
+      for (const el of [view.opener, view.host]) {
+        expect(el.getAttribute("aria-hidden")).toBeNull();
+        expect(el.hasAttribute("inert")).toBe(false);
+        expect(el.closest("[aria-hidden='true'], [inert]")).toBeNull();
+      }
+      // Focus still moves in on open.
+      expect(document.activeElement).toBe(view.q("buddy-input"));
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("focus moves out to the page and back without closing it, and Tab is not trapped", async () => {
+    const view = await renderPanel({ viewport: "desktop" });
+    try {
+      const dialog = view.dialog()!;
+      const tabbables = Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], textarea"));
+      const last = tabbables.at(-1)!;
+      last.focus();
+      await env.key(last, "Tab");
+      // Not wrapped back to the first control: Tab leaves the panel the browser's way.
+      expect(document.activeElement).not.toBe(tabbables[0]!);
+      // The page takes focus and a click; the panel stays open.
+      await act(async () => {
+        view.opener.focus();
+        view.opener.dispatchEvent(new window.MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
+      });
+      await settle(50);
+      expect(document.activeElement).toBe(view.opener);
+      expect(view.calls.open).toEqual([]);
+      expect(view.dialog()).not.toBeNull();
+      // The way back: the Buddy button takes focus into the panel's message box.
+      await act(async () => void focusOpenPanel());
+      expect(document.activeElement).toBe(view.q("buddy-input"));
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("Escape on the page is the page's; Escape in the panel closes it and focus goes back to the button", async () => {
+    const view = await renderPanel({ viewport: "desktop" });
+    try {
+      view.opener.focus();
+      await env.key(view.opener, "Escape");
+      await settle(50);
+      expect(view.calls.open).toEqual([]);
+      expect(view.dialog()).not.toBeNull();
+      const input = view.q("buddy-input")!;
+      input.focus();
+      await env.key(input, "Escape");
+      await settle(50);
+      expect(view.calls.open).toEqual([false]);
+      expect(view.dialog()).toBeNull();
+      expect(document.activeElement).toBe(view.opener);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("toasts move left of the open panel, and back when it closes", async () => {
+    const view = await renderPanel({ viewport: "desktop" });
+    try {
+      expect(document.documentElement.style.getPropertyValue("--orrn-toast-right")).toBe("448px");
+      const input = view.q("buddy-input")!;
+      await env.key(input, "Escape");
+      await settle(50);
+      expect(document.documentElement.style.getPropertyValue("--orrn-toast-right")).toBe("");
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("focusOpenPanel finds nothing to focus while the panel is closed", () => {
+    expect(focusOpenPanel()).toBe(false);
   });
 });
 
