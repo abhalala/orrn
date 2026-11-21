@@ -39,6 +39,23 @@ export function toastLiftAt({
   return onScreen ? Math.max(resting, Math.ceil(viewportHeight - top + GAP)) : resting;
 }
 
+/**
+ * The lift for a bar that is sticky only on some screens (`FormActions` below `sm`, a bar that turns `lg:static`):
+ * null while it is in the normal flow or hidden, so a form's button row in the middle of a desktop page never throws
+ * toasts or the Buddy button up the screen. Sticky (or fixed) and shown: the same lift as `toastLiftAt`.
+ */
+export function stickyBarLift(bar: {
+  position: string;
+  display: string;
+  stickyBottom: number;
+  height: number;
+  top: number;
+  viewportHeight: number;
+}): number | null {
+  if (bar.display === "none" || (bar.position !== "sticky" && bar.position !== "fixed")) return null;
+  return toastLiftAt(bar);
+}
+
 /** Several bars may be mounted at once (a sheet over a flow): the highest one wins. */
 export function createToastLift(apply: (px: number | null) => void) {
   const bars = new Map<string, number>();
@@ -77,26 +94,41 @@ const shared = createToastLift((px) => {
   applyBarClearance(document.documentElement.style, px);
 });
 
+export type ToastLiftOptions = {
+  /**
+   * Lift only while the bar really is sticky (computed `position: sticky` or `fixed`) and shown; re-checked on every
+   * resize, so a bar that sticks on phones only lifts nothing on a laptop. The bars written before this option keep
+   * their old behaviour.
+   */
+  whenSticky?: boolean;
+};
+
 /**
- * Keeps toasts, and keyboard focus scrolling, clear of this sticky bar while it
- * is mounted (re-measured when it resizes or the viewport changes).
+ * Keeps toasts, the closed Buddy button and keyboard focus scrolling clear of this sticky bar while it is mounted
+ * (re-measured when it resizes or the viewport changes).
  */
-export function useToastLift(ref: RefObject<HTMLElement | null>) {
+export function useToastLift(ref: RefObject<HTMLElement | null>, options?: ToastLiftOptions) {
   const id = useId();
+  const whenSticky = options?.whenSticky === true;
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof window === "undefined") return;
     const measure = () => {
       const rect = el.getBoundingClientRect();
-      shared.set(
-        id,
-        toastLiftAt({
-          stickyBottom: parseFloat(getComputedStyle(el).bottom),
-          height: rect.height,
-          top: rect.top,
-          viewportHeight: window.innerHeight,
-        }),
-      );
+      const style = getComputedStyle(el);
+      const bar = {
+        stickyBottom: parseFloat(style.bottom),
+        height: rect.height,
+        top: rect.top,
+        viewportHeight: window.innerHeight,
+      };
+      if (!whenSticky) {
+        shared.set(id, toastLiftAt(bar));
+        return;
+      }
+      const px = stickyBarLift({ ...bar, position: style.position, display: style.display });
+      if (px === null) shared.remove(id);
+      else shared.set(id, px);
     };
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
@@ -120,5 +152,5 @@ export function useToastLift(ref: RefObject<HTMLElement | null>) {
       document.removeEventListener("scroll", onScroll, { capture: true });
       shared.remove(id);
     };
-  }, [ref, id]);
+  }, [ref, id, whenSticky]);
 }

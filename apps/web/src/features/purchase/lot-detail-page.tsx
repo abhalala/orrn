@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { RouterLink } from "@/shared/components/router-link";
+import { StickyBar } from "@/shared/components/sticky-bar";
 import { trpc } from "@/shared/utils/trpc";
 
 import { APPROVAL_TONE } from "../approvals/approval-view";
@@ -322,9 +323,9 @@ function LotDetail({ data }: { data: LotData }) {
       </div>
 
       {primaryButton ? (
-        <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden [&>*]:w-full">
+        <StickyBar className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden [&>*]:w-full">
           {primaryButton}
-        </div>
+        </StickyBar>
       ) : null}
 
       <WeightsSheet open={sheet === "weights"} onOpenChange={(o) => setSheet(o ? "weights" : null)} lot={lot} toleranceBp={toleranceBp} />
