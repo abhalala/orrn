@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8650 screen strings in 51 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2268,7 +2268,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (348)
+### settings (349)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2298,6 +2298,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `tabs.units` | Units | इकाइयाँ |
 | `tabs.security` | Security | सुरक्षा |
 | `tabs.signIn` | Sign-in | साइन-इन |
+| `tabs.buddy` | Buddy | Buddy |
 | `security.title` | Sign-in | साइन-इन |
 | `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
 | `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
@@ -3726,7 +3727,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (166)
+### refusal (172)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3895,6 +3896,12 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `imageTypes` | Pictures must be JPEG, PNG or WebP. | फ़ोटो JPEG, PNG या WebP होनी चाहिए। |
 | `notPdf` | This is not a PDF. | यह PDF नहीं है। |
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
+| `buddyClosed` | Buddy is not set up for this plant. | इस प्लांट के लिए Buddy सेट नहीं है। |
+| `buddyConfirming` | This change is already being confirmed. Wait a moment. | यह बदलाव पहले से पक्का हो रहा है। थोड़ा रुकें। |
+| `buddyNotAllowed` | Buddy may not make this change. Do it on its own screen. | Buddy यह बदलाव नहीं कर सकता। इसे इसकी अपनी स्क्रीन पर करें। |
+| `buddyUnknownOutcome` | orrn could not tell if this went through. Check the screen before you try again. | orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें। |
+| `buddyChangeFailed` | The change did not go through. | बदलाव नहीं हुआ। |
+| `buddyInputNotFit` | This change no longer fits the screen it was made for. Ask Buddy again. | यह बदलाव अब उस स्क्रीन से मेल नहीं खाता जिसके लिए बना था। Buddy से फिर से पूछें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
 ### native (269)
@@ -7814,6 +7821,150 @@ Please check, Lalubhai:
 | `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
 | `docTitle.review` | {target}, {file} \| Imports \| orrn | {target}, {file} \| इम्पोर्ट \| orrn |
 
+### buddy (139)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Buddy | Buddy |
+| `open` | Open Buddy | Buddy खोलें |
+| `newChat` | New chat | नई बातचीत |
+| `addFile` | Add a file | फ़ाइल जोड़ें |
+| `addFileHint` | Files go in on the Imports page. Buddy never gets the file itself. | फ़ाइलें इम्पोर्ट पेज पर डाली जाती हैं। Buddy को फ़ाइल कभी नहीं मिलती। |
+| `empty` | Ask about stock, orders or an import. A change comes back as a card, and it runs only when you press Confirm. | स्टॉक, ऑर्डर या इम्पोर्ट के बारे में पूछें। कोई बदलाव एक कार्ड में आता है, और तभी होता है जब आप पक्का करें दबाते हैं। |
+| `you` | You | आप |
+| `inputLabel` | Message to Buddy | Buddy को संदेश |
+| `placeholder` | Type a message | संदेश लिखें |
+| `send` | Send | भेजें |
+| `sendHint` | Enter sends. Shift and Enter start a new line. | Enter से संदेश जाता है। Shift और Enter से नई लाइन। |
+| `connecting` | Connecting | जुड़ रहा है |
+| `writing` | Buddy is writing | Buddy लिख रहा है |
+| `offline` | Buddy is offline. Try again later. | Buddy अभी बंद है। थोड़ी देर बाद फिर कोशिश करें। |
+| `rateLimited` | Too many messages for now. Wait a few minutes. | अभी बहुत सारे संदेश हो गए। कुछ मिनट रुकें। |
+| `failed` | Buddy could not answer. | Buddy जवाब नहीं दे सका। |
+| `cut` | The answer stopped before the end. | जवाब पूरा होने से पहले रुक गया। |
+| `tool` | Used orrn: {path} | orrn देखा: {path} |
+| `waiting` | Waiting for you | आपका इंतज़ार है |
+| `field.candidateId` | Sheet | शीट |
+| `field.artifactId` | File | फ़ाइल |
+| `field.target` | What it holds | इसमें क्या है |
+| `field.accept` | Same one | वही है |
+| `field.fy` | Financial year | वित्त वर्ष |
+| `field.asOf` | Date | तारीख |
+| `field.questionCode` | Question | सवाल |
+| `field.subject` | About | किस बारे में |
+| `field.answer` | Answer | जवाब |
+| `field.answers` | Answers | जवाब |
+| `field.rowId` | Row | लाइन |
+| `field.rowIds` | Rows | लाइनें |
+| `field.expectCount` | Rows answered | जवाब दी गई लाइनें |
+| `field.decision` | Decision | फ़ैसला |
+| `field.matchId` | Match | मेल |
+| `field.reason` | Reason | कारण |
+| `field.pageId` | Page | पेज |
+| `field.page` | Page | पेज |
+| `field.name` | Name | नाम |
+| `field.customerId` | Customer | ग्राहक |
+| `field.vendorId` | Vendor | वेंडर |
+| `field.dieId` | Die | Die |
+| `field.sectionId` | Section | सेक्शन |
+| `field.orderId` | Order | ऑर्डर |
+| `field.lineId` | Order line | ऑर्डर लाइन |
+| `field.bundleId` | Bundle | Bundle |
+| `field.serial` | Serial | Serial |
+| `field.serials` | Serials | Serials |
+| `field.quantity` | Quantity | मात्रा |
+| `field.note` | Note | नोट |
+| `field.notes` | Notes | नोट |
+| `field.rows` | Rows | लाइनें |
+| `draft.titles.ingest_shape_make` | Read the layout of this sheet | इस शीट का ढांचा पढ़ें |
+| `draft.titles.ingest_period_confirm` | Set the year or date of this file | इस फ़ाइल का साल या तारीख तय करें |
+| `draft.titles.ingest_answer_set` | Answer the import's question | इम्पोर्ट के सवाल का जवाब दें |
+| `draft.titles.ingest_rows_answerDoubts` | Answer the doubtful rows | शक वाली पंक्तियों का जवाब दें |
+| `draft.titles.ingest_candidate_confirmNear` | Say if the near match is the same one | मिलता-जुलता नाम वही है या नहीं, बताएं |
+| `draft.titles.ingest_candidate_setTarget` | Set what this sheet holds | यह शीट किस चीज़ की है, तय करें |
+| `draft.titles.ingest_candidate_hold` | Hold this sheet | यह शीट रोकें |
+| `draft.titles.ingest_candidate_release` | Take this sheet off hold | इस शीट से रोक हटाएं |
+| `draft.titles.ingest_dryRun_step` | Try the rows against the plant's data | पंक्तियों को प्लांट के डेटा से मिलाकर देखें |
+| `draft.titles.ingest_vision_readPage` | Read this page | यह पेज पढ़ें |
+| `draft.titles.import_answerQuestions` | Answer the import's questions | इम्पोर्ट के सवालों के जवाब दें |
+| `draft.titles.import_runDryRun` | Check every row against the plant's data | हर लाइन को प्लांट के डेटा से मिलाकर देखें |
+| `draft.origin.chat` | Made in the Buddy chat | Buddy चैट में बना |
+| `draft.origin.other` | Not made in the Buddy chat. Check it before you confirm. | यह Buddy चैट में नहीं बना। पक्का करने से पहले जांच लें। |
+| `draft.showAll` | Show all | सब दिखाएं |
+| `draft.showLess` | Show less | कम दिखाएं |
+| `draft.itemsSummary` | This runs {count} {count:line\|lines} | इससे {count} {count:लाइन चलेगी\|लाइनें चलेंगी} |
+| `draft.showAllFirst` | Show all first. Confirm runs every line. | पहले सब दिखाएं। पक्का करने पर हर लाइन चलेगी। |
+| `draft.drive.starting` | Starting the row check | लाइनों की जांच शुरू हो रही है |
+| `draft.drive.running` | Checking rows: {done} of {total} | लाइनें जांच रहे हैं: {total} में से {done} |
+| `draft.drive.runningNoTotal` | Checking rows | लाइनें जांच रहे हैं |
+| `draft.drive.otherTab` | Another tab is checking these rows. | दूसरे टैब में ये लाइनें जांची जा रही हैं। |
+| `draft.drive.stop` | Stop | रोकें |
+| `draft.drive.stopped` | Row check stopped. Start it again from the review page. | लाइनों की जांच रुक गई। जांच पेज से फिर शुरू करें। |
+| `draft.drive.done` | Rows checked. | लाइनें जांच ली गईं। |
+| `draft.drive.failed` | The row check stopped with a problem. Open the review page. | लाइनों की जांच किसी गड़बड़ी से रुक गई। जांच पेज खोलें। |
+| `draft.drive.inBubble` | Open Buddy to run the row check. | लाइनों की जांच चलाने के लिए Buddy खोलें। |
+| `draft.confirm` | Confirm | पक्का करें |
+| `draft.reject` | Reject | नामंज़ूर करें |
+| `draft.review` | Open the review page | जांच पेज खोलें |
+| `draft.loading` | Loading the change | बदलाव लोड हो रहा है |
+| `draft.expires` | Until {time} | {time} तक |
+| `draft.result` | Result: {result} | नतीजा: {result} |
+| `draft.failedWhy` | It did not go through. {reason} | यह नहीं हुआ। {reason} |
+| `draft.confirmFailed` | Could not confirm. Try again. | पक्का नहीं हो सका। फिर कोशिश करें। |
+| `draft.rejectFailed` | Could not reject. Try again. | नामंज़ूर नहीं हो सका। फिर कोशिश करें। |
+| `draft.status.pending` | Waiting | पक्का होना बाकी |
+| `draft.status.confirmed` | Confirmed | पक्का हुआ |
+| `draft.status.rejected` | Rejected | नामंज़ूर |
+| `draft.status.expired` | Expired | समय खत्म |
+| `draft.status.failed` | Failed | नहीं हुआ |
+| `settings.intro` | Buddy is Hermes in a chat window on every orrn screen. Hermes reads orrn as you and prepares changes. A change runs only when you press Confirm. | Buddy हर orrn स्क्रीन पर एक चैट खिड़की में Hermes है। Hermes आपकी तरह orrn पढ़ता है और बदलाव तैयार करता है। कोई बदलाव तभी होता है जब आप पक्का करें दबाते हैं। |
+| `settings.notListed` | Buddy is not set up for this plant. | इस प्लांट के लिए Buddy सेट नहीं है। |
+| `settings.notAvailable` | Buddy is not switched on in this orrn yet. Ask the orrn team. | इस orrn में Buddy अभी चालू नहीं है। orrn टीम से पूछें। |
+| `settings.loadFailed` | Could not load Buddy. Check the connection and try again. | Buddy लोड नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
+| `settings.connection` | Hermes | Hermes |
+| `settings.notConnected` | Hermes is not connected. | Hermes जुड़ा नहीं है। |
+| `settings.connect` | Connect Hermes | Hermes जोड़ें |
+| `settings.connectFailed` | Could not connect Hermes. Try again. | Hermes नहीं जुड़ सका। फिर कोशिश करें। |
+| `settings.connectedOn` | Connected {time} | {time} को जुड़ा |
+| `settings.lastUsed` | Last used {time} | आखिरी बार {time} |
+| `settings.neverUsed` | Not used yet | अभी तक इस्तेमाल नहीं हुआ |
+| `settings.endsOn` | Ends {time} | {time} को खत्म |
+| `settings.renewedOn` | Renewed {time} | {time} को फिर से बढ़ाया |
+| `settings.renew` | Renew for 30 days | 30 दिन और बढ़ाएं |
+| `settings.renewed` | Hermes renewed until {time}. | Hermes {time} तक बढ़ा दिया गया। |
+| `settings.renewFailed` | Could not renew. Try again. | बढ़ाया नहीं जा सका। फिर कोशिश करें। |
+| `settings.freshSignIn` | Sign in again first. orrn asks for a fresh sign-in before it connects or renews Hermes. | पहले फिर से साइन इन करें। Hermes जोड़ने या बढ़ाने से पहले orrn नया साइन इन मांगता है। |
+| `settings.signInAgain` | Sign in again | फिर से साइन इन करें |
+| `settings.revoke` | Disconnect Hermes | Hermes हटाएं |
+| `settings.revokeTitle` | Disconnect Hermes? | Hermes हटाएं? |
+| `settings.revokeBody` | Hermes loses access to orrn at once, and changes that still wait for a Confirm expire. | Hermes की orrn तक पहुंच तुरंत बंद हो जाती है, और जिन बदलावों का पक्का होना बाकी है, उनका समय खत्म हो जाता है। |
+| `settings.revoked` | Hermes is disconnected. | Hermes हटा दिया गया। |
+| `settings.revokeFailed` | Could not disconnect Hermes. Try again. | Hermes नहीं हट सका। फिर कोशिश करें। |
+| `settings.keyTitle` | Key for Hermes | Hermes के लिए चाबी |
+| `settings.keyOnce` | This key is shown only once. Copy it now and keep it safe. orrn cannot show it again. | यह चाबी सिर्फ़ एक बार दिखती है। इसे अभी कॉपी करें और संभालकर रखें। orrn इसे दोबारा नहीं दिखा सकता। |
+| `settings.keyLabel` | Key | चाबी |
+| `settings.copy` | Copy key | चाबी कॉपी करें |
+| `settings.copied` | Key copied | चाबी कॉपी हो गई |
+| `settings.copyFailed` | Could not copy. Select the key and copy it by hand. | कॉपी नहीं हो सकी। चाबी चुनकर हाथ से कॉपी करें। |
+| `settings.keyDone` | I have copied it | मैंने कॉपी कर ली |
+| `settings.calls` | Last 100 calls | आखिरी 100 कॉल |
+| `settings.callsEmpty` | Hermes has not called orrn yet. | Hermes ने अभी तक orrn को कॉल नहीं किया। |
+| `settings.callPath` | What | क्या |
+| `settings.callMs` | {ms} ms | {ms} ms |
+| `settings.platform.api_server` | orrn chat | orrn चैट |
+| `settings.platform.telegram` | Telegram | Telegram |
+| `settings.outcome.ok` | Done | हो गया |
+| `settings.outcome.needs_confirm` | Waits for Confirm | पक्का होना बाकी |
+| `settings.outcome.forbidden` | Not allowed | अनुमति नहीं |
+| `settings.outcome.not_found` | Not found | नहीं मिला |
+| `settings.outcome.invalid` | Wrong input | गलत इनपुट |
+| `settings.outcome.rate_limited` | Too many calls | बहुत सारी कॉल |
+| `settings.outcome.error` | Error | गड़बड़ी |
+| `settings.outcome.truncated` | Done, cut short | हो गया (जवाब काटा गया) |
+| `settings.outcome.pending` | Running | चल रहा है |
+| `settings.drafts` | Changes from Buddy | Buddy के बदलाव |
+| `settings.draftsEmpty` | No changes from Buddy yet. | Buddy से अभी कोई बदलाव नहीं। |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -8077,7 +8228,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (326)
+### audit (337)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8137,6 +8288,8 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_candidate` | Import | इम्पोर्ट |
 | `subjectTypes.ingest_merge_run` | Import merge | इम्पोर्ट मर्ज |
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
+| `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
+| `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -8187,6 +8340,15 @@ Please check, Lalubhai:
 | `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |
 | `actions.backup__drill__discard` | Backup drill thrown away | बैकअप ड्रिल हटाई |
 | `actions.backup__export` | Backup downloaded | बैकअप डाउनलोड किया |
+| `actions.buddy__draft__confirm` | Buddy change confirmed | Buddy का बदलाव पक्का किया |
+| `actions.buddy__draft__create` | Buddy prepared a change | Buddy ने बदलाव तैयार किया |
+| `actions.buddy__draft__expire` | Buddy change expired | Buddy के बदलाव का समय खत्म |
+| `actions.buddy__draft__fail` | Buddy change did not go through | Buddy का बदलाव नहीं हुआ |
+| `actions.buddy__draft__reject` | Buddy change rejected | Buddy का बदलाव नामंज़ूर किया |
+| `actions.buddy__grant__create` | Hermes connected to Buddy | Hermes को Buddy से जोड़ा |
+| `actions.buddy__grant__revoke` | Hermes disconnected from Buddy | Hermes को Buddy से हटाया |
+| `actions.buddy__grant__renew` | Hermes connection renewed | Hermes कनेक्शन बढ़ाया |
+| `actions.buddy__draft__report` | Buddy row check reported | Buddy की लाइन जांच का नतीजा दर्ज हुआ |
 | `actions.bundle__import` | Bundles imported | बंडल इंपोर्ट किए |
 | `actions.bundle__receipt__create` | Bundles packed | बंडल पैक किए |
 | `actions.bundle__receipt__pin_override` | Packed on another copy than the order pins | ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया |
