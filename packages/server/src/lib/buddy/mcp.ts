@@ -4,8 +4,9 @@
  * Every answer is one `application/json` body; a request of notifications only gets 202; GET and DELETE
  * get 405 (no server-to-client stream, no session to end).
  *
- * Tools: `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`, and the composite import drafts
- * `orrn_import_answers` and `orrn_import_dry_run` (`importDrafts.ts`).
+ * Tools: `orrn_search`, `orrn_describe`, `orrn_call`, `orrn_review_link`, `orrn_import_questions` (the open
+ * questions of a candidate, paged), and the composite import drafts `orrn_import_answers` and `orrn_import_dry_run`
+ * (`importDrafts.ts`).
  * - Queries run through `appRouter.createCaller(ctx)` with the grant's context (`grantContext.ts`).
  * - Mutations never run here: `orrn_call` validates the input and stores a `buddy_draft`.
  * - Denied paths (`decisions.ts`) are not tools: search skips them, describe and call say `not_found`.
@@ -25,7 +26,7 @@ import { createBuddyDraft, pendingSeqMoves, type NewDraft } from "./draftCreate"
 import { cardTooBig, draftCard, fillsExpectSeq, REQUEST_KEYS, TOO_BIG_FOR_CARD } from "./draftView";
 import { byteLength, errorEnvelope, okEnvelope, statusEnvelope, stripSecrets, type Envelope } from "./envelope";
 import { contextFromGrant, type BuddyContext } from "./grantContext";
-import { prepareImportAnswers, prepareImportDryRun } from "./importDrafts";
+import { ANSWERS_PER_DRAFT, prepareImportAnswers, prepareImportDryRun } from "./importDrafts";
 import { absoluteLink, draftLink, reviewPath } from "./links";
 import { allowedProcedure, buddyRegistry, inputJsonSchema, roleHoldsGuard, unknownKeys, validateInput, type BuddyProcedure } from "./registry";
 
@@ -98,7 +99,7 @@ export const MCP_TOOLS = [
         answers: {
           type: "array",
           minItems: 1,
-          maxItems: 200,
+          maxItems: ANSWERS_PER_DRAFT,
           items: {
             type: "object",
             properties: {
@@ -112,6 +113,20 @@ export const MCP_TOOLS = [
         },
       },
       required: ["candidateId", "answers"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "orrn_import_questions",
+    description:
+      "The open questions of one import table, a page at a time (ingest.candidate.get is cut at 32 KB and lists answered questions too). Each has code, subject and params. Pass the returned next as cursor for the next page; next is null on the last page. Answer them with orrn_import_answers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        candidateId: { type: "string", description: "The import candidate id (from ingest.candidate.list)." },
+        cursor: { type: "string", description: "The next value of the previous page. Leave out for the first page." },
+      },
+      required: ["candidateId"],
       additionalProperties: false,
     },
   },
@@ -290,6 +305,8 @@ async function dispatchTool(name: string, args: Record<string, unknown>, ctx: Bu
       return call(args, ctx, origin);
     case "orrn_review_link":
       return reviewLink(args, ctx);
+    case "orrn_import_questions":
+      return importQuestions(args, ctx);
     default:
       return statusEnvelope("not_found", "Not found.");
   }
@@ -490,4 +507,42 @@ async function reviewLink(args: Record<string, unknown>, ctx: BuddyContext): Pro
     return errorEnvelope(error, { action: actionText(entry) });
   }
   return okEnvelope({ url: absoluteLink(path), path });
+}
+
+/** Bytes of question JSON on one page of `orrn_import_questions`, well under the 32 KB tool cap. */
+export const QUESTIONS_PAGE_BYTES = 24 * 1024;
+const questionKey = (q: { code: string; subject: string }) => `${q.code}\u001f${q.subject}`;
+
+/**
+ * `orrn_import_questions` (delta S6): the candidate's OPEN questions in (code, subject) order, as many as fit
+ * QUESTIONS_PAGE_BYTES, after the cursor (the key of the last question of the previous page, so answering between
+ * pages skips nothing). The same read the review page makes (`ingest.candidate.get`, under the grant).
+ */
+async function importQuestions(args: Record<string, unknown>, ctx: BuddyContext): Promise<Envelope> {
+  const candidateId = typeof args.candidateId === "string" && args.candidateId.length > 0 && args.candidateId.length <= 64 ? args.candidateId : null;
+  if (!candidateId) return statusEnvelope("invalid", "Give a candidateId.");
+  const cursor = typeof args.cursor === "string" ? args.cursor : null;
+  const entry = await allowedProcedure("ingest.candidate.get");
+  if (!entry) return statusEnvelope("not_found", "Not found.");
+  let detail: { questions?: { code: string; subject: string; params?: unknown; open?: boolean }[] };
+  try {
+    detail = (await runQuery(ctx, "ingest.candidate.get", { candidateId })) as typeof detail;
+  } catch (error) {
+    return errorEnvelope(error, { action: actionText(entry) });
+  }
+  const open = (detail.questions ?? [])
+    .filter((q) => q.open)
+    .map((q) => ({ code: q.code, subject: q.subject, params: q.params ?? null }))
+    .sort((a, b) => (questionKey(a) < questionKey(b) ? -1 : questionKey(a) > questionKey(b) ? 1 : 0));
+  const rest = cursor === null ? open : open.filter((q) => questionKey(q) > cursor);
+  const page: typeof open = [];
+  let bytes = 2;
+  for (const q of rest) {
+    const size = byteLength(JSON.stringify(stripSecrets(q))) + 1;
+    if (page.length > 0 && bytes + size > QUESTIONS_PAGE_BYTES) break;
+    page.push(q);
+    bytes += size;
+  }
+  const next = page.length < rest.length ? questionKey(page[page.length - 1]!) : null;
+  return okEnvelope(stripSecrets({ total: open.length, questions: page, next }));
 }

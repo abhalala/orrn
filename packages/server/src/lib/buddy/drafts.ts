@@ -241,7 +241,8 @@ class AnswersStopped extends Error {
  */
 async function seqIfCurrent(ctx: BrowserCtx, caller: Caller, row: Row, candidateId: string): Promise<number> {
   const seq = (await candidateNow(caller, candidateId)).serverSeq;
-  if (row.basisSeq === null || row.basisSeq === undefined) return seq;
+  // Every such draft is made with a basis (0054 is new): a draft without one cannot be checked, so it never runs.
+  if (row.basisSeq === null || row.basisSeq === undefined) throw new StaleDraft();
   if (seq !== row.basisSeq) throw new StaleDraft();
   const earlier = await ctx.db
     .select({ status: buddyDraft.status })
@@ -368,7 +369,7 @@ export async function confirmDraft(ctx: BrowserCtx, draftId: string, via: BuddyD
       await settle(
         ctx,
         row,
-        { status: "failed", failure: failureText(error.inner), resultJson: { applied: error.applied, total: error.total } },
+        { status: "failed", failure: failureText(error.inner), resultJson: { applied: { done: error.applied, total: error.total } } },
         "buddy.draft.fail",
         via,
         claim,

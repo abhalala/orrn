@@ -185,7 +185,8 @@ describe("orrn_import_answers", () => {
     const out = await p.owner.buddy.drafts.confirm({ draftId, via: "bubble" });
     expect(out.status).toBe("failed");
     expect(out.failure).toMatch(/does not fit this column/);
-    expect(out.result).toEqual({ applied: 1, total: 3 });
+    // Contract N6: the count of answers saved, a server number.
+    expect(out.result).toEqual({ applied: { done: 1, total: 3 } });
     const c = await p.owner.ingest.candidate.get({ candidateId });
     expect(c.questions.find((q) => q.code === "magnitude_check")).toMatchObject({ answer: "kg" });
   });

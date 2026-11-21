@@ -366,3 +366,33 @@ describe("no stored result holds a secret (decision 1)", () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe("every name resolver runs (S4)", () => {
+  test("each of RESOLVERS answers a query for an unknown id without an error, and finds no name", async () => {
+    const p = await buddyPlant(env);
+    const { RESOLVERS } = await import("../src/lib/buddy/draftNames");
+    const failed: string[] = [];
+    for (const [entity, resolve] of Object.entries(RESOLVERS)) {
+      try {
+        const found = await resolve({ db: env.db, companyId: p.companyId }, ["no-such-id-synthetic"]);
+        if (found.length !== 0) failed.push(`${entity}: found ${found.length}`);
+      } catch (e) {
+        failed.push(`${entity}: ${String(e).slice(0, 200)}`);
+      }
+    }
+    expect(Object.keys(RESOLVERS).length).toBeGreaterThan(45);
+    expect(failed).toEqual([]);
+  });
+
+  test("a die copy, a press line and a member resolve to their code or name in this plant only", async () => {
+    const p = await buddyPlant(env);
+    const q = await buddyPlant(env);
+    const { RESOLVERS } = await import("../src/lib/buddy/draftNames");
+    const ctx = { db: env.db, companyId: p.companyId };
+    expect(await RESOLVERS.member(ctx, [p.users.owner.id])).toEqual([{ id: p.users.owner.id, name: expect.any(String) }]);
+    expect(await RESOLVERS.member(ctx, [q.users.owner.id])).toEqual([]);
+    const sectionId = await env.seedDie(p.companyId, { series: "R", sectionCode: "7300" });
+    expect(await RESOLVERS.die(ctx, [sectionId])).toEqual([{ id: sectionId, name: "R 7300" }]);
+    expect(await RESOLVERS.die({ db: env.db, companyId: q.companyId }, [sectionId])).toEqual([]);
+  });
+});

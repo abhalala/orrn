@@ -64,7 +64,7 @@ describe("HTTP and JSON-RPC", () => {
     expect(init.headers.get("content-type")).toContain("application/json");
     expect(await init.json()).toMatchObject({ id: 1, result: { protocolVersion: "2025-03-26", serverInfo: { name: "orrn" }, capabilities: { tools: {} } } });
     const list = (await (await mcpRequest(env, token, { jsonrpc: "2.0", id: 2, method: "tools/list" })).json()) as { result: { tools: { name: string }[] } };
-    expect(list.result.tools.map((t) => t.name)).toEqual(["orrn_search", "orrn_describe", "orrn_call", "orrn_review_link", "orrn_import_answers", "orrn_import_dry_run"]);
+    expect(list.result.tools.map((t) => t.name)).toEqual(["orrn_search", "orrn_describe", "orrn_call", "orrn_review_link", "orrn_import_answers", "orrn_import_questions", "orrn_import_dry_run"]);
     expect(await (await mcpRequest(env, token, { jsonrpc: "2.0", id: 3, method: "ping" })).json()).toMatchObject({ id: 3, result: {} });
     const note = await mcpRequest(env, token, { jsonrpc: "2.0", method: "notifications/initialized" });
     expect(note.status).toBe(202);
