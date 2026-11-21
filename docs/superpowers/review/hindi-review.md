@@ -7540,7 +7540,7 @@ Please check, Lalubhai:
 | `reason.customer_missing` | Not merged. Customer {name} is not in orrn. Add the customer, then press Check again. | मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर "फिर से जांचें" दबाएं। |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
-| `vision.check` | Checked against the page. | पेज से मिलाकर देख ली गईं। |
+| `vision.check` | Checked against the page. | लाइनें पेज से मिला ली गईं। |
 | `vision.dropHint` | Excel, CSV, a database export, a PDF or a photo. PDFs and photos are read page by page. Up to {max} files. | Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो। PDF और फ़ोटो पेज दर पेज पढ़ी जाती हैं। एक बार में {max} फ़ाइलें तक। |
 | `vision.keptNote` | Open a file to read its pages. | पेज पढ़ने के लिए फ़ाइल खोलें। |
 | `vision.opening` | Opening the pages | पेज खोले जा रहे हैं |
@@ -7587,31 +7587,31 @@ Please check, Lalubhai:
 | `vision.finish` | Finish | पूरा करें |
 | `vision.finishNote` | Every page is read, typed or skipped. Finish to check the tables. | हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। टेबल जांचने के लिए पूरा करें। |
 | `vision.notDone` | Read, type or skip each page, then finish. | हर पेज पढ़ें, टाइप करें या छोड़ें, फिर पूरा करें। |
-| `vision.cap` | Pages 1 to {max} of {total} are planned so far. | {total} में से पेज 1 से {max} तक अभी तय हैं। |
+| `vision.cap` | orrn reads pages 1 to {max} of {total} first. | {total} में से पहले पेज 1 से {max} तक पढ़े जाएंगे। |
 | `vision.readNext` | Read next pages | अगले पेज पढ़ें |
 | `vision.readNextNote` | Reads pages {from} to {to}. | पेज {from} से {to} तक पढ़े जाएंगे। |
 | `vision.readRanges` | Pages read: {ranges}. | पढ़े गए पेज: {ranges}। |
 | `vision.range` | {from} to {to} | {from} से {to} |
 | `vision.rangeOne` | {page} | {page} |
 | `vision.restLine` | Pages {from} to {to} of {total} are not read yet. | {total} में से पेज {from} से {to} तक अभी नहीं पढ़े गए। |
-| `vision.dayCostLine` | Today's spend on the model is used up. Read next pages carries on from page {page} tomorrow. | आज मॉडल पर खर्च की सीमा पूरी हो गई। कल अगले पेज पढ़ें दबाने पर पेज {page} से पढ़ना आगे चलेगा। |
-| `vision.dayCallsLine` | The model has read as many pages as allowed today. Read next pages carries on from page {page} tomorrow. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। कल अगले पेज पढ़ें दबाने पर पेज {page} से पढ़ना आगे चलेगा। |
+| `vision.dayCostLine` | Today's spend on the model is used up. "Read next pages" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit. | आज मॉडल पर खर्च की सीमा पूरी हो गई। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर Godseye स्टाफ़ सीमा बढ़ा दे। |
+| `vision.dayCallsLine` | The model has read as many pages as allowed today. "Read next pages" carries on from page {page} tomorrow, or sooner if Godseye staff raise the limit. | आज मॉडल जितने पेज पढ़ सकता था, पढ़ चुका। "अगले पेज पढ़ें" कल पेज {page} से आगे पढ़ेगा, या पहले अगर Godseye स्टाफ़ सीमा बढ़ा दे। |
 | `vision.fullLine` | This file holds {max} tables, the most one file can hold. The tables read so far can still be checked and imported. | इस फ़ाइल में {max} टेबल हैं, एक फ़ाइल में इससे ज़्यादा नहीं हो सकतीं। अब तक पढ़ी गई टेबल जांची और इम्पोर्ट की जा सकती हैं। |
 | `vision.skipRest` | Skip the rest and finish | बाकी छोड़ें और पूरा करें |
 | `vision.skipRestNote` | Pages not read yet are skipped. The tables read so far stay. | जो पेज अभी नहीं पढ़े गए वे छोड़ दिए जाएंगे। अब तक पढ़ी गई टेबल बनी रहेंगी। |
 | `vision.finishEarly` | Finish without pages {from} to {to} | पेज {from} से {to} के बिना पूरा करें |
 | `vision.finishEarlyNote` | Every page so far is read, typed or skipped. Read the next pages, or finish now and leave pages {from} to {to} not read. | अब तक का हर पेज पढ़ा, टाइप किया या छोड़ा जा चुका है। अगले पेज पढ़ें, या अभी पूरा करें और पेज {from} से {to} बिना पढ़े छोड़ दें। |
 | `vision.type.title` | Type page {page} | पेज {page} टाइप करें |
-| `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। एक लाइन कॉलम के नामों की, फिर हर रो की एक लाइन। |
+| `vision.type.intro` | Type the table as it is on the page. One line for the column names, then one line per row. | टेबल वैसे ही टाइप करें जैसी पेज पर है। पहले कॉलम के नाम, फिर पेज की हर लाइन। |
 | `vision.type.tableTitle` | Table name (if the page has one) | टेबल का नाम (अगर पेज पर है) |
 | `vision.type.header` | Column {n} name | कॉलम {n} का नाम |
-| `vision.type.cell` | Row {row}, column {col} | रो {row}, कॉलम {col} |
-| `vision.type.addRow` | Add a row | रो जोड़ें |
+| `vision.type.cell` | Row {row}, column {col} | लाइन {row}, कॉलम {col} |
+| `vision.type.addRow` | Add a row | लाइन जोड़ें |
 | `vision.type.addColumn` | Add a column | कॉलम जोड़ें |
-| `vision.type.removeRow` | Remove row {row} | रो {row} हटाएं |
+| `vision.type.removeRow` | Remove row {row} | लाइन {row} हटाएं |
 | `vision.type.save` | Save the table | टेबल सेव करें |
 | `vision.type.needHeader` | Give every column a name. | हर कॉलम को नाम दें। |
-| `vision.type.needRow` | Type at least one row. | कम से कम एक रो टाइप करें। |
+| `vision.type.needRow` | Type at least one row. | कम से कम एक लाइन टाइप करें। |
 | `vision.pageHeading` | Page {page} of {count} | पेज {page} / {count} |
 | `vision.pageAlt` | Page {page} of {count} of {file} | {file} का पेज {page} / {count} |
 | `vision.partAlt` | Page {page} of {count} of {file}, part {part} of {parts} | {file} का पेज {page} / {count}, हिस्सा {part} / {parts} |
