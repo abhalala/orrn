@@ -286,6 +286,7 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   // Fix round decision 6: a confirm that died part way is never run again.
   { id: "buddyUnknownOutcome", re: /^orrn could not tell if this went through\. Check the screen before you try again\.?$/ },
   { id: "buddyChangeFailed", re: /^The change failed\.?$/ },
+  { id: "buddyInputNotFit", re: /^The input does not fit\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {

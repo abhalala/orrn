@@ -610,6 +610,7 @@ describe("failed drafts in the person's words (decision 6)", () => {
     const tEn = createI18n("en").t;
     expect(failureText(tEn, stale)).toBe(stale);
     expect(failureText(tEn, "The change failed.")).toBe("The change did not go through.");
+    expect(failureText(tEn, "The input does not fit.")).toBe("This change no longer fits the screen it was made for. Ask Buddy again.");
     expect(failureText(createI18n("hi").t, stale)).toBe("orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें।");
     expect(failureText(createI18n("gu").t, stale)).toBe("orrn જાણી ન શક્યું કે આ થયું કે નહીં. ફરી કરતાં પહેલાં સ્ક્રીન પર જોઈ લો.");
   });

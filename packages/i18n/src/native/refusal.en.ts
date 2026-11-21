@@ -176,6 +176,7 @@ export const refusalEn = {
     buddyNotAllowed: "Buddy may not make this change. Do it on its own screen.",
     buddyUnknownOutcome: "orrn could not tell if this went through. Check the screen before you try again.",
     buddyChangeFailed: "The change did not go through.",
+    buddyInputNotFit: "This change no longer fits the screen it was made for. Ask Buddy again.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;
