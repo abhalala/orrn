@@ -129,6 +129,11 @@ export async function revokeBuddyGrants(db: Db, scope: BuddyRevokeScope, reason:
   }
 }
 
+/** `buddyRevokePlantStatements` on its own, in one batch (the MCP leg, which may not batch writes itself). */
+export async function revokeBuddyPlantGrants(db: Db, scope: BuddyPlantRevokeScope, reason: BuddyGrantRevokeReason, at: Date = new Date()): Promise<void> {
+  await atomicBatch(db, buddyRevokePlantStatements(db, scope, reason, at) as never);
+}
+
 /** Better Auth paths that end every session of the person (or every other one). */
 export const SIGN_OUT_EVERYWHERE_PATHS: ReadonlySet<string> = new Set(["/revoke-sessions", "/revoke-other-sessions"]);
 

@@ -14,8 +14,7 @@
  * `companyProcedure`'s secure sign-in gate judges the grant exactly like that session (no buddy skip).
  */
 import type { createDb } from "@orrn/db";
-import { atomicBatch } from "@orrn/db/atomic";
-import { buddyRevokePlantStatements } from "@orrn/auth/buddy-revoke";
+import { revokeBuddyPlantGrants } from "@orrn/auth/buddy-revoke";
 import { buddyGrant, company, membership, user } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { and, eq, sql } from "drizzle-orm";
@@ -112,7 +111,7 @@ export async function contextFromGrant(
 /** Ends every live grant of the plant (and its pending drafts and links) in one batch; the call is refused either way. */
 async function revokePlant(db: Db, companyId: string, reason: "plant_suspended" | "plant_delisted", at: Date): Promise<{ ok: false }> {
   try {
-    await atomicBatch(db, buddyRevokePlantStatements(db, { companyId }, reason, at) as never);
+    await revokeBuddyPlantGrants(db, { companyId }, reason, at);
   } catch {
     // refused anyway; the next call tries the revoke again
   }
