@@ -66,7 +66,7 @@ orrn web (owner signed in)
 
 - New Worker route `POST /buddy/chat` (Hono, beside the tRPC handler). It builds the normal `Context` from the request, then requires: a session, an active membership, `role ∈ BUDDY_ROLES` (v1: `["owner"]`, a constant in `permissions.ts` next to a new plant action `buddy.use` whose only holder is `owner`), and the buddy configured on this stage (§6). Otherwise 403 / 404, no body detail.
 - The Worker forwards the conversation to Hermes's OpenAI-compatible API server at `HERMES_BASE_URL` + `/p/<profile>/v1/...`, with the Access service-token pair and that profile's `API_SERVER_KEY`. It streams Hermes's SSE back to the browser unchanged except for stripping anything that is not assistant text, tool-progress or a finish event.
-- Profile choice: a table `buddy_link (company_id, user_id, hermes_profile, status, created_at, revoked_at)`. v1 has one row: the owner in `fourcubesllp` → the default profile (no `/p/<profile>` prefix). The Worker never takes a profile from the browser.
+- Profile choice: a table `buddy_link (company_id, user_id, hermes_profile, status, created_at, revoked_at)`. v1 has one row: the owner in `fourcubesllp` → the profile `orrn-buddy` (env `BUDDY_HERMES_PROFILE`, default `orrn-buddy`), so every turn goes to `/p/orrn-buddy/v1/responses`. Never the default profile (owner decision 2026-11-20, §5). The Worker never takes a profile from the browser.
 - What the Worker sends with each turn (as a system/context block, not as user text): the user's display name, company name, role, today's date in company time, the current screen path. It never sends tokens.
 - Conversation memory lives in Hermes (its session store). orrn stores no chat text (October spec §5 rule: the conversation stays in the runtime). The bubble keeps the current conversation id in `sessionStorage` and offers "New chat". Builder verifies which Hermes endpoint keeps server-side sessions (`/v1/responses` with a conversation/previous id, or `/v1/runs`) and uses that; plain stateless `/v1/chat/completions` with the browser resending history is the fallback.
 - Timeouts: one turn may take minutes (Hermes tool loops). The Worker streams, so no single response waits; nginx `proxy_read_timeout` 300 s and `proxy_buffering off`, like `models-gate.conf`.
@@ -111,13 +111,14 @@ orrn web (owner signed in)
 ## 5. Hermes side (CT 230)
 
 - Enable the API server on loopback: `API_SERVER_ENABLED=true`, `API_SERVER_HOST=127.0.0.1`, port 8642, with per-profile routing `/p/<profile>/v1`.
-- **Profile: Hermes's default profile (owner decision 2026-11-18).** The buddy shares Hermes's memory, skills and session store with Telegram and the Webapp. The default profile's MCP config gets the owner's orrn grant (`mcp_servers.orrn: { url: https://<api host>/mcp, headers: Authorization: Bearer <grant> }`).
-  - Consequence the owner accepted: Hermes treats every allowed caller of a profile as one identity (its SECURITY.md), so everyone on Hermes's Telegram (owner, Dad, Lalu, all orrn owners of fourcubesllp today) can read orrn and create drafts with the owner's grant. They cannot change anything: a draft runs only when someone clicks Confirm in the orrn bubble under their own orrn session (§4.4), and the MCP token cannot confirm.
-  - `buddy_call` rows record the Hermes platform (api_server vs telegram) when Hermes passes it, so the owner can see which side asked.
-  - Per-user grants (one Hermes profile or gateway per person) stay the path for opening the buddy to other roles (G5); a later owner decision.
-- **Toolsets on the buddy's platform (owner decision 2026-11-18): orrn + memory + web only.** `platform_toolsets.api_server` = the orrn MCP server, memory, session search, skills (read), web search/extract, todo. No terminal, process, file write, code execution, browser, cron or delegate tools on API-server sessions, because orrn data (customer names, notes) flows into these turns and CT 230 holds GitHub, Cloudflare and prod credentials. Telegram and the Webapp keep their current full toolset. Builder verifies on v0.23.1 that `platform_toolsets.api_server` is honoured exactly (`/tools list` through the API) and that plugin toolsets are not added on top. `approvals.unattended_mode: deny` stays on.
+- **Profile: its own profile `orrn-buddy` (owner decision 2026-11-20, replaces the 2026-11-18 choice of the default profile).** The buddy has separate memory, sessions and skills from Telegram and the Webapp. Only the `orrn-buddy` profile's MCP config gets the owner's orrn grant (`mcp_servers.orrn: { url: https://<api host>/mcp, headers: Authorization: Bearer <grant> }`). The default profile has no orrn grant.
+  - So people on Hermes's Telegram no longer reach orrn through the buddy's grant, and a memory written in a buddy turn never reaches a Telegram or Webapp session that has a shell (security review H2).
+  - `buddy_call` and `buddy_draft` rows record the Hermes platform (`x-hermes-platform`) when Hermes passes it, and the draft card says where a draft was made.
+  - Per-user grants (one Hermes profile per person) stay the path for opening the buddy to other roles (G5).
+- **Toolsets on the `orrn-buddy` profile (owner decision 2026-11-20): orrn + its own memory only.** The orrn MCP server, memory and session search (of this profile only), skills (read), todo. No web search or extract, no terminal, process, file read or write, code execution, browser, cron or delegate tools. orrn data (customer names, notes, import cells) flows into these turns, so a turn has no way to send data out and no way to reach a shell. Builder verifies on v0.23.1 that the profile's toolset is honoured exactly (`/tools list` through the API) and that plugin toolsets are not added on top. `approvals.unattended_mode: deny` stays on.
+- **Money reads stay allowed (owner decision 2026-11-20).** Purchase rates, the register, cast cost, quotes and customer analytics are allowed queries. The shared-profile risk that made the security review suggest denying them (L7) no longer applies: the profile is the buddy's own and has no web tools.
 - The profile's model comes from CPA, as for every Hermes profile.
-- Skills: a small `orrn-buddy` skill (plant vocabulary, "search → describe → call", "mutations come back as drafts; tell the person to confirm in the card", units: grams, paise, IST).
+- Skills: the `orrn-buddy` skill, installed in the `orrn-buddy` profile only (text in the repo at `docs/hermes/skills/orrn-buddy/SKILL.md`; plant vocabulary, "search → describe → call", "mutations come back as drafts; tell the person to confirm in the card", units: grams, paise, IST).
 - Network: CT 231 nginx gets a second gate file `hermes-gate.conf` (pattern of `models-gate.conf`): host `hermes.orrn.in`, requires the Access JWT header, passes only `POST /p/<profile>/v1/<chat endpoint>` to `192.168.230.2:8642`; everything else 404. The fence (`vayu-guard`) gains one accept: CT 231 → CT 230 tcp 8642. CT 230 needs outbound 443 to the orrn API host for MCP (it already reaches Cloudflare over 443).
 - Cloudflare: tunnel ingress `hermes.orrn.in` on `fourcubes-plant`; Access app "orrn buddy gate" with a service-token-only policy (token "orrn buddy (hermes.orrn.in)", one year).
 
@@ -145,7 +146,7 @@ The buddy is a separate Worker route plus a lazy-loaded web chunk. If Hermes, CP
 1. orrn: registry + denylist + MCP endpoint (`orrn_search`, `orrn_describe`, `orrn_call` for queries) + `buddy_grant` + `buddy_call`, with tests (cross-tenant token sees nothing; a viewer-role grant gets `forbidden` on an owner-only query; denylisted paths are not found; every router has an allow/deny decision).
 2. orrn: drafts (`buddy_draft`, confirm/reject, the double-confirm replay test, the "MCP token cannot confirm" test).
 3. orrn: `/buddy/chat` proxy + bubble UI + Settings → Buddy, against a fake Hermes.
-4. vayu: API server, orrn MCP in the default profile, api_server toolset limits, `orrn-buddy` skill, gate + fence + tunnel + Access. Then a live test on dev with the owner.
+4. vayu: API server, the `orrn-buddy` profile with orrn MCP and its toolset limits, `orrn-buddy` skill, gate + fence + tunnel + Access. Then a live test on dev with the owner.
 5. Promote to prod only on the owner's say-so.
 
 ## 10. Calls made in this design (check these)
@@ -153,6 +154,7 @@ The buddy is a separate Worker route plus a lazy-loaded web chunk. If Hermes, CP
 - **Drafts ship on D1, now.** The October spec deferred drafts to Postgres because a draft tool on D1 is protected only by a grep test. Here a draft row changes no plant data, and the confirm runs the ordinary tRPC mutation under the person's browser session, so its protection is the same as the UI's. Carried over from October: a grep test that the MCP module imports no mutation code, `atomicBatch` or ledger builder (only the `buddy_draft`/`buddy_call` inserts and the caller); the draft id is passed as `clientRequestId` wherever the target procedure takes one, and `buddy.drafts.confirm` replays a confirmed draft's stored result. Drafts show in the bubble and Settings → Buddy only, not on Today or `/approvals` in v1.
 - **Queries run without a click.** "Entire orrn" includes every allowed query. Step 1 includes a one-time scan of all queries for any that write rows, take numbers, call outside services or return bulk exports; each hit is denylisted or routed through the draft path, and the allow/deny test pins the result.
 - **Web only, owner role only, fourcubesllp only** for v1.
+- **Own profile, no web (2026-11-20).** The buddy runs in the `orrn-buddy` profile, not the default one, with no web tools and separate memory (§5). Money reads stay allowed for that reason.
 - **Buddy is down when vayu or the tunnel is down.** Accepted with option B.
 
 ## 11. Left to the builder
@@ -176,7 +178,8 @@ allow or deny decision.
 |---|---|---|
 | List import files and their state | `ingest.status`, `ingest.artifact.list`, `ingest.artifact.get`, `ingest.candidate.list` | query, runs at once |
 | Start reading a file that is already uploaded | `ingest.shape.make` (the layout read of a sheet). When release 2 lands: `ingest.vision.readPage` for a page whose image is already uploaded | draft, the person confirms |
-| Answer the importer's questions | `ingest.answer.set`, `ingest.rows.answerDoubts`, `ingest.period.confirm`, `ingest.candidate.confirmNear`, `ingest.candidate.setTarget`, `ingest.candidate.hold`, `ingest.candidate.release` | draft, the person confirms |
+| Answer the importer's questions | `ingest.answer.set` (also as one batch draft, `orrn_import_answers`), `ingest.period.confirm`, `ingest.candidate.confirmNear`, `ingest.candidate.setTarget`, `ingest.candidate.hold`, `ingest.candidate.release` | draft, the person confirms |
+| Run the dry run to the end | `orrn_import_dry_run`: one draft; its Confirm drives the dry run steps in the browser until done, with progress in the bubble | draft, the person confirms |
 | Show a candidate's fit and dry run results | `ingest.candidate.get`, `ingest.rows.list`, `ingest.rows.doubts`, `ingest.hole.list`, `ingest.merge.get`, `ingest.provenance.forRecord`; `ingest.dryRun.step` | queries at once; the dry run step is a draft |
 | Hand the person the review page | the MCP tool `orrn_review_link` | builds a link to `/ingest/review/<candidateId>` or `/ingest/files/<artifactId>` on the plant's web host |
 
@@ -201,6 +204,8 @@ vayu or the MCP endpoint. The upload procedures are denylisted on the tool leg.
 | `ingest.candidate.discard` | Discard of an artifact's table. |
 | `ingest.artifact.begin`, `ingest.artifact.commitRaw`, `ingest.artifact.putBlocks`, `ingest.artifact.putRows`, `ingest.artifact.complete` | Upload. File bytes and parsed rows come from the browser only (§12.2). |
 | `ingest.rows.decide`, `ingest.rows.skipNoDate` | Row by row keep or refuse is a check against the file, made on the review page. |
+| `ingest.rows.answerDoubts` (owner decision 2026-11-20) | "Right" on a doubted row records the person as having checked it against the file, the same attestation as the page tick. The buddy links the person to the review page instead. |
+| `approval.decide`, `dieInstance.closeOwnerOverride` (owner decision 2026-11-20) | Approvals and the die owner-override close are a person's act. The buddy links to the screen. |
 | `ingest.candidate.repickHeader`, `ingest.shape.save` | The person picks the header row and saves a layout while they see the sheet. |
 | `ingest.vision.start`, `ingest.vision.bandTickets`, `ingest.vision.skipPage`, `ingest.vision.typePage`, `ingest.vision.fixCell`, `ingest.vision.readUrl` (release 2) | They need the page in the browser: the page count from the PDF, page images, or typing against the image. |
 
