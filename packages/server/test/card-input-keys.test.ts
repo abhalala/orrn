@@ -3,7 +3,9 @@
  * walk `appRouter`, so it reads a generated list, `apps/web/src/features/buddy/draft-card.input-keys.ts`. This test
  * keeps that list honest: every top-level key of every allowed mutation (and of the two composite import drafts) must
  * be in it. Regenerate with `CARD_KEYS_WRITE=1 bun test test/card-input-keys.test.ts`; the web test
- * `draft-card.test.tsx` then fails until each new key has words in en, hi and gu.
+ * `draft-card.test.tsx` then fails until each new key has words in en, hi and gu. Writing only adds keys: a key no
+ * allowed mutation takes any more (a procedure denied later) stays in the list with its words, so the web's
+ * "keys with words" check never breaks on a regenerate.
  */
 import { describe, expect, test } from "bun:test";
 
@@ -47,7 +49,9 @@ describe("the card's list of input keys", () => {
   test("holds every top-level key of every allowed mutation", async () => {
     const keys = await registryKeys();
     if (process.env.CARD_KEYS_WRITE === "1") {
-      await Bun.write(FIXTURE, fixtureText(keys));
+      const before = (await Bun.file(FIXTURE).exists()) ? (await Bun.file(FIXTURE).text()).match(/^  "[^"]+",$/gm) ?? [] : [];
+      const kept = before.map((line) => JSON.parse(line.trim().slice(0, -1)) as string);
+      await Bun.write(FIXTURE, fixtureText([...new Set([...kept, ...keys])].sort()));
     }
     const { CARD_INPUT_KEYS } = (await import(FIXTURE.href)) as { CARD_INPUT_KEYS: readonly string[] };
     const listed = new Set<string>(CARD_INPUT_KEYS);
