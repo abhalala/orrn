@@ -869,6 +869,45 @@ describe("delta review SF1: no delete path removes the bytes of a file whose che
     expect(["stored", CHECK_RUNNING]).toContain(said);
   });
 
+  test("5-minute limit, other order: a slow check that finishes after a second complete took its dead lock is not kept stored", async () => {
+    const f = await begun();
+    await sendAll(f);
+    const key = rawKey(f.p.companyId, f.sha256);
+    const lock = checkKey(f.p.companyId, f.sha256);
+    const a = holdCheck(key);
+    const { setClockForTests } = await import("../src/lib/clock");
+    setClockForTests(new Date(Date.now() - 6 * 60 * 1000));
+    workersEnv.INGEST_VAULT = vault();
+    const first = f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId });
+    const firstSaid = first.then((r) => r.vaultState, (e: Error) => e.message);
+    await a.held;
+    setClockForTests(null);
+    // Complete B judges A's lock dead and is held right before it heads the object to delete it.
+    let sawLock = false;
+    const gate = gatedVault((m, k) => {
+      if (m === "get" && k === lock) sawLock = true;
+      return sawLock && m === "head" && k === key;
+    });
+    workersEnv.INGEST_VAULT = gate.bucket;
+    const second = f.p.owner.ingest.artifact.uploadComplete({ artifactId: f.artifactId });
+    const secondSaid = second.then((r) => r.vaultState, (e: Error) => e.message);
+    try {
+      await gate.reached;
+      a.free();
+      await firstSaid;
+    } finally {
+      a.free();
+      gate.release();
+    }
+    await secondSaid;
+    // Never a stored row with no bytes: A lost its lock, so it does not keep the row stored.
+    const stored = (await artifactRow(f)).vaultState === "stored";
+    const bytes = (await raw.head(key)) !== null;
+    expect({ stored, bytes: stored ? bytes : "n/a" }).toEqual({ stored, bytes: stored ? true : "n/a" });
+    expect(await firstSaid).toBe(CHECK_RUNNING);
+    expect(stored).toBe(false);
+  });
+
   test("a late part PUT after complete does not release the check lock; abort still waits for the check", async () => {
     const f = await begun();
     await sendAll(f);
