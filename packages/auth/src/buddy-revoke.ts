@@ -2,7 +2,9 @@
  * Ending orrn buddy grants (fix round 2026-11-20, security M4 and L1). One set of statements, used by every event that
  * ends a grant: the owner's "Cut off Hermes" (`owner`), a new key (`replaced`), a password reset, any password change
  * (self-service or forced), signing out of every session, Google linked to an unverified account, removal from the
- * plant and any role change. Each revoke also expires the pending drafts of the grants it
+ * plant, any role change, the person removing a passkey, the authenticator app or Google (`secure_sign_in_off`), and
+ * (`buddyRevokePlantStatements`) the plant suspended, delisted or dropping its secure sign-in rule. Each revoke also
+ * expires the pending drafts of the grants it
  * ends, in the same batch. A draft whose confirm is running (it holds a claim) is left to that confirm.
  *
  * Nothing is ever un-revoked: a grant stores no membership state that a re-invite or a re-promotion could match
@@ -14,10 +16,10 @@
 import type { createDb } from "@orrn/db";
 import { atomicBatch } from "@orrn/db/atomic";
 import { buddyDraft, buddyGrant, buddyLink, type BuddyGrantRevokeReason } from "@orrn/db/schema/buddy";
-import { and, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, or, type SQL } from "drizzle-orm";
 import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 
-import { sessionOfRequest } from "./session-method";
+import { sessionOfRequest, STRONG_SIGN_IN_METHODS } from "./session-method";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -64,6 +66,53 @@ export function buddyRevokeStatements(db: Db, scope: BuddyRevokeScope, reason: B
       .where(
         and(eq(buddyLink.userId, scope.userId), scope.companyId ? eq(buddyLink.companyId, scope.companyId) : undefined, eq(buddyLink.status, "active")),
       ),
+  ];
+}
+
+export type BuddyPlantRevokeScope = {
+  companyId: string;
+  /** Only the grants whose sign-in method a secure sign-in rule would refuse (none, password, sign-in link, other). */
+  weakOnly?: boolean;
+  /** Also end the plant's `buddy_link`s. Default true. */
+  link?: boolean;
+  /** An extra condition every statement holds (a guard on the event's own write, evaluated in the same batch). */
+  when?: SQL;
+};
+
+/**
+ * Every live grant of one plant, whoever holds it (delta round, D-L4): the plant suspended (`plant_suspended`) or not
+ * listed in `BUDDY_COMPANIES` (`plant_delisted`), and, with `weakOnly`, the plant dropping its secure sign-in rule
+ * (`secure_sign_in_off`: a password grant the rule refused must not start working). A separate function from
+ * `buddyRevokeStatements`, whose `userId` stays required, so a missing argument can never end every grant.
+ */
+export function buddyRevokePlantStatements(db: Db, scope: BuddyPlantRevokeScope, reason: BuddyGrantRevokeReason, at: Date) {
+  const live: SQL = and(
+    eq(buddyGrant.companyId, scope.companyId),
+    isNull(buddyGrant.revokedAt),
+    scope.weakOnly ? or(isNull(buddyGrant.signInMethod), notInArray(buddyGrant.signInMethod, [...STRONG_SIGN_IN_METHODS])) : undefined,
+    scope.when,
+  )!;
+  const statements = [
+    db
+      .update(buddyDraft)
+      .set({ status: "expired", decidedAt: at })
+      .where(
+        and(
+          eq(buddyDraft.companyId, scope.companyId),
+          eq(buddyDraft.status, "pending"),
+          isNull(buddyDraft.claimedAt),
+          inArray(buddyDraft.grantId, db.select({ id: buddyGrant.id }).from(buddyGrant).where(live)),
+        ),
+      ),
+    db.update(buddyGrant).set({ revokedAt: at, revokedReason: reason }).where(live),
+  ];
+  if (scope.link === false) return statements;
+  return [
+    ...statements,
+    db
+      .update(buddyLink)
+      .set({ status: "revoked", revokedAt: at })
+      .where(and(eq(buddyLink.companyId, scope.companyId), eq(buddyLink.status, "active"), scope.when)),
   ];
 }
 

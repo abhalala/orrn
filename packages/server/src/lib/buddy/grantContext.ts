@@ -6,11 +6,16 @@
  * sits in `ctx.request`), no platform role, no impersonation, and `via: "buddy"`.
  *
  * Every request re-checks: the grant is not revoked or expired, the membership is active, the company is
- * active and listed in `BUDDY_COMPANIES`, and the role is in `BUDDY_ROLES` and holds `buddy.use`. The
+ * active and listed in `BUDDY_COMPANIES`, and the role is in `BUDDY_ROLES` and holds `buddy.use`. A plant found
+ * suspended or not listed has its grants revoked, not only refused (delta round D-L4, decision 11), so lifting the
+ * suspension or listing it again brings no grant back. A stage with no `BUDDY_COMPANIES` at all has the buddy off:
+ * refused, not revoked. The
  * synthetic session carries the sign-in method of the browser session that made the grant, so
  * `companyProcedure`'s secure sign-in gate judges the grant exactly like that session (no buddy skip).
  */
 import type { createDb } from "@orrn/db";
+import { atomicBatch } from "@orrn/db/atomic";
+import { buddyRevokePlantStatements } from "@orrn/auth/buddy-revoke";
 import { buddyGrant, company, membership, user } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { and, eq, sql } from "drizzle-orm";
@@ -19,7 +24,7 @@ import type { Context } from "../../context";
 import { now } from "../clock";
 import { BUDDY_ROLES } from "../permissions";
 import { buddyEnv, roleMayUseBuddy } from "./access";
-import { companyListed } from "./config";
+import { buddyCompanies, companyListed } from "./config";
 import { hashBuddyToken, looksLikeBuddyToken } from "./token";
 
 type Db = ReturnType<typeof createDb>;
@@ -64,8 +69,11 @@ export async function contextFromGrant(
   if (!row) return { ok: false };
   if (row.revokedAt) return { ok: false };
   if (row.expiresAt && row.expiresAt.getTime() <= at.getTime()) return { ok: false };
+  if (row.companyStatus === "suspended") return revokePlant(db, row.companyId, "plant_suspended", at);
   if (row.companyStatus !== "active") return { ok: false };
-  if (!companyListed(buddyEnv(), row.companySlug)) return { ok: false };
+  if (!companyListed(buddyEnv(), row.companySlug)) {
+    return buddyCompanies(buddyEnv()).size > 0 ? revokePlant(db, row.companyId, "plant_delisted", at) : { ok: false };
+  }
   // Tests may widen the roles (to reach a procedure's own guard); production checks BUDDY_ROLES and buddy.use.
   if (opts.roles ? !opts.roles.includes(row.role) : !roleMayUseBuddy(row.role, BUDDY_ROLES)) return { ok: false };
 
@@ -99,4 +107,14 @@ export async function contextFromGrant(
     buddyGrantId: row.id,
   } as BuddyContext;
   return { ok: true, ctx, grant: { id: row.id, userId: row.userId, companyId: row.companyId } };
+}
+
+/** Ends every live grant of the plant (and its pending drafts and links) in one batch; the call is refused either way. */
+async function revokePlant(db: Db, companyId: string, reason: "plant_suspended" | "plant_delisted", at: Date): Promise<{ ok: false }> {
+  try {
+    await atomicBatch(db, buddyRevokePlantStatements(db, { companyId }, reason, at) as never);
+  } catch {
+    // refused anyway; the next call tries the revoke again
+  }
+  return { ok: false };
 }

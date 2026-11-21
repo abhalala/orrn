@@ -15,7 +15,7 @@ import { signUpGuardBody } from "./sign-up-guard";
 import { enrolmentGuardBody } from "./enrolment-guard";
 import { signInAuditAfter } from "./sign-in-methods";
 import { signInRemovalBody } from "./sign-in-removal";
-import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
+import { sessionMethodAfter, sessionOfRequest, stampSession } from "./session-method";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { buddyRevokeAfter, buddyRevokeBefore, revokeBuddyGrants } from "./buddy-revoke";
 import { writeAuthLog } from "./logger";
@@ -194,7 +194,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       ...googleDatabaseHooks(db),
       session: {
         create: {
-          before: async (data: Record<string, unknown>, ctx: { path?: string } | null) => stampSignInMethod(data, ctx),
+          // The method, and `createdAt` kept from a session an enrolment remakes (delta round D-L4, session-method.ts).
+          before: async (data: Record<string, unknown>, ctx: { path?: string } | null) => stampSession(db, data, ctx as never),
         },
       },
     },

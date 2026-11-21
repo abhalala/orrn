@@ -12,7 +12,9 @@ import {
   waitlistRequest,
 } from "@orrn/db/schema/tenant";
 import { normalizeModules } from "@orrn/domain";
+import { buddyRevokePlantStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch } from "../../lib/atomic";
+import { now } from "../../lib/clock";
 import { guardedBatch, ingestAbortUnlessChanged } from "../../lib/ingest/core";
 import { auditInsert } from "../../lib/audit";
 import { limitsPatchSql } from "../../lib/companySettings";
@@ -194,10 +196,11 @@ export const companiesProcedures = {
       if (row.status === "suspended") {
         return { success: true };
       }
-      await ctx.db
-        .update(company)
-        .set({ status: "suspended" })
-        .where(eq(company.id, input.id));
+      // orrn buddy (delta round D-L4): the plant's grants end in the same batch; reactivating never brings them back.
+      await atomicBatch(ctx.db, [
+        ctx.db.update(company).set({ status: "suspended" }).where(eq(company.id, input.id)),
+        ...buddyRevokePlantStatements(ctx.db, { companyId: input.id }, "plant_suspended", now()),
+      ]);
       return { success: true };
     }),
 

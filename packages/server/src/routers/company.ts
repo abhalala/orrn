@@ -23,7 +23,7 @@ import {
   type Shift,
   type ThresholdError,
 } from "@orrn/domain";
-import { buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
+import { buddyRevokePlantStatements, buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
@@ -440,6 +440,17 @@ export const companyRouter = router({
                 meta: auditChange(patch, row.settings ?? {}),
               }),
             ]
+          : []),
+        // orrn buddy (delta round D-L4): dropping the rule ends the plant's grants whose sign-in method it refused, so a
+        // password grant does not start working. Before the policy write and under its own guard, so a save that changes
+        // nothing revokes nothing.
+        ...(securitySent && policyDiffers && strict === false
+          ? buddyRevokePlantStatements(
+              ctx.db,
+              { companyId: ctx.companyId, weakOnly: true, link: false, when: sql`exists (select 1 from ${company} where ${company.id} = ${ctx.companyId} and ${policyDiffers})` },
+              "secure_sign_in_off",
+              now(),
+            )
           : []),
         ...(securitySent && policyDiffers
           ? [

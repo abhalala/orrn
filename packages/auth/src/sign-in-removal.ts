@@ -5,6 +5,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { expireCookie, setSessionCookie } from "better-auth/cookies";
 import { and, eq, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
 
+import { revokeBuddyGrants } from "./buddy-revoke";
 import { assertEnrolmentAllowed } from "./enrolment-guard";
 import { sessionOfRequest } from "./session-method";
 import {
@@ -41,6 +42,10 @@ import {
  *
  * The hook falls through to the endpoint only when the endpoint cannot remove anything: no session
  * (401), or a passkey that is not this person's (the endpoint's own not-found / unauthorized answer).
+ *
+ * Delta round (orrn buddy D-L4): a strong method removed (a passkey, the authenticator app, Google) ends the person's
+ * buddy grants in every plant (`secure_sign_in_off`), right after the removal's own write. The grant kept the sign-in
+ * method of the session that made it, and that method may be the one just removed.
  *
  * Council round 3 (Claude M1): before removing a STRONG method (any passkey, Google, the authenticator),
  * the session itself must be strong when the person has a strong method and a plant of theirs is strict:
@@ -148,6 +153,7 @@ async function deletePasskey(db: Db, ctx: Ctx, caller: Caller): Promise<Removal>
       .returning({ id: passkey.id });
     if (deleted.length > 0) {
       await writeUserAudit(db, { userId, action: "auth.passkey.remove", meta: { passkeyId: id } });
+      await revokeBuddyGrants(db, { userId }, "secure_sign_in_off");
       return answer(ctx, { status: true });
     }
     const code = await whichRefusal(db, userId, target, (m) => ({ ...m, passkeys: Math.max(0, m.passkeys - 1) }));
@@ -186,7 +192,10 @@ async function unlinkAccount(db: Db, ctx: Ctx, caller: Caller, createdAt: Date):
       .delete(account)
       .where(and(eq(account.id, row.id), eq(account.userId, userId), keepsRules(userId, target, { accountId: row.id })))
       .returning({ id: account.id });
-    if (deleted.length > 0) return answer(ctx, { status: true });
+    if (deleted.length > 0) {
+      if (target.strong) await revokeBuddyGrants(db, { userId }, "secure_sign_in_off");
+      return answer(ctx, { status: true });
+    }
     const code = await whichRefusal(db, userId, target, (m) =>
       providerId === "google" ? { ...m, google: rows.length > 1 } : { ...m, password: false },
     );
@@ -227,6 +236,7 @@ async function disableTwoFactor(
   if (updated.length === 0) {
     throw refusal((await whichRefusal(db, userId, target, (m) => ({ ...m, authenticator: false }))) ?? SIGN_IN_CHANGE_BUSY);
   }
+  await revokeBuddyGrants(db, { userId }, "secure_sign_in_off");
 
   // What the plugin does after its write: a new session carried from this one, then this one deleted.
   const updatedUser = await ctx.context.internalAdapter.findUserById(userId);
