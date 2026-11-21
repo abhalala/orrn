@@ -17,7 +17,7 @@ import { guardedBatch, ingestAbortUnlessChanged } from "../../lib/ingest/core";
 import { auditInsert } from "../../lib/audit";
 import { limitsPatchSql } from "../../lib/companySettings";
 import { COMPANY_MODULES } from "../../lib/modules";
-import { limitProblems, PLANT_LIMIT_KEYS, PLANT_LIMITS, setLimits, type PlantLimitKey } from "../../lib/plantLimits";
+import { isPlantLimitKey, limitMin, limitProblems, PLANT_LIMIT_KEYS, PLANT_LIMITS, setLimits, type PlantLimitKey } from "../../lib/plantLimits";
 import { platformGuard } from "../../index";
 import { auditListInput, listAudit } from "../audit";
 
@@ -284,8 +284,8 @@ export const companiesProcedures = {
 
   /**
    * The plant's limits (limits brief, section A; Limits section of /admin/companies/$id). `limits` names
-   * only the keys to change: a whole number from 1 to the key's hard ceiling sets it, `null` removes it
-   * ("Use default"). Unknown keys, values below 1, fractions and values above the ceiling are refused and
+   * only the keys to change: a whole number from the key's min (1, or 18 for dayModelCostCents) to its hard ceiling sets it, `null` removes it
+   * ("Use default"). Unknown keys, values below the min, fractions and values above the ceiling are refused and
    * nothing is written. Written per key in SQL against the row as it is (`limitsPatchSql`), with one audit
    * row of the old and new values; a call that changes nothing writes nothing.
    */
@@ -306,7 +306,7 @@ export const companiesProcedures = {
             ? `Unknown limit: ${p.key}`
             : p.problem === "above_ceiling"
               ? `${p.key} can be at most ${PLANT_LIMITS[p.key as PlantLimitKey].ceiling}`
-              : `${p.key} must be a whole number of at least 1`,
+              : `${p.key} must be a whole number of at least ${isPlantLimitKey(p.key) ? limitMin(p.key) : 1}`,
         );
         throw new TRPCError({ code: "BAD_REQUEST", message: words.join(". ") });
       }

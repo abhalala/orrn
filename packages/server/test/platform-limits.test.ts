@@ -76,19 +76,35 @@ describe("platform.companiesSetLimits", () => {
     expect((await effectiveLimits({ db: env.db, companyId })).filesPerUpload).toBe(L.PLANT_LIMITS.filesPerUpload.default);
   });
 
-  test("every key accepts 1 and its ceiling, and refuses 0, a fraction and one above the ceiling", async () => {
+  test("every key accepts its min and its ceiling, and refuses one under the min, 0, a fraction and one above the ceiling", async () => {
     const { companyId } = await env.seedCompany();
     for (const key of L.PLANT_LIMIT_KEYS) {
       const ceiling = L.PLANT_LIMITS[key].ceiling;
-      expect((await setLimits(companyId, { [key]: 1 })).limits[key]).toBe(1);
+      const min = L.limitMin(key);
+      expect((await setLimits(companyId, { [key]: min })).limits[key]).toBe(min);
       expect((await setLimits(companyId, { [key]: ceiling })).limits[key]).toBe(ceiling);
-      for (const bad of [0, -3, 1.5, ceiling + 1]) {
+      for (const bad of [min - 1, 0, -3, 1.5, ceiling + 1]) {
         const e = await failure(setLimits(companyId, { [key]: bad }));
         expect({ key, bad, code: e?.code }).toEqual({ key, bad, code: "BAD_REQUEST" });
       }
       expect((await storedLimits(companyId))?.[key]).toBe(ceiling);
     }
     await expect(setLimits(companyId, { dayModelCalls: 3001 })).rejects.toThrow("dayModelCalls can be at most 3000");
+  });
+
+  test("fix round: the day cost cap cannot go under one vision call's worst case (18 cents)", async () => {
+    const { VISION_WORST_COST_MICRO } = await import("../src/lib/ingest/bot");
+    expect(L.limitMin("dayModelCostCents")).toBe(Math.ceil(VISION_WORST_COST_MICRO / L.MICRO_PER_CENT));
+    expect(L.limitMin("dayModelCostCents")).toBe(18);
+    const { companyId } = await env.seedCompany();
+    await expect(setLimits(companyId, { dayModelCostCents: 17 })).rejects.toThrow("dayModelCostCents must be a whole number of at least 18");
+    expect(await storedLimits(companyId)).toBeUndefined();
+    expect((await setLimits(companyId, { dayModelCostCents: 18 })).limits.dayModelCostCents).toBe(18);
+    await expect(setLimits(companyId, { dayModelCalls: 0 })).rejects.toThrow("dayModelCalls must be a whole number of at least 1");
+    // A value stored under the min before this rule reads as the min, so vision still gets one call.
+    expect(L.resolveLimits({ limits: { dayModelCostCents: 5 } }).dayModelCostCents).toBe(18);
+    const old = await env.seedCompany({ settings: { limits: { dayModelCostCents: 1 } } });
+    expect((await effectiveLimits({ db: env.db, companyId: old.companyId })).dayModelCostCents).toBe(18);
   });
 
   test("unknown keys are refused and nothing is written", async () => {

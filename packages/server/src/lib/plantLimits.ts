@@ -49,11 +49,16 @@ export const PLANT_LIMIT_KEYS = [
 ] as const;
 export type PlantLimitKey = (typeof PLANT_LIMIT_KEYS)[number];
 
-export type PlantLimitDef = { default: number; ceiling: number };
+/** `min` (default 1) is the lowest value staff may set; a stored value under it reads as the min. */
+export type PlantLimitDef = { default: number; ceiling: number; min?: number };
 
 export const PLANT_LIMITS: Readonly<Record<PlantLimitKey, PlantLimitDef>> = {
   dayModelCalls: { default: DAY_CALL_CAP, ceiling: 3_000 },
-  dayModelCostCents: { default: DAY_COST_CAP_MICRO / MICRO_PER_CENT, ceiling: 5_000 },
+  /**
+   * min 18: each vision call books its worst case (`VISION_WORST_COST_MICRO`, 17.5 cents) before it runs, so a cap
+   * under 18 cents would refuse every vision call. A test pins 18 to the server constant.
+   */
+  dayModelCostCents: { default: DAY_COST_CAP_MICRO / MICRO_PER_CENT, ceiling: 5_000, min: 18 },
   blockModelCalls: { default: BLOCK_CALL_CAP, ceiling: 10 },
   visionPagesPerBatch: { default: VISION_PARAMS.maxPagesPerFile, ceiling: 80 },
   filesPerUpload: { default: INGEST_LIMITS.filesPerUpload, ceiling: 100 },
@@ -106,13 +111,18 @@ export function setLimits(settings: unknown): PlantLimitsSet {
   return out;
 }
 
-/** Every limit for a plant: its set value clamped to the ceiling, else the default. */
+/** The lowest value staff may set for a key (1 unless the key names its own). */
+export function limitMin(key: PlantLimitKey): number {
+  return PLANT_LIMITS[key].min ?? 1;
+}
+
+/** Every limit for a plant: its set value clamped between the key's min and its ceiling, else the default. */
 export function resolveLimits(settings: unknown): PlantLimits {
   const set = setLimits(settings);
   const out = {} as PlantLimits;
   for (const key of PLANT_LIMIT_KEYS) {
     const def = PLANT_LIMITS[key];
-    out[key] = Math.min(set[key] ?? def.default, def.ceiling);
+    out[key] = Math.max(limitMin(key), Math.min(set[key] ?? def.default, def.ceiling));
   }
   return out;
 }
@@ -126,7 +136,7 @@ export function modelCaps(limits: PlantLimits): CapValues {
   };
 }
 
-export type LimitProblem = { key: string; problem: "unknown" | "not_whole" | "below_one" | "above_ceiling" };
+export type LimitProblem = { key: string; problem: "unknown" | "not_whole" | "below_min" | "above_ceiling" };
 
 /** Problems with a staff change (`null` = use the default). Empty when every key and value is fine. */
 export function limitProblems(change: Record<string, number | null>): LimitProblem[] {
@@ -138,7 +148,7 @@ export function limitProblems(change: Record<string, number | null>): LimitProbl
     }
     if (value === null) continue;
     if (!Number.isInteger(value)) out.push({ key, problem: "not_whole" });
-    else if (value < 1) out.push({ key, problem: "below_one" });
+    else if (value < limitMin(key)) out.push({ key, problem: "below_min" });
     else if (value > PLANT_LIMITS[key].ceiling) out.push({ key, problem: "above_ceiling" });
   }
   return out;
