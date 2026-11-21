@@ -33,7 +33,6 @@ export type BuddyChat = {
   send(message: string): void;
   retry(turnId: string): void;
   newChat(): void;
-  addNote(note: string): void;
 };
 
 export type UseBuddyChatOptions = {
@@ -73,14 +72,13 @@ export function useBuddyChat({ url, storageKey, screen, onDrafts, fetchImpl }: U
       inflight.current = { controller, turnId };
       const current = () => inflight.current?.controller === controller;
       const s = stateRef.current;
-      const notes = s.notes;
       void streamChat({
         url,
+        // No `notes`: the server tells Hermes about decided drafts itself (fix round decision 7).
         body: {
           ...(s.conversationId ? { conversationId: s.conversationId } : {}),
           message,
           screen: screen(),
-          ...(notes.length > 0 ? { notes } : {}),
         },
         signal: controller.signal,
         fetchImpl,
@@ -126,7 +124,5 @@ export function useBuddyChat({ url, storageKey, screen, onDrafts, fetchImpl }: U
     dispatch({ type: "reset" });
   }, []);
 
-  const addNote = useCallback((note: string) => dispatch({ type: "note", note }), []);
-
-  return { state, busy: busy(state), send, retry, newChat, addNote };
+  return { state, busy: busy(state), send, retry, newChat };
 }

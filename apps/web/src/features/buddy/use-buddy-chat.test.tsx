@@ -82,20 +82,20 @@ describe("useBuddyChat", () => {
     }
   });
 
-  test("a note after a confirm rides on the next turn and is gone after that turn is done", async () => {
+  test("the body never carries notes, and the hook has no way to add one: the server makes them (decision 7)", async () => {
     sessionStorage.clear();
     const f = fakeFetch();
     const view = await mount(f.impl);
     try {
-      await act(async () => view.chat().addNote("draft d1 confirmed: New order"));
+      expect(Object.keys(view.chat())).not.toContain("addNote");
       await act(async () => view.chat().send("thanks"));
       await settle();
-      expect(f.requests[0]!.body.notes).toEqual(["draft d1 confirmed: New order"]);
+      expect(Object.keys(f.requests[0]!.body).sort()).toEqual(["message", "screen"]);
       f.requests[0]!.push(`{"type":"done","conversationId":"c1"}`);
       await settle();
       await act(async () => view.chat().send("next"));
       await settle();
-      expect(f.requests[1]!.body.notes).toBeUndefined();
+      expect(Object.keys(f.requests[1]!.body).sort()).toEqual(["conversationId", "message", "screen"]);
     } finally {
       await view.unmount();
     }

@@ -7,7 +7,8 @@ import { LoaderCircle, Paperclip, Plus, SendHorizontal } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import type { ChatState, Turn, TurnError } from "./chat-model";
-import { DraftCard } from "./draft-card";
+import { DraftCard, type DriveView } from "./draft-card";
+import { replyParts } from "./reply-links";
 import type { BuddyDraft } from "./types";
 
 /** The longest message the box takes. */
@@ -18,7 +19,19 @@ export type DraftDecisions = {
   errorFor(id: string): string | null;
   confirm(draft: BuddyDraft): void;
   reject(draft: BuddyDraft): void;
+  /** The row check this surface drives for a confirmed `import.runDryRun` draft (the bubble only). */
+  driveFor?(id: string): DriveView | null;
+  stopDrive?(draft: BuddyDraft): void;
 };
+
+/** A phone or tablet without a mouse: focusing the box there opens the on-screen keyboard over the sheet (N7). */
+export function coarsePointer(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
 
 export type BuddyPanelBodyProps = {
   open: boolean;
@@ -54,6 +67,8 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
   const { state } = chat;
   const [text, setText] = useState("");
   const hintId = useId();
+  // Read once per mount: a phone keeps its keyboard down until the person taps the box.
+  const [focusBox] = useState(() => !coarsePointer());
   const endRef = useRef<HTMLDivElement>(null);
 
   const byId = new Map((drafts ?? []).map((d) => [d.id, d]));
@@ -103,6 +118,8 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
       onConfirm={decisions.confirm}
       onReject={decisions.reject}
       onLeave={leave}
+      drive={decisions.driveFor?.(draft.id) ?? null}
+      onStopDrive={decisions.stopDrive}
     />
   );
 
@@ -125,8 +142,9 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
             onChange={(e) => setText(e.currentTarget.value)}
             onKeyDown={onKeyDown}
             rows={2}
-            // The box is where the person starts: focus lands here when the panel opens, not on Close.
-            autoFocus
+            // The box is where the person starts: focus lands here when the panel opens, not on Close. Not on a phone,
+            // where that would open the keyboard over the whole sheet; Radix then focuses the dialog itself.
+            autoFocus={focusBox}
             maxLength={MAX_MESSAGE}
             aria-label={t("buddy.inputLabel")}
             aria-describedby={hintId}
@@ -177,7 +195,7 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
         ) : (
           <ol className="m-0 flex list-none flex-col gap-4 p-0" data-testid="buddy-turns">
             {state.turns.map((turn) => (
-              <TurnView key={turn.id} turn={turn} byId={byId} card={card} onRetry={() => chat.retry(turn.id)} retryDisabled={chat.busy} />
+              <TurnView key={turn.id} turn={turn} byId={byId} card={card} onRetry={() => chat.retry(turn.id)} retryDisabled={chat.busy} onLeave={leave} />
             ))}
           </ol>
         )}
@@ -197,12 +215,14 @@ function TurnView({
   card,
   onRetry,
   retryDisabled,
+  onLeave,
 }: {
   turn: Turn;
   byId: Map<string, BuddyDraft>;
   card: (draft: BuddyDraft) => ReactNode;
   onRetry(): void;
   retryDisabled: boolean;
+  onLeave(): void;
 }) {
   const { t } = useT();
   const working = turn.phase === "connecting" || turn.phase === "streaming";
@@ -231,7 +251,25 @@ function TurnView({
         {turn.reply ? (
           <p className="m-0 text-[15px] leading-6 break-words whitespace-pre-wrap" data-testid="buddy-reply">
             <span className="sr-only">{t("buddy.title")}: </span>
-            {turn.reply}
+            {/* A finished answer: the import review links in it become links (S7). While it streams, plain text, so a
+                half-written id never becomes a link. */}
+            {turn.phase === "done"
+              ? replyParts(turn.reply).map((part, i) =>
+                  part.kind === "link" ? (
+                    <UiLink
+                      key={i}
+                      to={part.path}
+                      onClick={onLeave}
+                      data-testid="buddy-reply-link"
+                      className="font-semibold text-foreground underline decoration-1 underline-offset-4 [overflow-wrap:anywhere] hover:decoration-2"
+                    >
+                      {part.text}
+                    </UiLink>
+                  ) : (
+                    <span key={i}>{part.text}</span>
+                  ),
+                )
+              : turn.reply}
           </p>
         ) : null}
         {working ? (

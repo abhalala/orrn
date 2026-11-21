@@ -172,6 +172,8 @@ export const refusalGu = {
     buddyClosed: "આ પ્લાન્ટ માટે Buddy સેટ નથી.",
     buddyConfirming: "આ ફેરફાર પહેલેથી પાકો થઈ રહ્યો છે. થોડી વાર રાહ જુઓ.",
     buddyNotAllowed: "Buddy આ ફેરફાર કરી શકતો નથી. તેને તેની પોતાની સ્ક્રીન પર કરો.",
+    buddyUnknownOutcome: "orrn જાણી ન શક્યું કે આ થયું કે નહીં. ફરી કરતાં પહેલાં સ્ક્રીન પર જોઈ લો.",
+    buddyChangeFailed: "ફેરફાર ન થયો.",
     unknown: "orrn એ આને નકાર્યું. વિગતો તપાસીને ફરી પ્રયાસ કરો.",
   },
 } as const;

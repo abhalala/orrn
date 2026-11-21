@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { chatReducer, draftNote, initialChat, type ChatState } from "./chat-model";
+import { chatReducer, initialChat, type ChatState } from "./chat-model";
 import { createSseParser, parseEvent, statusEnd, streamChat } from "./chat-stream";
 import type { ChatEvent } from "./types";
 
@@ -158,17 +158,10 @@ describe("the conversation reducer", () => {
     expect(s.offline).toBe(false);
   });
 
-  test("notes ride on the next turn and leave the queue only when that turn is done", () => {
-    let s = chatReducer(initialChat("c1"), { type: "note", note: draftNote({ id: "d1", title: "Order for KD" }, "confirmed") });
-    s = send(s, "t1");
-    expect(s.turns[0]!.notes).toEqual(["draft d1 confirmed: Order for KD"]);
-    s = chatReducer(s, { type: "end", turnId: "t1", end: { kind: "error", code: "error" } });
-    expect(s.notes).toHaveLength(1);
-    s = chatReducer(s, { type: "retry", turnId: "t1" });
-    s = chatReducer(s, { type: "note", note: "draft d2 rejected: Hold" });
-    s = chatReducer(s, { type: "end", turnId: "t1", end: { kind: "done", conversationId: "c1" } });
-    // The note that came in during the turn was not sent with it, so it waits for the next one.
-    expect(s.notes).toEqual(["draft d2 rejected: Hold"]);
+  test("the chat keeps no note queue: the server tells Hermes about decided drafts (decision 7)", () => {
+    const s = send(initialChat("c1"), "t1");
+    expect(Object.keys(s)).not.toContain("notes");
+    expect(Object.keys(s.turns[0]!)).not.toContain("notes");
   });
 
   test("late events after a turn ended change nothing; an aborted end changes nothing", () => {
@@ -187,8 +180,8 @@ describe("the conversation reducer", () => {
     expect(s.turns[0]!.draftIds).toEqual(["d1"]);
   });
 
-  test("New chat drops the conversation, its turns and its notes", () => {
-    let s = chatReducer(send(initialChat("c1"), "t1"), { type: "note", note: "n" });
+  test("New chat drops the conversation and its turns", () => {
+    let s = send(initialChat("c1"), "t1");
     s = chatReducer(s, { type: "reset" });
     expect(s).toEqual(initialChat(null));
   });

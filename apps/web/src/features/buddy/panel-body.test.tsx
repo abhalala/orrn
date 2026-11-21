@@ -9,9 +9,9 @@ import { I18nProvider } from "@orrn/i18n";
 import { testMe } from "@/shell/palette/test-me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { showBuddy } from "./buddy-launcher";
+import { returnFocusTo, showBuddy } from "./buddy-launcher";
 import { chatReducer, initialChat, type ChatState } from "./chat-model";
-import { reviewPath } from "./draft-card";
+import { failureText, reviewPath } from "./draft-card";
 import type { BuddyPanelBodyProps, DraftDecisions } from "./panel-body";
 import { installDom, settle, typeInto } from "./test-dom";
 import type { BuddyDraft } from "./types";
@@ -23,17 +23,22 @@ afterAll(() => env.uninstall());
 const DRAFT: BuddyDraft = {
   id: "d1",
   path: "orders.create",
+  kind: "procedure",
   title: "New order for KD Traders",
-  lines: [
-    { label: "Customer", value: "KD Traders" },
-    { label: "Section", value: "12170, 500 kg" },
+  fields: [
+    { key: "customerId", label: "Customer id", value: "KD Traders" },
+    { key: "lines", label: "Lines", value: "12170, 500 kg" },
   ],
+  items: null,
   status: "pending",
   createdAt: "2026-11-20T06:00:00Z",
   expiresAt: "2026-11-21T06:00:00Z",
   result: null,
   failure: null,
   link: null,
+  origin: "chat",
+  decidedVia: null,
+  drive: null,
 };
 
 type Calls = { sent: string[]; retried: string[]; newChat: number; open: boolean[]; confirmed: string[]; rejected: string[] };
@@ -390,5 +395,222 @@ describe("who gets the bubble", () => {
     expect(showBuddy({ ...testMe("admin"), buddy: true })).toBe(false);
     expect(showBuddy({ ...testMe("owner", { impersonating: true }), buddy: true })).toBe(false);
     expect(showBuddy(undefined)).toBe(false);
+  });
+});
+
+describe("the v2 draft card shows exactly what Confirm runs (S10, M1)", () => {
+  const withDraft = stateWith(
+    { type: "send", turnId: "t1", message: "answer the questions" },
+    { type: "event", turnId: "t1", event: { type: "draft", draftId: "d1" } },
+    { type: "end", turnId: "t1", end: { kind: "done", conversationId: "c1" } },
+  );
+  const answers: BuddyDraft = {
+    ...DRAFT,
+    path: "import.answerQuestions",
+    kind: "answers",
+    title: "Answer the import questions",
+    fields: [{ key: "candidateId", label: "Candidate", value: "Orders 2025.xlsx, sheet Jan" }],
+    items: Array.from({ length: 12 }, (_, i) => ({ label: `Customer ${i + 1}`, value: i === 11 ? "LAST ONE" : "new customer" })),
+    link: "/ingest/review/c1",
+  };
+
+  test("field names come from the app's word map in the person's language; an unknown key keeps the server's label", async () => {
+    const view = await renderPanel({ state: withDraft, drafts: [answers], locale: "hi" });
+    try {
+      const card = view.q("buddy-draft")!;
+      expect(card.querySelector("dt")!.textContent).toBe("शीट");
+      expect(card.querySelector("h3")!.textContent).toBe("इम्पोर्ट के सवालों के जवाब दें");
+    } finally {
+      await view.cleanup();
+    }
+    const other = await renderPanel({ state: withDraft, drafts: [{ ...DRAFT, fields: [{ key: "gstin", label: "Gstin", value: "24AAA" }] }] });
+    try {
+      expect(other.q("buddy-draft")!.querySelector("dt")!.textContent).toBe("Gstin");
+    } finally {
+      await other.cleanup();
+    }
+  });
+
+  test("a long list says how many lines it runs and Confirm waits until all of them were shown", async () => {
+    const view = await renderPanel({ state: withDraft, drafts: [answers] });
+    try {
+      expect(view.q("buddy-draft-items-count")!.textContent).toBe("This runs 12 lines");
+      expect(view.qa("buddy-draft-item")).toHaveLength(5);
+      expect(view.q("buddy-draft")!.textContent).not.toContain("LAST ONE");
+      const confirm = view.q<HTMLButtonElement>("buddy-draft-confirm")!;
+      expect(confirm.disabled).toBe(true);
+      expect(view.q("buddy-draft-gate")!.textContent).toBe("Show all first. Confirm runs every line.");
+      expect(confirm.getAttribute("aria-describedby")).toBe(view.q("buddy-draft-gate")!.id);
+      await env.click(view.q("buddy-draft-show-all")!);
+      expect(view.qa("buddy-draft-item")).toHaveLength(12);
+      expect(view.q("buddy-draft")!.textContent).toContain("LAST ONE");
+      expect(view.q<HTMLButtonElement>("buddy-draft-confirm")!.disabled).toBe(false);
+      // Folding the list again keeps Confirm open: everything was on screen once.
+      await env.click(view.q("buddy-draft-show-all")!);
+      expect(view.q<HTMLButtonElement>("buddy-draft-confirm")!.disabled).toBe(false);
+      await env.click(view.q("buddy-draft-confirm")!);
+      expect(view.calls.confirmed).toEqual(["d1"]);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a long value shows its start, and its end only after Show all; nothing is cut silently", async () => {
+    const long = `${"x".repeat(300)}THE END`;
+    const view = await renderPanel({ state: withDraft, drafts: [{ ...DRAFT, fields: [{ key: "notes", label: "Notes", value: long }] }] });
+    try {
+      expect(view.q("buddy-draft-value")!.textContent).not.toContain("THE END");
+      expect(view.q<HTMLButtonElement>("buddy-draft-confirm")!.disabled).toBe(true);
+      await env.click(view.q("buddy-draft-show-all")!);
+      expect(view.q("buddy-draft-value")!.textContent).toBe(long);
+      expect(view.q<HTMLButtonElement>("buddy-draft-confirm")!.disabled).toBe(false);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a short draft needs no Show all; Confirm is open at once", async () => {
+    const view = await renderPanel({ state: withDraft, drafts: [DRAFT] });
+    try {
+      expect(view.q("buddy-draft-show-all")).toBeNull();
+      expect(view.q("buddy-draft-gate")).toBeNull();
+      expect(view.q<HTMLButtonElement>("buddy-draft-confirm")!.disabled).toBe(false);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("the card says where the draft was made: the chat, somewhere else (with a warning), or nothing when unknown", async () => {
+    const view = await renderPanel({
+      state: withDraft,
+      drafts: [DRAFT, { ...DRAFT, id: "d2", origin: "other" }, { ...DRAFT, id: "d3", origin: null }],
+    });
+    try {
+      const origin = (id: string) => document.querySelector(`[data-draft-id='${id}'] [data-testid='buddy-draft-origin']`);
+      expect(origin("d1")!.textContent).toBe("Made in the Buddy chat");
+      expect(origin("d2")!.textContent).toBe("Not made in the Buddy chat. Check it before you confirm.");
+      expect(origin("d3")).toBeNull();
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("a confirmed row check shows its progress and Stop where it is driven, and points to the bubble elsewhere", async () => {
+    const dry: BuddyDraft = { ...DRAFT, path: "import.runDryRun", kind: "dryRun", status: "confirmed", drive: { kind: "dryRun", candidateId: "c1" } };
+    const stopped: string[] = [];
+    const view = await renderPanel({
+      state: withDraft,
+      drafts: [dry],
+      decisions: {
+        pendingFor: () => null,
+        errorFor: () => null,
+        confirm: () => {},
+        reject: () => {},
+        driveFor: () => ({ phase: "running", done: 400, total: 4000 }),
+        stopDrive: (d) => void stopped.push(d.id),
+      },
+    });
+    try {
+      expect(view.q("buddy-drive")!.textContent).toContain("Checking rows: 400 of 4000");
+      await env.click(view.q("buddy-drive-stop")!);
+      expect(stopped).toEqual(["d1"]);
+    } finally {
+      await view.cleanup();
+    }
+    const elsewhere = await renderPanel({ state: withDraft, drafts: [dry] });
+    try {
+      expect(elsewhere.q("buddy-drive")!.textContent).toBe("Open Buddy to run the row check.");
+      expect(elsewhere.q("buddy-drive-stop")).toBeNull();
+    } finally {
+      await elsewhere.cleanup();
+    }
+  });
+});
+
+describe("replies and the phone keyboard", () => {
+  test("an import review link in a finished reply is a link that steps the panel aside (S7)", async () => {
+    const reply = `Done. Open ${window.location.origin}/ingest/review/cand_42.`;
+    const state = stateWith(
+      { type: "send", turnId: "t1", message: "import this" },
+      { type: "event", turnId: "t1", event: { type: "text", delta: reply } },
+      { type: "end", turnId: "t1", end: { kind: "done", conversationId: "c1" } },
+    );
+    const view = await renderPanel({ state });
+    try {
+      const link = view.q<HTMLAnchorElement>("buddy-reply-link")!;
+      expect(link.getAttribute("href")).toBe("/ingest/review/cand_42");
+      expect(view.q("buddy-reply")!.textContent).toBe(`Buddy: ${reply}`);
+      link.addEventListener("click", (e) => e.preventDefault());
+      await env.click(link);
+      expect(view.calls.open).toEqual([false]);
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("while an answer streams, the same text is not a link yet", async () => {
+    const state = stateWith(
+      { type: "send", turnId: "t1", message: "import this" },
+      { type: "event", turnId: "t1", event: { type: "text", delta: "Open /ingest/review/cand_4" } },
+    );
+    const view = await renderPanel({ state, busy: true });
+    try {
+      expect(view.q("buddy-reply-link")).toBeNull();
+    } finally {
+      await view.cleanup();
+    }
+  });
+
+  test("on a touch screen the box is not focused on open, so the keyboard stays down (N7)", async () => {
+    const before = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query === "(pointer: coarse)", media: query, addEventListener() {}, removeEventListener() {} })) as never;
+    const view = await renderPanel();
+    try {
+      expect(view.dialog()!.contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).not.toBe(view.q("buddy-input"));
+    } finally {
+      await view.cleanup();
+      window.matchMedia = before;
+    }
+  });
+});
+
+describe("focus after the panel closes (N8)", () => {
+  test("focus left on the page body (Safari after a click) goes back to the launcher", () => {
+    const button = document.createElement("button");
+    document.body.appendChild(button);
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      returnFocusTo(button, (fn) => fn());
+      expect(document.activeElement).toBe(button);
+    } finally {
+      button.remove();
+    }
+  });
+
+  test("focus that already landed on something real stays there", () => {
+    const button = document.createElement("button");
+    const other = document.createElement("input");
+    document.body.append(button, other);
+    try {
+      other.focus();
+      returnFocusTo(button, (fn) => fn());
+      expect(document.activeElement).toBe(other);
+    } finally {
+      button.remove();
+      other.remove();
+    }
+  });
+});
+
+describe("failed drafts in the person's words (decision 6)", () => {
+  test("a confirm that died part way says to check the screen, in en, hi and gu; an internal failure is not shown raw", async () => {
+    const { createI18n } = await import("@orrn/i18n");
+    const stale = "orrn could not tell if this went through. Check the screen before you try again.";
+    const tEn = createI18n("en").t;
+    expect(failureText(tEn, stale)).toBe(stale);
+    expect(failureText(tEn, "The change failed.")).toBe("The change did not go through.");
+    expect(failureText(createI18n("hi").t, stale)).toBe("orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें।");
+    expect(failureText(createI18n("gu").t, stale)).toBe("orrn જાણી ન શક્યું કે આ થયું કે નહીં. ફરી કરતાં પહેલાં સ્ક્રીન પર જોઈ લો.");
   });
 });

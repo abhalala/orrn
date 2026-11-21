@@ -174,6 +174,8 @@ export const refusalEn = {
     buddyClosed: "Buddy is not set up for this plant.",
     buddyConfirming: "This change is already being confirmed. Wait a moment.",
     buddyNotAllowed: "Buddy may not make this change. Do it on its own screen.",
+    buddyUnknownOutcome: "orrn could not tell if this went through. Check the screen before you try again.",
+    buddyChangeFailed: "The change did not go through.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;

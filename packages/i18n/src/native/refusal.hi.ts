@@ -169,6 +169,8 @@ export const refusalHi = {
     buddyClosed: "इस प्लांट के लिए Buddy सेट नहीं है।",
     buddyConfirming: "यह बदलाव पहले से पक्का हो रहा है। थोड़ा रुकें।",
     buddyNotAllowed: "Buddy यह बदलाव नहीं कर सकता। इसे इसकी अपनी स्क्रीन पर करें।",
+    buddyUnknownOutcome: "orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें।",
+    buddyChangeFailed: "बदलाव नहीं हुआ।",
     unknown: "orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें।",
   },
 } as const;

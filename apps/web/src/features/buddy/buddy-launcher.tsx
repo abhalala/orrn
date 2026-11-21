@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { MessageCircle } from "lucide-react";
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
@@ -32,6 +32,19 @@ class PanelBoundary extends Component<{ children: ReactNode; onFailed: () => voi
 }
 
 /**
+ * After the panel closes, focus goes back to the launcher (N8). Radix returns focus to whatever had it before the
+ * panel opened, and Safari does not focus a button on click, so that is often `body`; then the launcher takes it.
+ * Waits a frame and a tick so it runs after Radix's own return.
+ */
+export function returnFocusTo(button: HTMLElement | null, schedule: (fn: () => void) => void = (fn) => requestAnimationFrame(() => setTimeout(fn, 0))) {
+  schedule(() => {
+    const active = document.activeElement;
+    if (!button || !button.isConnected) return;
+    if (!active || active === document.body || active === document.documentElement || !active.isConnected) button.focus();
+  });
+}
+
+/**
  * The closed bubble (design §4.5): a round button at the bottom right, mounted once in the `_tenant` layout. Only this
  * file is in the layout's chunk; the panel, the chat client and the draft cards load on the first open
  * (`buddy-panel.tsx`, a dynamic import) and then stay mounted, so the conversation and an open panel survive route
@@ -44,6 +57,11 @@ export function BuddyLauncher() {
   const { data: me } = useMe();
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const onOpenChange = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) returnFocusTo(buttonRef.current);
+  }, []);
   const show = showBuddy(me);
   const companyId = me?.company?.id ?? null;
 
@@ -65,6 +83,7 @@ export function BuddyLauncher() {
   return createPortal(
     <>
       <button
+        ref={buttonRef}
         type="button"
         onClick={openPanel}
         onPointerEnter={() => void loadPanel().catch(() => {})}
@@ -84,7 +103,7 @@ export function BuddyLauncher() {
       {loaded ? (
         <PanelBoundary onFailed={failed}>
           <Suspense fallback={null}>
-            <LazyBuddyPanel key={`${companyId}:${me.user.id}`} open={open} onOpenChange={setOpen} />
+            <LazyBuddyPanel key={`${companyId}:${me.user.id}`} open={open} onOpenChange={onOpenChange} />
           </Suspense>
         </PanelBoundary>
       ) : null}

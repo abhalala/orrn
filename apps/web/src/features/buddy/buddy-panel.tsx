@@ -9,12 +9,12 @@ import { serverRefusal } from "@/features/shared/server-refusal";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { isAuthMeQueryKey } from "@/shared/lib/tenant-cache";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { draftNote } from "./chat-model";
 import { BuddyPanelBody, type DraftDecisions } from "./panel-body";
 import type { BuddyDraft } from "./types";
 import { conversationKey, useBuddyChat } from "./use-buddy-chat";
+import { useDryRunDrive, type DriveApi } from "./use-dry-run-drive";
 
 /** How often the open panel reads the drafts list again (design §4.4: poll, and refresh after each turn). */
 const DRAFTS_POLL_MS = 15_000;
@@ -53,6 +53,21 @@ export default function BuddyPanel({ open, onOpenChange }: { open: boolean; onOp
   const confirm = useMutation(trpc.buddy.drafts.confirm.mutationOptions());
   const reject = useMutation(trpc.buddy.drafts.reject.mutationOptions());
 
+  // A confirmed row-check draft: the bubble runs `ingest.dryRun.step` under this session, then reports (decision 8).
+  const driveApi = useMemo<DriveApi>(
+    () => ({
+      read: async (candidateId) => {
+        const c = await trpcClient.ingest.candidate.get.query({ candidateId });
+        return { cursor: c.dryCursor, running: c.state === "processing", counts: c.counts };
+      },
+      step: (candidateId, expectCursor) => trpcClient.ingest.dryRun.step.mutate({ candidateId, expectCursor }),
+      report: (draftId, outcome, summary) => trpcClient.buddy.drafts.report.mutate({ draftId, outcome, ...(summary ? { summary } : {}) }),
+      refresh: () => void queryClient.invalidateQueries({ predicate: (q) => !isAuthMeQueryKey(q.queryKey) }),
+    }),
+    [],
+  );
+  const drive = useDryRunDrive(drafts.data, driveApi);
+
   const decisions = useMemo<DraftDecisions>(() => {
     const clearError = (id: string) =>
       setErrors((prev) => {
@@ -66,13 +81,11 @@ export default function BuddyPanel({ open, onOpenChange }: { open: boolean; onOp
       clearError(draft.id);
       setPending({ id: draft.id, kind });
       const mutation = kind === "confirm" ? confirm : reject;
+      // No note from here: the server tells Hermes the draft's real final state with the next turn (decision 7).
       mutation.mutate(
-        { draftId: draft.id },
+        { draftId: draft.id, via: "bubble" },
         {
-          onSuccess: (row) => {
-            const status = (row as { status?: string } | undefined)?.status;
-            const failed = status === "failed";
-            chat.addNote(draftNote(draft, kind === "reject" ? "rejected" : failed ? "failed" : "confirmed"));
+          onSuccess: () => {
             if (kind === "confirm") {
               // The confirmed procedure changed the plant: every screen's data may be stale now.
               void queryClient.invalidateQueries({ predicate: (q) => !isAuthMeQueryKey(q.queryKey) });
@@ -93,8 +106,10 @@ export default function BuddyPanel({ open, onOpenChange }: { open: boolean; onOp
       errorFor: (id) => errors[id] ?? null,
       confirm: (draft) => decide(draft, "confirm"),
       reject: (draft) => decide(draft, "reject"),
+      driveFor: drive.driveFor,
+      stopDrive: drive.stop,
     };
-  }, [pending, errors, confirm, reject, chat, refreshDrafts, t]);
+  }, [pending, errors, confirm, reject, refreshDrafts, t, drive.driveFor, drive.stop]);
 
   return (
     <BuddyPanelBody

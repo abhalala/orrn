@@ -283,6 +283,9 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "buddyClosed", re: /^The buddy is not open for this plant\.?$/ },
   { id: "buddyConfirming", re: /^This draft is being confirmed\.?$/ },
   { id: "buddyNotAllowed", re: /^The buddy may not make this change\.?$/ },
+  // Fix round decision 6: a confirm that died part way is never run again.
+  { id: "buddyUnknownOutcome", re: /^orrn could not tell if this went through\. Check the screen before you try again\.?$/ },
+  { id: "buddyChangeFailed", re: /^The change failed\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {
