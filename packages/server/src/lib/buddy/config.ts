@@ -37,16 +37,21 @@ export type HermesConfig =
     }
   | { ok: false; missing: (typeof HERMES_ENV_NAMES)[number][]; badBaseUrl?: true; badProfile?: true };
 
+const LOCAL_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1"]);
+
 const clean = (v: string | undefined): string => (typeof v === "string" ? v.trim() : "");
 
-/** All four set (and the base URL an http(s) origin) = on. Anything else = off, with the names missing. */
+/** All four set (and the base URL an https origin, or a localhost fake on a development stage) = on. Anything else = off, with the names missing. */
 export function resolveHermesConfig(env: BuddyEnv): HermesConfig {
   const missing = HERMES_ENV_NAMES.filter((n) => clean(env[n]) === "");
   if (missing.length > 0) return { ok: false, missing };
   let origin: string;
   try {
     const url = new URL(clean(env.HERMES_BASE_URL));
-    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("scheme");
+    // https only (security L5): the Access secret and the API key ride on every turn. http only for the fake Hermes
+    // on localhost, on a development stage.
+    const localFake = url.protocol === "http:" && env.NODE_ENV === "development" && LOCAL_HOSTS.has(url.hostname);
+    if (url.protocol !== "https:" && !localFake) throw new Error("scheme");
     origin = url.origin;
   } catch {
     return { ok: false, missing: [], badBaseUrl: true };
@@ -80,7 +85,7 @@ export function hermesReady(env: BuddyEnv): boolean {
   const cfg = resolveHermesConfig(env);
   if (cfg.ok) return true;
   const line = cfg.badBaseUrl
-    ? "buddy is off: HERMES_BASE_URL is not an http(s) origin."
+    ? "buddy is off: HERMES_BASE_URL is not an https origin."
     : cfg.badProfile
       ? "buddy is off: BUDDY_HERMES_PROFILE is not a profile name."
       : cfg.missing.length < HERMES_ENV_NAMES.length

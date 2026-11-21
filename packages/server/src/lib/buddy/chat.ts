@@ -24,13 +24,13 @@
  */
 import { isStrongSession } from "@orrn/auth/session-method";
 import { buddyDraft, buddyGrant, company } from "@orrn/db/schema";
-import { and, asc, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Context } from "../../context";
 import { now } from "../clock";
 import { DEFAULT_TIMEZONE } from "../dayWindow";
-import { buddyAccess, buddyEnv } from "./access";
+import { buddyAccess, buddyEnv, requestOriginAllowed } from "./access";
 import { BUDDY_LIMIT, finishBuddyCall, logBuddyCall, reserveBuddyCall } from "./callLog";
 import { hermesChatUrl, resolveHermesConfig } from "./config";
 
@@ -41,7 +41,6 @@ export const chatBodySchema = z.strictObject({
     .optional(),
   message: z.string().trim().min(1).max(4000),
   screen: z.string().max(300),
-  notes: z.array(z.string().max(500)).max(10).optional(),
 });
 
 export type ChatEvent =
@@ -100,15 +99,106 @@ export function contextBlock(input: {
 }): string {
   const lines = [
     "You are the orrn buddy, in a chat window inside orrn (the plant's ERP). Use the orrn-buddy skill.",
-    `The person: ${input.name}. Plant: ${input.company}. Role: ${input.role}.`,
-    `Today in plant time: ${input.today}. The person is on the screen ${input.screen || "/"}.`,
+    `The person: ${oneLine(input.name, 120)}. Plant: ${oneLine(input.company, 120)}. Role: ${input.role}.`,
+    `Today in plant time: ${input.today}. The person is on the screen ${oneLine(input.screen, 300) || "/"}.`,
     "Reach orrn only through the orrn tools. Changes come back as drafts the person confirms in orrn.",
   ];
   if (input.notes.length > 0) {
-    lines.push("Notes from orrn since the last turn:");
+    lines.push("What happened to drafts since the last turn (from orrn, final):");
     for (const n of input.notes) lines.push(`- ${n}`);
   }
   return lines.join("\n");
+}
+
+/** One line of plain text: line breaks and other control characters become spaces, then cut. */
+function oneLine(text: string, max: number): string {
+  return text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+/** Drafts decided longer ago than this are never noted (a person back after a month gets no backlog). */
+const NOTE_WINDOW_MS = 48 * 60 * 60 * 1000;
+/** At most this many notes a turn; the rest wait for the next turn. */
+const NOTES_PER_TURN = 20;
+
+type NoteRow = {
+  id: string;
+  summary: string;
+  status: string;
+  kind: string;
+  expiresAt: Date;
+  resultJson: unknown;
+};
+
+/**
+ * The server's notes (decision 7, review S4, S5): the final state of this person's drafts in this plant that Hermes
+ * has not been told yet (`noted_at` null), wherever they were decided (the bubble or Settings > Buddy). A pending draft
+ * past its 24 hours counts as expired. A dry run's report (`result.report`, D's `buddy.drafts.report`) rides on its
+ * draft's note. Only the state, the draft's own title and the report outcome go to Hermes: never a result, never a
+ * failure text.
+ */
+async function pendingNotes(db: Context["db"], companyId: string, userId: string, at: Date): Promise<{ rows: NoteRow[]; lines: string[] }> {
+  const since = new Date(at.getTime() - NOTE_WINDOW_MS);
+  const rows = await db
+    .select({
+      id: buddyDraft.id,
+      summary: buddyDraft.summary,
+      status: buddyDraft.status,
+      kind: buddyDraft.kind,
+      expiresAt: buddyDraft.expiresAt,
+      resultJson: buddyDraft.resultJson,
+    })
+    .from(buddyDraft)
+    .where(and(eq(buddyDraft.companyId, companyId), eq(buddyDraft.requestedByUserId, userId), isNull(buddyDraft.notedAt), noteDue(at, since)))
+    .orderBy(asc(buddyDraft.createdAt))
+    .limit(NOTES_PER_TURN);
+  const lines = rows.map((r) => {
+    const state = r.status === "pending" ? "expired" : r.status;
+    const report = (r.resultJson as { report?: { outcome?: unknown; summary?: unknown } } | null)?.report;
+    const tail =
+      r.kind === "dryRun" && report && typeof report.outcome === "string"
+        ? `; dry run ${oneLine(report.outcome, 20)}${typeof report.summary === "string" && report.summary.trim() ? `: ${oneLine(report.summary, 200)}` : ""}`
+        : "";
+    return `draft ${r.id} (${oneLine(r.summary, 120)}): ${state}${tail}`;
+  });
+  return { rows, lines };
+}
+
+/** A draft whose state is final: decided in the note window, or pending past its 24 hours (lapsed in the window). */
+function noteDue(at: Date, since: Date) {
+  return or(
+    and(inArray(buddyDraft.status, ["confirmed", "rejected", "expired", "failed"]), gte(buddyDraft.decidedAt, since)),
+    and(eq(buddyDraft.status, "pending"), lte(buddyDraft.expiresAt, at), gte(buddyDraft.expiresAt, since)),
+  );
+}
+
+/**
+ * Marks the notes Hermes took. Each row is marked only while it still reads as it did when the note was written
+ * (same status, same report state), so a report that lands meanwhile is noted next turn.
+ */
+async function markNoted(db: Context["db"], companyId: string, rows: NoteRow[], at: Date): Promise<void> {
+  if (rows.length === 0) return;
+  const reported = (r: NoteRow) => Boolean((r.resultJson as { report?: unknown } | null)?.report);
+  const groups = new Map<string, string[]>();
+  for (const r of rows) {
+    const key = `${r.status}|${reported(r) ? 1 : 0}`;
+    groups.set(key, [...(groups.get(key) ?? []), r.id]);
+  }
+  for (const [key, ids] of groups) {
+    const [status, rep] = key.split("|") as [NoteRow["status"], string];
+    const reportState = rep === "1" ? sql`json_extract(${buddyDraft.resultJson}, '$.report') is not null` : sql`json_extract(${buddyDraft.resultJson}, '$.report') is null`;
+    await db
+      .update(buddyDraft)
+      .set({ notedAt: at })
+      .where(
+        and(
+          eq(buddyDraft.companyId, companyId),
+          inArray(buddyDraft.id, ids),
+          isNull(buddyDraft.notedAt),
+          eq(buddyDraft.status, status as (typeof buddyDraft.status.enumValues)[number]),
+          reportState,
+        ),
+      );
+  }
 }
 
 type ParsedFrame = { event: string | null; data: string };
@@ -181,8 +271,16 @@ async function liveGrantId(ctx: Context & { companyId: string }, userId: string)
   return g?.id ?? null;
 }
 
+/** `application/json` (any parameters). Anything else could be a cross-site form, which needs no preflight. */
+function isJsonBody(request: Request): boolean {
+  const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  return type === "application/json";
+}
+
 export async function handleBuddyChat(request: Request, ctx: Context, deps: ChatDeps = {}): Promise<Response> {
   if (request.method !== "POST") return empty(404);
+  // Cross-site requests (security H1): only a JSON body (which forces a CORS preflight) from an allowed web origin.
+  if (!isJsonBody(request) || !requestOriginAllowed(request)) return empty(403);
   if (!ctx.session || ctx.impersonation || ctx.impersonationHeaderRejected || ctx.companyHeaderRejected) return empty(403);
   if (!ctx.companyId || !ctx.membership || !ctx.role) return empty(403);
   const access = await buddyAccess(ctx);
@@ -214,6 +312,7 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
   const callId = reserved.id;
 
   const plant = await ctx.db.select({ name: company.name, settings: company.settings }).from(company).where(eq(company.id, companyId)).get();
+  const notes = await pendingNotes(ctx.db, companyId, userId, started);
   const tz = (plant?.settings as { timezone?: unknown } | null)?.timezone;
   const instructions = contextBlock({
     name: ctx.session.user.name,
@@ -221,7 +320,7 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
     role: ctx.role,
     today: todayIn(typeof tz === "string" ? tz : DEFAULT_TIMEZONE, started),
     screen: body.screen,
-    notes: body.notes ?? [],
+    notes: notes.lines,
   });
   // The buddy's own profile from the person's link (never the default profile, never from the browser).
   const url = hermesChatUrl(cfg.baseUrl, access.link.hermesProfile);
@@ -272,6 +371,13 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
 
   const db = ctx.db;
   const upstreamBody = upstream.body;
+  // Hermes took the turn, so it has the notes: mark them, so the next turn does not repeat them. A failure here only
+  // means the notes come again.
+  try {
+    await markNoted(db, companyId, notes.rows, now());
+  } catch {
+    // the notes come again next turn
+  }
   const seenDrafts = new Set<string>();
   const newDrafts = async (): Promise<ChatEvent[]> => {
     if (!grantId) return [];

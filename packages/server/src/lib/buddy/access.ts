@@ -7,12 +7,14 @@
  * - The stage: the four `HERMES_*` names are set.
  * - The link: the person has an active `buddy_link` in this plant (made by "Connect Hermes").
  */
+import { isAllowedWebOrigin } from "@orrn/auth/origins";
 import { env } from "@orrn/env/server";
 import { buddyLink, company } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { and, desc, eq } from "drizzle-orm";
 
 import type { Context } from "../../context";
+import { isDevLocalOrigin } from "../devOrigins";
 import { BUDDY_ROLES, can } from "../permissions";
 import { companyListed, hermesReady, type BuddyEnv } from "./config";
 
@@ -41,19 +43,34 @@ export type BuddyAccess = {
   link: { id: string; hermesProfile: string } | null;
 };
 
-export async function buddyAccess(ctx: BuddyAccessCtx): Promise<BuddyAccess> {
+/**
+ * The request comes from one of the web origins the API's CORS answers (`CORS_ORIGIN`, `CORS_ALLOWED_ORIGINS`, and
+ * localhost on a development stage). A missing Origin and the string `null` are refused. The buddy's chat and its
+ * tRPC mutations need this (security H1, M5): a cross-site form carries a foreign Origin or none.
+ */
+export function requestOriginAllowed(request: Request | null | undefined): boolean {
+  const origin = request?.headers.get("origin")?.trim() ?? "";
+  if (!origin || origin === "null") return false;
+  const e = env as unknown as { NODE_ENV?: string; CORS_ORIGIN?: string; CORS_ALLOWED_ORIGINS?: string };
+  return isAllowedWebOrigin(origin, { corsOrigin: e.CORS_ORIGIN ?? "", corsAllowedOrigins: e.CORS_ALLOWED_ORIGINS }) || isDevLocalOrigin(e, origin);
+}
+
+/**
+ * `plant`: the active plant's slug and status when the caller has them already (`auth.me`), so no extra read.
+ * A person whose role may not use the buddy reads nothing at all (review N4).
+ */
+export async function buddyAccess(ctx: BuddyAccessCtx, known: { plant?: { slug: string; status: string } } = {}): Promise<BuddyAccess> {
   const none: BuddyAccess = { person: false, listed: false, configured: false, link: null };
   const userId = ctx.session?.user.id;
   if (!userId || !ctx.companyId || ctx.impersonation || ctx.via === "buddy") return none;
   const person = roleMayUseBuddy(ctx.role);
+  if (!person) return none;
   const configured = hermesReady(buddyEnv());
-  const plant = await ctx.db
-    .select({ slug: company.slug, status: company.status })
-    .from(company)
-    .where(eq(company.id, ctx.companyId))
-    .get();
+  const plant =
+    known.plant ??
+    (await ctx.db.select({ slug: company.slug, status: company.status }).from(company).where(eq(company.id, ctx.companyId)).get());
   const listed = plant?.status === "active" && companyListed(buddyEnv(), plant.slug);
-  if (!person || !listed) return { person, listed, configured, link: null };
+  if (!listed) return { person, listed, configured, link: null };
   const link = await ctx.db
     .select({ id: buddyLink.id, hermesProfile: buddyLink.hermesProfile })
     .from(buddyLink)

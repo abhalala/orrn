@@ -163,7 +163,16 @@ export const authRouter = router({
 
     // The floating buddy (design 2026-11-18, §13): on this stage, the role may, the plant is listed, and
     // the person connected Hermes here. Never for an impersonating admin.
-    const buddy = companyRow && ctx.role ? buddyOn(await buddyAccess(ctx)) : false;
+    // Never fails `auth.me` (review N4): the buddy tables may be missing when the app deploys before its migrations.
+    // The plant row above is reused, and a role that may not use the buddy reads nothing more.
+    let buddy = false;
+    if (companyRow && ctx.role) {
+      try {
+        buddy = buddyOn(await buddyAccess(ctx, { plant: { slug: companyRow.slug, status: companyRow.status } }));
+      } catch (error) {
+        console.error("auth.me: buddy state unreadable", error instanceof Error ? error.name : "unknown");
+      }
+    }
 
     return {
       user: {
