@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8476 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3147,7 +3147,7 @@ Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (379)
+### admin (384)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3320,6 +3320,8 @@ Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
 | `limits.names.filesPerUpload` | Files per upload | एक अपलोड में फ़ाइलें |
 | `limits.names.rawRowsPerFile` | Rows per file | हर फ़ाइल में लाइनें |
 | `limits.names.openRowsPerPlant` | Rows waiting to merge | मर्ज के इंतज़ार में लाइनें |
+| `limits.names.uploadFileMiB` | Largest file per upload | एक अपलोड में सबसे बड़ी फ़ाइल |
+| `limits.names.vaultQuotaGiB` | Storage for this plant | इस प्लांट की फ़ाइल जगह |
 | `limits.hints.dayModelCalls` | Reads by the model in one plant day. The day starts at midnight India time. | एक प्लांट दिन में मॉडल कितनी बार पढ़े। दिन भारत के समय से आधी रात को शुरू होता है। |
 | `limits.hints.dayModelCostCents` | What the model may spend in one plant day, in US dollars. | एक प्लांट दिन में मॉडल कितना खर्च कर सकता है, अमेरिकी डॉलर में। |
 | `limits.hints.blockModelCalls` | Tries on one table or one page part before it waits for a person. | किसी व्यक्ति के देखने से पहले एक टेबल या पेज के एक हिस्से पर कितनी कोशिशें हों। |
@@ -3327,6 +3329,8 @@ Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
 | `limits.hints.filesPerUpload` | Files taken from one pick or drop. | एक बार चुनने या डालने में कितनी फ़ाइलें ली जाएं। |
 | `limits.hints.rawRowsPerFile` | A file with more rows than this is refused. | इससे ज़्यादा लाइनों वाली फ़ाइल नहीं ली जाती। |
 | `limits.hints.openRowsPerPlant` | Rows from imports not merged or discarded yet. New files wait above this. | इम्पोर्ट की वे लाइनें जो अभी मर्ज नहीं हुईं या हटाई नहीं गईं। इससे ऊपर नई फ़ाइलें रुकती हैं। |
+| `limits.hints.uploadFileMiB` | A larger file is refused when it is added. Set in MB. | इससे बड़ी फ़ाइल डालते समय नहीं ली जाती। MB में। |
+| `limits.hints.vaultQuotaGiB` | Original files kept for this plant, uploads still going included. A new file that goes past this is refused. Set in GB. | इस प्लांट की रखी गई असली फ़ाइलें, चल रहे अपलोड भी। इससे ऊपर जाने वाली नई फ़ाइल नहीं ली जाती। GB में। |
 | `limits.defaultValue` | Default {value} | डिफ़ॉल्ट {value} |
 | `limits.ceiling` | Up to {max} | ज़्यादा से ज़्यादा {max} |
 | `limits.usesDefault` | Uses the default | डिफ़ॉल्ट पर है |
@@ -3334,7 +3338,8 @@ Counts: 8471 screen strings in 50 groups, 45 guides with 866 strings.
 | `limits.useDefault` | Use default | डिफ़ॉल्ट रखें |
 | `limits.invalid` | Enter a whole number from 1 to {max}. | 1 से {max} तक की पूरी संख्या डालें। |
 | `limits.invalidMoney` | Enter an amount from 0.01 to {max}. | 0.01 से {max} तक की रकम डालें। |
-| `limits.costBuys` | About {count} dense page parts a day, at about 7 US cents a part. | रोज़ लगभग {count} घने पेज हिस्से, हर हिस्सा लगभग 7 अमेरिकी सेंट का। |
+| `limits.costBuys` | About {count} parts of busy pages a day, at about 7 US cents a part. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से, हर हिस्सा लगभग 7 अमेरिकी सेंट का। |
+| `limits.callsBuy` | About {count} parts of busy pages a day. The model calls a day stop first. | रोज़ भरे हुए पेजों के लगभग {count} हिस्से। रोज़ मॉडल कॉल की सीमा पहले पूरी होती है। |
 | `limits.save` | Save limits | सीमाएं सेव करें |
 | `limits.saved` | Limits saved | सीमाएं सेव हो गईं |
 | `limits.unsaved` | Changes not saved | बदलाव सेव नहीं हुए |

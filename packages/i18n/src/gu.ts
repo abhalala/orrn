@@ -10,6 +10,7 @@ import type { Messages } from "./en";
  * ageing.readings, reasons.{kinds,downtime,qc_reject,void,reprint}) adds them here too.
  */
 import { refusalGu } from "./native/refusal.gu";
+import { guAdminLimits } from "./gu-more/admin-limits";
 import { guAgeing } from "./gu-more/ageing";
 import { guAgeingWeb } from "./gu-more/ageing-web";
 import { guApprovals } from "./gu-more/approvals";
@@ -1843,6 +1844,7 @@ function mergeGu(...parts: readonly object[]): Record<string, unknown> {
  */
 export const gu = mergeGu(
   guBase,
+  guAdminLimits,
   guAgeing,
   guAgeingWeb,
   guApprovals,

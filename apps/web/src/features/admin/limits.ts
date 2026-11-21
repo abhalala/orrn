@@ -24,9 +24,15 @@ export function limitText(key: PlantLimitKey, value: number): string {
   return key === MONEY_KEY ? (value / 100).toFixed(2) : String(value);
 }
 
-/** A limit's value as read on the page: "$5.00", "200,000". */
+/** The unit a limit is typed and read in, after the number (decision 3: file size in MB, plant storage in GB). */
+export const LIMIT_UNITS: Partial<Record<PlantLimitKey, string>> = { uploadFileMiB: "MB", vaultQuotaGiB: "GB" };
+
+/** A limit's value as read on the page: "$5.00", "200,000", "2,048 MB". */
 export function limitWords(key: PlantLimitKey, value: number): string {
-  return key === MONEY_KEY ? `$${(value / 100).toFixed(2)}` : new Intl.NumberFormat("en-US").format(value);
+  if (key === MONEY_KEY) return `$${(value / 100).toFixed(2)}`;
+  const n = new Intl.NumberFormat("en-US").format(value);
+  const unit = LIMIT_UNITS[key];
+  return unit ? `${n} ${unit}` : n;
 }
 
 /** The value a box holds, or null when it is not a value from 1 to the ceiling. Money is read in dollars, to the cent. */
@@ -93,4 +99,21 @@ export function draftCostCents(draft: LimitsDraft): number {
 /** Roughly how many dense page parts the day cost pays for, at about 0.07 dollars a part read. */
 export function costBuys(costCents: number): number {
   return bandReadsFor(costCents);
+}
+
+/**
+ * What the day spend buys (decision 11): the smaller of the parts the money pays for and the model calls a day, as the
+ * boxes hold them now, and which limit stops first. Null while either box holds no allowed value (N9): the line then
+ * says nothing rather than a default in its place.
+ */
+export function spendBuys(draft: LimitsDraft): { count: number; stop: "cost" | "calls" } | null {
+  const value = (key: PlantLimitKey): number | null => {
+    const text = draft[key];
+    return text === null ? PLANT_LIMITS[key].default : parseLimit(key, text);
+  };
+  const cents = value(MONEY_KEY);
+  const calls = value("dayModelCalls");
+  if (cents === null || calls === null) return null;
+  const byCost = costBuys(cents);
+  return calls < byCost ? { count: calls, stop: "calls" } : { count: byCost, stop: "cost" };
 }

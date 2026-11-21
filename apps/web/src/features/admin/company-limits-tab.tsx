@@ -7,18 +7,18 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import {
   boxText,
-  costBuys,
-  draftCostCents,
   initialDraft,
   limitsChange,
   limitWords,
   MONEY_KEY,
   PLANT_LIMIT_KEYS,
   PLANT_LIMITS,
+  spendBuys,
   type LimitsDraft,
   type PlantLimitKey,
 } from "./limits";
@@ -33,6 +33,8 @@ const NAME_KEYS: Record<PlantLimitKey, MessageKey> = {
   filesPerUpload: "admin.limits.names.filesPerUpload",
   rawRowsPerFile: "admin.limits.names.rawRowsPerFile",
   openRowsPerPlant: "admin.limits.names.openRowsPerPlant",
+  uploadFileMiB: "admin.limits.names.uploadFileMiB",
+  vaultQuotaGiB: "admin.limits.names.vaultQuotaGiB",
 };
 
 const HINT_KEYS: Record<PlantLimitKey, MessageKey> = {
@@ -43,6 +45,8 @@ const HINT_KEYS: Record<PlantLimitKey, MessageKey> = {
   filesPerUpload: "admin.limits.hints.filesPerUpload",
   rawRowsPerFile: "admin.limits.hints.rawRowsPerFile",
   openRowsPerPlant: "admin.limits.hints.openRowsPerPlant",
+  uploadFileMiB: "admin.limits.hints.uploadFileMiB",
+  vaultQuotaGiB: "admin.limits.hints.vaultQuotaGiB",
 };
 
 /**
@@ -53,6 +57,9 @@ const HINT_KEYS: Record<PlantLimitKey, MessageKey> = {
 export function CompanyLimitsTab({ company }: { company: CompanyDetail["company"] }) {
   const { t } = useT();
   const qc = useQueryClient();
+  const { data: me } = useMe();
+  // Staff who cannot save see the values but cannot change the boxes (N9).
+  const canManage = can(me, "platform.company.manage");
   const set = company.limits;
   const savedKey = JSON.stringify(set);
   const [draft, setDraft] = useState<LimitsDraft>(() => initialDraft(set));
@@ -64,6 +71,7 @@ export function CompanyLimitsTab({ company }: { company: CompanyDetail["company"
   }, [savedKey]);
 
   const { change, invalid } = limitsChange(set, draft);
+  const buys = spendBuys(draft);
   const dirty = Object.keys(change).length > 0 || invalid.length > 0;
 
   const save = useMutation({
@@ -113,6 +121,7 @@ export function CompanyLimitsTab({ company }: { company: CompanyDetail["company"
                   <NumberInput
                     value={boxText(key, draft)}
                     decimal={money}
+                    disabled={!canManage}
                     onValueChange={(text) => setDraft((d) => ({ ...d, [key]: text }))}
                     data-testid={`limit-input-${key}`}
                   />
@@ -129,9 +138,9 @@ export function CompanyLimitsTab({ company }: { company: CompanyDetail["company"
                   </Button>
                 </Can>
               </div>
-              {money ? (
+              {money && buys ? (
                 <p className="m-0 text-[13px] font-medium text-foreground" data-testid="limit-cost-buys">
-                  {t("admin.limits.costBuys", { count: costBuys(draftCostCents(draft)) })}
+                  {buys.stop === "calls" ? t("admin.limits.callsBuy", { count: buys.count }) : t("admin.limits.costBuys", { count: buys.count })}
                 </p>
               ) : null}
             </li>
