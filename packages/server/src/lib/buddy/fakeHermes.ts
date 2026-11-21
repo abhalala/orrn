@@ -50,7 +50,13 @@ async function callOrrn(opts: FakeHermesOptions, path: string, input: unknown): 
   const doFetch = opts.fetch ?? fetch;
   const res = await doFetch(opts.mcpUrl, {
     method: "POST",
-    headers: { authorization: `Bearer ${opts.mcpToken}`, "content-type": "application/json", accept: "application/json, text/event-stream" },
+    // Real Hermes names the platform of the session that called the tool; the buddy chat is `api_server`.
+    headers: {
+      authorization: `Bearer ${opts.mcpToken}`,
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "x-hermes-platform": "api_server",
+    },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "orrn_call", arguments: { path, input } } }),
   });
   const body = (await res.json().catch(() => null)) as { result?: { structuredContent?: unknown } } | null;
@@ -125,15 +131,23 @@ export type FakeHermes = {
   handle(request: Request): Promise<Response>;
   /** The last JSON body orrn sent (for tests). */
   last(): Record<string, unknown> | null;
+  /** The path of the last chat request (`/p/<profile>/v1/responses`), for tests. */
+  lastPath(): string | null;
+  /** How many chat requests reached it (tests count turns that got past orrn's limit). */
+  turns(): number;
   setToken(token: string | null): void;
 };
 
 export function createFakeHermes(opts: FakeHermesOptions = {}): FakeHermes {
   const apiKey = opts.apiKey ?? "fake-hermes-key";
   let lastBody: Record<string, unknown> | null = null;
+  let lastPath: string | null = null;
+  let turns = 0;
   let token = opts.mcpToken ?? null;
   return {
     last: () => lastBody,
+    lastPath: () => lastPath,
+    turns: () => turns,
     setToken: (t) => {
       token = t;
     },
@@ -148,6 +162,8 @@ export function createFakeHermes(opts: FakeHermesOptions = {}): FakeHermes {
       if (request.method !== "POST" || !/^(\/p\/[A-Za-z0-9_-]+)?\/v1\/responses$/.test(url.pathname)) {
         return new Response("not found", { status: 404 });
       }
+      turns += 1;
+      lastPath = url.pathname;
       if (request.headers.get("authorization") !== `Bearer ${apiKey}`) return new Response("unauthorized", { status: 401 });
       if (!request.headers.get("cf-access-client-id") || !request.headers.get("cf-access-client-secret")) {
         return new Response("unauthorized", { status: 401 });

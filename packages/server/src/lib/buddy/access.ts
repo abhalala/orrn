@@ -38,7 +38,7 @@ export type BuddyAccess = {
   /** The four `HERMES_*` names are set on this stage. */
   configured: boolean;
   /** The person's active link in this plant, if any. */
-  link: { id: string; hermesProfile: string | null } | null;
+  link: { id: string; hermesProfile: string } | null;
 };
 
 export async function buddyAccess(ctx: BuddyAccessCtx): Promise<BuddyAccess> {

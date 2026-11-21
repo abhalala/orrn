@@ -1,5 +1,7 @@
 -- orrn buddy (design 2026-11-18, §13): buddy_link, buddy_grant, buddy_call, buddy_draft. Additive, four new tables.
 -- Numbered after main's 0052; renumber at merge if another branch lands a 0053 first (decision D30).
+-- Fix round 2026-11-20 (unshipped, changed in place): buddy_link.hermes_profile NOT NULL, buddy_grant renewed_at and
+-- revoked_reason, buddy_draft origin_platform, decided_via, noted_at and kind.
 
 CREATE TABLE `buddy_call` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -37,6 +39,10 @@ CREATE TABLE `buddy_draft` (
 	`decided_at` integer,
 	`result_json` text,
 	`failure` text,
+	`origin_platform` text,
+	`decided_via` text,
+	`noted_at` integer,
+	`kind` text DEFAULT 'procedure' NOT NULL,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`requested_by_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`grant_id`) REFERENCES `buddy_grant`(`id`) ON UPDATE no action ON DELETE set null,
@@ -56,7 +62,9 @@ CREATE TABLE `buddy_grant` (
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`expires_at` integer,
 	`revoked_at` integer,
+	`revoked_reason` text,
 	`last_used_at` integer,
+	`renewed_at` integer,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`created_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
@@ -68,7 +76,7 @@ CREATE TABLE `buddy_link` (
 	`id` text PRIMARY KEY NOT NULL,
 	`company_id` text NOT NULL,
 	`user_id` text NOT NULL,
-	`hermes_profile` text,
+	`hermes_profile` text NOT NULL,
 	`status` text DEFAULT 'active' NOT NULL,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`revoked_at` integer,

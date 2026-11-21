@@ -5,11 +5,12 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { buddyCall, buddyDraft, user } from "@orrn/db/schema";
+import { buddyCall, buddyDraft, buddyLink, user } from "@orrn/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 import { createFakeHermes, fakeHermesFetch } from "../src/lib/buddy/fakeHermes";
 import { buddyPlant, connect, FAKE_HERMES_ENV, setHermesEnv, type BuddyPlant } from "./buddy-fixture";
+import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 
 let env: TestEnv;
@@ -174,6 +175,36 @@ describe("a turn", () => {
     expect(evs.find((e) => e.type === "tool")).toEqual({ type: "tool", path: "customer.create" });
     expect(evs.filter((e) => e.type === "text").map((e) => e.delta).join("")).toContain("I made a draft");
     expect(evs.at(-1)!.type).toBe("done");
+  });
+});
+
+describe("the buddy's own Hermes profile (owner decision 2026-11-20, security H2)", () => {
+  test("Connect Hermes links the person to orrn-buddy; every turn goes to /p/orrn-buddy/v1/responses, never the default profile", async () => {
+    const p = await buddyPlant(env);
+    await connect(p);
+    const link = await env.db.select().from(buddyLink).where(and(eq(buddyLink.companyId, p.companyId), eq(buddyLink.userId, p.users.owner.id))).get();
+    expect(link?.hermesProfile).toBe("orrn-buddy");
+    const fake = createFakeHermes();
+    await (await chat(p, { message: "hi", screen: "/" }, { fetch: fakeHermesFetch(fake) })).text();
+    expect(fake.lastPath()).toBe("/p/orrn-buddy/v1/responses");
+  });
+
+  test("BUDDY_HERMES_PROFILE names the profile of new links; a value that is not a profile name keeps the buddy off", async () => {
+    const p = await buddyPlant(env);
+    workersEnv.BUDDY_HERMES_PROFILE = "plant-buddy_2";
+    try {
+      await connect(p);
+      const fake = createFakeHermes();
+      await (await chat(p, { message: "hi", screen: "/" }, { fetch: fakeHermesFetch(fake) })).text();
+      expect(fake.lastPath()).toBe("/p/plant-buddy_2/v1/responses");
+      workersEnv.BUDDY_HERMES_PROFILE = "../default";
+      const before = fake.turns();
+      expect((await chat(p, { message: "hi", screen: "/" }, { fetch: fakeHermesFetch(fake) })).status).toBe(404);
+      expect(fake.turns()).toBe(before);
+      expect((await p.owner.auth.me()).buddy).toBe(false);
+    } finally {
+      delete workersEnv.BUDDY_HERMES_PROFILE;
+    }
   });
 });
 

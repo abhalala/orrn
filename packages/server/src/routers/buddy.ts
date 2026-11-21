@@ -14,7 +14,8 @@ import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
-import { buddyAccess } from "../lib/buddy/access";
+import { buddyAccess, buddyEnv } from "../lib/buddy/access";
+import { buddyHermesProfile } from "../lib/buddy/config";
 import { buddyDraftsRouter } from "./buddyDrafts";
 import { buddyProcedure } from "./buddyProcedure";
 import { hashBuddyToken, newBuddyToken } from "../lib/buddy/token";
@@ -62,13 +63,15 @@ export const buddyRouter = router({
 
   grant: router({
     /**
-     * "Connect Hermes": a new grant (the token is shown once) and the person's link to the default
-     * profile. Any earlier live grant of the person in this plant is revoked in the same batch, so one
+     * "Connect Hermes": a new grant (the token is shown once) and the person's link to the buddy's own Hermes
+     * profile (`BUDDY_HERMES_PROFILE`, else `orrn-buddy`; never the default profile). Any earlier live grant of the person in this plant is revoked in the same batch, so one
      * token works at a time. Only for a plant listed in `BUDDY_COMPANIES`.
      */
     create: buddyProcedure.mutation(async ({ ctx }): Promise<BuddyGrantCreated> => {
       const access = await buddyAccess(ctx);
       if (!access.listed) throw new TRPCError({ code: "FORBIDDEN", message: "The buddy is not open for this plant" });
+      const hermesProfile = buddyHermesProfile(buddyEnv());
+      if (!hermesProfile) throw new TRPCError({ code: "FORBIDDEN", message: "The buddy is not set up on this stage" });
       const userId = ctx.session.user.id;
       const token = newBuddyToken();
       const grantId = createId();
@@ -97,7 +100,7 @@ export const buddyRouter = router({
                 id: createId(),
                 companyId: ctx.companyId,
                 userId,
-                hermesProfile: null,
+                hermesProfile,
                 status: "active" as const,
                 createdAt: at,
               }),

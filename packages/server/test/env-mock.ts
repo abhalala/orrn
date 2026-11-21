@@ -15,6 +15,8 @@ export const workersEnv: Record<string, unknown> = {
   NODE_ENV: "test",
   ORRN_MASTER_KEY: DEV_MASTER_KEY,
   WEB_PUBLIC_URL: "https://app.test",
+  // The web origin harness requests carry (harness.ts TEST_WEB_ORIGIN); the buddy's Origin checks read it.
+  CORS_ORIGIN: "https://app.test",
 };
 
 mock.module("cloudflare:workers", () => ({ env: workersEnv }));

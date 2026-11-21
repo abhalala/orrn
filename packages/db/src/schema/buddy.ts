@@ -10,7 +10,7 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * orrn buddy (design 2026-11-18, §4 and §13). Hermes reaches orrn through `/mcp` with a grant token; the
  * browser chats through `/buddy/chat`. None of these tables holds chat text or a raw token.
  *
- * - `buddy_link`: which Hermes profile serves this person in this plant (null = the default profile).
+ * - `buddy_link`: which Hermes profile serves this person in this plant (never the default profile).
  * - `buddy_grant`: the MCP bearer token, stored as its SHA-256 only, and how the minting session signed in.
  * - `buddy_call`: one row per MCP tool call and per chat turn (append-only, no bodies).
  * - `buddy_draft`: a change the buddy proposed; it runs only when the person confirms it in the browser.
@@ -29,8 +29,12 @@ export const buddyLink = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    /** Null = Hermes's default profile (no `/p/<profile>` prefix). Never taken from the browser. */
-    hermesProfile: text("hermes_profile"),
+    /**
+     * The Hermes profile (owner decision 2026-11-20: the buddy's own profile, `orrn-buddy` by default through env
+     * `BUDDY_HERMES_PROFILE`). The chat path is `/p/<profile>/v1/responses`. Never the default profile, never
+     * taken from the browser.
+     */
+    hermesProfile: text("hermes_profile").notNull(),
     status: text("status", { enum: BUDDY_LINK_STATUSES }).notNull().default("active"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
@@ -39,6 +43,16 @@ export const buddyLink = sqliteTable(
     index("buddy_link_company_user_idx").on(table.companyId, table.userId, table.status),
   ],
 );
+
+export const BUDDY_GRANT_REVOKE_REASONS = [
+  "owner",
+  "password_reset",
+  "signed_out_everywhere",
+  "membership_removed",
+  "role_changed",
+  "replaced",
+] as const;
+export type BuddyGrantRevokeReason = (typeof BUDDY_GRANT_REVOKE_REASONS)[number];
 
 export const buddyGrant = sqliteTable(
   "buddy_grant",
@@ -62,7 +76,11 @@ export const buddyGrant = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    /** Why it was revoked (security review M4): the owner, a password reset, sign out everywhere, and so on. */
+    revokedReason: text("revoked_reason", { enum: BUDDY_GRANT_REVOKE_REASONS }),
     lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+    /** The last `buddy.grant.renew` (a fresh sign-in moved `expires_at` 30 days on), else null. */
+    renewedAt: integer("renewed_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     uniqueIndex("buddy_grant_token_hash_unique").on(table.tokenHash),
@@ -71,6 +89,8 @@ export const buddyGrant = sqliteTable(
 );
 
 export const BUDDY_CALL_OUTCOMES = [
+  /** A reserved row (the rate limit counted it); `finishBuddyCall` sets the real outcome when the call ends. */
+  "pending",
   "ok",
   "needs_confirm",
   "forbidden",
@@ -114,6 +134,14 @@ export const buddyCall = sqliteTable(
 export const BUDDY_DRAFT_STATUSES = ["pending", "confirmed", "rejected", "expired", "failed"] as const;
 export type BuddyDraftStatus = (typeof BUDDY_DRAFT_STATUSES)[number];
 
+/** Where the person decided a draft: the bubble's card or Settings > Buddy. */
+export const BUDDY_DRAFT_DECIDED_VIA = ["bubble", "settings"] as const;
+export type BuddyDraftDecidedVia = (typeof BUDDY_DRAFT_DECIDED_VIA)[number];
+
+/** A draft runs one procedure, a batch of import answers, or the whole dry run (driven from the browser). */
+export const BUDDY_DRAFT_KINDS = ["procedure", "answers", "dryRun"] as const;
+export type BuddyDraftKind = (typeof BUDDY_DRAFT_KINDS)[number];
+
 export const buddyDraft = sqliteTable(
   "buddy_draft",
   {
@@ -138,6 +166,12 @@ export const buddyDraft = sqliteTable(
     decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
     resultJson: text("result_json", { mode: "json" }).$type<unknown>(),
     failure: text("failure"),
+    /** The Hermes platform that made it (`x-hermes-platform`, e.g. `api_server` for the buddy chat), when sent. */
+    originPlatform: text("origin_platform"),
+    decidedVia: text("decided_via", { enum: BUDDY_DRAFT_DECIDED_VIA }),
+    /** Set when a chat turn told Hermes the draft's final state (server-made notes, decision 7). */
+    notedAt: integer("noted_at", { mode: "timestamp_ms" }),
+    kind: text("kind", { enum: BUDDY_DRAFT_KINDS }).notNull().default("procedure"),
   },
   (table) => [
     index("buddy_draft_company_user_status_idx").on(table.companyId, table.requestedByUserId, table.status),

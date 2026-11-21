@@ -11,8 +11,9 @@
  * `stream: true` and `conversation: <name>`. Hermes keeps the conversation server-side (its response
  * store maps the name to the latest response and replays that history), so orrn stores no chat text and
  * the browser sends only the new message. The name is built here from the plant, the person and the
- * browser's conversation id, so one browser can never continue another person's conversation in the
- * shared default profile.
+ * browser's conversation id, so one browser can never continue another person's conversation. The path is
+ * `/p/<profile>/v1/responses` with the profile from the person's `buddy_link` (the buddy's own profile,
+ * `orrn-buddy` by default; owner decision 2026-11-20).
  *
  * Hermes's SSE is normalised into orrn's own events and everything else is dropped (reasoning,
  * commentary items, `hermes.status`, tool outputs):
@@ -30,8 +31,8 @@ import type { Context } from "../../context";
 import { now } from "../clock";
 import { DEFAULT_TIMEZONE } from "../dayWindow";
 import { buddyAccess, buddyEnv } from "./access";
-import { chatTurnsLimited, logBuddyCall } from "./callLog";
-import { resolveHermesConfig } from "./config";
+import { BUDDY_LIMIT, finishBuddyCall, logBuddyCall, reserveBuddyCall } from "./callLog";
+import { hermesChatUrl, resolveHermesConfig } from "./config";
 
 export const chatBodySchema = z.strictObject({
   conversationId: z
@@ -204,10 +205,13 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
   const started = now();
   const conversationId = body.conversationId ?? newConversationId();
 
-  if (await chatTurnsLimited(ctx.db, companyId, userId)) {
+  // One conditional insert counts and reserves the turn (security L2), so turns sent at once cannot all pass.
+  const reserved = await reserveBuddyCall(ctx.db, { companyId, userId, grantId, tool: "chat" }, BUDDY_LIMIT.chatTurns);
+  if (!reserved.ok) {
     await logBuddyCall(ctx.db, { companyId, userId, grantId, tool: "chat", outcome: "rate_limited", ms: 0 });
     return new Response(frame({ type: "error", code: "rate_limited" }), { status: 200, headers: SSE_HEADERS });
   }
+  const callId = reserved.id;
 
   const plant = await ctx.db.select({ name: company.name, settings: company.settings }).from(company).where(eq(company.id, companyId)).get();
   const tz = (plant?.settings as { timezone?: unknown } | null)?.timezone;
@@ -219,8 +223,9 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
     screen: body.screen,
     notes: body.notes ?? [],
   });
-  const profile = access.link.hermesProfile;
-  const url = `${cfg.baseUrl}${profile ? `/p/${encodeURIComponent(profile)}` : ""}/v1/responses`;
+  // The buddy's own profile from the person's link (never the default profile, never from the browser).
+  const url = hermesChatUrl(cfg.baseUrl, access.link.hermesProfile);
+  if (!url) return empty(404);
   const doFetch = deps.fetch ?? fetch;
   const turnTimeout = AbortSignal.timeout(deps.turnTimeoutMs ?? HERMES_TURN_TIMEOUT_MS);
   const connect = new AbortController();
@@ -256,7 +261,7 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
   // A bad Access token answers a login page (200 HTML or a redirect), not an error: anything that is not a
   // 2xx event stream is "offline".
   if (!upstream || !upstream.ok || !contentType.startsWith("text/event-stream") || !upstream.body) {
-    await logBuddyCall(ctx.db, { companyId, userId, grantId, tool: "chat", outcome: "error", ms: now().getTime() - started.getTime() });
+    await finishBuddyCall(ctx.db, callId, { outcome: "error", ms: now().getTime() - started.getTime() });
     try {
       await upstream?.body?.cancel();
     } catch {
@@ -344,7 +349,7 @@ export async function handleBuddyChat(request: Request, ctx: Context, deps: Chat
           // already closed
         }
         try {
-          await logBuddyCall(db, { companyId, userId, grantId, tool: "chat", outcome, ms: now().getTime() - started.getTime() });
+          await finishBuddyCall(db, callId, { outcome, ms: now().getTime() - started.getTime() });
         } catch {
           // the log must never break the answer
         }
