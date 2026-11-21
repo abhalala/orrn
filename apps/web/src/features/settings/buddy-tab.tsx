@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { isConfirmBlocked } from "@/features/buddy/draft-card";
 import type { DraftDecisions } from "@/features/buddy/panel-body";
 import type { BuddyDraft } from "@/features/buddy/types";
 import { serverRefusal } from "@/features/shared/server-refusal";
@@ -115,7 +116,7 @@ export function BuddyTab() {
             else void queryClient.invalidateQueries({ queryKey: trpc.buddy.drafts.listMine.queryKey() });
           },
           onError: (error) => {
-            setErrors((prev) => ({ ...prev, [draft.id]: kind === "confirm" ? serverRefusal(t, error) : t("buddy.draft.rejectFailed") }));
+            setErrors((prev) => ({ ...prev, [draft.id]: kind !== "confirm" ? t("buddy.draft.rejectFailed") : isConfirmBlocked(error) ? t("buddy.draft.blocked.other") : serverRefusal(t, error) }));
             void queryClient.invalidateQueries({ queryKey: trpc.buddy.drafts.listMine.queryKey() });
           },
           onSettled: () => setPending(null),

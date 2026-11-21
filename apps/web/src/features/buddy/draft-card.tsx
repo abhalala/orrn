@@ -7,7 +7,11 @@ import { useId, useState } from "react";
 
 import { Can } from "@/shared/components/can";
 
-import type { BuddyDraft, DraftField, DraftStatus } from "./types";
+import { fieldLabel } from "./draft-card-fields";
+import { storedDryRun } from "./dry-run-drive";
+import type { BuddyDraft, ConfirmBlock, DraftField, DraftStatus } from "./types";
+
+export { fieldLabel };
 
 const TONE: Record<DraftStatus, "amber" | "green" | "neutral" | "red"> = {
   pending: "amber",
@@ -41,6 +45,15 @@ export function failureText(t: Translate, failure: string | null): string {
   return hit ? t(hit.key, hit.vars) : t("refusal.unknown");
 }
 
+/**
+ * The server refuses Confirm of a draft with `confirmBlock` set (`PRECONDITION_FAILED`, `meta.reason` CONFIRM_BLOCKED).
+ * Known by its reason, so the card says it in the person's language whatever the English words are.
+ */
+export function isConfirmBlocked(error: unknown): boolean {
+  const data = (error as { data?: { meta?: { reason?: unknown } } } | null)?.data;
+  return data?.meta?.reason === "CONFIRM_BLOCKED";
+}
+
 /** A result is shown only when it is a short line of text or a number; anything bigger stays on its own screen. */
 function resultText(result: unknown): string | null {
   if (typeof result === "number") return String(result);
@@ -66,9 +79,15 @@ export type DraftCardProps = {
 
 /** The row check a confirmed `import.runDryRun` draft runs in the bubble (fix round decision 8). */
 export type DriveView = {
-  phase: "starting" | "running" | "otherTab" | "done" | "stopped" | "failed";
+  /**
+   * "reading": the loop ended and the report is on its way; "done", "stopped", "failed": the outcome the server stored
+   * (never the loop's own guess, delta round S2); "unknown": the report stored nothing the bubble could read.
+   */
+  phase: "starting" | "running" | "otherTab" | "reading" | "done" | "stopped" | "failed" | "unknown";
   done: number | null;
   total: number | null;
+  /** The candidate's state word the server stored with the outcome. */
+  state?: string | null;
 };
 
 /** Import drafts whose title the app says in the person's language (§12.1); every other draft shows the server's words. */
@@ -87,47 +106,6 @@ const TITLE_KEYS = {
   "import.runDryRun": "buddy.draft.titles.import_runDryRun",
 } as const satisfies Record<string, MessageKey>;
 
-/** Input keys the card names in the person's language (decision 9). Any other key shows the server's own label. */
-const FIELD_KEYS = {
-  candidateId: "buddy.field.candidateId",
-  artifactId: "buddy.field.artifactId",
-  target: "buddy.field.target",
-  accept: "buddy.field.accept",
-  fy: "buddy.field.fy",
-  asOf: "buddy.field.asOf",
-  questionCode: "buddy.field.questionCode",
-  subject: "buddy.field.subject",
-  answer: "buddy.field.answer",
-  answers: "buddy.field.answers",
-  rowId: "buddy.field.rowId",
-  rowIds: "buddy.field.rowIds",
-  expectCount: "buddy.field.expectCount",
-  decision: "buddy.field.decision",
-  matchId: "buddy.field.matchId",
-  reason: "buddy.field.reason",
-  pageId: "buddy.field.pageId",
-  page: "buddy.field.page",
-  name: "buddy.field.name",
-  customerId: "buddy.field.customerId",
-  vendorId: "buddy.field.vendorId",
-  dieId: "buddy.field.dieId",
-  sectionId: "buddy.field.sectionId",
-  orderId: "buddy.field.orderId",
-  lineId: "buddy.field.lineId",
-  bundleId: "buddy.field.bundleId",
-  serial: "buddy.field.serial",
-  serials: "buddy.field.serials",
-  quantity: "buddy.field.quantity",
-  note: "buddy.field.note",
-  notes: "buddy.field.notes",
-  rows: "buddy.field.rows",
-} as const satisfies Record<string, MessageKey>;
-
-/** The name of an input field: the app's word for a known key (own keys only: the key comes from Hermes), else the server's label. */
-export function fieldLabel(t: Translate, field: Pick<DraftField, "key" | "label">): string {
-  return Object.prototype.hasOwnProperty.call(FIELD_KEYS, field.key) ? t(FIELD_KEYS[field.key as keyof typeof FIELD_KEYS]) : field.label;
-}
-
 /** A value longer than this shows its start until the person presses Show all. */
 export const VALUE_PREVIEW = 160;
 /** A list longer than this shows its first entries and "This runs N lines" until Show all. */
@@ -141,6 +119,30 @@ export function needsShowAll(draft: Pick<BuddyDraft, "fields" | "items">): boole
 }
 
 const preview = (text: string, all: boolean) => (all || text.length <= VALUE_PREVIEW ? text : `${text.slice(0, VALUE_PREVIEW)}...`);
+
+/** An id field the server tried to name and could not: the raw id stays on the card with a "no name found" note. */
+const unnamed = (field: DraftField) => field.ref !== null && field.ref !== undefined && field.ref.name === null;
+
+/**
+ * Why Confirm is off (delta round S4, D-L3): the server's `confirmBlock`, or, for a change that cannot be undone, the
+ * same rule worked out here from the fields when the server sent none (an unnamed id first, then a marked field).
+ */
+export function confirmBlockOf(draft: Pick<BuddyDraft, "fields" | "irreversible" | "confirmBlock">): ConfirmBlock | null {
+  if (draft.confirmBlock) return draft.confirmBlock;
+  if (!draft.irreversible) return null;
+  const noName = draft.fields.filter(unnamed).map((f) => f.key);
+  if (noName.length > 0) return { reason: "unnamed_id", keys: noName };
+  const marked = draft.fields.filter((f) => f.marked).map((f) => f.key);
+  return marked.length > 0 ? { reason: "bidi", keys: marked } : null;
+}
+
+/** One sentence for the reason Confirm is off, naming the fields in the person's language. */
+function blockText(t: Translate, block: ConfirmBlock, fields: readonly DraftField[]): string {
+  const names = [...new Set(block.keys)].map((key) => fieldLabel(t, fields.find((f) => f.key === key) ?? { key, label: key })).join(", ");
+  if (block.reason === "unnamed_id") return t("buddy.draft.blocked.unnamed_id", { fields: names });
+  if (block.reason === "bidi") return t("buddy.draft.blocked.bidi", { fields: names });
+  return t("buddy.draft.blocked.other");
+}
 
 export function draftTitle(t: Translate, draft: { path: string; title: string }): string {
   const key = Object.prototype.hasOwnProperty.call(TITLE_KEYS, draft.path) ? TITLE_KEYS[draft.path as keyof typeof TITLE_KEYS] : null;
@@ -156,6 +158,7 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
   const link = reviewPath(draft.link);
   const titleId = `buddy-draft-${draft.id}`;
   const gateId = useId();
+  const blockId = useId();
   const result = draft.status === "confirmed" ? resultText(draft.result) : null;
   const hides = needsShowAll(draft);
   const [showAll, setShowAll] = useState(false);
@@ -165,6 +168,10 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
   const items = draft.items ?? [];
   const shownItems = all ? items : items.slice(0, ITEM_PREVIEW);
   const gated = draft.status === "pending" && hides && !seenAll;
+  const block = draft.status === "pending" ? confirmBlockOf(draft) : null;
+  const blockedKeys = new Set(block?.reason === "unnamed_id" ? block.keys : []);
+  const describedBy = [block ? blockId : null, gated ? gateId : null].filter(Boolean).join(" ") || undefined;
+  const stored = draft.kind === "dryRun" && draft.status === "confirmed" ? storedDryRun(draft.result) : null;
   return (
     <article
       aria-labelledby={titleId}
@@ -195,8 +202,21 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
           {draft.fields.map((field, i) => (
             <div key={`${field.key}-${i}`} className="contents">
               <dt className="text-muted-foreground break-words">{fieldLabel(t, field)}</dt>
-              <dd className="m-0 min-w-0 font-medium whitespace-pre-wrap [overflow-wrap:anywhere]" data-testid="buddy-draft-value">
-                {preview(field.value, all)}
+              <dd className="m-0 flex min-w-0 flex-col gap-0.5">
+                {/* The server's value as sent: a resolved name, or the raw id; never cleaned here (joiners stay). */}
+                <span className="font-medium whitespace-pre-wrap [overflow-wrap:anywhere]" data-testid="buddy-draft-value">
+                  {preview(field.value, all)}
+                </span>
+                {unnamed(field) || (blockedKeys.has(field.key) && !field.ref) ? (
+                  <span className="text-[13px] text-tone-amber-ink" data-testid="buddy-draft-no-name">
+                    {t("buddy.draft.noName")}
+                  </span>
+                ) : null}
+                {field.marked ? (
+                  <span className="text-[13px] text-tone-amber-ink" data-testid="buddy-draft-marked">
+                    {t("buddy.draft.marked")}
+                  </span>
+                ) : null}
               </dd>
             </div>
           ))}
@@ -240,7 +260,7 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
         <p className="m-0 text-[14px] text-destructive break-words">{t("buddy.draft.failedWhy", { reason: failureText(t, draft.failure) })}</p>
       ) : null}
       {/* The row check: while the server says it waits for the browser, or after this surface ran it (final words). */}
-      {draft.drive || drive ? <DriveLine draft={draft} drive={drive} onStop={onStopDrive} /> : null}
+      {draft.drive || drive || stored ? <DriveLine draft={draft} drive={drive} onStop={onStopDrive} /> : null}
       {link ? (
         <UiLink
           to={link}
@@ -258,6 +278,11 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
       ) : null}
       {draft.status === "pending" ? (
         <Can do="buddy.use">
+          {block ? (
+            <p id={blockId} className="m-0 rounded-card bg-tone-amber-tint px-3 py-2 text-[13px] leading-5 text-tone-amber-ink" data-testid="buddy-draft-blocked" data-reason={block.reason}>
+              {blockText(t, block, draft.fields)}
+            </p>
+          ) : null}
           {gated ? (
             <p id={gateId} className="m-0 text-[13px] text-muted-foreground" data-testid="buddy-draft-gate">
               {t("buddy.draft.showAllFirst")}
@@ -267,8 +292,8 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
             <Button
               size="sm"
               loading={pending === "confirm"}
-              disabled={pending !== null || gated}
-              aria-describedby={gated ? gateId : undefined}
+              disabled={pending !== null || gated || block !== null}
+              aria-describedby={describedBy}
               onClick={() => onConfirm(draft)}
               data-testid="buddy-draft-confirm"
             >
@@ -292,8 +317,11 @@ export function DraftCard({ draft, when, pending = null, error = null, onConfirm
 }
 
 /** Progress of a confirmed row check: driven here in the bubble, or a pointer to the bubble from Settings. */
-function DriveLine({ draft, drive, onStop }: { draft: BuddyDraft; drive: DriveView | null; onStop?(draft: BuddyDraft): void }) {
+function DriveLine({ draft, drive: local, onStop }: { draft: BuddyDraft; drive: DriveView | null; onStop?(draft: BuddyDraft): void }) {
   const { t } = useT();
+  // The outcome the server stored wins over anything this surface saw (delta round S2).
+  const stored = draft.kind === "dryRun" && draft.status === "confirmed" ? storedDryRun(draft.result) : null;
+  const drive: DriveView | null = stored ? { phase: stored.outcome, state: stored.state, done: local?.done ?? null, total: local?.total ?? null } : local;
   if (!drive) {
     return (
       <p className="m-0 text-[14px] text-muted-foreground" data-testid="buddy-drive" data-phase="elsewhere">
@@ -312,6 +340,8 @@ function DriveLine({ draft, drive, onStop }: { draft: BuddyDraft; drive: DriveVi
             ? t("buddy.draft.drive.running", { done: drive.done, total: drive.total })
             : t("buddy.draft.drive.runningNoTotal")
           : t(`buddy.draft.drive.${drive.phase}`);
+  const ended = drive.phase === "done" || drive.phase === "stopped" || drive.phase === "failed";
+  const state = ended && drive.state ? stateWord(t, drive.state) : null;
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="buddy-drive" data-phase={drive.phase}>
       {running && drive.total ? (
@@ -322,9 +352,14 @@ function DriveLine({ draft, drive, onStop }: { draft: BuddyDraft; drive: DriveVi
           aria-label={t("buddy.draft.drive.runningNoTotal")}
         />
       ) : null}
-      <p role="status" className={drive.phase === "failed" ? "m-0 text-[14px] text-destructive" : "m-0 text-[14px]"}>
+      <p role="status" className={drive.phase === "failed" || drive.phase === "unknown" ? "m-0 text-[14px] text-destructive" : "m-0 text-[14px]"}>
         {text}
       </p>
+      {state ? (
+        <p className="m-0 text-[13px] text-muted-foreground" data-testid="buddy-drive-state">
+          {t("buddy.draft.drive.sheetState", { state })}
+        </p>
+      ) : null}
       {running && onStop ? (
         <Button size="sm" variant="secondary" className="self-start" onClick={() => onStop(draft)} data-testid="buddy-drive-stop">
           {t("buddy.draft.drive.stop")}
@@ -332,4 +367,11 @@ function DriveLine({ draft, drive, onStop }: { draft: BuddyDraft; drive: DriveVi
       ) : null}
     </div>
   );
+}
+
+const SHEET_STATES = ["processing", "needs_shape", "needs_confirm", "ready", "held", "approved", "merging", "merged", "failed", "discarded"] as const;
+
+/** The sheet's state in the person's language; a state this build does not know shows as the server sent it. */
+function stateWord(t: Translate, state: string): string {
+  return (SHEET_STATES as readonly string[]).includes(state) ? t(`buddy.draft.drive.states.${state as (typeof SHEET_STATES)[number]}`) : state;
 }

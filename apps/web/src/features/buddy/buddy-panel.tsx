@@ -11,6 +11,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { isAuthMeQueryKey } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { isConfirmBlocked } from "./draft-card";
 import { BuddyPanelBody, type DraftDecisions } from "./panel-body";
 import type { BuddyDraft } from "./types";
 import { conversationKey, useBuddyChat } from "./use-buddy-chat";
@@ -61,7 +62,7 @@ export default function BuddyPanel({ open, onOpenChange }: { open: boolean; onOp
         return { cursor: c.dryCursor, running: c.state === "processing", counts: c.counts };
       },
       step: (candidateId, expectCursor) => trpcClient.ingest.dryRun.step.mutate({ candidateId, expectCursor }),
-      report: (draftId, outcome, summary) => trpcClient.buddy.drafts.report.mutate({ draftId, outcome, ...(summary ? { summary } : {}) }),
+      report: (draftId, outcome) => trpcClient.buddy.drafts.report.mutate({ draftId, outcome }),
       refresh: () => void queryClient.invalidateQueries({ predicate: (q) => !isAuthMeQueryKey(q.queryKey) }),
     }),
     [],
@@ -94,7 +95,7 @@ export default function BuddyPanel({ open, onOpenChange }: { open: boolean; onOp
             }
           },
           onError: (error) => {
-            setErrors((prev) => ({ ...prev, [draft.id]: kind === "confirm" ? serverRefusal(t, error) : t("buddy.draft.rejectFailed") }));
+            setErrors((prev) => ({ ...prev, [draft.id]: kind !== "confirm" ? t("buddy.draft.rejectFailed") : isConfirmBlocked(error) ? t("buddy.draft.blocked.other") : serverRefusal(t, error) }));
             refreshDrafts();
           },
           onSettled: () => setPending(null),

@@ -35,7 +35,7 @@ const DRAFT: BuddyDraft = {
   path: "ingest.answer.set",
   kind: "procedure",
   title: "Answer an import question",
-  fields: [{ key: "answer", label: "Answer", value: "Column C is the weight" }],
+  fields: [{ key: "answer", label: "Answer", value: "Column C is the weight", ref: null, marked: false }],
   items: null,
   status: "pending",
   createdAt: "2026-11-20T05:31:00Z",
@@ -46,6 +46,8 @@ const DRAFT: BuddyDraft = {
   origin: "chat",
   decidedVia: null,
   drive: null,
+  irreversible: false,
+  confirmBlock: null,
 };
 
 type Calls = { connect: number; revoke: string[]; done: number; copied: string[]; confirmed: string[]; renew: string[]; signIn: number };
