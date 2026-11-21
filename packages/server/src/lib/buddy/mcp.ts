@@ -63,7 +63,7 @@ export const MCP_TOOLS = [
   },
   {
     name: "orrn_call",
-    description: `Run an orrn procedure as the person. A read answers at once. A change does NOT run: it comes back as status "needs_confirm" with a draftId; tell the person to check the draft card in orrn and press Confirm. Never say a change is done until a later note says the draft was confirmed. Weights are grams, money is paise, times are India time. ${DATA_NOTE}`,
+    description: `Run an orrn procedure as the person. A read answers at once. A change does NOT run: it comes back as status "needs_confirm" with a draftId; tell the person to check the draft card in orrn and press Confirm. Never say a change is done until a later note says the draft was confirmed. orrn sets clientRequestId itself, and for an import change on a candidate it fills in the current expectSeq at Confirm, so you may leave both out. Weights are grams, money is paise, times are India time. ${DATA_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
