@@ -42,6 +42,7 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "native.", why: "the phone app stays on today's units until its own release" },
   { prefix: "guides.", why: "guide pages are prose" },
   { prefix: "collectors.", why: "machine data units (bar, mm/s)" },
+  { prefix: "buddy.field.", why: "the buddy draft card labels the raw input value Confirm sends, which is stored in these fixed units whatever the plant's setting" },
   { prefix: "devices.collectors", why: "machine data units (mm/s, bar)" },
   { prefix: "press.alerts.unit", why: "machine data units (mm/s)" },
   { prefix: "purchase.errors.rate", why: "a rate is rupees per kg; the rate's basis is not a plant choice" },
