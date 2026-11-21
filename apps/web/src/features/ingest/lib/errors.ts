@@ -57,6 +57,9 @@ export const VISION_SENTENCES: readonly (readonly [RegExp, string])[] = [
   [/^This file already holds \d+ tables, the most one file can hold/i, "ingest.vision.error.fileFull"],
   [/^The tables read from this page could not be written/i, "ingest.vision.error.rebuildFailed"],
   [/^Someone who can see prices must check this table/i, "ingest.vision.error.needsPrices"],
+  // Contract 8b: the plant's rows per file reached by rows read from pages (the file name and number stay in the English).
+  [/^.+ has more than \S+ rows\. Split it and try again/i, "ingest.vision.error.fileRowsFull"],
+  [/^Too many rows are waiting/i, "ingest.vision.error.openRowsFull"],
 ];
 
 /**

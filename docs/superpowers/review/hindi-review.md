@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8484 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8486 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7130,7 +7130,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (670)
+### ingest (672)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7657,6 +7657,8 @@ Please check, Lalubhai:
 | `vision.error.fileFull` | This file already holds the most tables one file can hold. Finish it to use the tables read so far. | इस फ़ाइल में पहले से उतनी टेबल हैं जितनी एक फ़ाइल में हो सकती हैं। अब तक पढ़ी गई टेबल इस्तेमाल करने के लिए इसे पूरा करें। |
 | `vision.error.rebuildFailed` | The tables read from this page could not be written. Skip this page. | इस पेज से पढ़ी गई टेबल लिखी नहीं जा सकीं। यह पेज छोड़ दें। |
 | `vision.error.needsPrices` | Someone who can see prices must check this table. | इस टेबल को वही जाँचे जिसे रेट दिखते हैं। |
+| `vision.error.fileRowsFull` | This file has more rows than one file may hold in this plant. Split it and try again. | इस फ़ाइल में इस प्लांट की एक फ़ाइल की सीमा से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
+| `vision.error.openRowsFull` | Too many rows from imports are waiting to merge in this plant. Merge or discard imports first. | इस प्लांट में इम्पोर्ट की बहुत ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। पहले इम्पोर्ट मर्ज करें या हटाएं। |
 | `rate.hidden` | Hidden | छिपा है |
 | `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
 | `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |

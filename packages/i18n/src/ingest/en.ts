@@ -651,6 +651,8 @@ export const ingestEn = {
       fileFull: "This file already holds the most tables one file can hold. Finish it to use the tables read so far.",
       rebuildFailed: "The tables read from this page could not be written. Skip this page.",
       needsPrices: "Someone who can see prices must check this table.",
+      fileRowsFull: "This file has more rows than one file may hold in this plant. Split it and try again.",
+      openRowsFull: "Too many rows from imports are waiting to merge in this plant. Merge or discard imports first.",
     },
   },
   rate: {
