@@ -248,6 +248,8 @@ describe("notes come from the server (decision 7, review S4, S5)", () => {
     const failed = await draft(p.companyId, me, grantId, { status: "failed", failure: "D1_ERROR: raw sql text", ...decided });
     const lapsed = await draft(p.companyId, me, grantId, { createdAt: new Date(Date.now() - 2 * 86_400_000), expiresAt: new Date(Date.now() - 1000) });
     const pending = await draft(p.companyId, me, grantId, {});
+    // Lapsed, but a confirm claimed it and its outcome is not known: no note until it settles.
+    const unknown = await draft(p.companyId, me, grantId, { createdAt: new Date(Date.now() - 2 * 86_400_000), expiresAt: new Date(Date.now() - 1000), claimedAt: new Date(Date.now() - 5 * 60_000) });
     const someoneElse = await draft(p.companyId, p.users.admin.id, null, { status: "confirmed", ...decided });
     const fake = createFakeHermes();
     await (await chat(p, { message: "what next", screen: "/" }, { fetch: fakeHermesFetch(fake) })).text();
@@ -258,6 +260,7 @@ describe("notes come from the server (decision 7, review S4, S5)", () => {
     expect(first).toContain(`draft ${failed} (Add a customer): failed`);
     expect(first).toContain(`draft ${lapsed} (Add a customer): expired`);
     expect(first).not.toContain(pending);
+    expect(first).not.toContain(unknown);
     expect(first).not.toContain(someoneElse);
     expect(first).not.toContain("secret-result-id");
     expect(first).not.toContain("D1_ERROR");

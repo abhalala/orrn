@@ -10,8 +10,8 @@
  * state.
  */
 import type { createDb } from "@orrn/db";
-import { buddyCall, buddyDraft, type BuddyCallOutcome } from "@orrn/db/schema";
-import { and, eq, gt, ne, sql, type SQL } from "drizzle-orm";
+import { buddyCall, type BuddyCallOutcome } from "@orrn/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 
 import { now } from "../clock";
 import { createId } from "../id";
@@ -108,40 +108,4 @@ export async function logBuddyCall(db: Db, row: CallLogRow): Promise<void> {
     platform: row.platform ? row.platform.slice(0, 40) : null,
     at: now(),
   });
-}
-
-async function count(db: Db, where: SQL | undefined, table: typeof buddyCall | typeof buddyDraft): Promise<number> {
-  const r = await db.select({ n: sql<number>`count(*)` }).from(table).where(where).get();
-  return Number(r?.n ?? 0);
-}
-
-/** @deprecated Per grant and racy (security L2): use `reserveBuddyCall` with `BUDDY_LIMIT.toolCalls`. */
-export async function toolCallsLimited(db: Db, grantId: string): Promise<boolean> {
-  const since = new Date(now().getTime() - MINUTE);
-  const n = await count(db, and(eq(buddyCall.grantId, grantId), ne(buddyCall.tool, "chat"), gt(buddyCall.at, since)), buddyCall);
-  return n >= BUDDY_LIMITS.toolCallsPerMinute;
-}
-
-/** @deprecated Per grant (security L2): drafts are limited per person and plant by the draft insert itself. */
-export async function draftsLimited(db: Db, grantId: string): Promise<boolean> {
-  const since = new Date(now().getTime() - HOUR);
-  const n = await count(db, and(eq(buddyDraft.grantId, grantId), gt(buddyDraft.createdAt, since)), buddyDraft);
-  return n >= BUDDY_LIMITS.draftsPerHour;
-}
-
-/** @deprecated Racy (security L2): use `reserveBuddyCall` with `BUDDY_LIMIT.chatTurns`. */
-export async function chatTurnsLimited(db: Db, companyId: string, userId: string): Promise<boolean> {
-  const since = new Date(now().getTime() - HOUR);
-  const n = await count(
-    db,
-    and(
-      eq(buddyCall.companyId, companyId),
-      eq(buddyCall.userId, userId),
-      eq(buddyCall.tool, "chat"),
-      ne(buddyCall.outcome, "rate_limited"),
-      gt(buddyCall.at, since),
-    ),
-    buddyCall,
-  );
-  return n >= BUDDY_LIMITS.chatTurnsPerHour;
 }

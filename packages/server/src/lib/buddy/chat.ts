@@ -163,11 +163,15 @@ async function pendingNotes(db: Context["db"], companyId: string, userId: string
   return { rows, lines };
 }
 
-/** A draft whose state is final: decided in the note window, or pending past its 24 hours (lapsed in the window). */
+/**
+ * A draft whose state is final: decided in the note window, or pending past its 24 hours (lapsed in the window) with no
+ * claim on it.
+ */
 function noteDue(at: Date, since: Date) {
   return or(
     and(inArray(buddyDraft.status, ["confirmed", "rejected", "expired", "failed"]), gte(buddyDraft.decidedAt, since)),
-    and(eq(buddyDraft.status, "pending"), lte(buddyDraft.expiresAt, at), gte(buddyDraft.expiresAt, since)),
+    // A claimed one is a confirm whose outcome is not known yet: it waits until it settles.
+    and(eq(buddyDraft.status, "pending"), isNull(buddyDraft.claimedAt), lte(buddyDraft.expiresAt, at), gte(buddyDraft.expiresAt, since)),
   );
 }
 
