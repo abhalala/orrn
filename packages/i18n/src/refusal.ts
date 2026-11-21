@@ -278,6 +278,15 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "alreadyOnPlan", re: new RegExp(`^${S} line (\\d+) is already on this plan$`), vars: (m) => ({ order: m[1]!, n: m[2]! }) },
   { id: "planNeedsLine", re: /^A plan needs at least one order line; cancel the plan instead$/ },
   { id: "maxDies", re: /^At most (\d+) dies on a plan$/, vars: (m) => ({ max: m[1]! }) },
+
+  // --- Buddy (design 2026-11-18 §4.4, §13) --------------------------------------
+  { id: "buddyClosed", re: /^The buddy is not open for this plant\.?$/ },
+  { id: "buddyConfirming", re: /^This draft is being confirmed\.?$/ },
+  { id: "buddyNotAllowed", re: /^The buddy may not make this change\.?$/ },
+  // Fix round decision 6: a confirm that died part way is never run again.
+  { id: "buddyUnknownOutcome", re: /^orrn could not tell if this went through\. Check the screen before you try again\.?$/ },
+  { id: "buddyChangeFailed", re: /^The change failed\.?$/ },
+  { id: "buddyInputNotFit", re: /^The input does not fit\.?$/ },
 ];
 
 function word(name: string, w: string | null): TranslateVars | null {

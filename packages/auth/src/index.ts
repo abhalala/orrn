@@ -17,6 +17,7 @@ import { signInAuditAfter } from "./sign-in-methods";
 import { signInRemovalBody } from "./sign-in-removal";
 import { sessionMethodAfter, sessionOfRequest, stampSignInMethod } from "./session-method";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
+import { buddyRevokeAfter, buddyRevokeBefore, revokeBuddyGrants } from "./buddy-revoke";
 import { writeAuthLog } from "./logger";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -152,6 +153,9 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
         if (removed) return removed;
         // Council round 1, A10: the public passkey sign-in options, per IP (passkey-throttle.ts).
         await limitPasskeyOptions(db, ctx);
+        // orrn buddy (security M4): note whose grants a sign-out-everywhere or a password change ends; the after-hook
+        // revokes them once the endpoint succeeded (buddy-revoke.ts).
+        await buddyRevokeBefore(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
@@ -160,6 +164,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       after: createAuthMiddleware(async (ctx) => {
         await signInAuditAfter(db, ctx);
         await sessionMethodAfter(db, ctx, () => sessionOfRequest(db, ctx));
+        await buddyRevokeAfter(db, ctx);
         forgetGoogleLinkToken(ctx);
       }),
     },
@@ -214,6 +219,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       // address proved this way or by Godseye's own sign-in link (routers/platform/waitlist.ts).
       onPasswordReset: async ({ user }) => {
         await db.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, user.id));
+        // orrn buddy (security M4): a reset ends the person's buddy grants, like their sessions (buddy-revoke.ts).
+        await revokeBuddyGrants(db, { userId: user.id }, "password_reset");
       },
       sendResetPassword: async ({ user, url }) => {
         // The answer must be the same whether or not the address has an account, so a failed send

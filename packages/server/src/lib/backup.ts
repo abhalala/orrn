@@ -62,6 +62,12 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   // Infinity Portal: rebuildable from the R2 vault and the bulk of the rows (plan B1).
   "ingest_staged_row",
   "ingest_merge_chunk",
+  // orrn buddy: the grant (a credential), the link to a Hermes profile, and the call log and drafts that
+  // point at grants. A restored plant connects Hermes again.
+  "buddy_link",
+  "buddy_grant",
+  "buddy_call",
+  "buddy_draft",
 ]);
 
 /**

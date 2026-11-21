@@ -58,8 +58,9 @@ if (!password) {
 const lines = [
   "# Local test accounts (local wrangler D1 only, never deployed). Created by POST /dev/seed.",
   "# One shared password; every plant role has a login, plus platform staff and the KD party (portal) login.",
-  // ORRN_LOCAL_EMAIL_OWNER, _OPERATOR, _VIEWER, _OFFICE, _ADMIN, _MANAGER, _PACKER, ... _STAFF, _PARTY.
-  ...Object.entries(DEV_ACCOUNTS).map(([key, account]) => `ORRN_LOCAL_EMAIL_${key.toUpperCase()}=${account.email}`),
+  // ORRN_LOCAL_EMAIL_OWNER, _OPERATOR, _VIEWER, _OFFICE, _ADMIN, _MANAGER, _PACKER, ... _STAFF, _PARTY, _BUDDY_OWNER.
+  // `buddy-owner` becomes ORRN_LOCAL_EMAIL_BUDDY_OWNER (an env name has no hyphen).
+  ...Object.entries(DEV_ACCOUNTS).map(([key, account]) => `ORRN_LOCAL_EMAIL_${key.toUpperCase().replace(/-/g, "_")}=${account.email}`),
   `ORRN_LOCAL_PASSWORD=${password}`,
   // Backwards-compatible alias for older helpers.
   `ORRN_LOCAL_EMAIL=${DEV_ACCOUNTS.owner.email}`,

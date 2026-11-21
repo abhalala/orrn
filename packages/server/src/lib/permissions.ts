@@ -152,7 +152,20 @@ export const PLATFORM_ACTION_KEYS = [
   "platform.support.reply",
 ] as const;
 
-export const ACTIONS = [...LEGACY_ACTIONS, ...PLANT_ACTIONS, ...PLATFORM_ACTION_KEYS] as const;
+/**
+ * Plant actions held by the owner alone. They live apart from `PLANT_ACTIONS` because every action there
+ * has a holder besides the owner (`plant-roles.test.ts`). The owner holds every tenant action, so these
+ * need no row in `PLANT_ACTION_ROLES`.
+ *
+ * - `buddy.use`: the orrn buddy (Hermes in the floating chat, design 2026-11-18 §4.1, §13). v1 is web only,
+ *   owner only; `BUDDY_ROLES` is the one list the buddy checks.
+ */
+export const OWNER_ONLY_ACTIONS = ["buddy.use"] as const;
+
+/** Roles that may use the buddy (design §4.1). Opening it to other roles later is a change here (G5). */
+export const BUDDY_ROLES: readonly CompanyRole[] = ["owner"];
+
+export const ACTIONS = [...LEGACY_ACTIONS, ...PLANT_ACTIONS, ...OWNER_ONLY_ACTIONS, ...PLATFORM_ACTION_KEYS] as const;
 
 export type Action = (typeof ACTIONS)[number];
 type LegacyAction = (typeof LEGACY_ACTIONS)[number];

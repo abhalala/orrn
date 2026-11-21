@@ -8,10 +8,15 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  * numbers, plant stock). Its own request context: it never touches the page's session.
  */
 export async function ownerApi() {
+  return apiAs("owner@orrn.local");
+}
+
+/** The same API as `ownerApi`, signed in as another local account (e.g. `buddy-owner@orrn.local` for buddy.spec). */
+export async function apiAs(email: string) {
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
   // Keep the first answer: retries here would hide an auth or worker failure from every consumer.
-  const signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
-  expect(signIn.ok(), `owner sign-in returned ${signIn.status()}`).toBe(true);
+  const signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email, password: localPassword() } });
+  expect(signIn.ok(), `${email} sign-in returned ${signIn.status()}`).toBe(true);
   return {
     async query<T>(path: string, input: unknown): Promise<T> {
       const res = await api.get(`${API_URL}/trpc/${path}?input=${encodeURIComponent(JSON.stringify(input))}`);

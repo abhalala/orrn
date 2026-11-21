@@ -81,9 +81,17 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
+ * A sheet or dialog that is in the middle of something: the palette's shortcuts wait. A non-modal one
+ * (`aria-modal="false"`, the Buddy panel beside the page from 768 px) does not block them: the page is still in use.
+ */
+export function blockingDialogOpen(doc: Pick<Document, "querySelector">): boolean {
+  return !!doc.querySelector("[role='dialog']:not([aria-modal='false']), [role='alertdialog']");
+}
+
+/**
  * Tenant-only. ⌘K / Ctrl+K toggles the palette and `/` opens it (when the
- * person isn't typing in a field); both are ignored while another dialog or
- * sheet is open.
+ * person isn't typing in a field); both are ignored while another modal dialog
+ * or sheet is open.
  */
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -92,8 +100,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const arrangeRef = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
-    const otherDialogOpen = () =>
-      !openRef.current && !!document.querySelector("[role='dialog'], [role='alertdialog']");
+    const otherDialogOpen = () => !openRef.current && blockingDialogOpen(document);
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {

@@ -29,6 +29,18 @@ export type AuditInput = {
  *
  * Once M9 lands real grants we can split these apart further.
  */
+/**
+ * `meta.buddyDraftId` when the write runs from a confirmed buddy draft (design 2026-11-18, §7). The confirm
+ * passes the draft id on the context it hands `createCaller`; procedures that copy the whole context into
+ * these helpers carry it through. A procedure that hands over a narrowed copy loses it, and the draft's own
+ * `buddy.draft.confirm` audit row still names the result.
+ */
+function withBuddyMeta(ctx: object, meta: Record<string, unknown> | undefined): Record<string, unknown> {
+  const draftId = (ctx as { buddyDraftId?: unknown }).buddyDraftId;
+  if (typeof draftId !== "string" || draftId === "") return meta ?? {};
+  return { ...(meta ?? {}), buddyDraftId: draftId };
+}
+
 export function auditInsert(
   ctx: Pick<Context, "db" | "session" | "companyId"> & {
     impersonation?: Context["impersonation"];
@@ -47,7 +59,7 @@ export function auditInsert(
     action: input.action,
     subjectType: input.subjectType,
     subjectId: input.subjectId ?? null,
-    meta: input.meta ?? {},
+    meta: withBuddyMeta(ctx, input.meta),
   });
 }
 
@@ -77,7 +89,7 @@ export function auditInsertGuarded(
         action: sql<string>`${input.action}`.as("action"),
         subjectType: sql<string>`${input.subjectType}`.as("subject_type"),
         subjectId: sql<string | null>`${input.subjectId ?? null}`.as("subject_id"),
-        meta: sql<string>`${JSON.stringify(input.meta ?? {})}`.as("meta"),
+        meta: sql<string>`${JSON.stringify(withBuddyMeta(ctx, input.meta))}`.as("meta"),
         at: sql<number>`${Date.now()}`.as("at"),
       })
       .from(guard.from)
@@ -100,6 +112,6 @@ export async function writeAudit(
     action: input.action,
     subjectType: input.subjectType,
     subjectId: input.subjectId ?? null,
-    meta: input.meta ?? {},
+    meta: withBuddyMeta(ctx, input.meta),
   });
 }

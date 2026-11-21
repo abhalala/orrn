@@ -219,6 +219,32 @@ if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
 }
 
 /**
+ * orrn buddy (design 2026-11-18, §6). Optional: all four `HERMES_*` set = the buddy is on for the plants in
+ * `BUDDY_COMPANIES` (comma list of slugs); any missing = `auth.me.buddy` is false and `/buddy/chat` is 404.
+ * Each is bound on its own, so the Worker sees a half-set group and logs the missing names (never values).
+ * The base URL, the Access client id and the plant list are not secrets; the Access secret and the API key are.
+ */
+const hermesBaseUrl = process.env.HERMES_BASE_URL?.trim() ?? "";
+const hermesAccessClientId = process.env.HERMES_ACCESS_CLIENT_ID?.trim() ?? "";
+const hermesAccessClientSecret = process.env.HERMES_ACCESS_CLIENT_SECRET?.trim() ?? "";
+const hermesApiKey = process.env.HERMES_API_KEY?.trim() ?? "";
+const buddyCompanies = process.env.BUDDY_COMPANIES?.trim() ?? "";
+// The buddy's own Hermes profile (owner decision 2026-11-20). Not a secret; unset = the Worker uses `orrn-buddy`.
+const buddyHermesProfile = process.env.BUDDY_HERMES_PROFILE?.trim() ?? "";
+const hermesMissing = Object.entries({
+  HERMES_BASE_URL: hermesBaseUrl,
+  HERMES_ACCESS_CLIENT_ID: hermesAccessClientId,
+  HERMES_ACCESS_CLIENT_SECRET: hermesAccessClientSecret,
+  HERMES_API_KEY: hermesApiKey,
+})
+  .filter(([, v]) => !v)
+  .map(([k]) => k);
+console.log(`Buddy     -> ${hermesMissing.length === 0 ? "configured" : "not configured"}, ${buddyCompanies ? "plant list set" : "no plants listed"}`);
+if (hermesMissing.length > 0 && hermesMissing.length < 4) {
+  console.warn(`Buddy     -> ${hermesMissing.join(", ")} not set; the buddy stays off until all four are.`);
+}
+
+/**
  * Native passkeys (plan 2026-11-18, Task 6). Optional owner values, not secrets:
  * - `ORRN_APPLE_TEAM_ID`: the web build writes `/.well-known/apple-app-site-association` with it, and the
  *   Worker gets it so `auth.methods.native.ios` tells the iPhone app to show its passkey button.
@@ -305,6 +331,13 @@ export const server = await Worker("server", {
     ...(modelAccessClientSecret ? { MODEL_ACCESS_CLIENT_SECRET: alchemy.secret(modelAccessClientSecret) } : {}),
     // Google sign-in: both or neither (see above). The secret is an encrypted binding.
     ...(googleConfigured ? { GOOGLE_CLIENT_ID: googleClientId, GOOGLE_CLIENT_SECRET: alchemy.secret(googleClientSecret) } : {}),
+    // orrn buddy (see above): absent value = no binding. The Access secret and the API key are encrypted.
+    ...(hermesBaseUrl ? { HERMES_BASE_URL: hermesBaseUrl } : {}),
+    ...(hermesAccessClientId ? { HERMES_ACCESS_CLIENT_ID: hermesAccessClientId } : {}),
+    ...(hermesAccessClientSecret ? { HERMES_ACCESS_CLIENT_SECRET: alchemy.secret(hermesAccessClientSecret) } : {}),
+    ...(hermesApiKey ? { HERMES_API_KEY: alchemy.secret(hermesApiKey) } : {}),
+    ...(buddyCompanies ? { BUDDY_COMPANIES: buddyCompanies } : {}),
+    ...(buddyHermesProfile ? { BUDDY_HERMES_PROFILE: buddyHermesProfile } : {}),
     // Native passkeys (see above): absent value = no binding, and that app hides its passkey button.
     ...(appleTeamId ? { ORRN_APPLE_TEAM_ID: appleTeamId } : {}),
     ...(androidApkKeyHash ? { ANDROID_APK_KEY_HASH: androidApkKeyHash } : {}),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { applyBarClearance, createToastLift, TOAST_LIFT_VAR, toastLiftAt, toastLiftFor } from "./use-toast-lift";
+import { applyBarClearance, createToastLift, stickyBarLift, TOAST_LIFT_VAR, toastLiftAt, toastLiftFor } from "./use-toast-lift";
 
 describe("createToastLift", () => {
   test("the highest bar on screen decides how far toasts lift; none left clears it", () => {
@@ -73,5 +73,18 @@ describe("applyBarClearance", () => {
     applyBarClearance(style, 142);
     applyBarClearance(style, null);
     expect(style.props.size).toBe(0);
+  });
+});
+
+describe("stickyBarLift (Buddy fix round S9)", () => {
+  const base = { stickyBottom: 12, height: 60, top: 700, viewportHeight: 844 };
+  test("a sticky bar on screen lifts toasts and the Buddy button above its top", () => {
+    expect(stickyBarLift({ ...base, position: "sticky", display: "flex" })).toBe(toastLiftAt(base));
+    expect(stickyBarLift({ ...base, position: "fixed", display: "flex" })).toBe(toastLiftAt(base));
+  });
+  test("the same bar in the normal flow (a laptop) or hidden lifts nothing", () => {
+    expect(stickyBarLift({ ...base, position: "static", display: "flex" })).toBeNull();
+    expect(stickyBarLift({ ...base, position: "relative", display: "flex" })).toBeNull();
+    expect(stickyBarLift({ ...base, position: "sticky", display: "none" })).toBeNull();
   });
 });

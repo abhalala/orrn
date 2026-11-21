@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { useCanPrintLabels } from "@/features/pack/use-print-labels";
 import { Can } from "@/shared/components/can";
+import { StickyBar } from "@/shared/components/sticky-bar";
 import { trpc } from "@/shared/utils/trpc";
 
 import { AddToDispatchSheet } from "./add-to-dispatch-sheet";
@@ -153,9 +154,9 @@ export function BundleActions({
       {canAdd ? (
         <Can do="dispatch.addBundle">
           {/* Phones: the main action stays one thumb away, above the tab bar. */}
-          <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+8px)] z-10 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden">
+          <StickyBar className="sticky bottom-[calc(var(--shell-tabbar-offset)+8px)] z-10 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden">
             {addButton("w-full")}
-          </div>
+          </StickyBar>
           <AddToDispatchSheet open={sheetOpen} onOpenChange={setSheetOpen} serial={bundle.serial} description={description} />
         </Can>
       ) : null}

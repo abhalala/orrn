@@ -27,6 +27,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
+import { StickyBar } from "@/shared/components/sticky-bar";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { saveMayHaveLanded } from "./errors";
@@ -251,7 +252,7 @@ function NewLotForm() {
           ) : null}
 
           {/* Sticky on phones and iPads (the weights step with the note runs past one screen); in the flow on laptops. */}
-          <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex gap-2 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:justify-end md:[&>*]:flex-none lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none [&>*]:flex-1">
+          <StickyBar className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex gap-2 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:justify-end md:[&>*]:flex-none lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none [&>*]:flex-1">
             {stepIndex > 0 ? (
               <Button type="button" size="lg" variant="secondary" onClick={back} disabled={saving}>
                 {t("common.back")}
@@ -262,7 +263,7 @@ function NewLotForm() {
                 {last ? t("purchase.new.save") : t("common.next")}
               </Button>
             </Can>
-          </div>
+          </StickyBar>
         </form>
 
         <aside aria-label={t("purchase.new.summary")} className="sticky top-24 hidden lg:block">

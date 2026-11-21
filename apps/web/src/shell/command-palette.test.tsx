@@ -754,3 +754,24 @@ describe("command palette: remote rows follow the module gates (CodeRabbit)", ()
     expect(remoteRows(data, { bundles: false, dispatches: false, dies: false, customers: false }, t)).toEqual([]);
   });
 });
+
+describe("command palette shortcuts and other dialogs", () => {
+  test("a modal sheet or alert dialog blocks ⌘K and /; the non-modal Buddy panel beside the page does not (N9)", async () => {
+    const { blockingDialogOpen } = await import("./command-palette");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    try {
+      expect(blockingDialogOpen(document)).toBe(false);
+      host.innerHTML = `<div role="dialog" aria-modal="false" aria-label="Buddy"></div>`;
+      expect(blockingDialogOpen(document)).toBe(false);
+      host.innerHTML = `<div role="dialog" aria-label="Edit"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+      host.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Buddy"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+      host.innerHTML = `<div role="dialog" aria-modal="false"></div><div role="alertdialog"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+    } finally {
+      host.remove();
+    }
+  });
+});

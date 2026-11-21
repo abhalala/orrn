@@ -17,6 +17,8 @@ import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/va
 import { handleIngestPart } from "@orrn/server/lib/ingest/upload-parts";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
+import { handleBuddyChat } from "@orrn/server/lib/buddy/chat";
+import { handleMcpRequest } from "@orrn/server/lib/buddy/mcp";
 
 import { clearDevInviteThrottle, createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput, devResetTokenInput, readDevResetToken } from "./dev-front-door";
 import { devIngestBotInput, runDevIngestBot } from "./dev-ingest-bot";
@@ -182,6 +184,12 @@ app.use("/trpc/*", async (c, next) => {
   }
   await next();
 });
+
+// orrn buddy (design 2026-11-18, §4). The tool leg: Hermes calls orrn with a grant token (JSON-RPC 2.0,
+// MCP streamable HTTP). The token is the authority; no cookie is read (lib/buddy/grantContext.ts).
+app.on(["POST", "GET", "DELETE"], "/mcp", (c) => handleMcpRequest(c.req.raw, { db: createDb() }));
+// The chat leg: the bubble's turn, proxied to Hermes as SSE (lib/buddy/chat.ts). 403/404 with no body.
+app.post("/buddy/chat", async (c) => handleBuddyChat(c.req.raw, await createContext({ context: c })));
 
 app.use(
   "/trpc/*",
