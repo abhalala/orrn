@@ -43,6 +43,8 @@ export const BUDDY_DECISIONS = {
     backup: deny("Whole-plant exports and restores (§4.2, §10 bulk export)."),
     support: deny("Support tickets go to platform staff (§4.2)."),
     buddy: deny("The buddy's own grants and drafts: browser session only, so Hermes cannot confirm its own drafts (§4.4)."),
+    billing: deny("Tax invoices, GST, payments: money and statutory numbers stay with people (XE-BILL)."),
+    einvoice: deny("IRN and e-way bills at the GST portal (XE-BILL)."),
     ingest: "per-procedure",
 
     company: allow,
