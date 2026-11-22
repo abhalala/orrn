@@ -213,6 +213,7 @@ export type DieIssueStatus = (typeof DIE_ISSUE_STATUSES)[number];
 export type IssueRefusal =
   | "copy_not_available"
   | "copy_on_trial"
+  | "copy_failed_inspection"
   | "open_issue_exists"
   | "run_not_queued"
   | "section_mismatch"
@@ -232,8 +233,11 @@ export function canIssueDie(input: {
    * `die_trial` run (event `trialIssue`); every other purpose refuses it with `copy_on_trial`.
    */
   purpose?: "production" | "die_trial" | "sample" | "other";
+  /** XE ADM #59: the copy's latest receive inspection. A failed copy is never issued. */
+  inspection?: "pass" | "fail" | null;
 }): { ok: true } | { ok: false; refusal: IssueRefusal } {
   if (input.openIssueForCopy) return { ok: false, refusal: "open_issue_exists" };
+  if (input.inspection === "fail") return { ok: false, refusal: "copy_failed_inspection" };
   if (input.copy.status === "on_trial") {
     if (input.purpose !== "die_trial") return { ok: false, refusal: "copy_on_trial" };
   } else if (input.copy.status !== "available") return { ok: false, refusal: "copy_not_available" };

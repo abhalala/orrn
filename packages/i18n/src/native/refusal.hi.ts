@@ -16,6 +16,7 @@ export const refusalHi = {
     retiredNoReadings: "{code} बंद है। इसकी रीडिंग नहीं ली जाती।",
     sectionDeleted: "{code} जिस die की है वह हटा दी गई है। इसे issue नहीं कर सकते।",
     alreadyIssued: "{code} पहले से {line} को issue है।",
+    copyFailedInspection: "{code} आने की जांच में फेल हुई। पास होने तक इसे issue नहीं किया जा सकता।",
     copyOnTrialIssue: "{code} ट्रायल पर है। ट्रायल पास होने या मैनेजर के छोड़ने तक यह सिर्फ ट्रायल रन पर जाएगी।",
     runHasDie: "{run} के पास पहले से die है या वह शुरू हो चुका है। सिर्फ कतार वाले रन को die मिलती है।",
     notCopyOfRunDie: "{code} उस die की कॉपी नहीं है जो {run} को चाहिए।",

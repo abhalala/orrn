@@ -37,6 +37,9 @@ import { transporterRouter } from "./transporter";
 import { portalRouter } from "./portal";
 import { ingestRouter } from "./ingest/index";
 import { buddyRouter } from "./buddy";
+import { plantMastersRouter } from "./plantMasters";
+import { toolRoomRouter } from "./toolRoom";
+import { plantDocsRouter } from "./plantDocs";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -87,5 +90,9 @@ export const appRouter = router({
   portal: portalRouter,
   ingest: ingestRouter,
   buddy: buddyRouter,
+  // XE parity lane ADM: plant masters and rules, tool room extras, the document register.
+  masters: plantMastersRouter,
+  toolRoom: toolRoomRouter,
+  docs: plantDocsRouter,
 });
 export type AppRouter = typeof appRouter;

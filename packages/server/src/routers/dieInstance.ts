@@ -71,7 +71,8 @@ import {
 import { signDieFileUrl } from "../lib/dieFiles";
 import { checkDieAllowed } from "../lib/dieOwner";
 import { loadTrialRun, trialMoveStatements, trialRunCheck } from "../lib/dieTrial";
-import { can, canApprove, type CompanyRole } from "../lib/permissions";
+import { can, type CompanyRole } from "../lib/permissions";
+import { kindsRoleMayDecide, loadApprovalRules } from "../lib/approverRules";
 import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, loadStoreItem, prepareStoreDraws } from "../lib/store";
@@ -1461,7 +1462,7 @@ export const dieInstanceRouter = router({
   closeOwnerOverride: anyActionProcedure("masters.publish")
     .input(z.object({ approvalId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      if (!canApprove(ctx.role, "die_owner_override") && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+      if (!kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, ctx.companyId)).includes("die_owner_override") && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const [row] = await ctx.db

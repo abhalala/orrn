@@ -15,7 +15,9 @@ import { companyProcedure, router } from "../index";
 import { mapInChunks, type OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
-import { APPROVER_ROLES, can } from "../lib/permissions";
+import { can, canAny } from "../lib/permissions";
+import { toolingShortfallsFor } from "./toolRoom";
+import { kindsRoleMayDecide, loadApprovalRules } from "../lib/approverRules";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
 import { pressAlertsToday } from "../lib/pressCollector";
 import { STOCK_STATUS } from "../lib/stockFilters";
@@ -245,6 +247,12 @@ export const dashboardRouter = router({
       ageing = { inOven: num(a?.in_oven), held: num(a?.held), out: num(a?.out) };
     }
 
+    // XE ADM #62: tooling types below the plant's minimum, for the die room and managers (dies module on).
+    const toolingShort =
+      !kpisOnly && isModuleOn(companyRow?.modules, "dies") && canAny(me, ["die.card", "masters.publish"])
+        ? await toolingShortfallsFor(ctx.db, companyId)
+        : [];
+
     // FP-PF-15 role tiles (explorer W1 H6): each role's station shortcuts with the count it acts on.
     const tileKeys = kpisOnly ? [] : todayTileKeys(ctx.role, companyRow?.modules);
     const tiles = await roleTiles(ctx, tileKeys, num(openCountRows[0]?.n));
@@ -314,6 +322,8 @@ export const dashboardRouter = router({
       pressAlerts,
       /** W3-AG-S: `{ inOven, held, out }` ageing batches; null without the module or ageing.view. */
       ageing,
+      /** XE ADM #62: `[{ type, held, min }]` tooling types below their minimum; empty when none or not the die room. */
+      toolingShort,
       /**
        * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
        * bundle ever packed (void included: the step was done) and a live label printer.
@@ -338,7 +348,8 @@ async function roleTiles(ctx: TileCtx, keys: readonly TodayTileKey[], openDispat
   const has = (k: TodayTileKey) => keys.includes(k);
   const companyId = ctx.companyId;
   const zero = Promise.resolve([{ n: 0 }]);
-  const approverKinds = (Object.keys(APPROVER_ROLES) as (keyof typeof APPROVER_ROLES)[]).filter((k) => APPROVER_ROLES[k].includes(ctx.role));
+  // XE ADM #78: the kinds this role decides under the plant's approver rules (none set = APPROVER_ROLES).
+  const approverKinds = has("approvals") ? kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, companyId)) : [];
   const [orders, toIssue, pressQueue, approvals] = await Promise.all([
     has("orders")
       ? ctx.db

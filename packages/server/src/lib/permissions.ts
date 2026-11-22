@@ -130,6 +130,10 @@ export const PLANT_ACTIONS = [
   // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
   // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
   "ingest.check",
+  // XE parity lane ADM (wave 1): the document register, approver rules per kind, number formats.
+  "docs.manage", // add, edit, retire plant documents and their files (#80)
+  "approvalRule.manage", // who may approve each approval kind, and thresholds (#78)
+  "refFormat.manage", // number formats per doc type (#77)
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -271,6 +275,11 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "ingest.merge": ["admin"],
   // Item 16: the people who see prices tick a model-read table; the admin approves it.
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE ADM: documents are kept by the office and managers; approver rules and number formats are the
+  // plant admin's (as settings are).
+  "docs.manage": ["admin", "manager", "office"],
+  "approvalRule.manage": ["admin"],
+  "refFormat.manage": ["admin"],
   "support.request": [
     "admin",
     "manager",

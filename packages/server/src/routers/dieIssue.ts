@@ -13,6 +13,7 @@ import { and, asc, desc, eq, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
+import { dieCopyExtra } from "@orrn/db/schema/admin";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { dieIssue, dieIssueStatuses, pressLine, pressPlan, pressPlanLine, pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
@@ -281,7 +282,14 @@ export const dieIssueRouter = router({
         .limit(1);
       // FP-DR-17: an on_trial copy goes only to a die trial run (plan purpose `die_trial`).
       const purpose = await runPurpose(ctx.db, ctx.companyId, run.id);
+      // XE ADM #59: the latest receive inspection (re-checked inside the issue's own INSERT below).
+      const [extra] = await ctx.db
+        .select({ inspection: dieCopyExtra.inspection })
+        .from(dieCopyExtra)
+        .where(and(eq(dieCopyExtra.dieInstanceId, copy.id), eq(dieCopyExtra.companyId, ctx.companyId)))
+        .limit(1);
       const verdict = canIssueDie({
+        inspection: extra?.inspection ?? null,
         copy: { status: copy.status, sectionId: copy.sectionId },
         openIssueForCopy: Boolean(open),
         pressLineId: line.id,
@@ -294,6 +302,8 @@ export const dieIssueRouter = router({
             throw new TRPCError({ code: "CONFLICT", message: `${copy.code} is already issued to ${open?.lineCode ?? "a press"}` });
           case "copy_not_available":
             throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} ${STATUS_WORDS[copy.status] ?? `is ${copy.status}`}` });
+          case "copy_failed_inspection":
+            throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} failed its receive inspection; it cannot be issued until it passes` });
           case "copy_on_trial":
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -356,7 +366,15 @@ export const dieIssueRouter = router({
               trial: sql<number>`case when ${I("status")} = 'on_trial' then 1 else 0 end`.as("trial"),
             })
             .from(dieInstance)
-            .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, copy.status))),
+            .where(
+              and(
+                eq(dieInstance.id, copy.id),
+                eq(dieInstance.companyId, ctx.companyId),
+                eq(dieInstance.status, copy.status),
+                // XE ADM #59: an inspection failed meanwhile stops the issue in the statement itself.
+                sql`coalesce((select x.inspection from die_copy_extra x where x.die_instance_id = ${I("id")} and x.company_id = ${I("company_id")}), '') <> 'fail'`,
+              ),
+            ),
         ),
         ctx.db
           .update(dieInstance)
@@ -422,6 +440,14 @@ export const dieIssueRouter = router({
               code: "CONFLICT",
               message: `${line.code} took another copy meanwhile and now has ${holderList(now)}; nothing was issued`,
             });
+          }
+          const [failed] = await ctx.db
+            .select({ inspection: dieCopyExtra.inspection })
+            .from(dieCopyExtra)
+            .where(and(eq(dieCopyExtra.dieInstanceId, copy.id), eq(dieCopyExtra.companyId, ctx.companyId)))
+            .limit(1);
+          if (failed?.inspection === "fail") {
+            throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} failed its receive inspection; it cannot be issued until it passes` });
           }
           throw new TRPCError({ code: "CONFLICT", message: `${copy.code} or ${run.number} changed meanwhile; nothing was issued` });
         }

@@ -12,7 +12,8 @@ import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
-import { canAny, canApprove, type Action } from "../lib/permissions";
+import { canAny, type Action } from "../lib/permissions";
+import { kindsRoleMayDecide, loadApprovalRules, mayDecide } from "../lib/approverRules";
 import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
 
@@ -80,10 +81,14 @@ export const approvalRouter = router({
         .offset(input.offset);
       // Defence in depth: whatever a dc_note request carries, callers who cannot read purchase
       // figures see only its number, lot and type (and not the free-text note).
+      // XE ADM #78: whether the caller may decide each row under the plant's approver rules (the
+      // threshold reads the request's own meta), so the screens offer Approve only where it would land.
+      const rules = await loadApprovalRules(ctx.db, ctx.companyId);
+      const withDecide = items.map((item) => ({ ...item, canDecide: item.status === "pending" && mayDecide(ctx.role, item.kind, item.meta, rules) }));
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
       const visible = purchaseReader
-        ? items
-        : items.map((item) =>
+        ? withDecide
+        : withDecide.map((item) =>
             item.kind === "dc_note"
               ? {
                   ...item,
@@ -125,8 +130,9 @@ export const approvalRouter = router({
   decide: companyProcedure
     // Final explore L13: a role that approves no kind at all is refused before its input is read
     // (403, not 400 for a malformed body); the per-kind check below still runs.
-    .use(({ ctx, next }) => {
-      if (!approvalKinds.some((kind) => canApprove(ctx.role, kind))) {
+    .use(async ({ ctx, next }) => {
+      // XE ADM #78: under the plant's approver rules (a role a rule names counts; none = built-in).
+      if (kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, ctx.companyId)).length === 0) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       return next({ ctx });
@@ -150,7 +156,7 @@ export const approvalRouter = router({
       // FP-PF-07: deciding writes the kind's module rows (a cast close, a D/C note), so that module
       // must be on, as for the module's own mutations.
       await assertModule(ctx, APPROVAL_KIND_MODULE[row.kind]);
-      if (!canApprove(ctx.role, row.kind)) {
+      if (!mayDecide(ctx.role, row.kind, row.meta ?? null, await loadApprovalRules(ctx.db, ctx.companyId))) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const userId = ctx.session.user.id;
