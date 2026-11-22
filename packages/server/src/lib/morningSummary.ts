@@ -6,8 +6,9 @@
  *
  * - Once a day: before sending, the run claims the day with an audit row whose id is derived from the
  *   company and the plant-local date (`mis.morning.sent`). A second tick in the same hour, or a retry,
- *   finds the row and sends nothing. The claim comes first, so a failed send is not retried that day
- *   (at most once); the row's meta keeps the outcome.
+ *   finds the row and sends nothing. The figures and recipients are read before the claim, so a failed
+ *   read leaves the day open; the claim comes before sending, so a failed send is not retried that day
+ *   (at most once). The row's meta keeps the outcome.
  * - One plant failing never stops the others.
  * - The sender is injected so tests never send mail.
  */
@@ -66,6 +67,14 @@ async function sendOne(db: OrrnDb, at: Date, companyId: string, name: string, tz
   const ymd = zonedYmd(tz, at.getTime());
   const localDate = `${ymd.year}-${String(ymd.month).padStart(2, "0")}-${String(ymd.day).padStart(2, "0")}`;
   const claimId = morningClaimId(companyId, localDate);
+  // Read the figures before claiming the day: a failed read leaves the day unclaimed for the next tick.
+  const figures = await morningFigures(db, companyId, at);
+  const people = await db
+    .select({ email: user.email })
+    .from(membership)
+    .innerJoin(user, eq(user.id, membership.userId))
+    .where(and(eq(membership.companyId, companyId), inArray(membership.role, ["owner", "admin"])));
+  const to = [...new Set(people.map((r) => r.email).filter((e): e is string => typeof e === "string" && e.includes("@")))];
   const claimed = await db
     .insert(auditLog)
     .values({ id: claimId, companyId, action: MORNING_SUMMARY_ACTION, subjectType: "company", subjectId: companyId, meta: { localDate, state: "claimed" }, at })
@@ -73,19 +82,12 @@ async function sendOne(db: OrrnDb, at: Date, companyId: string, name: string, tz
     .returning({ id: auditLog.id });
   if (claimed.length === 0) return { companyId, outcome: "already", recipients: 0 };
 
-  const people = await db
-    .select({ email: user.email })
-    .from(membership)
-    .innerJoin(user, eq(user.id, membership.userId))
-    .where(and(eq(membership.companyId, companyId), inArray(membership.role, ["owner", "admin"])));
-  const to = [...new Set(people.map((r) => r.email).filter((e): e is string => typeof e === "string" && e.includes("@")))];
   const mark = (meta: Record<string, unknown>) => db.update(auditLog).set({ meta: { localDate, ...meta } }).where(eq(auditLog.id, claimId));
   if (to.length === 0) {
     await mark({ state: "no recipients" });
     return { companyId, outcome: "no recipients", recipients: 0 };
   }
 
-  const figures = await morningFigures(db, companyId, at);
   const lines = morningSummaryLines(name, figures);
   const subject = `${name}: ${figures.day} at a glance`;
   const text = lines.join("\n");

@@ -68,6 +68,8 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const me = usePortalMe();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [accountOpen, setAccountOpen] = useState(false);
+  // Complaints only when the plant has the module on (`portal.me.complaints`).
+  const nav = me.data?.complaints ? NAV : NAV.filter((e) => e.key !== "complaints");
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -92,7 +94,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
             ) : null}
           </div>
           <nav aria-label={t("portal.nav.label")} className="hidden items-center gap-1 md:flex">
-            {NAV.map((entry) => {
+            {nav.map((entry) => {
               const active = isActive(entry, pathname);
               return (
                 <Link
@@ -133,8 +135,8 @@ function ShellFrame({ children }: { children: ReactNode }) {
         data-shell-chrome=""
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden print:hidden"
       >
-        <ul className="m-0 grid h-[72px] list-none grid-cols-5 gap-1 px-2 pt-1 pb-1.5">
-          {NAV.map((entry) => {
+        <ul className={`m-0 grid h-[72px] list-none ${nav.length === 5 ? "grid-cols-5" : "grid-cols-4"} gap-1 px-2 pt-1 pb-1.5`}>
+          {nav.map((entry) => {
             const active = isActive(entry, pathname);
             const Icon = entry.icon;
             return (

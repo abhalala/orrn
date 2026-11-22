@@ -16,7 +16,7 @@
  * the row `active` without creating a membership. Later sign-ins are email + password; no TOTP is
  * asked of a party (PF §9-2).
  */
-import { documentPrefs, readFloorSettings, readUnitSettings } from "@orrn/domain";
+import { documentPrefs, isModuleOn, readFloorSettings, readUnitSettings } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -40,7 +40,7 @@ import { dispatchShipDay } from "../lib/dispatchFigures";
 import { nextDocNumber } from "../lib/docNumber";
 import { renderOrrnEmailHtml, sendEmail } from "../lib/email";
 import { openComplaint, partyView } from "../lib/complaints";
-import { assertModule } from "../lib/moduleGate";
+import { assertModule, companyModules } from "../lib/moduleGate";
 import { lineBalances, lineTotals, orderTotals } from "../lib/orders";
 import { lineWip } from "../lib/regReports";
 import {
@@ -753,6 +753,8 @@ export const portalRouter = router({
       timeZone: typeof ctx.portal.settings.timezone === "string" && ctx.portal.settings.timezone ? ctx.portal.settings.timezone : "Asia/Kolkata",
       sections: sections.map((s) => ({ id: s.id, series: s.series, sectionCode: s.sectionCode, name: s.name })),
       plants: plants.map((p) => ({ companyId: p.companyId, companyName: p.companyName, customerName: p.customerName })),
+      /** XE parity REG #18: the portal shows Complaints only when the plant has the module on. */
+      complaints: isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "complaints"),
     };
   }),
 

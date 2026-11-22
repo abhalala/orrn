@@ -11,6 +11,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { opHelpers } from "./orders-w1-fixture";
+import { fillWorkedExample, pressHelpers } from "./press-w2-fixture";
 import { ist, kg, NOON, salesHelpers, SLOW } from "./sales-fixture";
 
 let env: TestEnv;
@@ -225,5 +226,54 @@ describe("recut register (#31)", () => {
     expect(reg.rows[0]).toMatchObject({ lengthMm: 4_000, fromLengthMm: 5_000, weightG: kg(40), lossG: kg(10), reason: "Bend at one end" });
     expect(reg.totals).toMatchObject({ bundles: 1, lossG: kg(10) });
     expect((await q.owner.reports.recuts(RANGE)).rows).toHaveLength(0);
+  }, SLOW);
+});
+
+const { pressPlant } = pressHelpers(() => env);
+const ymdIst = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+describe("rejections (#30) and plan against actual (#53) with real runs", () => {
+  test("a logged run on a released plan: planned against good weight, its QC reject and a pack reject in the register", async () => {
+    const p = await pressPlant();
+    const q = await pressPlant();
+    const c = await p.castWith(kg(5_000));
+    const a = await p.countingRun();
+    await fillWorkedExample(p, a.runId, c.id, { planLineId: a.planLineIds[0] });
+    await p.as("supervisor").press.runs.close({ id: a.runId });
+    await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: [{ quantity: 10, weightG: kg(10), lengthMm: 3_658 }], rejects: [{ pcs: 2, weightG: kg(2), reasonCode: "surface" }] });
+    const range = { from: ymdIst(Date.now() - 86_400_000), to: ymdIst(Date.now() + 86_400_000) };
+
+    const pa = await p.as("viewer").reports.planActual({ ...range, groupBy: "die" });
+    expect(pa.rows).toHaveLength(1);
+    // 100 pcs at 12 ft on a 12.000 copy = 1 200 kg planned; the worked example logs 234.2 kg good.
+    expect(pa.rows[0]).toMatchObject({ plannedG: kg(1_200), actualG: kg(234.2), gapG: kg(234.2) - kg(1_200) });
+    expect(pa.totals).toMatchObject({ plannedG: kg(1_200), actualG: kg(234.2) });
+    expect((await q.owner.reports.planActual({ ...range, groupBy: "die" })).rows).toHaveLength(0);
+
+    const rej = await p.as("viewer").reports.rejections(range);
+    expect(rej.totals).toEqual({ entries: 2, pcs: 5, kgG: kg(9) });
+    expect(rej.rows.map((r) => r.source).sort()).toEqual(["pack", "press"]);
+    const press = rej.rows.find((r) => r.source === "press")!;
+    expect(press).toMatchObject({ runId: a.runId, sectionId: a.sectionId, pcs: 3, kgG: kg(7) });
+    expect(rej.byReason).toHaveLength(2);
+    const onlyPack = await p.as("viewer").reports.rejections({ ...range, source: "pack" });
+    expect(onlyPack.totals).toEqual({ entries: 1, pcs: 2, kgG: kg(2) });
+    const onlySection = await p.as("viewer").reports.rejections({ ...range, sectionId: a.sectionId });
+    expect(onlySection.rows.map((r) => r.runId)).toEqual([a.runId]);
+    expect((await q.owner.reports.rejections(range)).totals.entries).toBe(0);
+  }, SLOW);
+});
+
+describe("unpacked stock (#96)", () => {
+  test("released trolley weight less what was packed, per section", async () => {
+    setClock(NOON);
+    const p = await sales.plant();
+    const rowId = await trolleyRow(p.companyId, p.dieA, 30, 3_658);
+    await env.db.run(sql`update ageing_row set kg_g = ${kg(120)} where id = ${rowId}`);
+    await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [{ quantity: 10, weightG: kg(40), lengthMm: 3_658 }] });
+    const u = await p.as("packer").reports.unpacked();
+    expect(u.rows).toHaveLength(1);
+    expect(u.rows[0]).toMatchObject({ sectionId: p.dieA, pcs: 20, kgG: kg(80) });
+    expect(u.totals).toMatchObject({ pcs: 20, kgG: kg(80) });
   }, SLOW);
 });

@@ -159,6 +159,12 @@ describe("party complaints", () => {
     const other = await office.complaints.open({ serial: theirs.serials[0]!, kind: "bend", description: "Bent" });
     expect(await errOf(party.api.portal.complaints.get({ id: other.id }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
     expect((await party.api.portal.complaints.list()).items).toHaveLength(1);
+    // The portal shows Complaints only while the module is on.
+    expect((await party.api.portal.me()).complaints).toBe(true);
+    const { company } = await import("@orrn/db/schema/tenant");
+    await env.db.update(company).set({ modules: ["customers", "dies", "bundles", "dispatches", "orders"] }).where(eq(company.id, p.companyId));
+    expect((await party.api.portal.me()).complaints).toBe(false);
+    expect(await errOf(party.api.portal.complaints.list())).toMatchObject({ code: "FORBIDDEN" });
   }, SLOW);
 });
 

@@ -9,7 +9,7 @@ import { useMemo } from "react";
 
 import { Can } from "@/shared/components/can";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped3 } from "@/shared/lib/fmt-text";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -40,7 +40,7 @@ function OwnerBody({ search, onSearch }: { search: OwnerSearch; onSearch: (next:
   const query = useQuery({ ...trpc.reports.morning.queryOptions(search.day ? { day: search.day } : {}), meta: INLINE_ERROR_META });
   const data = query.data;
   const tiles = useMemo(
-    () => (data ? ownerTiles(data, { kg: (g) => `${kgGrouped3(fmt, g)} kg`, pct: (bp) => `${bpPercent1(bp)} %` }, t) : []),
+    () => (data ? ownerTiles(data, { kg: (g) => `${kgGrouped3(fmt, g)} ${massUnit(fmt)}`, pct: (bp) => `${bpPercent1(bp)} %` }, t) : []),
     [data, fmt, t],
   );
   const day = data?.day ?? search.day;
