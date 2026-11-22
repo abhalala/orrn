@@ -37,7 +37,7 @@ import {
 import { actionProcedure, anyActionProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { atomicBatch, mapInChunks, type OrrnDb } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { settingsPatchSql } from "../lib/companySettings";
 import {
@@ -388,7 +388,11 @@ export const pricingRouter = router({
           insertRate,
           req.statement,
           ctx.db.update(priceRate).set({ approvalId }).where(and(eq(priceRate.id, rateId), eq(priceRate.companyId, ctx.companyId))),
-          auditInsert(ctx, { action: "price.rate.propose", subjectType: "price_rate", subjectId: rateId, meta: { kind: p.kind, key: p.key, paise: p.paise, effectiveFrom, approvalId } }),
+          auditInsertGuarded(
+            ctx,
+            { action: "price.rate.propose", subjectType: "price_rate", subjectId: rateId, meta: { kind: p.kind, key: p.key, paise: p.paise, effectiveFrom, approvalId } },
+            { from: priceRate, where: and(eq(priceRate.id, rateId), eq(priceRate.companyId, ctx.companyId)) },
+          ),
         ]);
         const landed = await ctx.db.select({ id: priceRate.id }).from(priceRate).where(and(eq(priceRate.id, rateId), eq(priceRate.companyId, ctx.companyId))).get();
         if (!landed) bad(PENDING_EXISTS);
