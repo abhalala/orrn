@@ -11,7 +11,7 @@ import type { AppRouter } from "@orrn/server/routers/index";
 import { can, type Me } from "@orrn/server/lib/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
 import { todayTileKeys, type TodayTileKey } from "@orrn/server/lib/todayTiles";
-import { BookOpen, Boxes, ClipboardList, Factory, PackagePlus, ShieldCheck, Truck, Warehouse, Wrench } from "lucide-react";
+import { BookOpen, Boxes, ClipboardList, Factory, PackagePlus, PhoneCall, ShieldCheck, Truck, Warehouse, Wrench } from "lucide-react";
 
 import type { NavItem, NavModule } from "@/shell/nav-items";
 
@@ -263,6 +263,7 @@ const TILE_DEFS: Readonly<Record<TodayTileKey, TodayTile>> = {
   store: { key: "store", to: "/store", labelKey: "today.floor.store", icon: Boxes },
   approvals: { key: "approvals", to: "/approvals", labelKey: "today.floor.approvals", icon: ShieldCheck },
   guides: { key: "guides", to: "/guides", labelKey: "today.tiles.guides", icon: BookOpen },
+  enquiries: { key: "enquiries", to: "/pricing/enquiries", labelKey: "today.floor.enquiries", icon: PhoneCall },
 };
 
 /**
@@ -283,6 +284,7 @@ const COUNT_HINTS: Partial<Record<TodayTileKey, { some: MessageKey; none: Messag
   dieRoom: { some: "today.floor.dieRoomHint", none: "today.floor.dieRoomHintNone", any: "today.floor.dieRoomHintAny" },
   press: { some: "today.floor.pressHint", none: "today.floor.pressHintNone", any: "today.floor.pressHintAny" },
   approvals: { some: "today.floor.approvalsHint", none: "today.floor.approvalsHintNone", any: "today.floor.approvalsHintAny" },
+  enquiries: { some: "today.floor.enquiriesHint", none: "today.floor.enquiriesHintNone", any: "today.floor.enquiriesHintAny" },
 };
 
 const PLAIN_HINTS: Partial<Record<TodayTileKey, MessageKey>> = {
