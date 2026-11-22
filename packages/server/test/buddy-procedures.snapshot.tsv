@@ -452,6 +452,7 @@ purchase.scrapStock	query	allow	reversible
 purchase.seedScrapDefaults	mutation	allow	reversible
 qa.checks.list	query	allow	reversible
 qa.checks.record	mutation	deny	reversible
+qa.findSubject	query	allow	reversible
 qa.holds.forBundle	query	allow	reversible
 qa.holds.hold	mutation	deny	reversible
 qa.holds.list	query	allow	reversible

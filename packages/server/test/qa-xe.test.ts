@@ -61,7 +61,7 @@ describe("row 29: quality hold and the dispatch scan", () => {
     const sup = p.as("supervisor");
 
     const held = await sup.qa.holds.hold({ serial: s1!, reason: "Surface marks on two pieces" });
-    expect(held.serial).toBe(s1);
+    expect(held.serial).toBe(s1!);
     await expect(sup.qa.holds.hold({ bundleId: b1.id, reason: "again" })).rejects.toMatchObject({ code: "CONFLICT", message: `Bundle ${s1} is already on quality hold` });
     expect(await p.owner.qa.holds.forBundle({ bundleId: b1.id })).toMatchObject({ reason: "Surface marks on two pieces" });
 
@@ -73,7 +73,7 @@ describe("row 29: quality hold and the dispatch scan", () => {
     await expect(p.owner.dispatch.addBundlesBySerial({ id, serials: [s1!] })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
 
     const open = await p.as("viewer").qa.holds.list();
-    expect(open.items.map((h) => h.serial)).toEqual([s1]);
+    expect(open.items.map((h) => h.serial)).toEqual([s1!]);
     expect(open.items[0]).toMatchObject({ reason: "Surface marks on two pieces", releasedAt: null });
 
     // Release needs qa.release and a note.
@@ -87,7 +87,7 @@ describe("row 29: quality hold and the dispatch scan", () => {
     expect(log.items[0]!.releasedBy).toContain("manager");
 
     const report = await p.as("packer").dispatch.scan({ id, serials: [s1!] });
-    expect(report.added).toEqual([s1]);
+    expect(report.added).toEqual([s1!]);
     expect(s2).toBeDefined();
     expect(await auditActions(p.companyId)).toEqual(expect.arrayContaining(["qa.hold", "qa.release"]));
   });
@@ -123,7 +123,7 @@ describe("row 29: quality hold and the dispatch scan", () => {
     await expect(p.as("supervisor").qa.holds.hold({ serial: s2!, reason: "x" })).rejects.toMatchObject({ message: MODULE_OFF });
     await env.plantStock(p.companyId, [b1.id]);
     const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
-    expect((await p.as("packer").dispatch.scan({ id, serials: [s1!] })).added).toEqual([s1]);
+    expect((await p.as("packer").dispatch.scan({ id, serials: [s1!] })).added).toEqual([s1!]);
   });
 });
 
@@ -306,6 +306,11 @@ describe("rows 22, 23, 36: incoming inspection, clearance, inspection points", (
 
     const waiting = await p.as("viewer").qa.waiting.list({ stage: "incoming" });
     expect(waiting.items).toEqual([expect.objectContaining({ subjectType: "purchase_lot", subjectId: lot.id, number: lot.number, state: "waiting", station: null })]);
+    // The record sheet finds the lot by the number people say; another plant's number finds nothing.
+    expect(await p.as("viewer").qa.findSubject({ subjectType: "purchase_lot", number: lot.number.toLowerCase() })).toEqual({ id: lot.id, number: lot.number });
+    expect(await p.as("viewer").qa.findSubject({ subjectType: "purchase_lot", number: "LOT-99999" })).toBeNull();
+    const other = await plant();
+    expect(await other.owner.qa.findSubject({ subjectType: "purchase_lot", number: lot.number })).toBeNull();
 
     // Row 36: an inspection point for incoming lots; the lot is put there.
     const mgr = p.as("manager");

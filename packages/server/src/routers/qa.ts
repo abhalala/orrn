@@ -650,6 +650,33 @@ export const qaRouter = router({
       }),
   }),
 
+  /**
+   * Find the subject of a check by the number people say: a run (PR-12), a lot (LOT-4), a bundle serial, a
+   * store receipt (GRN-3), a cast (K31) or an ageing batch (AG-3). The newest match wins (numbers repeat
+   * each year). Null when nothing matches in this plant.
+   */
+  findSubject: companyProcedure
+    .input(z.object({ subjectType: z.enum(qaSubjectTypes), number: z.string().trim().min(1).max(64) }))
+    .query(async ({ ctx, input }) => {
+      const q = input.number.toUpperCase();
+      const c = ctx.companyId;
+      let hit: { id: string; number: string } | undefined;
+      if (input.subjectType === "press_run") {
+        [hit] = await ctx.db.select({ id: pressRun.id, number: pressRun.number }).from(pressRun).where(and(eq(pressRun.companyId, c), eq(pressRun.number, q))).orderBy(desc(pressRun.createdAt)).limit(1);
+      } else if (input.subjectType === "bundle") {
+        [hit] = await ctx.db.select({ id: bundle.id, number: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, c), eq(bundle.serial, q))).limit(1);
+      } else if (input.subjectType === "purchase_lot") {
+        [hit] = await ctx.db.select({ id: purchaseLot.id, number: purchaseLot.number }).from(purchaseLot).where(and(eq(purchaseLot.companyId, c), eq(purchaseLot.number, q))).orderBy(desc(purchaseLot.createdAt)).limit(1);
+      } else if (input.subjectType === "store_grn") {
+        [hit] = await ctx.db.select({ id: storeTxn.id, number: storeTxn.number }).from(storeTxn).where(and(eq(storeTxn.companyId, c), eq(storeTxn.kind, "grn"), eq(storeTxn.number, q))).orderBy(desc(storeTxn.createdAt)).limit(1);
+      } else if (input.subjectType === "cast") {
+        [hit] = await ctx.db.select({ id: cast.id, number: cast.number }).from(cast).where(and(eq(cast.companyId, c), eq(cast.number, q))).orderBy(desc(cast.year)).limit(1);
+      } else {
+        [hit] = await ctx.db.select({ id: ageingBatch.id, number: ageingBatch.number }).from(ageingBatch).where(and(eq(ageingBatch.companyId, c), eq(ageingBatch.number, q))).orderBy(desc(ageingBatch.createdAt)).limit(1);
+      }
+      return hit ?? null;
+    }),
+
   /** One run's quality: first piece, in-process checks and whether one is due, plan flags. */
   run: companyProcedure.input(z.object({ runId: id })).query(({ ctx, input }) => runQuality(ctx, input.runId)),
 
