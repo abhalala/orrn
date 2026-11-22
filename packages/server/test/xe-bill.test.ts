@@ -261,6 +261,14 @@ describe("tax invoice (row 13)", () => {
     expect(got.outstandingPaise).toBe(total - got.creditedPaise);
   }, SLOW);
 
+  test("a dispatch on a live orrn invoice refuses a typed Tally number", async () => {
+    const p = await billingPlant();
+    const { plId, dispatchId } = await completedPl(p, [10]);
+    await issued(p, [plId]);
+    await expect(p.as("office").dispatch.update({ id: dispatchId, invoiceNumber: "T/9" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await dispatchRow(dispatchId)).toMatchObject({ invoiceNumber: "INV/26-27/1" });
+  }, SLOW);
+
   test("plants not on billing keep the Tally invoice number link", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 10 }], { status: "confirmed" });
