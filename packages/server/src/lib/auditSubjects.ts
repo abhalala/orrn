@@ -11,6 +11,7 @@ import { packingList } from "@orrn/db/schema/packing";
 import { pressPlan, pressRun } from "@orrn/db/schema/press";
 import { vendor, purchaseLot } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
+import { proforma, quote } from "@orrn/db/schema/pricing";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 
@@ -34,6 +35,9 @@ const LOOKUPS: Record<string, Lookup> = {
   bundle: (db, companyId, ids) => db.select({ id: bundle.id, label: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, companyId), inArray(bundle.id, ids))),
   cast: (db, companyId, ids) => db.select({ id: cast.id, label: cast.number }).from(cast).where(and(eq(cast.companyId, companyId), inArray(cast.id, ids))),
   purchase_lot: (db, companyId, ids) => db.select({ id: purchaseLot.id, label: purchaseLot.number }).from(purchaseLot).where(and(eq(purchaseLot.companyId, companyId), inArray(purchaseLot.id, ids))),
+  // XE-PRICE: quotations and proformas by number.
+  quote: (db, companyId, ids) => db.select({ id: quote.id, label: quote.number }).from(quote).where(and(eq(quote.companyId, companyId), inArray(quote.id, ids))),
+  proforma: (db, companyId, ids) => db.select({ id: proforma.id, label: proforma.number }).from(proforma).where(and(eq(proforma.companyId, companyId), inArray(proforma.id, ids))),
   count_session: (db, companyId, ids) => db.select({ id: countSession.id, label: countSession.number }).from(countSession).where(and(eq(countSession.companyId, companyId), inArray(countSession.id, ids))),
 };
 

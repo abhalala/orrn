@@ -9,6 +9,8 @@ import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
+import { priceMasterHi } from "./price/master.hi";
+import { priceDocsHi } from "./price/docs.hi";
 import { ingestHi } from "./ingest/hi";
 import { buddyHi } from "./buddy/hi";
 import { stockHi } from "./native/stock.hi";
@@ -288,6 +290,7 @@ export const hi = {
     purchase: "खरीद",
     approvals: "मंज़ूरी",
     audit: "ऑडिट लॉग",
+    pricing: "दाम",
     adminReleases: "ऐप बिल्ड",
     adminBackups: "बैकअप",
     adminSupport: "सपोर्ट",
@@ -735,6 +738,10 @@ export const hi = {
       approvalsHint: "{count} इंतज़ार में",
       approvalsHintNone: "कुछ इंतज़ार में नहीं",
       approvalsHintAny: "इंतज़ार में अनुरोध",
+      enquiries: "पूछताछ, फ़ॉलो-अप करना है",
+      enquiriesHint: "{count} देर हो चुकी",
+      enquiriesHintNone: "कोई देर नहीं",
+      enquiriesHintAny: "फ़ॉलो-अप की तारीखें",
       store: "स्टोर",
       storeHint: "केमिकल, ईंधन और स्पेयर",
     },
@@ -4613,6 +4620,7 @@ export const hi = {
       melt_correct: "लॉक किया melt सुधारना",
       dispatch_off_band: "ऑर्डर के वज़न से हटा bundle",
       dispatch_late_entry: "देर से भरी पैकिंग लिस्ट",
+      price_change: "दाम में बदलाव",
     },
     subject: {
       ageingOverride: "मंज़ूरी पर {number} छोड़ें",
@@ -6470,6 +6478,8 @@ export const hi = {
 
   ageing: ageingHi.ageing,
 
+  price: { ...priceMasterHi, ...priceDocsHi },
+
   ingest: ingestHi,
 
   buddy: buddyHi,
@@ -6845,6 +6855,10 @@ export const hi = {
       ingest_hole: "इम्पोर्ट का लेआउट",
       buddy_draft: "Buddy का बदलाव",
       buddy_grant: "Hermes कनेक्शन",
+      price_rate: "दाम का रेट",
+      quote: "कोटेशन",
+      proforma: "प्रोफार्मा इनवॉइस",
+      enquiry: "पूछताछ",
     },
     onlyThis: "सिर्फ़ यह",
     byStaff: "orrn सपोर्ट",
@@ -6870,6 +6884,20 @@ export const hi = {
       ageing__oven__create: "ओवन जोड़ा",
       ageing__oven__update: "ओवन बदला",
       ageing__override__request: "एजिंग रिलीज़ की मंज़ूरी मांगी",
+      price__settings__update: "दाम की सेटिंग बदली",
+      price__rate__propose: "रेट बदलाव की मंज़ूरी मांगी",
+      price__rate__activate: "रेट बदलाव मंज़ूर हुआ",
+      price__rate__reject: "रेट बदलाव नामंज़ूर हुआ",
+      price__override__request: "लाइन का रेट बदलने को कहा",
+      quote__create: "कोटेशन बनाया",
+      quote__update: "कोटेशन बदला",
+      quote__send: "कोटेशन भेजा गया",
+      quote__cancel: "कोटेशन रद्द किया",
+      quote__convert: "कोटेशन से ऑर्डर बनाया",
+      proforma__create: "प्रोफार्मा इनवॉइस बनाया",
+      works_order__issue: "वर्क्स ऑर्डर जारी किया",
+      enquiry__create: "पूछताछ दर्ज की",
+      enquiry__update: "पूछताछ बदली",
       ageing__readings: "ओवन की रीडिंग आईं",
       ageing__recipe__create: "साइकल रेसिपी जोड़ी",
       ageing__recipe__update: "साइकल रेसिपी बदली",

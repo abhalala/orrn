@@ -132,6 +132,7 @@ export const guShell = {
     purchase: "ખરીદી",
     approvals: "મંજૂરી",
     audit: "ઑડિટ લૉગ",
+    pricing: "ભાવ",
     adminReleases: "ઍપ બિલ્ડ",
     adminBackups: "બૅકઅપ",
     adminSupport: "સપોર્ટ",

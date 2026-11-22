@@ -503,7 +503,8 @@ export const pricingRouter = router({
           }),
         ];
         if (needs) {
-          statements.push(
+          // The approval goes first: price_rate.approval_id references it.
+          statements.unshift(
             requestApprovalInsert(ctx, {
               id: approvalId!,
               kind: "price_change",
