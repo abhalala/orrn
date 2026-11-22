@@ -104,6 +104,11 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "ingest.merge": ["admin"],
   // Item 16 (owner decision "Price-viewers tick, admin approves").
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE parity lane QA.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
