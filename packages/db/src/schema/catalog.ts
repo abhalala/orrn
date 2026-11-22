@@ -46,6 +46,8 @@ export const die = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    /** XE ADM #57: the die category (`plant_master` kind die_category). `profileKind` stays. */
+    dieCategoryId: text("die_category_id"),
   },
   (table) => [
     uniqueIndex("die_company_series_section_unique").on(table.companyId, table.series, table.sectionCode),
