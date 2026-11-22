@@ -397,7 +397,7 @@ export const toolRoomRouter = router({
 
     /** The fewest pieces of each type the plant wants (0 = no alert). Replaces the whole list. */
     set: anyActionProcedure("die.card", "masters.publish")
-      .input(z.object({ min: z.record(z.enum(toolingTypes), z.number().int().min(0).max(MAX_TOOLING_MIN)) }))
+      .input(z.object({ min: z.partialRecord(z.enum(toolingTypes), z.number().int().min(0).max(MAX_TOOLING_MIN)) }))
       .mutation(async ({ ctx, input }) => {
         const value = readToolingMinStock(input.min);
         await atomicBatch(ctx.db, [
