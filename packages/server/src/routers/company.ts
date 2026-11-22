@@ -23,6 +23,7 @@ import {
   type Shift,
   type ThresholdError,
 } from "@orrn/domain";
+import { buddyRevokePlantStatements, buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
@@ -440,6 +441,17 @@ export const companyRouter = router({
               }),
             ]
           : []),
+        // orrn buddy (delta round D-L4): dropping the rule ends the plant's grants whose sign-in method it refused, so a
+        // password grant does not start working. Before the policy write and under its own guard, so a save that changes
+        // nothing revokes nothing.
+        ...(securitySent && policyDiffers && strict === false
+          ? buddyRevokePlantStatements(
+              ctx.db,
+              { companyId: ctx.companyId, weakOnly: true, link: false, when: sql`exists (select 1 from ${company} where ${company.id} = ${ctx.companyId} and ${policyDiffers})` },
+              "secure_sign_in_off",
+              now(),
+            )
+          : []),
         ...(securitySent && policyDiffers
           ? [
               auditInsertGuarded(
@@ -541,6 +553,11 @@ export const companyRouter = router({
       }
 
       await atomicBatch(ctx.db, [
+        // orrn buddy (security M4): any role change ends the person's buddy grants in this plant; a later
+        // promotion back never revives one (buddy-revoke.ts).
+        ...(input.role === targetMembership.role
+          ? []
+          : buddyRevokeStatements(ctx.db, { userId: targetMembership.userId, companyId: ctx.companyId }, "role_changed", now())),
         ctx.db
           .update(membership)
           .set({ role: input.role })
@@ -590,6 +607,9 @@ export const companyRouter = router({
       }
 
       await atomicBatch(ctx.db, [
+        // orrn buddy (security M4): removal ends the person's buddy grants in this plant; a re-invite never
+        // revives one (buddy-revoke.ts).
+        ...buddyRevokeStatements(ctx.db, { userId: targetMembership.userId, companyId: ctx.companyId }, "membership_removed", now()),
         ctx.db
           .delete(membership)
           .where(

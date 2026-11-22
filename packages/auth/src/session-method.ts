@@ -22,7 +22,10 @@ import { and, eq } from "drizzle-orm";
 export const SIGN_IN_METHODS = ["passkey", "google", "totp", "password", "magicLink", "other"] as const;
 export type SignInMethod = (typeof SIGN_IN_METHODS)[number];
 
-const STRONG: ReadonlySet<string> = new Set<SignInMethod>(["passkey", "google", "totp"]);
+/** The methods a plant that requires secure sign-in accepts. */
+export const STRONG_SIGN_IN_METHODS = ["passkey", "google", "totp"] as const satisfies readonly SignInMethod[];
+
+const STRONG: ReadonlySet<string> = new Set<SignInMethod>(STRONG_SIGN_IN_METHODS);
 
 /** True for a session made with a passkey, Google or the authenticator code. */
 export const isStrongSession = (method: unknown): boolean => typeof method === "string" && STRONG.has(method);
@@ -71,6 +74,66 @@ export async function upgradeSession(db: Db, input: { sessionId: string; userId:
       .where(and(eq(session.id, input.sessionId), eq(session.userId, input.userId)));
   } catch (error) {
     console.error("session sign-in method not upgraded", error instanceof Error ? error.name : "unknown");
+  }
+}
+
+/** Paths that make a session as part of an enrolment when the request already holds a session of the person. */
+const REMAKE_WHEN_SIGNED_IN: ReadonlySet<string> = new Set(["/two-factor/verify-totp", "/two-factor/verify-backup-code"]);
+
+type DbHookCtx = {
+  path?: string;
+  headers?: Headers;
+  request?: Request;
+  context?: { authCookies?: { sessionToken?: { name?: string } } };
+} | null | undefined;
+
+/** The live session row the request's session cookie names, for this user. The value is `<token>.<signature>`. */
+async function liveSessionOfCookie(db: Db, ctx: DbHookCtx, userId: unknown): Promise<{ createdAt: Date } | null> {
+  const name = ctx?.context?.authCookies?.sessionToken?.name;
+  const header = ctx?.headers?.get("cookie") ?? ctx?.request?.headers.get("cookie") ?? "";
+  if (!name || !header || typeof userId !== "string") return null;
+  for (const part of header.split(";")) {
+    const at = part.indexOf("=");
+    if (at === -1 || part.slice(0, at).trim() !== name) continue;
+    const raw = decodeURIComponent(part.slice(at + 1).trim());
+    const token = raw.includes(".") ? raw.slice(0, raw.lastIndexOf(".")) : raw;
+    if (!token) return null;
+    const row = await db
+      .select({ createdAt: session.createdAt, expiresAt: session.expiresAt })
+      .from(session)
+      .where(and(eq(session.token, token), eq(session.userId, userId)))
+      .get();
+    return row && row.expiresAt.getTime() > Date.now() ? { createdAt: row.createdAt } : null;
+  }
+  return null;
+}
+
+/**
+ * `databaseHooks.session.create.before` (delta round, D-L4): the method (`stampSignInMethod`), and `createdAt` kept from
+ * the session a request remakes. Better Auth stamps every new session `createdAt = now`, also the ones it remakes from
+ * the request's own session without a sign-in: turning the authenticator app on (`/two-factor/verify-totp` with a
+ * session), turning it off, a password change that signs out elsewhere. `createdAt` is what the buddy's 10-minute fresh
+ * sign-in check reads (`buddy.grant.create` / `renew`), so a held session must not get a fresh one by enrolling or
+ * removing a factor. A real sign-in (a path in `BY_PATH`, the code after a password without a session) stays fresh, even
+ * when the browser was signed in already. Only the request's own live session of the same person is carried; the
+ * cookie's signature is not needed, because carrying can only make a session older. Never throws.
+ */
+export async function stampSession(
+  db: Db,
+  data: Record<string, unknown>,
+  ctx: DbHookCtx,
+): Promise<{ data: { signInMethod: SignInMethod; createdAt?: Date } }> {
+  const stamped = stampSignInMethod(data, ctx);
+  const path = ctx?.path ?? "";
+  try {
+    const realSignInPath = signInMethodForPath(path) !== null && !REMAKE_WHEN_SIGNED_IN.has(path);
+    if (realSignInPath) return stamped;
+    const held = await liveSessionOfCookie(db, ctx, data.userId);
+    if (!held) return stamped;
+    return { data: { ...stamped.data, createdAt: held.createdAt } };
+  } catch (error) {
+    console.error("session createdAt not carried", error instanceof Error ? error.name : "unknown");
+    return stamped;
   }
 }
 

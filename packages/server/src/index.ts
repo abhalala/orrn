@@ -119,35 +119,52 @@ export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, ty
 });
 
 /**
+ * The action(s) a procedure's guard checks, keyed by the guard middleware itself. Read only by the buddy
+ * registry (`lib/buddy/registry.ts`), which walks `_def.middlewares` to tell Hermes which action a
+ * procedure needs and whether the person's role holds it. The guard itself is unchanged.
+ */
+export type GuardActions = { mode: "all" | "any"; actions: readonly Action[] };
+export const GUARD_ACTIONS = new WeakMap<object, GuardActions>();
+
+function tagGuard<F extends object>(guard: GuardActions, fn: F): F {
+  GUARD_ACTIONS.set(fn, guard);
+  return fn;
+}
+
+/**
  * Company procedure that also requires the caller's role to allow `action` in
  * the permission matrix. The server is authoritative; hiding buttons is only a
  * convenience. Use on every mutation that changes ops data.
  */
 export function actionProcedure(action: Action) {
-  return companyProcedure.use(({ ctx, next }) => {
-    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-    if (!can(me, action)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "You don't have permission to do that",
-      });
-    }
-    return next({ ctx });
-  });
+  return companyProcedure.use(
+    tagGuard({ mode: "all", actions: [action] }, ({ ctx, next }) => {
+      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+      if (!can(me, action)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to do that",
+        });
+      }
+      return next({ ctx });
+    }),
+  );
 }
 
 /** Like {@link actionProcedure}, but any one of `actions` is enough (e.g. die.card OR masters.publish). */
 export function anyActionProcedure(...actions: readonly Action[]) {
-  return companyProcedure.use(({ ctx, next }) => {
-    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-    if (!canAny(me, actions)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "You don't have permission to do that",
-      });
-    }
-    return next({ ctx });
-  });
+  return companyProcedure.use(
+    tagGuard({ mode: "any", actions }, ({ ctx, next }) => {
+      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+      if (!canAny(me, actions)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to do that",
+        });
+      }
+      return next({ ctx });
+    }),
+  );
 }
 
 export const platformProcedure = authedProcedure.use(({ ctx, next }) => {

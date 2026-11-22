@@ -28,6 +28,15 @@ export function strongSignInRefusal(error: unknown): { reason: StrongSignInReaso
   return { reason, plant };
 }
 
+/**
+ * Buddy fix round (decision 5): connecting or renewing Hermes needs a sign-in from the last few minutes. The server
+ * refuses with FORBIDDEN and `data.meta.reason = "FRESH_SIGN_IN_NEEDED"`; the screen says "sign in again" plainly.
+ */
+export function freshSignInNeeded(error: unknown): boolean {
+  const data = (error && typeof error === "object" ? (error as TrpcLike) : null)?.data;
+  return data?.code === "FORBIDDEN" && data.meta?.reason === "FRESH_SIGN_IN_NEEDED";
+}
+
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 function sessionStore(): Store | null {

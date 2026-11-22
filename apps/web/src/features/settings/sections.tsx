@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { AboutTab } from "./about-tab";
 import { BackupTab } from "./backup-tab";
+import { BuddyTab } from "./buddy-tab";
 import { CompanyTab } from "./company-tab";
 import { DataTab } from "./data-tab";
 import { DevicesTab } from "./devices-tab";
@@ -46,6 +47,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "security", labelKey: "settings.tabs.security", requires: ["settings.update"], render: () => <SecurityTab /> },
   // Sign-in: every person's own ways in (passkeys, Google, password, authenticator app); no `requires`.
   { id: "sign-in", labelKey: "settings.tabs.signIn", ownAccount: true, render: () => <SignInTab /> },
+  // Buddy (design 2026-11-18 §7): owner only (`buddy.use`). The grant is the person's own, so it hides while impersonated.
+  { id: "buddy", labelKey: "settings.tabs.buddy", requires: ["buddy.use"], ownAccount: true, render: () => <BuddyTab /> },
   { id: "support", labelKey: "settings.tabs.support", requires: ["support.request"], render: () => <SupportTab /> },
   { id: "about", labelKey: "settings.tabs.about", render: () => <AboutTab /> },
   { id: "printing", labelKey: "settings.tabs.printing", render: () => <PrintingTab /> },

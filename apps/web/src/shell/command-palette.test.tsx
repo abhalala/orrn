@@ -584,7 +584,12 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
   test("a sheet command runs only after the palette has closed and given focus back to its opener", async () => {
     const { PaletteBody } = await import("./command-palette");
     const { useState } = await import("react");
-    const seen: { scanFocus: string | null; arrangeFocus: string | null } = { scanFocus: null, arrangeFocus: null };
+    const seen: {
+      scanFocus: string | null;
+      arrangeFocus: string | null;
+      ranOnCloseCall: boolean;
+      dialogOpenAtRun: boolean;
+    } = { scanFocus: null, arrangeFocus: null, ranOnCloseCall: false, dialogOpenAtRun: false };
     let setOpen: (open: boolean) => void = () => {};
     const focusName = () => {
       const el = document.activeElement as HTMLElement | null;
@@ -600,7 +605,12 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
           </button>
           <PaletteBody
             open={open}
-            onOpenChange={set}
+            onOpenChange={(next) => {
+              if (!next && (seen.scanFocus !== null || seen.arrangeFocus !== null)) {
+                seen.ranOnCloseCall = true;
+              }
+              set(next);
+            }}
             me={testMe("owner")}
             theme="system"
             scanAvailable
@@ -609,11 +619,17 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
             effects={{
               go: () => {},
               navigate: () => {},
-              openScan: () => void (seen.scanFocus = focusName()),
+              openScan: () => {
+                if (document.querySelector("[data-slot='command-dialog']")) seen.dialogOpenAtRun = true;
+                seen.scanFocus = focusName();
+              },
               switchPlant: () => {},
               setLocale: () => {},
               setTheme: () => {},
-              openArrange: () => void (seen.arrangeFocus = focusName()),
+              openArrange: () => {
+                if (document.querySelector("[data-slot='command-dialog']")) seen.dialogOpenAtRun = true;
+                seen.arrangeFocus = focusName();
+              },
               signOut: () => {},
             }}
           />
@@ -630,6 +646,10 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
         ["scan", "scanFocus"],
         ["arrange", "arrangeFocus"],
       ] as const) {
+        seen.scanFocus = null;
+        seen.arrangeFocus = null;
+        seen.ranOnCloseCall = false;
+        seen.dialogOpenAtRun = false;
         const opener = document.querySelector<HTMLButtonElement>("[data-testid='opener']")!;
         opener.focus();
         await act(async () => opener.click());
@@ -637,10 +657,11 @@ describe("command palette: sheet commands and focus (QA F0)", () => {
         const input = document.querySelector<HTMLInputElement>("input[role='combobox']")!;
         await type(input, `>${command}`);
         await key(input, "Enter");
-        // Not yet: the palette is still closing.
-        expect(seen[field]).toBeNull();
+        // Did not run synchronously while requesting close.
+        expect(seen.ranOnCloseCall).toBe(false);
         await wait(300);
-        // Ran once, and by then focus was back on the opener, so the sheet's own focus wins after it.
+        // Ran once after the dialog unmounted, with focus already back on the opener so the sheet's own focus wins.
+        expect(seen.dialogOpenAtRun).toBe(false);
         expect(seen[field]).toBe("opener");
         await act(async () => setOpen(false));
         await wait(50);
@@ -752,5 +773,26 @@ describe("command palette: remote rows follow the module gates (CodeRabbit)", ()
     const customersOff = remoteRows(data, { ...all, customers: false }, t);
     expect(customersOff.map((r) => r.group)).toEqual(["bundle", "dispatches", "dies"]);
     expect(remoteRows(data, { bundles: false, dispatches: false, dies: false, customers: false }, t)).toEqual([]);
+  });
+});
+
+describe("command palette shortcuts and other dialogs", () => {
+  test("a modal sheet or alert dialog blocks ⌘K and /; the non-modal Buddy panel beside the page does not (N9)", async () => {
+    const { blockingDialogOpen } = await import("./command-palette");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    try {
+      expect(blockingDialogOpen(document)).toBe(false);
+      host.innerHTML = `<div role="dialog" aria-modal="false" aria-label="Buddy"></div>`;
+      expect(blockingDialogOpen(document)).toBe(false);
+      host.innerHTML = `<div role="dialog" aria-label="Edit"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+      host.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Buddy"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+      host.innerHTML = `<div role="dialog" aria-modal="false"></div><div role="alertdialog"></div>`;
+      expect(blockingDialogOpen(document)).toBe(true);
+    } finally {
+      host.remove();
+    }
   });
 });

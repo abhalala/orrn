@@ -24,6 +24,8 @@ export function localPassword(): string {
 
 export type LocalRole =
   | "owner"
+  /** A second owner of the demo plant, used only by buddy.spec.ts: the one person with a Hermes link in e2e (S12). */
+  | "buddy-owner"
   | "operator"
   | "viewer"
   | "office"

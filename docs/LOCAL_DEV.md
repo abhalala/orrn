@@ -272,8 +272,8 @@ into the gitignored `apps/server/.dev.local-account.local`); the e2e helper `sig
 ## Migrations: numbering map
 
 Migrations are Drizzle SQL files in `packages/db/src/migrations` with a journal (`meta/_journal.json`) and one snapshot each;
-`bun run db:generate` writes them (a clean run must write nothing). The head today is `0053_ingest_model_checked_by`: 54 files, `0000` to
-`0053`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
+`bun run db:generate` writes them (a clean run must write nothing). The head today is `0054_buddy`: 55 files, `0000` to
+`0054`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
 previous snapshot and its journal `when` must stay above the previous one (the db tests check both). Never edit a shipped
 migration. Lanes that carry a migration are renumbered consecutively at merge (decision D30) and their snapshot regenerated
 on top of the new head; the SQL header of a renumbered file says what it was called before.
@@ -310,6 +310,7 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0051 | membership_onboarded | `membership.onboarded_at` (onboarding per plant), backfilled from `user.onboarding_completed` with the membership's `created_at` |
 | 0052 | session_sign_in_method | `session.sign_in_method`: how each session was made (passkey, google, totp, password, magicLink or other) |
 | 0053 | ingest_model_checked_by | `ingest_block.model_checked_by`, `model_checked_at`: who set the vision tick and when (release 2 fix round) |
+| 0054 | buddy | orrn buddy: `buddy_link`, `buddy_grant` (token hash only), `buddy_call`, `buddy_draft` |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.
@@ -340,6 +341,18 @@ deployed dev stage (which also runs with `NODE_ENV=development`) must not be giv
   the Go node (`collectors.spec.ts` removes what it adds, so the plant the owner opens holds only the simulator's file);
   `POST /dev/invite` and `POST /dev/magic-link` hand the front-door specs a token that otherwise travels by email.
 - Simulated frames are kept 24 hours and real ones 90 days; a simulated spectro file can only be dismissed, never attached.
+- **Buddy (fake Hermes).** Never point a local run at a real Hermes. Start the fake, then `dev:local` with
+  `BUDDY_FAKE_HERMES_PORT` so it passes the four `HERMES_*` values for the fake and `BUDDY_COMPANIES` (default `orrn-demo`):
+
+  ```bash
+  FAKE_HERMES_PORT=4790 E2E_API_PORT=3000 bun apps/server/scripts/fake-hermes.ts
+  BUDDY_FAKE_HERMES_PORT=4790 bun run --cwd apps/server dev:local
+  ```
+
+  Sign in as the demo owner, open Settings > Buddy, connect, then hand the token to the fake with
+  `POST http://127.0.0.1:4790/__fake/token {"token":"orrnb_..."}` so its tool calls reach `/mcp`. Messages: `/draft <path> <json>`
+  (a real draft), `/call <path> <json>` (a real query), `/fail`, `/offline`, `/slow`; anything else echoes. `GET /__fake/last` shows
+  the last body orrn sent (`{}` before the first). The e2e config (`apps/web/playwright.config.ts`) starts it on API port + 80.
 
 ## Go toolchain (orrn-spool)
 

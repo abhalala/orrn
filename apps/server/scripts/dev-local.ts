@@ -25,6 +25,19 @@ try {
 
 const ports = resolveDevPorts(process.env);
 const args = devLocalWranglerArgs(ports);
+// orrn buddy against the fake Hermes (scripts/fake-hermes.ts): BUDDY_FAKE_HERMES_PORT=<port> turns the
+// buddy on for this local worker, for the demo plant unless BUDDY_COMPANIES names others. Fake values only.
+const fakeHermesPort = process.env.BUDDY_FAKE_HERMES_PORT?.trim();
+if (fakeHermesPort && /^\d+$/.test(fakeHermesPort)) {
+  args.push(
+    "--var", `HERMES_BASE_URL:http://127.0.0.1:${fakeHermesPort}`,
+    "--var", "HERMES_ACCESS_CLIENT_ID:fake-access-id",
+    "--var", "HERMES_ACCESS_CLIENT_SECRET:fake-access-secret",
+    "--var", `HERMES_API_KEY:${process.env.FAKE_HERMES_KEY ?? "fake-hermes-key"}`,
+    "--var", `BUDDY_COMPANIES:${process.env.BUDDY_COMPANIES ?? "orrn-demo"}`,
+  );
+  console.log(`[dev:local] buddy on, fake Hermes at http://127.0.0.1:${fakeHermesPort}`);
+}
 console.log(`[dev:local] API ${ports.apiURL}  (web origin ${ports.webURL})`);
 
 const child = spawn("wrangler", args, { cwd: serverDir, stdio: "inherit" });

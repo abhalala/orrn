@@ -76,14 +76,29 @@ const visualServer: NonNullable<PlaywrightTestConfig["webServer"]> = {
   env: visualTestEnv,
 };
 
+/**
+ * The fake Hermes for `buddy.spec.ts` (apps/server/scripts/fake-hermes.ts), on the API port + 150 (+80 would land on the next worktree up: 4630 + 80 = 4710), so worktrees never
+ * share one. The API gets `BUDDY_FAKE_HERMES_PORT`, which turns the buddy on for the demo plant with fake values; no
+ * button shows until a spec connects Hermes (buddy.spec.ts disconnects it again in `afterAll`).
+ */
+const fakeHermesPort = Number(process.env.BUDDY_FAKE_HERMES_PORT) || ports.apiPort + 150;
+const buddyEnv = { BUDDY_FAKE_HERMES_PORT: String(fakeHermesPort), FAKE_HERMES_PORT: String(fakeHermesPort) };
+
 const e2eServers: NonNullable<PlaywrightTestConfig["webServer"]> = [
+  {
+    command: "bun ../server/scripts/fake-hermes.ts",
+    url: `http://127.0.0.1:${fakeHermesPort}/__fake/last`,
+    reuseExistingServer: true,
+    timeout: 30_000,
+    env: { ...portEnv, ...buddyEnv },
+  },
   {
     // Local D1 migrations first, then the worker. Reused if already up.
     command: "bun run --cwd ../server dev:local:migrate && bun run --cwd ../server dev:local",
     url: apiURL,
     reuseExistingServer: true,
     timeout: 180_000,
-    env: portEnv,
+    env: { ...portEnv, ...buddyEnv },
   },
   {
     command: `bun run dev:bare -- --port ${ports.webPort} --strictPort`,

@@ -54,6 +54,13 @@ export async function createContext({ context }: CreateContextOptions) {
      * Optional in the type so contexts built elsewhere (tests, fixtures) need not name it.
      */
     ...({} as { ingestSource?: IngestSource }),
+    /**
+     * orrn buddy (design 2026-11-18, §4.3). `via: "buddy"` is set only on the context `/mcp` builds from a
+     * grant token (`lib/buddy/grantContext.ts`); `buddyGrantId` names that grant. `buddyDraftId` is set only
+     * on the context `buddy.drafts.confirm` passes to `createCaller`, so the real write's audit row carries
+     * `meta.buddyDraftId` (`lib/audit.ts`). Never read from a request. Optional, like `ingestSource`.
+     */
+    ...({} as { via?: "buddy"; buddyGrantId?: string; buddyDraftId?: string }),
   };
 }
 

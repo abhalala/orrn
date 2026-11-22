@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2268,7 +2268,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (348)
+### settings (349)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2298,6 +2298,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `tabs.units` | Units | इकाइयाँ |
 | `tabs.security` | Security | सुरक्षा |
 | `tabs.signIn` | Sign-in | साइन-इन |
+| `tabs.buddy` | Buddy | Buddy |
 | `security.title` | Sign-in | साइन-इन |
 | `security.body` | How people in this plant sign in. | इस प्लांट के लोग कैसे साइन इन करते हैं। |
 | `security.require` | Require secure sign-in | सुरक्षित साइन-इन ज़रूरी करें |
@@ -3726,7 +3727,7 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (166)
+### refusal (174)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3895,6 +3896,14 @@ Counts: 8493 screen strings in 50 groups, 45 guides with 866 strings.
 | `imageTypes` | Pictures must be JPEG, PNG or WebP. | फ़ोटो JPEG, PNG या WebP होनी चाहिए। |
 | `notPdf` | This is not a PDF. | यह PDF नहीं है। |
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
+| `buddyClosed` | Buddy is not set up for this plant. | इस प्लांट के लिए Buddy सेट नहीं है। |
+| `buddyConfirming` | This change is already being confirmed. Wait a moment. | यह बदलाव पहले से पक्का हो रहा है। थोड़ा रुकें। |
+| `buddyNotAllowed` | Buddy may not make this change. Do it on its own screen. | Buddy यह बदलाव नहीं कर सकता। इसे इसकी अपनी स्क्रीन पर करें। |
+| `buddyUnknownOutcome` | orrn could not tell if this went through. Check the screen before you try again. | orrn पता नहीं लगा सका कि यह हुआ या नहीं। दोबारा करने से पहले स्क्रीन पर देख लें। |
+| `buddyChangeFailed` | The change did not go through. | बदलाव नहीं हुआ। |
+| `buddyInputNotFit` | This change no longer fits the screen it was made for. Ask Buddy again. | यह बदलाव अब उस स्क्रीन से मेल नहीं खाता जिसके लिए बना था। Buddy से फिर से पूछें। |
+| `buddyStale` | The sheet changed after Buddy prepared this. Ask Buddy again. | Buddy के यह तैयार करने के बाद शीट बदल गई। Buddy से फिर से पूछें। |
+| `buddyConfirmBlocked` | This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make it on its own screen. | यह बदलाव वापस नहीं होता और कार्ड इसे साफ़ नहीं दिखा सकता, इसलिए यह यहां पक्का नहीं हो सकता। इसे नामंज़ूर करें, या इसकी अपनी स्क्रीन पर करें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
 ### native (269)
@@ -7814,6 +7823,452 @@ Please check, Lalubhai:
 | `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
 | `docTitle.review` | {target}, {file} \| Imports \| orrn | {target}, {file} \| इम्पोर्ट \| orrn |
 
+### buddy (398)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Buddy | Buddy |
+| `open` | Open Buddy | Buddy खोलें |
+| `newChat` | New chat | नई बातचीत |
+| `addFile` | Add a file | फ़ाइल जोड़ें |
+| `addFileHint` | Files go in on the Imports page. Buddy never gets the file itself. | फ़ाइलें इम्पोर्ट पेज पर डाली जाती हैं। Buddy को फ़ाइल कभी नहीं मिलती। |
+| `empty` | Ask about stock, orders or an import. A change comes back as a card, and it runs only when you press Confirm. | स्टॉक, ऑर्डर या इम्पोर्ट के बारे में पूछें। कोई बदलाव एक कार्ड में आता है, और तभी होता है जब आप पक्का करें दबाते हैं। |
+| `you` | You | आप |
+| `inputLabel` | Message to Buddy | Buddy को संदेश |
+| `placeholder` | Type a message | संदेश लिखें |
+| `send` | Send | भेजें |
+| `sendHint` | Enter sends. Shift and Enter start a new line. | Enter से संदेश जाता है। Shift और Enter से नई लाइन। |
+| `connecting` | Connecting | जुड़ रहा है |
+| `writing` | Buddy is writing | Buddy लिख रहा है |
+| `offline` | Buddy is offline. Try again later. | Buddy अभी बंद है। थोड़ी देर बाद फिर कोशिश करें। |
+| `rateLimited` | Too many messages for now. Wait a few minutes. | अभी बहुत सारे संदेश हो गए। कुछ मिनट रुकें। |
+| `failed` | Buddy could not answer. | Buddy जवाब नहीं दे सका। |
+| `cut` | The answer stopped before the end. | जवाब पूरा होने से पहले रुक गया। |
+| `tool` | Used orrn: {path} | orrn देखा: {path} |
+| `waiting` | Waiting for you | आपका इंतज़ार है |
+| `field.candidateId` | Sheet | शीट |
+| `field.artifactId` | File | फ़ाइल |
+| `field.target` | What it holds | इसमें क्या है |
+| `field.accept` | Same one | वही है |
+| `field.fy` | Financial year | वित्त वर्ष |
+| `field.asOf` | Date | तारीख |
+| `field.questionCode` | Question | सवाल |
+| `field.subject` | About | किस बारे में |
+| `field.answer` | Answer | जवाब |
+| `field.answers` | Answers | जवाब |
+| `field.rowId` | Row | लाइन |
+| `field.rowIds` | Rows | लाइनें |
+| `field.expectCount` | Rows answered | जवाब दी गई लाइनें |
+| `field.decision` | Decision | फ़ैसला |
+| `field.matchId` | Match | मेल |
+| `field.reason` | Reason | कारण |
+| `field.pageId` | Page | पेज |
+| `field.page` | Page | पेज |
+| `field.name` | Name | नाम |
+| `field.customerId` | Customer | ग्राहक |
+| `field.vendorId` | Vendor | वेंडर |
+| `field.dieId` | Die | Die |
+| `field.sectionId` | Section | सेक्शन |
+| `field.orderId` | Order | ऑर्डर |
+| `field.lineId` | Order line | ऑर्डर लाइन |
+| `field.bundleId` | Bundle | Bundle |
+| `field.serial` | Serial | Serial |
+| `field.serials` | Serials | Serials |
+| `field.quantity` | Quantity | मात्रा |
+| `field.note` | Note | नोट |
+| `field.notes` | Notes | नोट |
+| `field.rows` | Rows | लाइनें |
+| `field.action` | Action | कार्रवाई |
+| `field.active` | Active | चालू |
+| `field.add` | Add | जोड़ें |
+| `field.ageingRowId` | Ageing line | एजिंग लाइन |
+| `field.alias` | Other name | दूसरा नाम |
+| `field.aliases` | Other names | दूसरे नाम |
+| `field.allowUnassigned` | Allow bundles with no order | बिना ऑर्डर वाले Bundle भी चलेंगे |
+| `field.alloy` | Alloy | अलॉय |
+| `field.alloyId` | Alloy | अलॉय |
+| `field.alloyReason` | Reason for the alloy | अलॉय का कारण |
+| `field.amountPaise` | Amount (paise) | रकम (पैसे) |
+| `field.approvalId` | Approval | मंज़ूरी |
+| `field.at` | Time | समय |
+| `field.backerNo` | Backer number | बैकर नंबर |
+| `field.balanceNote` | Balance note | बैलेंस नोट (check) |
+| `field.band` | Part of the page | पेज का हिस्सा |
+| `field.bandId` | Weight band | वज़न बैंड |
+| `field.base64` | File data | फ़ाइल का डेटा |
+| `field.batchId` | Ageing batch | एजिंग बैच |
+| `field.billBook` | Bill book | बिल बुक |
+| `field.billetDiaMm` | Billet diameter (mm) | बिलेट का व्यास (mm) |
+| `field.billetShortReason` | Reason for short billets | बिलेट कम होने का कारण |
+| `field.billetsOnHand` | Billets left | बचे हुए बिलेट |
+| `field.billingAddress` | Billing address | बिलिंग का पता |
+| `field.body` | Text | लिखावट |
+| `field.bolster` | Bolster | बोल्स्टर |
+| `field.boriDeductionG` | Bori deduction (g) | बोरी कटौती (g) |
+| `field.bundleIds` | Bundles | Bundle |
+| `field.bundleNumberPolicy` | Bundle numbering | Bundle नंबर देने का तरीका |
+| `field.bundles` | Bundles | Bundle |
+| `field.capacityG` | Capacity (g) | क्षमता (g) |
+| `field.capacityOverrideReason` | Reason for going over capacity | क्षमता से ज़्यादा भरने का कारण |
+| `field.castId` | Cast | कास्ट |
+| `field.category` | Category | किस्म |
+| `field.caustic` | Caustic | कॉस्टिक |
+| `field.cavityCount` | Cavities | कैविटी |
+| `field.chemicals` | Chemicals | केमिकल |
+| `field.city` | City | शहर |
+| `field.code` | Code | कोड |
+| `field.codes` | Codes | कोड |
+| `field.confirmUnscanned` | Close with bundles not scanned | बिना स्कैन हुए Bundle के साथ बंद करें |
+| `field.cr2` | CR2 | CR2 |
+| `field.cr4` | CR4 | CR4 |
+| `field.cuts` | Cuts | कट |
+| `field.date` | Date | तारीख |
+| `field.days` | Days | दिन |
+| `field.dieInstanceId` | Die copy | Die कॉपी |
+| `field.dieMakerId` | Die maker | Die मेकर |
+| `field.dieOwnerApprovalId` | Die owner's approval | Die मालिक की मंज़ूरी |
+| `field.dies` | Dies | Die |
+| `field.dimensions` | Dimensions | नाप |
+| `field.discardG` | Discard (g) | डिस्कार्ड (g) (check) |
+| `field.dispatchId` | Dispatch | Dispatch |
+| `field.driverName` | Driver name | ड्राइवर का नाम |
+| `field.driverPhone` | Driver phone | ड्राइवर का फोन |
+| `field.drossBp` | Dross (hundredths of %) | ड्रॉस (% के सौवें भाग में) (check) |
+| `field.drossG` | Dross (g) | ड्रॉस (g) |
+| `field.email` | Email | ईमेल |
+| `field.endsG` | Ends (g) | एंड्स (g) (check) |
+| `field.entryReason` | Reason for typing it in | हाथ से भरने का कारण |
+| `field.expectCursor` | Rows checked so far | अब तक जांची गई लाइनें |
+| `field.expectSeq` | Version expected | अपेक्षित वर्ज़न (check) |
+| `field.expectedDate` | Expected date | अनुमानित तारीख |
+| `field.expectedRecoveryBp` | Expected recovery (hundredths of %) | अनुमानित रिकवरी (% के सौवें भाग में) (check) |
+| `field.expectedServerSeq` | Version expected | अपेक्षित वर्ज़न (check) |
+| `field.fcKgG` | Our weight (g) | हमारा वज़न (g) |
+| `field.feG` | Iron (g) | आयरन (g) |
+| `field.fileName` | File name | फ़ाइल का नाम |
+| `field.ftr` | FTR | FTR |
+| `field.furnaceId` | Furnace | फर्नेस |
+| `field.gasEndMilli` | Gas meter at end (thousandths) | आखिर में गैस मीटर (हज़ारवें भाग में) (check) |
+| `field.gasStartMilli` | Gas meter at start (thousandths) | शुरू में गैस मीटर (हज़ारवें भाग में) (check) |
+| `field.grade` | Grade | ग्रेड |
+| `field.grnRef` | GRN number | GRN नंबर |
+| `field.groupLabel` | Group name | ग्रुप का नाम |
+| `field.gstin` | GSTIN | GSTIN |
+| `field.hardness` | Hardness | हार्डनेस |
+| `field.hardnessMaxX10` | Highest hardness (tenths) | सबसे ज़्यादा हार्डनेस (दसवें भाग में) (check) |
+| `field.hardnessMethod` | Hardness method | हार्डनेस का तरीका |
+| `field.hardnessMinX10` | Lowest hardness (tenths) | सबसे कम हार्डनेस (दसवें भाग में) (check) |
+| `field.id` | Record | रिकॉर्ड |
+| `field.ids` | Records | रिकॉर्ड |
+| `field.inAt` | Time in | अंदर जाने का समय |
+| `field.includeUnplaced` | Include bundles with no place | बिना जगह वाले Bundle भी गिनें |
+| `field.input` | Input | इनपुट |
+| `field.inputs` | What went in | क्या डाला गया |
+| `field.invoiceDate` | Invoice date | इनवॉइस की तारीख |
+| `field.invoiceNumber` | Invoice number | इनवॉइस नंबर |
+| `field.itemId` | Item | आइटम |
+| `field.k2s` | K2S | K2S |
+| `field.keepId` | Keep this one | इसे रखें |
+| `field.kgDiffG` | Weight difference (g) | वज़न का फ़र्क (g) |
+| `field.kgG` | Weight (g) | वज़न (g) |
+| `field.kgPer12ftMilli` | kg/12ft (thousandths) | kg/12ft (हज़ारवें भाग में) (check) |
+| `field.kgToleranceBp` | Weight tolerance (hundredths of %) | वज़न की छूट (% के सौवें भाग में) (check) |
+| `field.kind` | Kind | किस्म |
+| `field.label` | Label | लेबल |
+| `field.labelGu` | Label in Gujarati | गुजराती में लेबल |
+| `field.labelHi` | Label in Hindi | हिंदी में लेबल |
+| `field.lateReason` | Reason for being late | देर का कारण |
+| `field.ldoTenthIn` | LDO (tenths of an inch) | LDO (इंच के दसवें भाग में) (check) |
+| `field.legMm` | Leg (mm) | लेग (mm) |
+| `field.legacyCode` | Old code | पुराना कोड |
+| `field.lifeG` | Die life (g) | Die की लाइफ (g) |
+| `field.lift` | Lift to another band | दूसरे बैंड में लिफ्ट (check) |
+| `field.limits` | Limits | सीमाएं |
+| `field.lines` | Lines | लाइनें |
+| `field.locationId` | Place | जगह |
+| `field.locationIds` | Places | जगहें |
+| `field.logs` | Log entries | लॉग की एंट्री |
+| `field.lotId` | Lot | लॉट |
+| `field.makerDieNo` | Maker's die number | मेकर का Die नंबर |
+| `field.makerProjectNo` | Maker's project number | मेकर का प्रोजेक्ट नंबर |
+| `field.manual` | Added by hand | हाथ से जोड़ा |
+| `field.max` | Highest | सबसे ज़्यादा |
+| `field.maxSoakMin` | Longest soak (minutes) | सबसे लंबा सोक (मिनट) |
+| `field.maxTempX10` | Highest temperature (tenths of °C) | सबसे ज़्यादा तापमान (°C के दसवें भाग में) (check) |
+| `field.meltId` | Melt | मेल्ट |
+| `field.mergeIds` | Merge into it and remove | इसमें मिलाकर हटाएं |
+| `field.meterReset` | Meter was reset | मीटर रीसेट हुआ |
+| `field.meterUnit` | Meter unit | मीटर की इकाई |
+| `field.method` | Method | तरीका |
+| `field.metric` | Reading | रीडिंग |
+| `field.mime` | File type | फ़ाइल की किस्म |
+| `field.min` | Lowest | सबसे कम |
+| `field.newRows` | New lines | नई लाइनें |
+| `field.nitridedAt` | Nitrided on | नाइट्राइडिंग की तारीख |
+| `field.occurredAt` | When it happened | कब हुआ |
+| `field.operatorId` | Operator | ऑपरेटर |
+| `field.orderDate` | Order date | ऑर्डर की तारीख |
+| `field.origin` | Where from | कहां से |
+| `field.outAt` | Time out | बाहर निकालने का समय |
+| `field.outputs` | What came out | क्या निकला |
+| `field.ovenId` | Oven | ओवन |
+| `field.overdrawNote` | Note for going over the order | ऑर्डर से ज़्यादा भेजने का नोट |
+| `field.overridePin` | Override PIN | ओवरराइड PIN |
+| `field.ownerCustomerId` | Owner (customer) | मालिक (ग्राहक) |
+| `field.partyBillNo` | Party bill number | पार्टी का बिल नंबर |
+| `field.partyKgG` | Party's weight (g) | पार्टी का वज़न (g) |
+| `field.pcs` | Pieces | पीस |
+| `field.phone` | Phone | फ़ोन |
+| `field.photoUrls` | Photos | फ़ोटो |
+| `field.poNumber` | PO number | PO नंबर |
+| `field.preferLineIds` | Order lines to fill first | पहले भरने वाली ऑर्डर लाइनें |
+| `field.pressLineId` | Press | प्रेस |
+| `field.pressPlanDieId` | Die on the press plan | प्रेस प्लान का Die |
+| `field.pressPlanLineId` | Press plan line | प्रेस प्लान की लाइन |
+| `field.pressRunId` | Press run | प्रेस रन |
+| `field.pressedLengthMm` | Pressed length (mm) | प्रेस की लंबाई (mm) |
+| `field.profile` | Profile | प्रोफाइल |
+| `field.profileKind` | Profile kind | प्रोफाइल की किस्म |
+| `field.purchaseOrderRef` | Purchase order | परचेज़ ऑर्डर |
+| `field.purpose` | Purpose | किस लिए |
+| `field.qtyInMilli` | Quantity in (thousandths) | आई मात्रा (हज़ारवें भाग में) (check) |
+| `field.qtyMilli` | Quantity (thousandths) | मात्रा (हज़ारवें भाग में) (check) |
+| `field.qtyOutMilli` | Quantity out (thousandths) | गई मात्रा (हज़ारवें भाग में) (check) |
+| `field.rackNo` | Rack number | रैक नंबर |
+| `field.rank` | Tier | टियर |
+| `field.ratePaise` | Rate (paise) | रेट (पैसे) |
+| `field.readAt` | Read at | रीडिंग का समय |
+| `field.readingsX10` | Readings (tenths) | रीडिंग (दसवें भाग में) (check) |
+| `field.reasonCode` | Reason | कारण |
+| `field.reasonCodeId` | Reason | कारण |
+| `field.receivedAt` | Received on | मिलने की तारीख |
+| `field.recipeId` | Recipe | रेसिपी |
+| `field.refId` | Reference | संदर्भ (check) |
+| `field.rejects` | Rejects | रिजेक्ट |
+| `field.reliefOperatorId` | Relief operator | रिलीफ ऑपरेटर |
+| `field.remove` | Remove | हटाएं |
+| `field.requiresNote` | Needs a note | नोट चाहिए |
+| `field.returns` | Returns | वापसी (check) |
+| `field.runId` | Press run | प्रेस रन |
+| `field.salesOrderId` | Order | ऑर्डर |
+| `field.salesOrderLineId` | Order line | ऑर्डर लाइन |
+| `field.sampleCount` | Samples | नमूने |
+| `field.sectionCode` | Section code | सेक्शन कोड |
+| `field.seenIds` | Scans | स्कैन |
+| `field.series` | Series | सीरीज़ |
+| `field.serverSeq` | Version expected | अपेक्षित वर्ज़न (check) |
+| `field.sessionId` | Stock count | स्टॉक की गिनती |
+| `field.setOnTrial` | Put on trial | ट्रायल पर रखें |
+| `field.shiftId` | Shift | शिफ्ट |
+| `field.shipDate` | Ship date | भेजने की तारीख |
+| `field.shippingAddress` | Shipping address | डिलीवरी का पता |
+| `field.showBranding` | Show our branding | हमारी ब्रांडिंग दिखाएं |
+| `field.showLogo` | Show the logo | लोगो दिखाएं |
+| `field.showOriginalSo` | Show the original order | असली ऑर्डर दिखाएं |
+| `field.soakMin` | Soak (minutes) | सोक (मिनट) |
+| `field.sortOrder` | Order in the list | सूची में क्रम |
+| `field.source` | Source | स्रोत |
+| `field.spectroReason` | Reason, spectro not passed | कारण, स्पेक्ट्रो पास नहीं हुआ |
+| `field.startedAt` | Started at | शुरू होने का समय |
+| `field.status` | Status | स्थिति |
+| `field.stoppedAt` | Stopped at | रुकने का समय |
+| `field.streamId` | Return stream | वापसी का माल (check) |
+| `field.subBolster` | Sub bolster | सब बोल्स्टर |
+| `field.supervisorId` | Supervisor | सुपरवाइज़र |
+| `field.supplier` | Supplier | सप्लायर |
+| `field.tailReason` | Reason for the tail | टेल का कारण |
+| `field.tappedAt` | Tapped at | टैप करने का समय (check) |
+| `field.targetTempX10` | Target temperature (tenths of °C) | लक्ष्य तापमान (°C के दसवें भाग में) (check) |
+| `field.taxId` | Tax number | टैक्स नंबर |
+| `field.tempCX10` | Temperature (tenths of °C) | तापमान (°C के दसवें भाग में) (check) |
+| `field.temper` | Temper | टेम्पर |
+| `field.then` | Then | उसके बाद |
+| `field.thicknessMm` | Thickness (mm) | मोटाई (mm) |
+| `field.tierRank` | Tier | टियर |
+| `field.times` | Times | समय |
+| `field.timestamps` | Times | समय |
+| `field.to` | To | किसमें (check) |
+| `field.toBandId` | New weight band | नया वज़न बैंड |
+| `field.toIndex` | New place in the queue | कतार में नई जगह |
+| `field.toLineId` | To order line | किस ऑर्डर लाइन में |
+| `field.toLocationId` | To place | किस जगह |
+| `field.toStatus` | New status | नई स्थिति |
+| `field.toleranceX10` | Tolerance (tenths of °C) | छूट (°C के दसवें भाग में) (check) |
+| `field.tonnageT` | Tonnage (t) | टन क्षमता (t) (check) |
+| `field.transporter` | Transporter | ट्रांसपोर्टर |
+| `field.transporterId` | Transporter | ट्रांसपोर्टर |
+| `field.trialKgPer12ftMilli` | Trial kg/12ft (thousandths) | ट्रायल kg/12ft (हज़ारवें भाग में) (check) |
+| `field.trialResult` | Trial result | ट्रायल का नतीजा |
+| `field.trolleyId` | Trolley | ट्रॉली |
+| `field.truckOf` | Same truck as | इसी ट्रक में |
+| `field.txnId` | Store entry | स्टोर की एंट्री |
+| `field.type` | Type | किस्म |
+| `field.unit` | Unit | इकाई |
+| `field.updatedRows` | Changed lines | बदली गई लाइनें |
+| `field.urgent` | Urgent | जल्दी |
+| `field.valueX10` | Value (tenths) | मान (दसवें भाग में) (check) |
+| `field.values` | Values | मान (check) |
+| `field.valuesPpm` | Values (ppm) | मान (ppm) (check) |
+| `field.vehicleCapacityG` | Vehicle capacity (g) | गाड़ी की क्षमता (g) |
+| `field.vehicleNo` | Vehicle number | गाड़ी नंबर |
+| `field.wallTenthMm` | Wall (tenths of mm) | दीवार (mm के दसवें भाग में) (check) |
+| `field.weightBasis` | Weight basis | वज़न आधार |
+| `field.weightMaxG` | Highest weight (g) | सबसे ज़्यादा वज़न (g) |
+| `field.weightMinG` | Lowest weight (g) | सबसे कम वज़न (g) |
+| `field.widthMm` | Width (mm) | चौड़ाई (mm) |
+| `field.windowEnd` | Window end | समय सीमा का अंत (check) |
+| `field.windowStart` | Window start | समय सीमा की शुरुआत (check) |
+| `field.workedAt` | Worked on | काम की तारीख |
+| `draft.titles.ingest_shape_make` | Read the layout of this sheet | इस शीट का ढांचा पढ़ें |
+| `draft.titles.ingest_period_confirm` | Set the year or date of this file | इस फ़ाइल का साल या तारीख तय करें |
+| `draft.titles.ingest_answer_set` | Answer the import's question | इम्पोर्ट के सवाल का जवाब दें |
+| `draft.titles.ingest_rows_answerDoubts` | Answer the doubtful rows | शक वाली पंक्तियों का जवाब दें |
+| `draft.titles.ingest_candidate_confirmNear` | Say if the near match is the same one | मिलता-जुलता नाम वही है या नहीं, बताएं |
+| `draft.titles.ingest_candidate_setTarget` | Set what this sheet holds | यह शीट किस चीज़ की है, तय करें |
+| `draft.titles.ingest_candidate_hold` | Hold this sheet | यह शीट रोकें |
+| `draft.titles.ingest_candidate_release` | Take this sheet off hold | इस शीट से रोक हटाएं |
+| `draft.titles.ingest_dryRun_step` | Try the rows against the plant's data | पंक्तियों को प्लांट के डेटा से मिलाकर देखें |
+| `draft.titles.ingest_vision_readPage` | Read this page | यह पेज पढ़ें |
+| `draft.titles.import_answerQuestions` | Answer the import's questions | इम्पोर्ट के सवालों के जवाब दें |
+| `draft.titles.import_runDryRun` | Check every row against the plant's data | हर लाइन को प्लांट के डेटा से मिलाकर देखें |
+| `draft.origin.chat` | Made in the Buddy chat | Buddy चैट में बना |
+| `draft.origin.other` | Not made in the Buddy chat. Check it before you confirm. | यह Buddy चैट में नहीं बना। पक्का करने से पहले जांच लें। |
+| `draft.showAll` | Show all | सब दिखाएं |
+| `draft.showLess` | Show less | कम दिखाएं |
+| `draft.itemsSummary` | This runs {count} {count:line\|lines} | इससे {count} {count:लाइन चलेगी\|लाइनें चलेंगी} |
+| `draft.showAllFirst` | Show all first. Confirm runs every line. | पहले सब दिखाएं। पक्का करने पर हर लाइन चलेगी। |
+| `draft.drive.starting` | Starting the row check | लाइनों की जांच शुरू हो रही है |
+| `draft.drive.running` | Checking rows: {done} of {total} | लाइनें जांच रहे हैं: {total} में से {done} |
+| `draft.drive.runningNoTotal` | Checking rows | लाइनें जांच रहे हैं |
+| `draft.drive.otherTab` | Another tab is checking these rows. | दूसरे टैब में ये लाइनें जांची जा रही हैं। |
+| `draft.drive.stop` | Stop | रोकें |
+| `draft.drive.stopped` | Row check stopped. Start it again from the review page. | लाइनों की जांच रुक गई। जांच पेज से फिर शुरू करें। |
+| `draft.drive.done` | Rows checked. | लाइनें जांच ली गईं। |
+| `draft.drive.failed` | The row check stopped with a problem. Open the review page. | लाइनों की जांच किसी गड़बड़ी से रुक गई। जांच पेज खोलें। |
+| `draft.drive.inBubble` | Open Buddy to run the row check. | लाइनों की जांच चलाने के लिए Buddy खोलें। |
+| `draft.drive.reading` | Reading how the row check ended | लाइनों की जांच कैसे खत्म हुई, यह पढ़ रहे हैं |
+| `draft.drive.unknown` | orrn could not read how the row check ended. Open the review page. | orrn पढ़ नहीं सका कि लाइनों की जांच कैसे खत्म हुई। जांच पेज खोलें। |
+| `draft.drive.sheetState` | Sheet now: {state} | शीट अभी: {state} |
+| `draft.drive.states.processing` | Rows still being checked | लाइनें अभी जांची जा रही हैं |
+| `draft.drive.states.needs_shape` | Needs a layout | लेआउट चाहिए |
+| `draft.drive.states.needs_confirm` | Layout to check | लेआउट जांचना है |
+| `draft.drive.states.ready` | Ready | तैयार |
+| `draft.drive.states.held` | On hold | रोकी गई (check) |
+| `draft.drive.states.approved` | Approved | मंज़ूर |
+| `draft.drive.states.merging` | Merging | मर्ज हो रही है |
+| `draft.drive.states.merged` | Merged | मर्ज हो गई |
+| `draft.drive.states.failed` | Could not read | पढ़ी नहीं जा सकी |
+| `draft.drive.states.discarded` | Discarded | हटाई गई |
+| `draft.blocked.unnamed_id` | orrn found no name for {fields}, so this change cannot be confirmed here. | orrn को {fields} का नाम नहीं मिला, इसलिए यह बदलाव यहां पक्का नहीं हो सकता। |
+| `draft.blocked.bidi` | {fields} holds hidden marks that change how the text reads, so this change cannot be confirmed here. | {fields} में छिपे निशान हैं जो लिखावट का क्रम बदल देते हैं, इसलिए यह बदलाव यहां पक्का नहीं हो सकता। (check) |
+| `draft.blocked.other` | This change cannot be confirmed here. Do it on its own screen. | यह बदलाव यहां पक्का नहीं हो सकता। इसे इसकी अपनी स्क्रीन पर करें। |
+| `draft.noName` | no name found | नाम नहीं मिला |
+| `draft.marked` | Hidden marks that change how text reads are shown as ⟦U+...⟧. | लिखावट का क्रम बदलने वाले छिपे निशान ⟦U+...⟧ की तरह दिखाए गए हैं। (check) |
+| `draft.confirm` | Confirm | पक्का करें |
+| `draft.reject` | Reject | नामंज़ूर करें |
+| `draft.review` | Open the review page | जांच पेज खोलें |
+| `draft.loading` | Loading the change | बदलाव लोड हो रहा है |
+| `draft.expires` | Until {time} | {time} तक |
+| `draft.result` | Result: {result} | नतीजा: {result} |
+| `draft.failedWhy` | It did not go through. {reason} | यह नहीं हुआ। {reason} |
+| `draft.confirmFailed` | Could not confirm. Try again. | पक्का नहीं हो सका। फिर कोशिश करें। |
+| `draft.rejectFailed` | Could not reject. Try again. | नामंज़ूर नहीं हो सका। फिर कोशिश करें। |
+| `draft.status.pending` | Waiting | पक्का होना बाकी |
+| `draft.status.confirmed` | Confirmed | पक्का हुआ |
+| `draft.status.rejected` | Rejected | नामंज़ूर |
+| `draft.status.expired` | Expired | समय खत्म |
+| `draft.status.failed` | Failed | नहीं हुआ |
+| `settings.intro` | Buddy is Hermes in a chat window on every orrn screen. Hermes reads orrn as you and prepares changes. A change runs only when you press Confirm. | Buddy हर orrn स्क्रीन पर एक चैट खिड़की में Hermes है। Hermes आपकी तरह orrn पढ़ता है और बदलाव तैयार करता है। कोई बदलाव तभी होता है जब आप पक्का करें दबाते हैं। |
+| `settings.notListed` | Buddy is not set up for this plant. | इस प्लांट के लिए Buddy सेट नहीं है। |
+| `settings.notAvailable` | Buddy is not switched on in this orrn yet. Ask the orrn team. | इस orrn में Buddy अभी चालू नहीं है। orrn टीम से पूछें। |
+| `settings.loadFailed` | Could not load Buddy. Check the connection and try again. | Buddy लोड नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
+| `settings.connection` | Hermes | Hermes |
+| `settings.notConnected` | Hermes is not connected. | Hermes जुड़ा नहीं है। |
+| `settings.connect` | Connect Hermes | Hermes जोड़ें |
+| `settings.connectFailed` | Could not connect Hermes. Try again. | Hermes नहीं जुड़ सका। फिर कोशिश करें। |
+| `settings.connectedOn` | Connected {time} | {time} को जुड़ा |
+| `settings.lastUsed` | Last used {time} | आखिरी बार {time} |
+| `settings.neverUsed` | Not used yet | अभी तक इस्तेमाल नहीं हुआ |
+| `settings.endsOn` | Ends {time} | {time} को खत्म |
+| `settings.renewedOn` | Renewed {time} | {time} को फिर से बढ़ाया |
+| `settings.renew` | Renew for 30 days | 30 दिन और बढ़ाएं |
+| `settings.renewed` | Hermes renewed until {time}. | Hermes {time} तक बढ़ा दिया गया। |
+| `settings.renewFailed` | Could not renew. Try again. | बढ़ाया नहीं जा सका। फिर कोशिश करें। |
+| `settings.freshSignIn` | Sign in again first. orrn asks for a fresh sign-in before it connects or renews Hermes. | पहले फिर से साइन इन करें। Hermes जोड़ने या बढ़ाने से पहले orrn नया साइन इन मांगता है। |
+| `settings.signInAgain` | Sign in again | फिर से साइन इन करें |
+| `settings.revoke` | Disconnect Hermes | Hermes हटाएं |
+| `settings.revokeTitle` | Disconnect Hermes? | Hermes हटाएं? |
+| `settings.revokeBody` | Hermes loses access to orrn at once, and changes that still wait for a Confirm expire. | Hermes की orrn तक पहुंच तुरंत बंद हो जाती है, और जिन बदलावों का पक्का होना बाकी है, उनका समय खत्म हो जाता है। |
+| `settings.revoked` | Hermes is disconnected. | Hermes हटा दिया गया। |
+| `settings.revokeFailed` | Could not disconnect Hermes. Try again. | Hermes नहीं हट सका। फिर कोशिश करें। |
+| `settings.keyTitle` | Key for Hermes | Hermes के लिए चाबी |
+| `settings.keyOnce` | This key is shown only once. Copy it now and keep it safe. orrn cannot show it again. | यह चाबी सिर्फ़ एक बार दिखती है। इसे अभी कॉपी करें और संभालकर रखें। orrn इसे दोबारा नहीं दिखा सकता। |
+| `settings.keyLabel` | Key | चाबी |
+| `settings.copy` | Copy key | चाबी कॉपी करें |
+| `settings.copied` | Key copied | चाबी कॉपी हो गई |
+| `settings.copyFailed` | Could not copy. Select the key and copy it by hand. | कॉपी नहीं हो सकी। चाबी चुनकर हाथ से कॉपी करें। |
+| `settings.keyDone` | I have copied it | मैंने कॉपी कर ली |
+| `settings.calls` | Last 100 calls | आखिरी 100 कॉल |
+| `settings.callsEmpty` | Hermes has not called orrn yet. | Hermes ने अभी तक orrn को कॉल नहीं किया। |
+| `settings.callPath` | What | क्या |
+| `settings.callMs` | {ms} ms | {ms} ms |
+| `settings.platform.api_server` | orrn chat | orrn चैट |
+| `settings.platform.telegram` | Telegram | Telegram |
+| `settings.outcome.ok` | Done | हो गया |
+| `settings.outcome.needs_confirm` | Waits for Confirm | पक्का होना बाकी |
+| `settings.outcome.forbidden` | Not allowed | अनुमति नहीं |
+| `settings.outcome.not_found` | Not found | नहीं मिला |
+| `settings.outcome.invalid` | Wrong input | गलत इनपुट |
+| `settings.outcome.rate_limited` | Too many calls | बहुत सारी कॉल |
+| `settings.outcome.error` | Error | गड़बड़ी |
+| `settings.outcome.truncated` | Done, cut short | हो गया (जवाब काटा गया) |
+| `settings.outcome.pending` | Running | चल रहा है |
+| `settings.drafts` | Changes from Buddy | Buddy के बदलाव |
+| `settings.draftsEmpty` | No changes from Buddy yet. | Buddy से अभी कोई बदलाव नहीं। |
+
+Please check, Lalubhai:
+
+- `field.balanceNote`: Buddy card label (Balance note): बैलेंस नोट. Is that the word the plant uses?
+- `field.discardG`: Buddy card label (Discard (g)): डिस्कार्ड (g). Is that the word the plant uses?
+- `field.drossBp`: Buddy card label for a raw stored number (Dross (hundredths of %)): ड्रॉस (% के सौवें भाग में). Is that clear, or does the plant say it another way?
+- `field.endsG`: Buddy card label (Ends (g)): एंड्स (g). Is that the word the plant uses?
+- `field.expectSeq`: Buddy card label (Version expected): अपेक्षित वर्ज़न. Is that the word the plant uses?
+- `field.expectedRecoveryBp`: Buddy card label for a raw stored number (Expected recovery (hundredths of %)): अनुमानित रिकवरी (% के सौवें भाग में). Is that clear, or does the plant say it another way?
+- `field.expectedServerSeq`: Buddy card label (Version expected): अपेक्षित वर्ज़न. Is that the word the plant uses?
+- `field.gasEndMilli`: Buddy card label for a raw stored number (Gas meter at end (thousandths)): आखिर में गैस मीटर (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.gasStartMilli`: Buddy card label for a raw stored number (Gas meter at start (thousandths)): शुरू में गैस मीटर (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.hardnessMaxX10`: Buddy card label for a raw stored number (Highest hardness (tenths)): सबसे ज़्यादा हार्डनेस (दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.hardnessMinX10`: Buddy card label for a raw stored number (Lowest hardness (tenths)): सबसे कम हार्डनेस (दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.kgPer12ftMilli`: Buddy card label for a raw stored number (kg/12ft (thousandths)): kg/12ft (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.kgToleranceBp`: Buddy card label for a raw stored number (Weight tolerance (hundredths of %)): वज़न की छूट (% के सौवें भाग में). Is that clear, or does the plant say it another way?
+- `field.ldoTenthIn`: Buddy card label for a raw stored number (LDO (tenths of an inch)): LDO (इंच के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.lift`: Buddy card label (Lift to another band): दूसरे बैंड में लिफ्ट. Is that the word the plant uses?
+- `field.maxTempX10`: Buddy card label for a raw stored number (Highest temperature (tenths of °C)): सबसे ज़्यादा तापमान (°C के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.qtyInMilli`: Buddy card label for a raw stored number (Quantity in (thousandths)): आई मात्रा (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.qtyMilli`: Buddy card label for a raw stored number (Quantity (thousandths)): मात्रा (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.qtyOutMilli`: Buddy card label for a raw stored number (Quantity out (thousandths)): गई मात्रा (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.readingsX10`: Buddy card label for a raw stored number (Readings (tenths)): रीडिंग (दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.refId`: Buddy card label (Reference): संदर्भ. Is that the word the plant uses?
+- `field.returns`: Buddy card label (Returns): वापसी. Is that the word the plant uses?
+- `field.serverSeq`: Buddy card label (Version expected): अपेक्षित वर्ज़न. Is that the word the plant uses?
+- `field.streamId`: Buddy card label (Return stream): वापसी का माल. Is that the word the plant uses?
+- `field.tappedAt`: Buddy card label (Tapped at): टैप करने का समय. Is that the word the plant uses?
+- `field.targetTempX10`: Buddy card label for a raw stored number (Target temperature (tenths of °C)): लक्ष्य तापमान (°C के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.tempCX10`: Buddy card label for a raw stored number (Temperature (tenths of °C)): तापमान (°C के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.to`: Buddy card label (To): किसमें. Is that the word the plant uses?
+- `field.toleranceX10`: Buddy card label for a raw stored number (Tolerance (tenths of °C)): छूट (°C के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.tonnageT`: Buddy card label (Tonnage (t)): टन क्षमता (t). Is that the word the plant uses?
+- `field.trialKgPer12ftMilli`: Buddy card label for a raw stored number (Trial kg/12ft (thousandths)): ट्रायल kg/12ft (हज़ारवें भाग में). Is that clear, or does the plant say it another way?
+- `field.valueX10`: Buddy card label for a raw stored number (Value (tenths)): मान (दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.values`: Buddy card label (Values): मान. Is that the word the plant uses?
+- `field.valuesPpm`: Buddy card label (Values (ppm)): मान (ppm). Is that the word the plant uses?
+- `field.wallTenthMm`: Buddy card label for a raw stored number (Wall (tenths of mm)): दीवार (mm के दसवें भाग में). Is that clear, or does the plant say it another way?
+- `field.windowEnd`: Buddy card label (Window end): समय सीमा का अंत. Is that the word the plant uses?
+- `field.windowStart`: Buddy card label (Window start): समय सीमा की शुरुआत. Is that the word the plant uses?
+- `draft.drive.states.held`: Buddy: a sheet on hold after the row check (रोकी गई). Is that the word the import screens should use too?
+- `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
+- `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -8077,7 +8532,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (326)
+### audit (337)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8137,6 +8592,8 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_candidate` | Import | इम्पोर्ट |
 | `subjectTypes.ingest_merge_run` | Import merge | इम्पोर्ट मर्ज |
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
+| `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
+| `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -8187,6 +8644,15 @@ Please check, Lalubhai:
 | `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |
 | `actions.backup__drill__discard` | Backup drill thrown away | बैकअप ड्रिल हटाई |
 | `actions.backup__export` | Backup downloaded | बैकअप डाउनलोड किया |
+| `actions.buddy__draft__confirm` | Buddy change confirmed | Buddy का बदलाव पक्का किया |
+| `actions.buddy__draft__create` | Buddy prepared a change | Buddy ने बदलाव तैयार किया |
+| `actions.buddy__draft__expire` | Buddy change expired | Buddy के बदलाव का समय खत्म |
+| `actions.buddy__draft__fail` | Buddy change did not go through | Buddy का बदलाव नहीं हुआ |
+| `actions.buddy__draft__reject` | Buddy change rejected | Buddy का बदलाव नामंज़ूर किया |
+| `actions.buddy__grant__create` | Hermes connected to Buddy | Hermes को Buddy से जोड़ा |
+| `actions.buddy__grant__revoke` | Hermes disconnected from Buddy | Hermes को Buddy से हटाया |
+| `actions.buddy__grant__renew` | Hermes connection renewed | Hermes कनेक्शन बढ़ाया |
+| `actions.buddy__draft__report` | Buddy row check reported | Buddy की लाइन जांच का नतीजा दर्ज हुआ |
 | `actions.bundle__import` | Bundles imported | बंडल इंपोर्ट किए |
 | `actions.bundle__receipt__create` | Bundles packed | बंडल पैक किए |
 | `actions.bundle__receipt__pin_override` | Packed on another copy than the order pins | ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया |

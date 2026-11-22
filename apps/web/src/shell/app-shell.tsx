@@ -133,6 +133,9 @@ function ShellFrame({ variant, children }: AppShellProps) {
         "min-h-[100dvh] bg-background text-foreground md:grid md:grid-cols-[auto_minmax(0,1fr)]",
         // Sticky bottom bars inside screens use `bottom: var(--shell-tabbar-offset)` to sit above the phone tab bar.
         "[--shell-tabbar-offset:calc(73px+env(safe-area-inset-bottom))] md:[--shell-tabbar-offset:0px]",
+        // The Buddy panel docked at the right (from 1024 px) sets `--orrn-buddy-inset` while it is open: the whole frame,
+        // its main column and every sticky bar in it, moves left of the panel. Unset, nothing changes.
+        "pr-[var(--orrn-buddy-inset,0px)]",
         godseye && "godseye",
       )}
     >

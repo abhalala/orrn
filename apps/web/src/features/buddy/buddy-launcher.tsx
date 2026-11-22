@@ -1,0 +1,137 @@
+import { useT } from "@orrn/i18n";
+import { cn } from "@orrn/ui/lib/utils";
+import { MessageCircle } from "lucide-react";
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { toast } from "sonner";
+
+import { can, useMe, type Me } from "@/shared/lib/me";
+
+const loadPanel = () => import("./buddy-panel");
+const LazyBuddyPanel = lazy(loadPanel);
+
+/** Whether this person gets the bubble: the server says Buddy is on for them here, and the role can `buddy.use`. */
+export function showBuddy(me: (Me & { buddy?: boolean }) | undefined): boolean {
+  return me?.buddy === true && !me.impersonation && can(me, "buddy.use");
+}
+
+class PanelBoundary extends Component<{ children: ReactNode; onFailed: () => void }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch() {
+    this.props.onFailed();
+  }
+
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
+ * After the panel closes, focus goes back to the launcher (N8). Radix returns focus to whatever had it before the
+ * panel opened, and Safari does not focus a button on click, so that is often `body`; then the launcher takes it.
+ * Waits a frame and a tick so it runs after Radix's own return.
+ */
+export function returnFocusTo(button: HTMLElement | null, schedule: (fn: () => void) => void = (fn) => requestAnimationFrame(() => setTimeout(fn, 0))) {
+  schedule(() => {
+    const active = document.activeElement;
+    if (!button || !button.isConnected) return;
+    if (!active || active === document.body || active === document.documentElement || !active.isConnected) button.focus();
+  });
+}
+
+/**
+ * The panel is docked beside the page (from 1024 px it is non-modal) and the person pressed the button again: take
+ * focus into the panel, to its message box when it has one. True when it moved focus. Only a press does this, never
+ * focus reaching the button by Tab: the panel follows the button in Tab order, so Shift+Tab out of the panel lands on
+ * the button, and moving focus back in from there would trap the person (review N11).
+ */
+export function focusOpenPanel(doc: Document = document): boolean {
+  const dialog = doc.querySelector<HTMLElement>("[data-testid='buddy-panel']")?.closest<HTMLElement>("[role='dialog']");
+  if (!dialog) return false;
+  const box = dialog.querySelector<HTMLElement>("[data-testid='buddy-input']");
+  (box ?? dialog).focus();
+  return true;
+}
+
+/**
+ * The closed bubble (design §4.5): a round button at the bottom right, mounted once in the `_tenant` layout. Only this
+ * file is in the layout's chunk; the panel, the chat client and the draft cards load on the first open
+ * (`buddy-panel.tsx`, a dynamic import) and then stay mounted, so the conversation and an open panel survive route
+ * changes. Portalled to `body`, so the page's view transition never moves it. It sits above the phone tab bar and
+ * above a screen's sticky action bar (the same `--orrn-toast-bottom` lift toasts use), below sheets, the command
+ * palette and toasts (z-40). From 1024 px the open panel is docked at the right edge and the button moves left with
+ * the page (`--orrn-buddy-inset`), so it stays in sight beside the panel and pressing it again moves focus into it.
+ */
+export function BuddyLauncher() {
+  const { t } = useT();
+  const { data: me } = useMe();
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const onOpenChange = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) returnFocusTo(buttonRef.current);
+  }, []);
+  const show = showBuddy(me);
+  const companyId = me?.company?.id ?? null;
+
+  // A plant switch closes the panel; the panel itself is keyed on plant and person, so its chat starts fresh.
+  useEffect(() => setOpen(false), [companyId]);
+
+  if (!show || !me || typeof document === "undefined") return null;
+
+  const openPanel = () => {
+    // Already open beside the page: the button is the way back into the panel.
+    if (open && focusOpenPanel()) return;
+    setLoaded(true);
+    setOpen(true);
+  };
+  const failed = () => {
+    setOpen(false);
+    setLoaded(false);
+    toast.error(t("buddy.failed"));
+  };
+
+  const floating = createPortal(
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={openPanel}
+        onPointerEnter={() => void loadPanel().catch(() => {})}
+        onFocus={() => void loadPanel().catch(() => {})}
+        aria-label={t("buddy.open")}
+        title={t("buddy.open")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-testid="buddy-launcher"
+        className={cn(
+          "fixed right-4 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-button transition-[scale] duration-[var(--dur-fast)] active:scale-[0.95] motion-reduce:transition-none md:right-[calc(var(--orrn-buddy-inset,0px)+24px)]",
+          "bottom-[max(calc(89px+env(safe-area-inset-bottom)),var(--orrn-toast-bottom,0px))] md:bottom-[max(24px,var(--orrn-toast-bottom,0px))]",
+        )}
+      >
+        <MessageCircle aria-hidden="true" className="size-6" strokeWidth={2} />
+      </button>
+      {loaded ? (
+        <PanelBoundary onFailed={failed}>
+          <Suspense fallback={null}>
+            <LazyBuddyPanel key={`${companyId}:${me.user.id}`} open={open} onOpenChange={onOpenChange} />
+          </Suspense>
+        </PanelBoundary>
+      ) : null}
+    </>,
+    document.body,
+  );
+  return (
+    <>
+      {/* Phones: room at the end of the page, so the last button of a form scrolls clear of the floating button (S9). */}
+      <div aria-hidden="true" data-testid="buddy-spacer" className="h-12 shrink-0 md:hidden" />
+      {floating}
+    </>
+  );
+}

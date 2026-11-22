@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 
 import {
   createStrongSignInHandler,
+  freshSignInNeeded,
   readStrongSignInPlant,
   rememberStrongSignInPlant,
   strongSignInRefusal,
@@ -100,5 +101,15 @@ describe("createStrongSignInHandler", () => {
     expect(d.refreshMe).toHaveBeenCalledTimes(1);
     expect(d.toWelcome).toHaveBeenCalledTimes(1);
     expect(d.signOut).not.toHaveBeenCalled();
+  });
+});
+
+describe("freshSignInNeeded (Buddy fix round)", () => {
+  test("FORBIDDEN with FRESH_SIGN_IN_NEEDED, and nothing else", () => {
+    expect(freshSignInNeeded({ data: { code: "FORBIDDEN", meta: { reason: "FRESH_SIGN_IN_NEEDED" } } })).toBe(true);
+    expect(freshSignInNeeded({ data: { code: "FORBIDDEN", meta: { reason: "STRONG_SIGN_IN_NEEDED" } } })).toBe(false);
+    expect(freshSignInNeeded({ data: { code: "BAD_REQUEST", meta: { reason: "FRESH_SIGN_IN_NEEDED" } } })).toBe(false);
+    expect(freshSignInNeeded(new Error("FRESH_SIGN_IN_NEEDED"))).toBe(false);
+    expect(freshSignInNeeded(null)).toBe(false);
   });
 });

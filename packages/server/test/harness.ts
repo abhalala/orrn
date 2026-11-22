@@ -41,9 +41,13 @@ const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/s
  * the session is like one made before the column existed (not a strong sign-in).
  */
 type CallerAs =
-  | { role: CompanyRole; companyId: string; sessionId?: string; signInMethod?: string }
-  | { platformRole: PlatformStaffRole; sessionId?: string; signInMethod?: string }
+  | { role: CompanyRole; companyId: string; sessionId?: string; signInMethod?: string; sessionCreatedAt?: Date }
+  | { platformRole: PlatformStaffRole; sessionId?: string; signInMethod?: string; sessionCreatedAt?: Date }
   | null;
+
+/** The web origin harness requests come from (`CORS_ORIGIN` in env-mock.ts), as a browser's tRPC call would send it. */
+export const TEST_WEB_ORIGIN = "https://app.test";
+const testRequest = () => new Request("https://api.test", { headers: { origin: TEST_WEB_ORIGIN } });
 
 export type TestEnv = {
   db: Db;
@@ -246,6 +250,7 @@ export async function createTestEnv(): Promise<TestEnv> {
   const { and, eq } = await import("drizzle-orm");
   const { companyRoles } = await import("@orrn/db/schema/tenant");
   const { resolveTenantContext } = await import("../src/lib/tenantContext");
+  const { now } = await import("../src/lib/clock");
 
   const db = createDb();
   const platformUsers = new Map<PlatformStaffRole, { id: string; name: string; email: string }>();
@@ -291,7 +296,7 @@ export async function createTestEnv(): Promise<TestEnv> {
       const base = {
         auth: null,
         db,
-        request: new Request("https://api.test"),
+        request: testRequest(),
         impersonation: null,
         impersonationHeaderRejected: false,
         companyHeaderRejected: false,
@@ -315,7 +320,7 @@ export async function createTestEnv(): Promise<TestEnv> {
           ...base,
           session: {
             user: { id: u.id, name: u.name, email: u.email },
-            session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
+            session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null, createdAt: as.sessionCreatedAt ?? now() },
           } as unknown as Context["session"],
           membership: null,
           companyId: null,
@@ -345,7 +350,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         ...base,
         session: {
           user: { id: row.userId, name: row.name, email: row.email },
-          session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null },
+          session: { id: as.sessionId ?? "test-session", signInMethod: as.signInMethod ?? null, createdAt: as.sessionCreatedAt ?? now() },
         } as unknown as Context["session"],
         membership: {
           id: row.membershipId,
@@ -386,10 +391,10 @@ export async function createTestEnv(): Promise<TestEnv> {
       return {
         auth: null,
         db,
-        request: new Request("https://api.test"),
+        request: testRequest(),
         session: {
           user: { id: u.id, name: u.name, email: u.email },
-          session: { id: opts.sessionId ?? "test-session", signInMethod: opts.signInMethod ?? null },
+          session: { id: opts.sessionId ?? "test-session", signInMethod: opts.signInMethod ?? null, createdAt: now() },
         } as unknown as Context["session"],
         ...tenant,
       };

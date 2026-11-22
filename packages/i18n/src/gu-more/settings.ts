@@ -48,6 +48,7 @@ export const guSettings = {
       units: "એકમ",
       security: "સુરક્ષા",
       signIn: "સાઇન-ઇન",
+      buddy: "Buddy",
     },
     security: {
       title: "સાઇન-ઇન",

@@ -12,6 +12,7 @@ import {
 } from "@orrn/db/schema/inventory";
 import { packingList, packingListDispatch, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
+import { buddyCall, buddyDraft, buddyGrant, buddyLink } from "@orrn/db/schema/buddy";
 import { ageingBatch, ageingHardness, ageingOven, ageingRecipe, ageingRow, ageingTempLog, trolley } from "@orrn/db/schema/ageing";
 import { approval } from "@orrn/db/schema/approval";
 import { pressAlert, pressAlertThreshold, pressCollectorFrame, pressRunCollector, spectroInbox } from "@orrn/db/schema/collector";
@@ -1870,6 +1871,11 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(die).where(eq(die.companyId, COMPANY_ID)),
     db.delete(customer).where(eq(customer.companyId, COMPANY_ID)),
     db.delete(auditLog).where(eq(auditLog.companyId, COMPANY_ID)),
+    // orrn buddy: drafts and calls point at grants; a reset plant connects Hermes again.
+    db.delete(buddyDraft).where(eq(buddyDraft.companyId, COMPANY_ID)),
+    db.delete(buddyCall).where(eq(buddyCall.companyId, COMPANY_ID)),
+    db.delete(buddyGrant).where(eq(buddyGrant.companyId, COMPANY_ID)),
+    db.delete(buddyLink).where(eq(buddyLink.companyId, COMPANY_ID)),
     db.delete(docSeries).where(eq(docSeries.companyId, COMPANY_ID)),
     db
       .insert(company)

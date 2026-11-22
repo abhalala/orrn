@@ -27,6 +27,11 @@ export const DEV_ACCOUNTS = {
   staff: { email: "staff@orrn.local", name: "Local Staff" },
   /** KD Extrusion's party login (customer portal, Wave 3): a portal user, never a plant member. */
   party: { email: "party@orrn.local", name: "KD Extrusion (party)" },
+  /**
+   * A second owner of the demo plant, only for `buddy.spec.ts` (review S12): only this person ever connects Hermes in
+   * e2e, so no other owner spec sees the buddy's launcher. Listed last, so "the owner" of a role lookup stays `owner`.
+   */
+  "buddy-owner": { email: "buddy-owner@orrn.local", name: "Local Buddy Owner" },
 } as const;
 
 export type DevAccountKey = keyof typeof DEV_ACCOUNTS;
@@ -49,6 +54,7 @@ export const DEV_MEMBER_ROLES = {
   supervisor: "supervisor",
   press: "press",
   dieroom: "die_room",
+  "buddy-owner": "owner",
 } as const satisfies Partial<Record<DevAccountKey, string>>;
 
 export type DevMemberKey = keyof typeof DEV_MEMBER_ROLES;
