@@ -303,6 +303,7 @@ masters.lists.list	query	deny	reversible
 masters.lists.update	mutation	deny	reversible
 masters.numberFormats.get	query	deny	reversible
 masters.numberFormats.set	mutation	deny	reversible
+masters.packing.forOrder	query	deny	reversible
 masters.packing.setForDispatch	mutation	deny	reversible
 masters.packing.setForLine	mutation	deny	reversible
 masters.people.assign	mutation	deny	reversible

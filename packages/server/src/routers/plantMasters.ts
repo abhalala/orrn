@@ -569,6 +569,15 @@ export const plantMastersRouter = router({
   }),
 
   packing: router({
+    /** The stored mode of packing of each line of one order (the order read does not carry it). */
+    forOrder: companyProcedure.input(z.object({ orderId: id })).query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select({ lineId: salesOrderLine.id, packingModeId: salesOrderLine.packingModeId })
+        .from(salesOrderLine)
+        .where(and(eq(salesOrderLine.salesOrderId, input.orderId), eq(salesOrderLine.companyId, ctx.companyId)));
+      return rows;
+    }),
+
     /** Mode of packing on an order line (null clears). Order desk. */
     setForLine: actionProcedure("order.manage")
       .input(z.object({ lineId: id, packingModeId: id.nullable() }))

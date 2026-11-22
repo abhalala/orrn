@@ -176,6 +176,7 @@ describe("mode of packing and insurance on the packing list", () => {
       const o = await p.order([{ dieId: p.dieA, kg: 500 }]);
       await p.as("office").masters.packing.setForLine({ lineId: o.lineIds[0]!, packingModeId: poly.id });
       await expect(p.as("packer").masters.packing.setForLine({ lineId: o.lineIds[0]!, packingModeId: null })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(await p.as("viewer").masters.packing.forOrder({ orderId: o.id })).toEqual([{ lineId: o.lineIds[0]!, packingModeId: poly.id }]);
 
       const first = await p.pack(p.dieA, [{ kg: 20 }], o.lineIds[0]);
       const d1 = await p.held(first);
@@ -209,6 +210,7 @@ describe("mode of packing and insurance on the packing list", () => {
     const mode = await a.owner.masters.lists.create({ kind: "packing_mode", name: "Carton" });
     const o = await a.order([{ dieId: a.dieA, kg: 100 }]);
     await expect(b.owner.masters.packing.setForLine({ lineId: o.lineIds[0]!, packingModeId: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await b.owner.masters.packing.forOrder({ orderId: o.id })).toEqual([]);
     const bo = await b.order([{ dieId: b.dieA, kg: 100 }]);
     await expect(b.owner.masters.packing.setForLine({ lineId: bo.lineIds[0]!, packingModeId: mode.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const serials = await a.pack(a.dieA, [{ kg: 10 }], o.lineIds[0]);
