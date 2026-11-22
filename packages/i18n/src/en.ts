@@ -3789,6 +3789,8 @@ export const en = {
         store: "Store",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        billing: "Tax invoices and payments",
+        einvoice: "E-invoice and e-way bill",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3802,6 +3804,8 @@ export const en = {
         store: "Store items, GRN and issues",
         purchase: "Scrap vendors, lots and D/C notes",
         complaints: "Customer complaints on a bundle, with the trace and the reply",
+        billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
+        einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6658,6 +6662,8 @@ export const en = {
         store: "Store",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        billing: "Tax invoices",
+        einvoice: "E-invoice",
       },
     },
     letterhead: {

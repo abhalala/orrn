@@ -3776,6 +3776,8 @@ export const hi = {
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
         complaints: "शिकायतें",
+        billing: "टैक्स इनवॉइस और भुगतान",
+        einvoice: "ई-इनवॉइस और ई-वे बिल",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3789,6 +3791,8 @@ export const hi = {
         store: "स्टोर आइटम, GRN और इशू",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
         complaints: "बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ",
+        billing: "टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद",
+        einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6640,6 +6644,8 @@ export const hi = {
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
         complaints: "शिकायतें",
+        billing: "टैक्स इनवॉइस",
+        einvoice: "ई-इनवॉइस",
       },
     },
     letterhead: {

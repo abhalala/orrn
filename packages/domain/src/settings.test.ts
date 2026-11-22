@@ -9,6 +9,8 @@ import {
 } from "./reasonCodes";
 import {
   COMPANY_MODULES,
+  OPT_IN_MODULES,
+  STANDARD_MODULES,
   FLOOR_SETTINGS_DEFAULTS,
   GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS,
   castRequiredOnBundle,
@@ -79,8 +81,31 @@ describe("reason codes (C39: one master with a kind)", () => {
 });
 
 describe("modules (FP-PF-07, C42)", () => {
-  test("allowed set includes purchase (D6)", () => {
-    expect([...COMPANY_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints"]);
+  test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
+    expect([...COMPANY_MODULES]).toEqual([
+      "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints",
+      "billing", "einvoice",
+    ]);
+    expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll"]);
+    expect(STANDARD_MODULES).toHaveLength(11);
+  });
+  test("opt-in modules are off on an empty list and on only when named", () => {
+    for (const m of ["billing", "einvoice"] as const) {
+      expect(isModuleOn([], m)).toBe(false);
+      expect(isModuleOn(null, m)).toBe(false);
+      expect(isModuleOn(["press", "dispatches"], m)).toBe(false);
+      expect(isModuleOn([m], m)).toBe(true);
+    }
+    expect(isModuleOn(["billing"], "einvoice")).toBe(false);
+  });
+  test("naming only opt-in modules keeps every standard module on (billing never switches the floor off)", () => {
+    for (const m of STANDARD_MODULES) {
+      expect(isModuleOn(["billing"], m)).toBe(true);
+      expect(isModuleOn(["billing", "einvoice"], m)).toBe(true);
+    }
+    expect(isModuleOn(["billing", "press"], "press")).toBe(true);
+    expect(isModuleOn(["billing", "press"], "dispatches")).toBe(false);
+    expect(isModuleOn(["Billing"], "billing")).toBe(true);
   });
   test("empty = all on; listed = only those", () => {
     expect(isModuleOn([], "press")).toBe(true);

@@ -26,6 +26,11 @@ export const docTypes = [
   "party_bundle",
   // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
   "complaint",
+  // XE-BILL (0059): tax invoice INV/26-27/n, credit note CN/26-27/n, payment received PAY-n. Invoice and
+  // credit note numbers are taken INSIDE the issuing batch (no gap, never reused; lib/billing/numbering.ts).
+  "invoice",
+  "credit_note",
+  "payment",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

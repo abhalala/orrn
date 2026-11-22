@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
@@ -33,7 +34,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "billing";
 
 export type NavItem = {
   key: string;
@@ -145,10 +146,11 @@ export const GODSEYE_MORE: readonly NavItem[] = [
  * modules existed have none set).
  */
 export function visibleItems(items: readonly NavItem[], me: Me | null | undefined): NavItem[] {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  const modules = me?.company?.modules ?? [];
   return items.filter((item) => {
     if (item.requires && !canAny(me, item.requires)) return false;
-    if (item.module && modules.length > 0 && !modules.includes(item.module)) return false;
+    // The server's rule (`isModuleOn`): opt-in modules such as billing show only when named.
+    if (item.module && !isModuleOn(modules, item.module)) return false;
     return true;
   });
 }

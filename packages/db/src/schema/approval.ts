@@ -42,6 +42,10 @@ export const approvalKinds = [
   // arch 52: a dispatch completed later at the time the truck left (line down); subject = dispatch id;
   // meta { dispatchId, dispatchCode, occurredAt, reason }. No applier: dispatch.complete reads it.
   "dispatch_late_entry",
+  // XE-BILL: cancel an issued tax invoice (or credit note); subject = invoice id; meta { invoiceId,
+  // number, kind } (ids and the number only: approval.list is open to every role). The applier cancels it,
+  // keeps the number used and frees its packing lists. An IRN is cancelled after, by the relay.
+  "invoice_cancel",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

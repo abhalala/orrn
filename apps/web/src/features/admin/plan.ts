@@ -12,18 +12,28 @@ function sameModules(a: readonly string[], b: readonly string[]) {
 }
 
 /**
- * The ticked modules: the saved ones, or every module when none is saved
- * (an empty list means "all on", and the boxes say so).
+ * The ticked modules: the saved ones, or every standard module when no standard one is saved
+ * (an empty list means "all on", and the boxes say so). Opt-in modules (`optIn`, billing and the
+ * like) are ticked only when saved: an empty list never switches them on (XE-BILL).
  */
-export function modulesOn<T extends string>(saved: readonly string[], all: readonly T[]): T[] {
-  const known = all.filter((m) => saved.includes(m));
-  return known.length > 0 ? known : [...all];
+export function modulesOn<T extends string>(saved: readonly string[], all: readonly T[], optIn: readonly string[] = []): T[] {
+  const standard = all.filter((m) => !optIn.includes(m));
+  const known = standard.filter((m) => saved.includes(m));
+  const extras = all.filter((m) => optIn.includes(m) && saved.includes(m));
+  const on = known.length > 0 ? known : standard;
+  return all.filter((m) => on.includes(m) || extras.includes(m));
 }
 
-/** What to save for the ticked boxes: every box ticked is "all on" (empty), otherwise the ticked ones in catalogue order. */
-export function modulesToSave<T extends string>(on: readonly string[], all: readonly T[]): T[] {
+/**
+ * What to save for the ticked boxes: every standard box ticked is "all on" (only the ticked opt-in
+ * keys are saved, else empty), otherwise the ticked ones in catalogue order.
+ */
+export function modulesToSave<T extends string>(on: readonly string[], all: readonly T[], optIn: readonly string[] = []): T[] {
   const ticked = all.filter((m) => on.includes(m));
-  return ticked.length === all.length ? [] : ticked;
+  const standard = all.filter((m) => !optIn.includes(m));
+  const tickedStandard = standard.filter((m) => on.includes(m));
+  if (tickedStandard.length === standard.length) return ticked.filter((m) => optIn.includes(m));
+  return ticked;
 }
 
 /**
