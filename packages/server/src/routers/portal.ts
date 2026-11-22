@@ -42,6 +42,7 @@ import { renderOrrnEmailHtml, sendEmail } from "../lib/email";
 import { openComplaint, partyView } from "../lib/complaints";
 import { assertModule } from "../lib/moduleGate";
 import { lineBalances, lineTotals, orderTotals } from "../lib/orders";
+import { lineWip } from "../lib/regReports";
 import {
   assertSectionsVisible,
   listPortalAccess,
@@ -113,6 +114,22 @@ const portalOrderInput = z.strictObject(
 );
 
 /** XE parity lane REG: a party complaint is a bundle number, a kind, its words and the pieces hit. */
+/** The party's view of a line's stages: kg per stage and the headline stage. No plan or run ids. */
+type LineWipRow = NonNullable<ReturnType<Awaited<ReturnType<typeof lineWip>>["get"]>>;
+function portalProgress(w: LineWipRow | undefined) {
+  if (!w) return null;
+  return {
+    stage: w.stage,
+    notPlannedG: w.notPlanned,
+    plannedG: w.planned,
+    onPressG: w.onPress,
+    ageingG: w.ageing,
+    unpackedG: w.unpacked,
+    packedG: w.packed,
+    dispatchedG: w.dispatched,
+  };
+}
+
 const portalComplaintInput = z.strictObject(
   {
     bundleNo: z.string().trim().min(1).max(40),
@@ -769,6 +786,8 @@ export const portalRouter = router({
       const order = items[0];
       if (!order) portalNotFound();
       const lines = await lineBalances(ctx.db, ctx.portal.companyId, { orderId: order.id });
+      // XE parity REG #32: where each line's kg sits, so the party sees "on the press" or "packed" without calling.
+      const wip = await lineWip(ctx.db, ctx.portal.companyId, lines.map((l) => l.lineId));
       return {
         ...order,
         lines: lines.map((l) => ({
@@ -786,6 +805,7 @@ export const portalRouter = router({
           dispatchedPcs: l.dispatchedPcs,
           bakiG: l.bakiG,
           bakiPcs: l.bakiPcs,
+          progress: portalProgress(wip.get(l.lineId)),
         })),
       };
     }),

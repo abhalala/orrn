@@ -10,7 +10,7 @@ export const PORTAL_PLANT_KEY = "orrn.portalPlant";
  * Party procedures that honour `x-orrn-company` (portalProcedure). Staff `portal.users.*` etc. never do.
  * Add a new party procedure here (the link in trpc-links.ts sends these in their own batch).
  */
-const PARTY_PROCEDURE = /^portal\.(me|today|sections\.visible|orders\.(list|get|create)|dispatches\.(list|get)|packingList\.get|certificate\.get)$/;
+const PARTY_PROCEDURE = /^portal\.(me|today|sections\.visible|orders\.(list|get|create)|dispatches\.(list|get)|complaints\.(list|get|create)|packingList\.get|certificate\.get)$/;
 
 export function isPartyProcedure(name: string): boolean {
   return PARTY_PROCEDURE.test(name);

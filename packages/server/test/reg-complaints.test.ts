@@ -161,3 +161,18 @@ describe("party complaints", () => {
     expect((await party.api.portal.complaints.list()).items).toHaveLength(1);
   }, SLOW);
 });
+
+describe("party order progress (#32)", () => {
+  test("portal.orders.get carries each line's kg by stage and the headline stage", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const party = await helpers.partyLogin(p);
+    const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
+    const serials = await p.pack(p.dieA, [{ kg: 10 }, { kg: 15 }], o.lineIds[0]!);
+    const d = await p.held([serials[0]!]);
+    await p.owner.dispatch.complete({ id: d });
+    const got = await party.api.portal.orders.get({ id: o.id });
+    expect(got.lines[0]!.progress).toMatchObject({ stage: "packed", packedG: 15_000, dispatchedG: 10_000 });
+    expect(Object.keys(got.lines[0]!.progress!).sort()).toEqual(["ageingG", "dispatchedG", "notPlannedG", "onPressG", "packedG", "plannedG", "stage", "unpackedG"]);
+  }, SLOW);
+});

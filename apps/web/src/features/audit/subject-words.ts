@@ -21,6 +21,7 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
   cast: (id) => `/casts/${id}`,
   purchase_lot: (id) => `/purchase/${id}`,
   count_session: (id) => `/stock/count/${id}`,
+  complaint: (id) => `/complaints/${id}`,
 };
 
 export const AUDIT_SUBJECT_TYPES = Object.keys(SUBJECT_PATHS);

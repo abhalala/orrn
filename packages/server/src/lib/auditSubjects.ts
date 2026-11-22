@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
+import { complaint } from "@orrn/db/schema/complaint";
 import { countSession } from "@orrn/db/schema/count";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch } from "@orrn/db/schema/dispatch";
@@ -22,6 +23,7 @@ type Lookup = (db: OrrnDb, companyId: string, ids: string[]) => Promise<Named[]>
  * one. Every lookup is scoped to the plant, so a row that names another plant's id (or an id since deleted) gets no label.
  */
 const LOOKUPS: Record<string, Lookup> = {
+  complaint: (db, companyId, ids) => db.select({ id: complaint.id, label: complaint.number }).from(complaint).where(and(eq(complaint.companyId, companyId), inArray(complaint.id, ids))),
   sales_order: (db, companyId, ids) => db.select({ id: salesOrder.id, label: salesOrder.number }).from(salesOrder).where(and(eq(salesOrder.companyId, companyId), inArray(salesOrder.id, ids))),
   dispatch: (db, companyId, ids) => db.select({ id: dispatch.id, label: dispatch.code }).from(dispatch).where(and(eq(dispatch.companyId, companyId), inArray(dispatch.id, ids))),
   packing_list: (db, companyId, ids) => db.select({ id: packingList.id, label: packingList.code }).from(packingList).where(and(eq(packingList.companyId, companyId), inArray(packingList.id, ids))),

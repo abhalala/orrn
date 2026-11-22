@@ -5,7 +5,7 @@ import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ClipboardList, Cylinder, House, LogOut, Truck, type LucideIcon } from "lucide-react";
+import { ClipboardList, Cylinder, House, LogOut, MessageSquareWarning, Truck, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { LanguageToggle } from "@/shell/language-toggle";
@@ -28,6 +28,7 @@ const NAV: readonly NavEntry[] = [
   { key: "orders", to: "/portal/orders", label: "portal.nav.orders", icon: ClipboardList },
   { key: "dies", to: "/portal/dies", label: "portal.nav.dies", icon: Cylinder },
   { key: "dispatches", to: "/portal/dispatches", label: "portal.nav.dispatches", icon: Truck },
+  { key: "complaints", to: "/portal/complaints", label: "reg.complaints.portalNav", icon: MessageSquareWarning },
 ];
 
 function isActive(entry: NavEntry, pathname: string) {
@@ -37,7 +38,7 @@ function isActive(entry: NavEntry, pathname: string) {
 
 /**
  * The party's own frame (FP-PF-01): no plant navigation, no scan, no search. A phone gets the bottom
- * tabs, wider screens the same four links in the header. The language is the person's saved choice,
+ * tabs, wider screens the same links in the header. The language is the person's saved choice,
  * else the one the plant set for its parties (`portal.me.locale`); the choice is saved on this device
  * only when they make it.
  */
@@ -132,7 +133,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
         data-shell-chrome=""
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden print:hidden"
       >
-        <ul className="m-0 grid h-[72px] list-none grid-cols-4 gap-1 px-2 pt-1 pb-1.5">
+        <ul className="m-0 grid h-[72px] list-none grid-cols-5 gap-1 px-2 pt-1 pb-1.5">
           {NAV.map((entry) => {
             const active = isActive(entry, pathname);
             const Icon = entry.icon;

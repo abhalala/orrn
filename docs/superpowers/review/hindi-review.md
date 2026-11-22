@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
+Counts: 9252 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,11 +191,13 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (89)
+### nav (91)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `ageing` | Ageing | एजिंग |
+| `complaints` | Complaints | शिकायतें |
+| `owner` | Owner | मालिक |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -3148,7 +3150,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (384)
+### admin (386)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3361,6 +3363,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `plan.moduleNames.complaints` | Complaints | शिकायतें |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3371,6 +3374,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
+| `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -8269,6 +8273,341 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
+### reg (330)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `reports.list.rejections` | Rejection register | रिजेक्शन रजिस्टर |
+| `reports.list.rejectionsBody` | Press QC rejects and pack rejects with the reason, run, die copy and shift. | प्रेस QC और पैक रिजेक्ट, कारण, रन, die कॉपी और शिफ्ट के साथ। |
+| `reports.list.recuts` | Recut register | रीकट रजिस्टर |
+| `reports.list.recutsBody` | Bundles cut shorter than their trolley line, with the reason and the weight lost. | ट्रॉली लाइन से छोटे काटे गए बंडल, कारण और खोए हुए वज़न के साथ। |
+| `reports.list.wip` | Where each order stands | हर ऑर्डर कहाँ पहुँचा |
+| `reports.list.wipBody` | Every open order line with its weight split by stage, from not planned to dispatched. | हर खुली ऑर्डर लाइन का वज़न स्टेज के हिसाब से, प्लान नहीं हुआ से डिस्पैच तक। |
+| `reports.list.planActual` | Plan against actual | प्लान बनाम असल |
+| `reports.list.planActualBody` | Planned weight of released plans against the good weight pressed, with downtime reasons. | रिलीज़ प्लान का प्लान वज़न और प्रेस हुआ अच्छा वज़न, डाउनटाइम कारणों के साथ। |
+| `reports.list.unpacked` | Unpacked stock | बिना पैक स्टॉक |
+| `reports.list.unpackedBody` | Pressed and released from ageing but not packed yet, per section and die copy. | प्रेस होकर एजिंग से रिलीज़ हुआ पर अभी पैक नहीं, सेक्शन और die कॉपी के हिसाब से। |
+| `reports.list.materials` | Material reconciliation | माल का मिलान |
+| `reports.list.materialsBody` | Opening, in, out and closing of metal, billets and bundles, and what corrections moved. | मेटल, billet और बंडल का ओपनिंग, आया, गया और क्लोज़िंग, और सुधारों से क्या हिला। |
+| `reports.shown` | Showing {shown} of {total} | {total} में से {shown} दिख रहे हैं |
+| `reports.col.day` | Day | दिन |
+| `reports.col.source` | Source | स्रोत |
+| `reports.col.run` | Run number | रन नंबर |
+| `reports.col.section` | Section | सेक्शन |
+| `reports.col.copy` | Copy | कॉपी |
+| `reports.col.press` | Press | प्रेस |
+| `reports.col.shift` | Shift | शिफ्ट |
+| `reports.col.reason` | Reason | कारण |
+| `reports.col.pieces` | Pieces | पीस |
+| `reports.col.weight` | Weight {massUnit} | वज़न {massUnit} |
+| `reports.col.bundle` | Bundle | बंडल |
+| `reports.col.trolleyLength` | Trolley length | ट्रॉली लंबाई |
+| `reports.col.cutLength` | Cut length | कट लंबाई |
+| `reports.col.kgLost` | Lost {massUnit} | खोया {massUnit} |
+| `reports.col.order` | Order | ऑर्डर |
+| `reports.col.po` | PO | PO |
+| `reports.col.party` | Party | पार्टी |
+| `reports.col.line` | Line | लाइन |
+| `reports.col.baki` | Baki {massUnit} | बाकी {massUnit} |
+| `reports.col.kgSuffix` | {massUnit} | {massUnit} |
+| `reports.col.stages` | Where the weight sits | वज़न कहाँ है |
+| `reports.col.planned` | Planned {massUnit} | प्लान {massUnit} |
+| `reports.col.actual` | Actual {massUnit} | असल {massUnit} |
+| `reports.col.gap` | Gap {massUnit} | फ़र्क़ {massUnit} |
+| `reports.col.achieved` | Achieved % | पूरा % |
+| `reports.col.downtime` | Downtime min | डाउनटाइम मिनट |
+| `reports.col.topReasons` | Top reasons | मुख्य कारण |
+| `reports.col.trolleyLines` | Trolley lines | ट्रॉली लाइन |
+| `reports.col.oldest` | Oldest released | सबसे पुराना रिलीज़ |
+| `reports.col.entries` | Entries | एंट्री |
+| `reports.col.bundles` | Bundles | बंडल |
+| `reports.col.lines` | Open lines | खुली लाइन |
+| `reports.col.ordered` | Ordered {massUnit} | ऑर्डर {massUnit} |
+| `reports.col.dispatched` | Dispatched {massUnit} | डिस्पैच {massUnit} |
+| `reports.rejections.title` | Rejection register | रिजेक्शन रजिस्टर |
+| `reports.rejections.subtitle` | Press QC rejects of logged runs and pack rejects, newest first. The totals cover the whole filter. | लॉग हुए रन के प्रेस QC रिजेक्ट और पैक रिजेक्ट, नए पहले। कुल पूरे फ़िल्टर का है। |
+| `reports.rejections.csvName` | rejections | rejections |
+| `reports.rejections.empty` | No rejections in these days. | इन दिनों में कोई रिजेक्शन नहीं। |
+| `reports.rejections.source` | Source | स्रोत |
+| `reports.rejections.all` | All | सभी |
+| `reports.rejections.sourcePress` | Press QC | प्रेस QC |
+| `reports.rejections.sourcePack` | Pack | पैक |
+| `reports.rejections.byReasonTitle` | By reason | कारण के हिसाब से |
+| `reports.rejections.noReason` | No reason given | कारण नहीं लिखा |
+| `reports.rejections.filterReason` | Reason: {reason} | कारण: {reason} |
+| `reports.rejections.clearReason` | Show all reasons | सभी कारण दिखाएँ |
+| `reports.rejections.pickReason` | Show only {reason} | सिर्फ़ {reason} दिखाएँ |
+| `reports.recuts.title` | Recut register | रीकट रजिस्टर |
+| `reports.recuts.subtitle` | Bundles cut shorter than their trolley line, newest first. The totals cover the whole period. | ट्रॉली लाइन से छोटे काटे गए बंडल, नए पहले। कुल पूरी अवधि का है। |
+| `reports.recuts.csvName` | recuts | recuts |
+| `reports.recuts.empty` | No recut bundles in these days. | इन दिनों में कोई रीकट बंडल नहीं। |
+| `reports.wip.title` | Where each order stands | हर ऑर्डर कहाँ पहुँचा |
+| `reports.wip.subtitle` | Open order lines, oldest order first. The bar shows how the ordered weight splits over the stages. | खुली ऑर्डर लाइनें, पुराना ऑर्डर पहले। पट्टी दिखाती है कि ऑर्डर का वज़न किस स्टेज में कितना है। |
+| `reports.wip.csvName` | order-line-stages | order-line-stages |
+| `reports.wip.empty` | No open order lines. | कोई खुली ऑर्डर लाइन नहीं। |
+| `reports.wip.barLabel` | Stages of order {order} line {line} | ऑर्डर {order} लाइन {line} के स्टेज |
+| `reports.wip.bar` | Stage bar | स्टेज पट्टी |
+| `reports.planActual.title` | Plan against actual | प्लान बनाम असल |
+| `reports.planActual.subtitle` | Planned weight of production plans that start in these days against the good weight of their logged runs. | इन दिनों में शुरू होने वाले प्रोडक्शन प्लान का प्लान वज़न और उनके लॉग हुए रन का अच्छा वज़न। |
+| `reports.planActual.csvName` | plan-against-actual | plan-against-actual |
+| `reports.planActual.empty` | No released plans start in these days. | इन दिनों में कोई रिलीज़ प्लान शुरू नहीं हुआ। |
+| `reports.planActual.groupBy` | Group by | ग्रुप करें |
+| `reports.planActual.notSet` | Not set | तय नहीं |
+| `reports.planActual.reasonMin` | {reason} {min} min | {reason} {min} मिनट |
+| `reports.planActual.group.press` | Press | प्रेस |
+| `reports.planActual.group.die` | Die | Die |
+| `reports.planActual.group.alloy` | Alloy | अलॉय |
+| `reports.planActual.group.shift` | Shift | शिफ्ट |
+| `reports.unpacked.title` | Unpacked stock | बिना पैक स्टॉक |
+| `reports.unpacked.subtitle` | Pressed weight released from ageing and not packed yet, per section and die copy. | एजिंग से रिलीज़ हुआ और अभी पैक नहीं हुआ प्रेस वज़न, सेक्शन और die कॉपी के हिसाब से। |
+| `reports.unpacked.csvName` | unpacked-stock | unpacked-stock |
+| `reports.unpacked.empty` | Nothing is waiting to be packed. | पैक होने के लिए कुछ बाकी नहीं। |
+| `reports.materials.title` | Material reconciliation | माल का मिलान |
+| `reports.materials.subtitle` | Opening plus in, less out, plus the gap, equals closing. Every figure comes from the stock ledger. | ओपनिंग जमा आया, घटा गया, जमा फ़र्क़, बराबर क्लोज़िंग। हर आँकड़ा स्टॉक लेजर से आता है। |
+| `reports.materials.csvName` | material-reconciliation | material-reconciliation |
+| `reports.materials.explain` | In and out are documents that move material. The gap is corrections: opening balances, billet counts at cast close, and bundle voids and restores. | आया और गया वे दस्तावेज़ हैं जो माल हिलाते हैं। फ़र्क़ सुधार हैं: ओपनिंग बैलेंस, कास्ट बंद होने पर billet गिनती, और बंडल void और restore। |
+| `reports.materials.class` | Material | माल |
+| `reports.materials.part` | Part | हिस्सा |
+| `reports.materials.document` | Document | दस्तावेज़ |
+| `reports.materials.opening` | Opening | ओपनिंग |
+| `reports.materials.in` | In | आया |
+| `reports.materials.inTotal` | Total in | कुल आया |
+| `reports.materials.out` | Out | गया |
+| `reports.materials.outTotal` | Total out | कुल गया |
+| `reports.materials.gap` | Gap | फ़र्क़ |
+| `reports.materials.gapTotal` | Total gap | कुल फ़र्क़ |
+| `reports.materials.closing` | Closing | क्लोज़िंग |
+| `reports.materials.none` | Nothing in this period | इस अवधि में कुछ नहीं |
+| `reports.materials.unbalanced` | These figures do not add up. Tell the office. | ये आँकड़े मेल नहीं खाते। ऑफ़िस को बताएँ। |
+| `reports.materials.cls.metal` | Metal | मेटल |
+| `reports.materials.cls.billet` | Billets | Billet |
+| `reports.materials.cls.bundle` | Bundles | बंडल |
+| `reports.materials.group.opening` | Opening balances taken on | ओपनिंग बैलेंस चढ़ाया |
+| `reports.materials.group.pack` | Packed into bundles | बंडल में पैक हुआ |
+| `reports.materials.group.void` | Bundles voided or restored | बंडल void या restore हुए |
+| `reports.materials.group.dispatch` | Dispatched | डिस्पैच हुआ |
+| `reports.materials.group.purchase` | Purchases | खरीद |
+| `reports.materials.group.melt` | Melts | मेल्ट |
+| `reports.materials.group.pack_reject` | Pack rejects | पैक रिजेक्ट |
+| `reports.materials.group.press` | Press close | प्रेस क्लोज़ |
+| `reports.materials.group.cast_tail` | Billet count at cast close | कास्ट बंद होने पर billet गिनती |
+| `reports.materials.group.move` | Moves not netted | जो मूव नेट नहीं हुए |
+| `complaints.title` | Complaints | शिकायतें |
+| `complaints.subtitle` | What customers reported about a bundle, and what the plant did about it. | ग्राहक ने बंडल के बारे में क्या बताया और प्लांट ने उस पर क्या किया। |
+| `complaints.portalNav` | Complaints | शिकायतें |
+| `complaints.noAccess` | You do not have access to the complaint register. | आपके पास शिकायत रजिस्टर देखने की अनुमति नहीं है। |
+| `complaints.loadFailed` | Could not load complaints. Try again. | शिकायतें लोड नहीं हो सकीं। फिर कोशिश करें। |
+| `complaints.notFound` | We could not find that complaint. | यह शिकायत नहीं मिली। |
+| `complaints.back` | Complaints | शिकायतें |
+| `complaints.showMore` | Show more | और दिखाएं |
+| `complaints.empty` | No complaints in this list. | इस सूची में कोई शिकायत नहीं है। |
+| `complaints.filter.label` | Show complaints | शिकायतें दिखाएं |
+| `complaints.filter.withCount` | {label} · {count} | {label} · {count} |
+| `complaints.filter.active` | Active | चालू |
+| `complaints.filter.open` | Open | खुली |
+| `complaints.filter.investigating` | Investigating | जांच में |
+| `complaints.filter.replied` | Replied | जवाब दिया |
+| `complaints.filter.closed` | Closed | बंद |
+| `complaints.filter.all` | All | सब |
+| `complaints.cols.number` | Complaint | शिकायत |
+| `complaints.cols.bundle` | Bundle | बंडल |
+| `complaints.cols.party` | Party | पार्टी |
+| `complaints.cols.kind` | Problem | समस्या |
+| `complaints.cols.status` | Status | स्थिति |
+| `complaints.cols.due` | Action due | कार्रवाई की तारीख |
+| `complaints.cols.opened` | Opened | दर्ज हुई |
+| `complaints.status.open` | Open | खुली |
+| `complaints.status.investigating` | Investigating | जांच में |
+| `complaints.status.replied` | Replied | जवाब दिया |
+| `complaints.status.closed` | Closed | बंद |
+| `complaints.kind.dimension` | Dimension | नाप |
+| `complaints.kind.surface` | Surface | सतह |
+| `complaints.kind.hardness` | Hardness | कठोरता |
+| `complaints.kind.bend` | Bend | मुड़ाव |
+| `complaints.kind.weight` | Weight | वज़न |
+| `complaints.kind.packing` | Packing | पैकिंग |
+| `complaints.kind.short_supply` | Short supply | माल कम आया |
+| `complaints.kind.other` | Other | दूसरी |
+| `complaints.source.staff` | Raised by plant staff | प्लांट स्टाफ ने दर्ज की |
+| `complaints.source.portal` | Raised by the customer in the portal | ग्राहक ने पोर्टल से दर्ज की |
+| `complaints.detail.title` | Complaint {number} | शिकायत {number} |
+| `complaints.detail.facts` | Facts | विवरण |
+| `complaints.detail.party` | Party | पार्टी |
+| `complaints.detail.noParty` | No party | पार्टी नहीं |
+| `complaints.detail.bundle` | Bundle | बंडल |
+| `complaints.detail.source` | How it came in | कैसे आई |
+| `complaints.detail.pieces` | Pieces hit | प्रभावित पीस |
+| `complaints.detail.piecesValue` | {count} {count:piece\|pieces} | {count} {count:पीस\|पीस} |
+| `complaints.detail.opened` | Opened | दर्ज हुई |
+| `complaints.detail.openedBy` | {when} by {name} | {when}, {name} ने |
+| `complaints.detail.openedAt` | {when} | {when} |
+| `complaints.detail.words` | What the customer said | ग्राहक ने क्या कहा |
+| `complaints.detail.traceTitle` | Trace when it was raised | दर्ज करते समय का ट्रेस |
+| `complaints.detail.traceHint` | Frozen when the complaint was opened. It does not change if the bundle changes later. | शिकायत दर्ज होते समय की जानकारी जमा कर ली गई है। बाद में बंडल बदले तो यह नहीं बदलती। |
+| `complaints.detail.traceBundle` | Bundle | बंडल |
+| `complaints.detail.traceSection` | Section | सेक्शन |
+| `complaints.detail.traceCopy` | Die copy | Die कॉपी |
+| `complaints.detail.traceCast` | Cast | Cast |
+| `complaints.detail.traceRuns` | Press runs | प्रेस रन |
+| `complaints.detail.traceAgeing` | Ageing batch | एजिंग बैच |
+| `complaints.detail.traceOrder` | Order | ऑर्डर |
+| `complaints.detail.traceDispatch` | Dispatch | Dispatch |
+| `complaints.detail.traceNone` | Not known | पता नहीं |
+| `complaints.detail.traceNoRuns` | No press run found | कोई प्रेस रन नहीं मिला |
+| `complaints.detail.runLine` | {number} · {press} | {number} · {press} |
+| `complaints.detail.runShift` | Day {day}, shift {shift} | दिन {day}, शिफ्ट {shift} |
+| `complaints.detail.runDay` | Day {day} | दिन {day} |
+| `complaints.detail.orderPo` | PO {po} | PO {po} |
+| `complaints.detail.dispatchPl` | PL {number} | PL {number} |
+| `complaints.detail.dispatchInvoice` | Invoice {number} | इनवॉइस {number} |
+| `complaints.detail.dispatchOpen` | Not completed | पूरा नहीं हुआ |
+| `complaints.detail.partyNo` | Party number {number} | पार्टी नंबर {number} |
+| `complaints.detail.packedOn` | Packed {when} | पैक हुआ {when} |
+| `complaints.investigate.title` | Investigation | जांच |
+| `complaints.investigate.hint` | Root cause, what the plant will do, who does it and by when. | जड़ कारण, प्लांट क्या करेगा, कौन करेगा और कब तक। |
+| `complaints.investigate.rootCause` | Root cause | जड़ कारण |
+| `complaints.investigate.correctiveAction` | Corrective action | सुधार की कार्रवाई |
+| `complaints.investigate.owner` | Action owner | कार्रवाई किसकी ज़िम्मेदारी |
+| `complaints.investigate.ownerNone` | Nobody yet | अभी कोई नहीं |
+| `complaints.investigate.due` | Action due | कार्रवाई की तारीख |
+| `complaints.investigate.done` | The action is done | कार्रवाई पूरी हो गई |
+| `complaints.investigate.doneOn` | Marked done {when} | पूरी मानी गई {when} |
+| `complaints.investigate.save` | Save investigation | जांच सेव करें |
+| `complaints.investigate.saved` | Investigation saved | जांच सेव हुई |
+| `complaints.investigate.last` | Last saved by {name}, {when} | आखिरी बार {name} ने सेव की, {when} |
+| `complaints.investigate.readOnly` | Investigation | जांच |
+| `complaints.reply.title` | Reply to the customer | ग्राहक को जवाब |
+| `complaints.reply.hint` | The customer reads this in their portal. | ग्राहक यह जवाब अपने पोर्टल में पढ़ता है। |
+| `complaints.reply.label` | Reply | जवाब |
+| `complaints.reply.send` | Send reply | जवाब भेजें |
+| `complaints.reply.sent` | Reply sent | जवाब भेज दिया |
+| `complaints.reply.by` | Replied by {name}, {when} | {name} ने जवाब दिया, {when} |
+| `complaints.reply.again` | Send a new reply | नया जवाब भेजें |
+| `complaints.close.title` | Close this complaint | यह शिकायत बंद करें |
+| `complaints.close.hint` | A closed complaint stays closed. A new problem gets a new number. | बंद शिकायत बंद ही रहती है। नई समस्या का नया नंबर बनता है। |
+| `complaints.close.note` | Closing note (optional) | बंद करने का नोट (ज़रूरी नहीं) |
+| `complaints.close.button` | Close complaint | शिकायत बंद करें |
+| `complaints.close.done` | Complaint closed | शिकायत बंद हो गई |
+| `complaints.close.by` | Closed by {name}, {when} | {name} ने बंद की, {when} |
+| `complaints.close.noteShown` | Closing note | बंद करने का नोट |
+| `complaints.errors.changed` | This complaint changed since you opened it. Open it again. | आपके खोलने के बाद यह शिकायत बदल गई है। इसे फिर से खोलें। |
+| `complaints.errors.closed` | This complaint is closed. | यह शिकायत बंद है। |
+| `complaints.errors.badMove` | A complaint cannot move to that status from here. | शिकायत यहां से उस स्थिति में नहीं जा सकती। |
+| `complaints.errors.notMember` | That person is not a member of this plant. | वह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `complaints.errors.tooManyPieces` | More pieces than the bundle has. | बंडल में जितने पीस हैं उससे ज़्यादा लिखे हैं। |
+| `complaints.errors.bundleNotFound` | We could not find that bundle. | वह बंडल नहीं मिला। |
+| `complaints.errors.saveFailed` | Could not save. Try again. | सेव नहीं हो सका। फिर कोशिश करें। |
+| `complaints.errors.noPermission` | You cannot do that. | आप यह नहीं कर सकते। |
+| `complaints.errors.moduleOff` | The complaint register is switched off for this plant. | इस प्लांट के लिए शिकायत रजिस्टर बंद है। |
+| `complaints.bundle.title` | Complaints | शिकायतें |
+| `complaints.bundle.raise` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.bundle.none` | No complaints on this bundle. | इस बंडल पर कोई शिकायत नहीं है। |
+| `complaints.bundle.loadFailed` | Could not load the complaints of this bundle. | इस बंडल की शिकायतें लोड नहीं हो सकीं। |
+| `complaints.bundle.sheetTitle` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.bundle.sheetDescription` | Bundle {serial} | बंडल {serial} |
+| `complaints.bundle.kind` | What is wrong | क्या खराबी है |
+| `complaints.bundle.description` | What the customer said | ग्राहक ने क्या कहा |
+| `complaints.bundle.descriptionHint` | Write it the way the customer told it. | जैसा ग्राहक ने बताया वैसा ही लिखें। |
+| `complaints.bundle.pieces` | Pieces hit (optional) | प्रभावित पीस (ज़रूरी नहीं) |
+| `complaints.bundle.piecesHint` | At most {max} in this bundle. | इस बंडल में ज़्यादा से ज़्यादा {max}। |
+| `complaints.bundle.piecesInvalid` | Enter a whole number from 1 to {max}. | 1 से {max} के बीच पूरी संख्या लिखें। |
+| `complaints.bundle.descriptionMissing` | Write what the customer said. | ग्राहक ने जो कहा वह लिखें। |
+| `complaints.bundle.cancel` | Cancel | रद्द करें |
+| `complaints.bundle.submit` | Save complaint | शिकायत सेव करें |
+| `complaints.bundle.raised` | Complaint {number} saved | शिकायत {number} सेव हुई |
+| `complaints.portal.title` | Complaints | शिकायतें |
+| `complaints.portal.subtitle` | Tell the plant about a problem with a bundle you received. | आपको मिले किसी बंडल में समस्या हो तो प्लांट को बताएं। |
+| `complaints.portal.raise` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.portal.empty` | You have not raised any complaint. | आपने अभी कोई शिकायत दर्ज नहीं की। |
+| `complaints.portal.loadFailed` | Could not load your complaints. Try again. | आपकी शिकायतें लोड नहीं हो सकीं। फिर कोशिश करें। |
+| `complaints.portal.formTitle` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.portal.bundleNo` | Bundle number | बंडल नंबर |
+| `complaints.portal.bundleHint` | The number printed on the bundle label. | बंडल के लेबल पर छपा नंबर। |
+| `complaints.portal.pickDispatch` | Or pick from a dispatch | या किसी Dispatch से चुनें |
+| `complaints.portal.pickDispatchNone` | Choose a dispatch | Dispatch चुनें |
+| `complaints.portal.pickBundle` | Bundle | बंडल |
+| `complaints.portal.pickBundleNone` | Choose a bundle | बंडल चुनें |
+| `complaints.portal.dispatchOption` | {code} · {date} | {code} · {date} |
+| `complaints.portal.bundleOption` | {number} · {section} | {number} · {section} |
+| `complaints.portal.kind` | What is wrong | क्या खराबी है |
+| `complaints.portal.description` | What went wrong | क्या गड़बड़ हुई |
+| `complaints.portal.descriptionHint` | Tell us what you found. | आपने जो देखा वह बताएं। |
+| `complaints.portal.pieces` | Pieces affected (optional) | प्रभावित पीस (ज़रूरी नहीं) |
+| `complaints.portal.piecesInvalid` | Enter a whole number, 1 or more. | पूरी संख्या लिखें, 1 या उससे ज़्यादा। |
+| `complaints.portal.bundleMissing` | Enter the bundle number. | बंडल नंबर लिखें। |
+| `complaints.portal.descriptionMissing` | Write what went wrong. | क्या गड़बड़ हुई वह लिखें। |
+| `complaints.portal.send` | Send complaint | शिकायत भेजें |
+| `complaints.portal.cancel` | Cancel | रद्द करें |
+| `complaints.portal.sent` | Complaint {number} sent | शिकायत {number} भेज दी गई |
+| `complaints.portal.sendFailed` | Could not send the complaint. Try again. | शिकायत नहीं भेजी जा सकी। फिर कोशिश करें। |
+| `complaints.portal.bundleNotFound` | We could not find that bundle on your dispatches. | आपकी Dispatch में वह बंडल नहीं मिला। |
+| `complaints.portal.number` | Complaint | शिकायत |
+| `complaints.portal.bundle` | Bundle | बंडल |
+| `complaints.portal.kindLabel` | Problem | समस्या |
+| `complaints.portal.status` | Status | स्थिति |
+| `complaints.portal.raisedOn` | Raised | दर्ज हुई |
+| `complaints.portal.pieces2` | Pieces affected | प्रभावित पीस |
+| `complaints.portal.yourWords` | Your words | आपके शब्द |
+| `complaints.portal.plantReply` | Reply from the plant | प्लांट का जवाब |
+| `complaints.portal.noReply` | The plant has not replied yet. | प्लांट ने अभी जवाब नहीं दिया। |
+| `complaints.portal.repliedOn` | Replied {when} | जवाब दिया {when} |
+| `complaints.portal.closedOn` | Closed {when} | बंद हुई {when} |
+| `complaints.portal.back` | Complaints | शिकायतें |
+| `stage.notPlanned` | Not planned | प्लान नहीं हुआ |
+| `stage.planned` | Planned | प्लान में |
+| `stage.onPress` | On the press | प्रेस पर |
+| `stage.ageing` | Ageing | एजिंग में |
+| `stage.unpacked` | Waiting to pack | पैकिंग बाकी |
+| `stage.packed` | Packed | पैक हुआ |
+| `stage.dispatched` | Dispatched | भेजा गया |
+| `stage.over` | Over | ज़्यादा |
+| `stage.statusLine` | Status | स्थिति |
+| `owner.title` | Owner | मालिक |
+| `owner.subtitle` | Yesterday at the plant, the same figures as the morning mail. | कल प्लांट में क्या हुआ, सुबह के ईमेल वाले ही आंकड़े। |
+| `owner.day` | Production day {day} | प्रोडक्शन दिन {day} |
+| `owner.pickDay` | Day | दिन |
+| `owner.pressed` | Pressed | प्रेस हुआ |
+| `owner.pressedBody` | {runs} {runs:run\|runs} | {runs} {runs:रन\|रन} |
+| `owner.trials` | Trials {kg} | ट्रायल {kg} |
+| `owner.recovery` | Recovery | रिकवरी |
+| `owner.noRuns` | No runs | कोई रन नहीं |
+| `owner.downtime` | Downtime | रुकावट |
+| `owner.downtimeMin` | {min} min | {min} मिनट |
+| `owner.noDowntime` | No downtime | कोई रुकावट नहीं |
+| `owner.dispatched` | Dispatched | भेजा गया |
+| `owner.dispatchedBody` | {count} {count:load\|loads} | {count} {count:गाड़ी\|गाड़ियां} |
+| `owner.baki` | Open baki | खुली बाकी |
+| `owner.bakiBody` | {count} order {count:line\|lines} | {count} ऑर्डर {count:लाइन\|लाइनें} |
+| `owner.failedCasts` | Casts with failed spectro | spectro में फेल कास्ट |
+| `owner.noFailedCasts` | None | कोई नहीं |
+| `owner.loadFailed` | Could not load the figures. | आंकड़े नहीं खुले। |
+| `owner.noAccess` | This page is for the owner and the plant admin. | यह पेज मालिक और प्लांट एडमिन के लिए है। |
+| `owner.mailTitle` | Morning summary by email | सुबह का सारांश ईमेल पर |
+| `owner.mailHint` | Each morning orrn emails these figures to the owner and the plant admins, at the hour you pick, plant time. | हर सुबह orrn ये आंकड़े मालिक और प्लांट एडमिन को ईमेल करता है, आपके चुने घंटे पर, प्लांट के समय से। |
+| `owner.mailOn` | Send the morning summary | सुबह का सारांश भेजें |
+| `owner.mailHour` | Hour | घंटा |
+| `owner.mailHourValue` | {hour}:00 | {hour}:00 |
+| `owner.mailSave` | Save | सेव करें |
+| `owner.mailSaved` | Saved | सेव हो गया |
+| `owner.mailFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |
+| `billet.title` | Billets for this plan | इस प्लान के लिए billet |
+| `billet.hint` | Billet weight = plan weight divided by the die's own recovery from its logged runs. | billet वज़न = प्लान वज़न भाग die की अपनी रिकवरी (उसके दर्ज रन से)। |
+| `billet.alloy` | Alloy | अलॉय |
+| `billet.length` | Billet length | billet लंबाई |
+| `billet.needKg` | Billets needed | चाहिए billet |
+| `billet.count` | Billets | billet |
+| `billet.stockKg` | In stock | स्टॉक में |
+| `billet.noAlloy` | No alloy | अलॉय नहीं |
+| `billet.unknownLength` | Length not known | लंबाई पता नहीं |
+| `billet.recoveryDie` | Die recovery {pct} | die की रिकवरी {pct} |
+| `billet.recoveryPlant` | Plant recovery {pct}, the die has no logged run | प्लांट की रिकवरी {pct}, die का कोई दर्ज रन नहीं |
+| `billet.recoveryDefault` | Default {pct}, no logged runs yet | डिफ़ॉल्ट {pct}, अभी कोई दर्ज रन नहीं |
+| `billet.ready` | Ready | तैयार |
+| `billet.dieNotReady` | No die copy free to issue | देने के लिए कोई die कॉपी खाली नहीं |
+| `billet.billetsShort` | Not enough billets of {alloy} | {alloy} के billet कम हैं |
+| `billet.readyLabel` | Readiness of the line | लाइन की तैयारी |
+| `billet.loadFailed` | Could not load the billet need. | billet की ज़रूरत नहीं खुली। |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -8353,7 +8692,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (50)
+### plantSettings (51)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8393,6 +8732,7 @@ Please check, Lalubhai:
 | `modules.names.ageing` | Ageing | एजिंग |
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `modules.names.complaints` | Complaints | शिकायतें |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -8532,7 +8872,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (337)
+### audit (343)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8586,6 +8926,7 @@ Please check, Lalubhai:
 | `subjectTypes.cast` | Cast | कास्ट |
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
+| `subjectTypes.complaint` | Complaint | शिकायत |
 | `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
 | `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `subjectTypes.ingest_artifact` | Import file | इम्पोर्ट की फ़ाइल |
@@ -8671,6 +9012,11 @@ Please check, Lalubhai:
 | `actions.count__voidRequested` | Void of missing bundles asked | गायब बंडल void करने को कहा |
 | `actions.customer__aliases__add` | Customer names added | ग्राहकों के नाम जोड़े |
 | `actions.customer__create` | Customer added | ग्राहक जोड़ा |
+| `actions.complaint__open` | Complaint raised | शिकायत दर्ज हुई |
+| `actions.complaint__investigate` | Complaint investigation saved | शिकायत की जाँच सेव हुई |
+| `actions.complaint__reply` | Complaint answered | शिकायत का जवाब दिया |
+| `actions.complaint__close` | Complaint closed | शिकायत बंद हुई |
+| `actions.mis__morning__sent` | Morning summary sent | सुबह का सारांश भेजा |
 | `actions.customer__delete` | Customer removed | ग्राहक हटाया |
 | `actions.customer__import` | Customers imported | ग्राहक इंपोर्ट किए |
 | `actions.customer__update` | Customer changed | ग्राहक बदला |

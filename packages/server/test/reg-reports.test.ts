@@ -6,8 +6,8 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { auditLog, bundle } from "@orrn/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { opHelpers } from "./orders-w1-fixture";
@@ -184,5 +184,46 @@ describe("the owner's page (#81) and the morning mail (#82)", () => {
     };
     const next = mine(await runMorningSummaries(env.db, ist("2026-10-05T09:05:00"), failing, quiet));
     expect(next).toMatchObject([{ companyId: p.companyId, outcome: "failed", recipients: 2 }]);
+  }, SLOW);
+});
+
+async function trolleyRow(companyId: string, dieId: string, pcs: number, lengthMm: number) {
+  const id = crypto.randomUUID();
+  const trolleyId = crypto.randomUUID();
+  const batchId = crypto.randomUUID();
+  await env.db.run(sql`insert into trolley (id, company_id, code, status) values (${trolleyId}, ${companyId}, ${`T-${trolleyId.slice(0, 6)}`}, 'active')`);
+  await env.db.run(sql`insert into ageing_batch (id, company_id, number, status, trolley_id) values (${batchId}, ${companyId}, ${`AG-${batchId.slice(0, 6)}`}, 'released', ${trolleyId})`);
+  await env.db.run(sql`insert into ageing_row (id, company_id, batch_id, die_id, length_mm, pcs, status) values (${id}, ${companyId}, ${batchId}, ${dieId}, ${lengthMm}, ${pcs}, 'released')`);
+  return id;
+}
+
+describe("recut register (#31)", () => {
+  test("a bundle cut shorter than its trolley line keeps its reason and shows in the register with the weight lost", async () => {
+    setClock(NOON);
+    const p = await sales.plant();
+    const q = await sales.plant();
+    const rowId = await trolleyRow(p.companyId, p.dieA, 30, 5_000);
+    await p.owner.bundle.createReceipt({
+      dieId: p.dieA,
+      unit: "pcs",
+      locationId: p.yard,
+      ageingRowId: rowId,
+      rows: [
+        { quantity: 10, weightG: kg(40), lengthMm: 4_000, recutReason: "Bend at one end" },
+        { quantity: 10, weightG: kg(50), lengthMm: 5_000, recutReason: "Not a recut" },
+      ],
+    });
+    const rows = await env.db.select({ recut: bundle.recut, recutReason: bundle.recutReason, lengthMm: bundle.lengthMm }).from(bundle).where(eq(bundle.ageingRowId, rowId));
+    const cut = rows.find((r) => r.lengthMm === 4_000)!;
+    const full = rows.find((r) => r.lengthMm === 5_000)!;
+    expect(cut).toMatchObject({ recut: true, recutReason: "Bend at one end" });
+    // Not shorter than the trolley line: not a recut, and the reason is dropped.
+    expect(full).toMatchObject({ recut: false, recutReason: null });
+    const reg = await p.as("viewer").reports.recuts(RANGE);
+    expect(reg.rows).toHaveLength(1);
+    // 40 kg over 4 000 mm cut from 5 000 mm: 10 kg lost.
+    expect(reg.rows[0]).toMatchObject({ lengthMm: 4_000, fromLengthMm: 5_000, weightG: kg(40), lossG: kg(10), reason: "Bend at one end" });
+    expect(reg.totals).toMatchObject({ bundles: 1, lossG: kg(10) });
+    expect((await q.owner.reports.recuts(RANGE)).rows).toHaveLength(0);
   }, SLOW);
 });
