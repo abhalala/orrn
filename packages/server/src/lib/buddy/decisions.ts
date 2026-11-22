@@ -71,6 +71,8 @@ export const BUDDY_DECISIONS = {
     foundry: allow,
     audit: allow,
     transporter: allow,
+    // XE parity lane REG: reads only; its mutations stay drafts-denied until named in `changes`.
+    complaints: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {

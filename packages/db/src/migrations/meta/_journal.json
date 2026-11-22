@@ -386,6 +386,13 @@
       "when": 1795234557485,
       "tag": "0054_buddy",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1795387132417,
+      "tag": "0056_xe_reg",
+      "breakpoints": true
     }
   ]
 }

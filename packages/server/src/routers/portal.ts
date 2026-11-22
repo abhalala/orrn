@@ -23,6 +23,7 @@ import { z } from "zod";
 
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
+import { complaint, complaintKinds } from "@orrn/db/schema/complaint";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
@@ -38,6 +39,7 @@ import { now as clockNow } from "../lib/clock";
 import { dispatchShipDay } from "../lib/dispatchFigures";
 import { nextDocNumber } from "../lib/docNumber";
 import { renderOrrnEmailHtml, sendEmail } from "../lib/email";
+import { openComplaint, partyView } from "../lib/complaints";
 import { assertModule } from "../lib/moduleGate";
 import { lineBalances, lineTotals, orderTotals } from "../lib/orders";
 import {
@@ -108,6 +110,17 @@ const portalOrderInput = z.strictObject(
     clientRequestId: z.string().trim().min(1).max(64).optional(),
   },
   { error: unknownKeyError("Order") },
+);
+
+/** XE parity lane REG: a party complaint is a bundle number, a kind, its words and the pieces hit. */
+const portalComplaintInput = z.strictObject(
+  {
+    bundleNo: z.string().trim().min(1).max(40),
+    kind: z.enum(complaintKinds),
+    description: text(2000),
+    affectedPcs: z.number().int().min(1).max(100_000).optional(),
+  },
+  { error: unknownKeyError("Complaint") },
 );
 
 // ---------------------------------------------------------------------------
@@ -981,6 +994,68 @@ export const portalRouter = router({
         : null,
       canOrder: sections.length > 0,
     };
+  }),
+
+  /**
+   * XE parity lane REG (#18): the party raises a complaint on a bundle it received (a bundle of one of
+   * its own completed dispatches; anything else is Not found, never a hint). Module `complaints`. The
+   * party sees number, status, its own words and the plant's reply; never the trace or the investigation.
+   */
+  complaints: router({
+    list: portalProcedure.input(z.object(pageInput).optional()).query(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      const rows = await ctx.db
+        .select()
+        .from(complaint)
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId)))
+        .orderBy(desc(complaint.createdAt), desc(complaint.id))
+        .limit(input?.limit ?? 20)
+        .offset(input?.offset ?? 0);
+      return { items: rows.map(partyView) };
+    }),
+    get: portalProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      const [row] = await ctx.db
+        .select()
+        .from(complaint)
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), eq(complaint.id, input.id)))
+        .limit(1);
+      if (!row) portalNotFound();
+      return partyView(row);
+    }),
+    create: portalProcedure.input(portalComplaintInput).mutation(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      // The bundle must have left on one of this party's completed dispatches (serial or the party's number).
+      const [hit] = await ctx.db
+        .select({ id: bundle.id })
+        .from(bundle)
+        .innerJoin(dispatchItem, and(eq(dispatchItem.bundleId, bundle.id), eq(dispatchItem.companyId, bundle.companyId)))
+        .innerJoin(dispatch, and(eq(dispatch.id, dispatchItem.dispatchId), eq(dispatch.companyId, dispatchItem.companyId)))
+        .where(
+          and(
+            eq(bundle.companyId, ctx.portal.companyId),
+            sql`(${bundle.serial} = ${input.bundleNo} or ${bundle.partyNo} = ${input.bundleNo})`,
+            eq(dispatch.customerId, ctx.portal.customerId),
+            eq(dispatch.status, "completed"),
+            isNull(dispatch.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!hit) portalNotFound();
+      const row = await openComplaint(
+        { db: ctx.db, companyId: ctx.portal.companyId, session: ctx.session, impersonation: null },
+        {
+          bundleId: hit.id,
+          source: "portal",
+          kind: input.kind,
+          description: input.description,
+          affectedPcs: input.affectedPcs ?? null,
+          portalUserId: ctx.portal.portalUserId,
+          customerId: ctx.portal.customerId,
+        },
+      );
+      return partyView(row);
+    }),
   }),
 
   users: usersRouter,

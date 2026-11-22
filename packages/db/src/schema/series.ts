@@ -24,6 +24,8 @@ export const docTypes = [
   "die_maker_job",
   "cert",
   "party_bundle",
+  // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
+  "complaint",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

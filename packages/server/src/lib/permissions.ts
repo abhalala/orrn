@@ -130,6 +130,11 @@ export const PLANT_ACTIONS = [
   // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
   // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
   "ingest.check",
+  // XE parity lane REG. Complaints (#18, #34): raise one against a bundle; investigate, reply and close it.
+  "complaint.open",
+  "complaint.manage",
+  // The owner's morning summary on screen and its mail settings (#81, #82): owner and plant admin.
+  "mis.view",
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -271,6 +276,11 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "ingest.merge": ["admin"],
   // Item 16: the people who see prices tick a model-read table; the admin approves it.
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE parity lane REG. Anyone who handles bundles for the customer may raise a complaint; the office
+  // and the supervisors investigate, reply and close. The morning summary is the owner's and the admin's.
+  "complaint.open": ["office", "supervisor", "manager", "admin", "packer"],
+  "complaint.manage": ["office", "supervisor", "manager", "admin"],
+  "mis.view": ["admin"],
   "support.request": [
     "admin",
     "manager",

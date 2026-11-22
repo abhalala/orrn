@@ -37,6 +37,7 @@ import { transporterRouter } from "./transporter";
 import { portalRouter } from "./portal";
 import { ingestRouter } from "./ingest/index";
 import { buddyRouter } from "./buddy";
+import { complaintRouter } from "./complaint";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -87,5 +88,7 @@ export const appRouter = router({
   portal: portalRouter,
   ingest: ingestRouter,
   buddy: buddyRouter,
+  // XE parity lane REG (#18, #34), module `complaints`.
+  complaints: complaintRouter,
 });
 export type AppRouter = typeof appRouter;
