@@ -1,0 +1,21 @@
+{
+  "name": "@orrn/gst-relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orrn/domain": "workspace:*",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "@types/bun": "^1.3.13",
+    "typescript": "^6"
+  }
+}
