@@ -10,6 +10,7 @@ import { computeInvoice, decodeSignedInvoice, gstinCheckDigit } from "@orrn/doma
 import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { portalHelpers } from "./portal-w3-fixture";
 import { salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
 
 let env: TestEnv;
@@ -45,6 +46,7 @@ afterEach(() => {
 });
 
 const { plant, dispatchRow, plRow } = salesHelpers(() => env);
+const portal = portalHelpers(() => env);
 const gstin = (first14: string) => first14 + gstinCheckDigit(first14);
 const PLANT_GSTIN = gstin("24AAACF1234A1Z");
 const PARTY_GSTIN = gstin("24ABCDE1234F1Z");
@@ -53,7 +55,7 @@ const OCT = new Date("2026-10-03T06:30:00.000Z");
 
 /** A plant on billing (optionally e-invoice) with GST settings, the HSN seed, and valid GSTINs. */
 async function billingPlant(modules: string[] = ["billing"]): Promise<SalesPlant> {
-  const p = await plant({ settings: { letterhead: { legalName: "Fourcubes Aluminium Pvt Ltd", gstin: PLANT_GSTIN, address: "Plot 12, GIDC, Surat", phone: "+91 98250 00000" } } });
+  const p = await plant({ settings: { portalEnabled: true, letterhead: { legalName: "Fourcubes Aluminium Pvt Ltd", gstin: PLANT_GSTIN, address: "Plot 12, GIDC, Surat", phone: "+91 98250 00000" } } });
   await env.db.update(company).set({ modules }).where(eq(company.id, p.companyId));
   await env.db.update(customer).set({ taxId: PARTY_GSTIN }).where(eq(customer.id, p.customerId));
   await p.as("admin").billing.settings.save({ stateCode: "24", pincode: "394230", place: "Surat" });
@@ -267,6 +269,17 @@ describe("tax invoice (row 13)", () => {
     await issued(p, [plId]);
     await expect(p.as("office").dispatch.update({ id: dispatchId, invoiceNumber: "T/9" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await dispatchRow(dispatchId)).toMatchObject({ invoiceNumber: "INV/26-27/1" });
+  }, SLOW);
+
+  test("the party's portal shows the invoice number and date once issued", async () => {
+    const p = await billingPlant();
+    const { plId, dispatchId } = await completedPl(p, [10]);
+    const party = await portal.partyLogin(p);
+    expect((await party.api.portal.dispatches.get({ id: dispatchId })).invoiceNumber).toBeNull();
+    await issued(p, [plId]);
+    const row = (await party.api.portal.dispatches.list()).items.find((d) => d.id === dispatchId)!;
+    expect(row).toMatchObject({ invoiceNumber: "INV/26-27/1", invoiceDate: "2026-10-03" });
+    expect(await party.api.portal.dispatches.get({ id: dispatchId })).toMatchObject({ invoiceNumber: "INV/26-27/1" });
   }, SLOW);
 
   test("plants not on billing keep the Tally invoice number link", async () => {
