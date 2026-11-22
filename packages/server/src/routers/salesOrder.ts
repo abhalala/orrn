@@ -43,6 +43,7 @@ import {
   type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
+import { assertFrozenRatesKept } from "../lib/pricing";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
@@ -622,6 +623,8 @@ export const salesOrderRouter = router({
         }
         await assertSections(ctx.db, ctx.companyId, [...changes.filter((c) => c.sectionChanged), ...additions].map((l) => l.sectionId));
       }
+      // XE-PRICE: a rate frozen at confirm changes only through a price change request.
+      assertFrozenRatesKept(changes.map((c) => ({ stored: byId.get(c.id)!, ratePaise: c.ratePaise })));
       const floor = await companyFloor(ctx.db, ctx.companyId);
       const priceOk = canPrice(ctx.role);
       // Review round 1 I-4: an edit of a W1 line keeps its locked basis (or re-bases it, audited).

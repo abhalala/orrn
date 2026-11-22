@@ -24,6 +24,10 @@ export const docTypes = [
   "die_maker_job",
   "cert",
   "party_bundle",
+  // XE-PRICE: quotation Q-, proforma invoice PI-, works order WO- (per FY).
+  "quote",
+  "proforma",
+  "works_order",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

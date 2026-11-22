@@ -149,6 +149,11 @@ export const salesOrderLine = sqliteTable(
     temper: text("temper"),
     /** Rs per kg in paise; null unless `priceOnSalesOrder` and the writer holds `order.price` (C23). */
     ratePaise: integer("rate_paise"),
+    /**
+     * XE-PRICE (0058): the price breakdown frozen at confirm (`@orrn/domain` PriceBreakup); null on
+     * older orders and while pricing is off. Read with the same gate as `ratePaise`.
+     */
+    priceBreakup: text("price_breakup", { mode: "json" }).$type<Record<string, unknown>>(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })

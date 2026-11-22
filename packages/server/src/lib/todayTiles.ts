@@ -20,7 +20,7 @@
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 
-export const TODAY_TILE_KEYS = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"] as const;
+export const TODAY_TILE_KEYS = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides", "enquiries"] as const;
 export type TodayTileKey = (typeof TODAY_TILE_KEYS)[number];
 
 const ALL: readonly TodayTileKey[] = TODAY_TILE_KEYS;
@@ -29,7 +29,7 @@ export const ROLE_TILES: Readonly<Record<CompanyRole, readonly TodayTileKey[]>> 
   owner: ALL,
   admin: ALL,
   manager: ALL,
-  office: ["orders", "dispatch", "stock", "approvals"],
+  office: ["orders", "dispatch", "stock", "approvals", "enquiries"],
   supervisor: ["press", "pack", "dispatch", "approvals"],
   operator: ["pack", "dispatch", "stock"],
   packer: ["pack", "stock"],
@@ -50,6 +50,8 @@ export const TILE_MODULE: Readonly<Partial<Record<TodayTileKey, CompanyModule>>>
   dispatch: "dispatches",
   stock: "bundles",
   store: "store",
+  // XE-PRICE: overdue enquiry follow-ups for the office roles.
+  enquiries: "pricing",
 };
 
 /** The tiles this role sees on Today, with the plant's modules applied (empty list = all on). */

@@ -80,7 +80,7 @@ describe("reason codes (C39: one master with a kind)", () => {
 
 describe("modules (FP-PF-07, C42)", () => {
   test("allowed set includes purchase (D6)", () => {
-    expect([...COMPANY_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase"]);
+    expect([...COMPANY_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "pricing"]);
   });
   test("empty = all on; listed = only those", () => {
     expect(isModuleOn([], "press")).toBe(true);

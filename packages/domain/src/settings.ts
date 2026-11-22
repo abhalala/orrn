@@ -25,6 +25,8 @@ export const COMPANY_MODULES = [
   "ageing",
   "store",
   "purchase",
+  // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
+  "pricing",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 

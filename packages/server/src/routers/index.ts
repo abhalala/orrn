@@ -37,6 +37,7 @@ import { transporterRouter } from "./transporter";
 import { portalRouter } from "./portal";
 import { ingestRouter } from "./ingest/index";
 import { buddyRouter } from "./buddy";
+import { pricingRouter } from "./pricing";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -87,5 +88,7 @@ export const appRouter = router({
   portal: portalRouter,
   ingest: ingestRouter,
   buddy: buddyRouter,
+  // XE-PRICE: price master, quotes, proforma, works order, enquiries (module `pricing`).
+  pricing: pricingRouter,
 });
 export type AppRouter = typeof appRouter;
