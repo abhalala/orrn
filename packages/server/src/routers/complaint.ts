@@ -54,8 +54,8 @@ function assertSeq(row: ComplaintRow, serverSeq: number) {
 }
 
 function assertMove(from: ComplaintStatusValue, to: ComplaintStatusValue) {
-  if (from === to) return;
   if (from === "closed") throw new TRPCError({ code: "BAD_REQUEST", message: COMPLAINT_CLOSED });
+  if (from === to) return;
   if (!complaintNext(from, to)) throw new TRPCError({ code: "BAD_REQUEST", message: COMPLAINT_BAD_MOVE });
 }
 

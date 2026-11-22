@@ -11,6 +11,7 @@ import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
 import { buddyHi } from "./buddy/hi";
+import { regHi } from "./reg/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -216,6 +217,8 @@ export const hi = {
 
   nav: {
     ageing: "एजिंग",
+    complaints: "शिकायतें",
+    owner: "मालिक",
     main: "मुख्य",
     today: "आज",
     pack: "पैकिंग",
@@ -3771,6 +3774,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        complaints: "शिकायतें",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3783,6 +3787,7 @@ export const hi = {
         ageing: "एजिंग बैच और रीडिंग",
         store: "स्टोर आइटम, GRN और इशू",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
+        complaints: "बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6474,6 +6479,8 @@ export const hi = {
 
   buddy: buddyHi,
 
+  reg: regHi,
+
   reasons: {
     kinds: {
       downtime: "रुकावट",
@@ -6629,6 +6636,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        complaints: "शिकायतें",
       },
     },
     letterhead: {
