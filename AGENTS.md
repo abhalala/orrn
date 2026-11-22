@@ -1244,6 +1244,10 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
   you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
   inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
+- **Opt-in modules (XE CONTRACTS).** `OPT_IN_MODULES` (`billing`, `einvoice`, `payroll`) are on only when
+  named: `[]` still means every STANDARD module on, but no opt-in one. A list that names only opt-in keys
+  keeps every standard module on (`isModuleOn` in `@orrn/domain` is the one rule; web nav, settings and
+  Godseye all call it). Opt-in routers also gate their READS (`lib/billing/gate.ts`), since they carry money.
 - **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
   of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
   "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`
@@ -1422,6 +1426,48 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   - Minimum stock lives in `settings.toolingMinStock`. Shortfalls appear on `dashboard.today.toolingShort`.
 - **Documents (#80).** `plant_document` is the register (`routers/plantDocs.ts`, router `docs`). Its files reuse the die upload ticket with `sectionId "_docs"`, and its R2 keys are `{companyId}/dies/_docs/{fileId}`. The die file purge keeps any key a document references.
 - The buddy registry denies `masters`, `toolRoom` and `docs` until they have been reviewed. The tests are `xe-adm-masters`, `xe-adm-formats-approvals` and `xe-adm-toolroom-docs` in `packages/server/test`, plus `packages/domain/src/admin.test.ts`.
+
+# 12b. Billing (XE-BILL)
+
+## Tax invoice, GST, payments, e-invoice (modules `billing`, `einvoice`, both opt-in)
+
+- Routers `billing` and `einvoice` (`packages/server/src/routers/`), logic in `lib/billing/*`, GST math in
+  `@orrn/domain` (`gst.ts`, `gstInvoice.ts`, `einvoice.ts`, `receivables.ts`), migration 0059. Every procedure,
+  reads included, checks the module (`billingProcedure` / `einvoiceProcedure`). Actions: `gst.settings`,
+  `invoice.read`, `invoice.issue`, `invoice.cancel`, `payment.record`; exports reuse `export.accounts`.
+- **Single sources.** The plant's GSTIN and legal name stay in `company.settings.letterhead`; state, pincode,
+  place, signatory, terms, e-invoice start date and Tally ledger names in `billing_settings`. A customer's GSTIN
+  stays `customer.tax_id`; category, state, pincode, ship-to and place of supply in `customer_gst`. A loader
+  (`lib/billing/facts.ts`) returns the facts AND the list of what is missing; a draft is refused with
+  "Billing details missing: ..." until it is empty.
+- **Invoice = frozen packing lists of one customer.** One line per PL group: kg = the group's frozen weight,
+  rate = the order line's `rate_paise` (else a rate typed on the draft, audited). `invoice_source` reserves the
+  dispatches (partial unique index on live rows), so a list and its combined parent are never both billed.
+  Issue rebuilds from the current PL revisions and refuses a superseded or combined one.
+- **Numbers.** `INV/26-27/n` and `CN/26-27/n` (doc types `invoice`, `credit_note`, per FY). They are taken INSIDE
+  the issuing batch (`lib/billing/numbering.ts`: series upsert + UPDATE with a subselect + an abort unless it
+  landed), so a refused issue leaves no gap; never use `nextDocNumber` for them. A cancelled document keeps its
+  number. Payments use `PAY-n` from `nextDocNumber` (gaps allowed). Raw `db.run` cannot go in a D1 batch here:
+  use query builders (`billingAbortUnless` is an INSERT ... SELECT of a NULL id).
+- **GST math (pinned by `packages/domain/src/gst.test.ts`).** Line taxable = half-up(grams x paise/kg / 1000);
+  each tax head is rounded once on the invoice total and split to lines progressively; CGST and SGST each half
+  the rate; round-off to the rupee. Place of supply defaults to the bill-to state; export is 96.
+- **Cancel** is approval `invoice_cancel` (owner, admin, manager; never the requester). Refused when a credit
+  note or a live payment is against it, an e-way bill is active, or the IRN is older than 24 h (then issue a
+  credit note). The applier frees the sources and clears the dispatch and PL header number. The IRN itself is
+  cancelled afterwards by `einvoice.cancelIrn` or the 5-minute cron.
+- **Dispatch link.** Issue writes the number to `dispatch.invoice_number/date` and the current PL header (the
+  portal shows them). `dispatch.update` refuses a typed number on a dispatch with a live orrn invoice; every
+  other dispatch keeps the Tally link (`invoice.link`).
+- **E-invoice.** The Worker never calls a government API: it calls `apps/gst-relay` (Bun + Hono, Indian
+  static IP, not deployed by CI) with an HMAC-signed request (`gstRelayAuth.ts`, 5 minute window, nonces).
+  Bindings `GST_RELAY_URL` + `GST_RELAY_SECRET` (both or neither; in turbo `globalPassThroughEnv`). Unset =
+  "not set up": an invoice that needs an IRN stays `irn_pending` ("Draft, IRN pending") and is never final.
+  IRN states `pending -> auto_retry -> generated | failed` (`lib/billing/einvoiceFlow.ts`); a 2150 duplicate is
+  recovered by document and the signed JWT; SignedInvoice/QR/AckNo/AckDt are written once. Cron `*/5 * * * *`
+  (`scheduled()` branches on `controller.cron`). Tests use `fakeIrpAdapter` via `setIrpAdapterForTests`.
+  The offline e-way bill JSON (`billing.export.ewbJson`) needs no relay. india-compliance is GPL: re-implement,
+  never copy.
 
 # 13. Customer portal
 
