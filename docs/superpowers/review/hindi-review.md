@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
+Counts: 9309 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (89)
+### nav (90)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -264,6 +264,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
 | `audit` | Audit log | ऑडिट लॉग |
+| `pricing` | Prices | भाव |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
@@ -523,7 +524,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `done.passkeyAdd` | Add a passkey | पासकी जोड़ें |
 | `done.passkeyAdded` | Passkey added. Next time, sign in with it. | पासकी जुड़ गई। अगली बार इसी से साइन इन करें। |
 
-### today (136)
+### today (140)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -661,6 +662,10 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `floor.approvalsHint` | {count} waiting | {count} इंतज़ार में |
 | `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
 | `floor.approvalsHintAny` | Requests waiting | इंतज़ार में अनुरोध |
+| `floor.enquiries` | Enquiries to follow up | पूछताछ, फ़ॉलो-अप करना है |
+| `floor.enquiriesHint` | {count} overdue | {count} देर हो चुकी |
+| `floor.enquiriesHintNone` | None overdue | कोई देर नहीं |
+| `floor.enquiriesHintAny` | Follow-up dates | फ़ॉलो-अप की तारीखें |
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
@@ -3148,7 +3153,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (384)
+### admin (386)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3361,6 +3366,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `plan.moduleNames.pricing` | Prices and quotes | भाव और कोटेशन |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3371,6 +3377,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
+| `plan.moduleHints.pricing` | Price master, quotes, proformas and enquiries | भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -3727,7 +3734,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (174)
+### refusal (175)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3868,6 +3875,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `maxDies` | At most {max} dies on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} die। |
 | `alreadyDecided` | This request was already decided. | इस रिक्वेस्ट पर पहले ही फ़ैसला हो चुका है। |
 | `ownRequest` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
+| `frozenRate` | This line's rate was fixed when the order was confirmed. Ask for a rate change from the price sheet. | इस लाइन का भाव ऑर्डर कन्फर्म होते समय तय हो गया था। भाव बदलने के लिए भाव शीट से अनुरोध करें। |
 | `minOverMax` | The minimum weight can't be more than the maximum weight. | कम से कम वज़न, ज़्यादा से ज़्यादा वज़न से ज़्यादा नहीं हो सकता। |
 | `dieExists` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड की die पहले से है। |
 | `copyOwnerClash` | {code} belongs to another customer. Clear that copy's owner first. | {code} दूसरे ग्राहक की है। पहले उस कॉपी का मालिक हटाएं। |
@@ -4443,7 +4451,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (166)
+### approvals (167)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4472,6 +4480,7 @@ Please check, Lalubhai:
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `kind.dispatch_off_band` | Bundle off the order weight | ऑर्डर के वज़न से हटा bundle |
 | `kind.dispatch_late_entry` | Packing list entered late | देर से भरी पैकिंग लिस्ट |
+| `kind.price_change` | Price change | दाम में बदलाव |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
@@ -7139,6 +7148,381 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
+### price (370)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Prices | भाव |
+| `master.subtitle` | The rates every order line and quote is priced from. A change applies only after a manager approves it. | वे रेट जिनसे हर ऑर्डर लाइन और कोटेशन का भाव बनता है। बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। |
+| `master.sectionsLabel` | Price pages | भाव के पन्ने |
+| `master.tabPrices` | Prices | भाव |
+| `master.tabQuotes` | Quotes | कोटेशन |
+| `master.tabEnquiries` | Enquiries | पूछताछ |
+| `master.noAccess` | Your role can't read the price list. Ask an owner, admin or manager. | आपकी भूमिका भाव की सूची नहीं पढ़ सकती। ओनर, एडमिन या मैनेजर से पूछें। |
+| `master.loadFailed` | Couldn't load the prices. Try again. | भाव नहीं खुले। फिर कोशिश करें। |
+| `master.onDate` | Rates as on {date} | {date} के रेट |
+| `master.notReadyTitle` | Prices are not ready yet | भाव अभी तैयार नहीं हैं |
+| `master.notReadyBody` | Orders and quotes cannot be priced until {missing} is set and approved. | {missing} तय होकर मंज़ूर होने तक ऑर्डर और कोटेशन का भाव नहीं बन सकता। |
+| `master.notReadyBodyGeneric` | Orders and quotes cannot be priced until the base metal rate and the plant conversion are set and approved. | बेस मेटल रेट और प्लांट कन्वर्ज़न तय होकर मंज़ूर होने तक ऑर्डर और कोटेशन का भाव नहीं बन सकता। |
+| `master.missingMetal` | the base metal rate | बेस मेटल रेट |
+| `master.missingConversion` | the plant conversion | प्लांट कन्वर्ज़न |
+| `master.missingBoth` | the base metal rate and the plant conversion | बेस मेटल रेट और प्लांट कन्वर्ज़न |
+| `master.approvalNote` | A change applies only after a manager approves it. Until then the old rate stands. | बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। तब तक पुराना रेट चलता है। |
+| `master.empty` | Nothing set yet | अभी कुछ तय नहीं है |
+| `master.add` | Add | जोड़ें |
+| `master.change` | Change rate | रेट बदलें |
+| `master.changeLabel` | Change rate: {name} | रेट बदलें: {name} |
+| `master.pendingBlocks` | A change to this rate is waiting for approval. | इस रेट का एक बदलाव मंज़ूरी के इंतज़ार में है। |
+| `master.current` | Applies now | अभी लागू |
+| `master.noCurrent` | No rate applies yet | अभी कोई रेट लागू नहीं है |
+| `master.from` | from {date} | {date} से |
+| `master.waiting` | Waiting for approval | मंज़ूरी का इंतज़ार |
+| `master.waitingLine` | {rate} {from} | {rate}, {from} |
+| `master.upcoming` | Coming up | आने वाले |
+| `master.upcomingLine` | {rate} {from} | {rate}, {from} |
+| `master.reasonLine` | Reason: {reason} | कारण: {reason} |
+| `master.perKg` | ₹{rate} per kg | ₹{rate} प्रति kg |
+| `master.perPiece` | ₹{rate} per piece | ₹{rate} प्रति पीस |
+| `master.perOrder` | ₹{rate} per order | ₹{rate} प्रति ऑर्डर |
+| `master.always` | On every order | हर ऑर्डर पर |
+| `master.optional` | Only when picked on a quote line | सिर्फ़ तब जब कोटेशन लाइन पर चुना जाए |
+| `master.names.metal.nalco` | Nalco list | Nalco लिस्ट |
+| `master.names.metal.lme` | London metal price | लंदन मेटल भाव |
+| `master.names.metal.manual` | Typed rate | हाथ से डाला रेट |
+| `master.names.conversionDefault` | Plant conversion | प्लांट कन्वर्ज़न |
+| `master.names.conversionSeries` | Section group {series} | सेक्शन ग्रुप {series} |
+| `master.names.conversionDie` | Section {code} | सेक्शन {code} |
+| `master.names.customer.conversion` | {name}: own conversion | {name}: अपना कन्वर्ज़न |
+| `master.names.customer.discount` | {name}: discount | {name}: छूट |
+| `master.names.customer.fixed` | {name}: fixed rate | {name}: तय रेट |
+| `master.kinds.metal.title` | Base metal | बेस मेटल |
+| `master.kinds.metal.hint` | The metal rate per kg that every price starts from. | प्रति kg मेटल रेट, जिससे हर भाव शुरू होता है। |
+| `master.kinds.conversion.title` | Conversion | कन्वर्ज़न |
+| `master.kinds.conversion.hint` | What the plant charges per kg to press, on top of the metal. A section or a group can have its own. | मेटल के ऊपर प्लांट प्रति kg प्रेस करने का क्या लेता है। किसी सेक्शन या ग्रुप का अपना हो सकता है। |
+| `master.kinds.alloy.title` | Alloy surcharge | अलॉय अतिरिक्त |
+| `master.kinds.alloy.hint` | Extra per kg for an alloy. | किसी अलॉय पर प्रति kg अतिरिक्त। |
+| `master.kinds.finish.title` | Finish | फ़िनिश |
+| `master.kinds.finish.hint` | Price per kg of a finish such as anodise. A plain finish has no price. | एनोडाइज़ जैसी फ़िनिश का प्रति kg भाव। सादी फ़िनिश का कोई भाव नहीं। |
+| `master.kinds.component.title` | Add-ons | ऐड-ऑन |
+| `master.kinds.component.hint` | Cutting, packing and other charges, per piece or once per order. | कटिंग, पैकिंग और दूसरे चार्ज, प्रति पीस या हर ऑर्डर पर एक बार। |
+| `master.kinds.customer.title` | Customer terms | पार्टी की शर्तें |
+| `master.kinds.customer.hint` | A party's own conversion, a discount per kg, or one fixed rate. | पार्टी का अपना कन्वर्ज़न, प्रति kg छूट, या एक तय रेट। |
+| `master.settings.title` | Price settings | भाव की सेटिंग |
+| `master.settings.hint` | Settings apply at once. Only rates wait for a manager. | सेटिंग तुरंत लागू होती है। सिर्फ़ रेट मैनेजर का इंतज़ार करते हैं। |
+| `master.settings.metal` | Metal list | मेटल लिस्ट |
+| `master.settings.metalOptions.nalco` | Nalco list | Nalco लिस्ट |
+| `master.settings.metalOptions.lme` | London metal price | लंदन मेटल भाव |
+| `master.settings.metalOptions.manual` | Typed rate | हाथ से डाला रेट |
+| `master.settings.tax` | Estimated tax (%) | अनुमानित टैक्स (%) |
+| `master.settings.taxHint` | Shown on a proforma invoice as an estimate. The real tax comes with the tax invoice. | प्रोफार्मा इनवॉइस पर अनुमान के रूप में दिखता है। असली टैक्स टैक्स इनवॉइस में आता है। |
+| `master.settings.days` | Quote valid for (days) | कोटेशन कितने दिन चले |
+| `master.settings.save` | Save settings | सेटिंग सेव करें |
+| `master.settings.saved` | Price settings saved | भाव की सेटिंग सेव हुई |
+| `master.settings.saveFailed` | Couldn't save the settings. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
+| `master.settings.errors.tax` | Enter a percent from 0 to 100, like 18. | 0 से 100 के बीच प्रतिशत डालें, जैसे 18। |
+| `master.settings.errors.days` | Enter whole days from 1 to 365. | 1 से 365 के बीच पूरे दिन डालें। |
+| `form.intro` | A change applies only after a manager approves it. Until then the old rate stands. | बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। तब तक पुराना रेट चलता है। |
+| `form.addTitle` | Add: {what} | जोड़ें: {what} |
+| `form.changeTitle` | Change rate: {what} | रेट बदलें: {what} |
+| `form.source` | Metal list | मेटल लिस्ट |
+| `form.rate` | Rate (₹ per kg) | रेट (₹ प्रति kg) |
+| `form.rateAddon` | Charge (₹) | चार्ज (₹) |
+| `form.rateDiscount` | Discount (₹ per kg) | छूट (₹ प्रति kg) |
+| `form.rateFixed` | Fixed rate (₹ per kg) | तय रेट (₹ प्रति kg) |
+| `form.lmeUsd` | London metal price (dollars per tonne) | लंदन मेटल भाव (डॉलर प्रति टन) |
+| `form.lmeInr` | Rupees per dollar | रुपये प्रति डॉलर |
+| `form.lmePremium` | Premium (₹ per kg) | प्रीमियम (₹ प्रति kg) |
+| `form.lmePremiumHint` | Leave empty for none. | न हो तो खाली छोड़ें। |
+| `form.lmePreview` | Works out to ₹{rate} per kg | प्रति kg रेट बनता है ₹{rate} |
+| `form.lmeWaiting` | Fill in the first two boxes to see the rate per kg. | प्रति kg रेट देखने के लिए पहले दो खाने भरें। |
+| `form.scope` | Applies to | किस पर लागू |
+| `form.scopes.default` | The whole plant | पूरा प्लांट |
+| `form.scopes.series` | A section group | एक सेक्शन ग्रुप |
+| `form.scopes.die` | One section | एक सेक्शन |
+| `form.series` | Section group | सेक्शन ग्रुप |
+| `form.alloy` | Alloy | अलॉय |
+| `form.finish` | Finish | फ़िनिश |
+| `form.label` | Add-on name | ऐड-ऑन का नाम |
+| `form.basis` | Charged | कैसे लगे |
+| `form.bases.piece` | Per piece | प्रति पीस |
+| `form.bases.order` | Once per order | हर ऑर्डर पर एक बार |
+| `form.always` | Add to every order | हर ऑर्डर में जोड़ें |
+| `form.customer` | Customer | पार्टी |
+| `form.mode` | Term | शर्त |
+| `form.modes.conversion` | Own conversion per kg | प्रति kg अपना कन्वर्ज़न |
+| `form.modes.discount` | Discount per kg | प्रति kg छूट |
+| `form.modes.fixed` | Fixed rate per kg | प्रति kg तय रेट |
+| `form.effective` | Starts on | कब से |
+| `form.effectiveHint` | Leave empty to start today. | आज से शुरू करना हो तो खाली छोड़ें। |
+| `form.reason` | Reason | कारण |
+| `form.reasonHint` | Say why. The manager reads this before approving. | वजह लिखें। मैनेजर मंज़ूर करने से पहले इसे पढ़ता है। |
+| `form.submit` | Send for approval | मंज़ूरी के लिए भेजें |
+| `form.sent` | Sent for approval. The old rate stands until a manager approves it. | मंज़ूरी के लिए भेजा गया। मैनेजर के मंज़ूर करने तक पुराना रेट चलेगा। |
+| `form.errors.rate` | Enter a rate in rupees, like 205.50. | रुपये में रेट डालें, जैसे 205.50। |
+| `form.errors.lme` | Enter the London metal price and the rupees per dollar. | लंदन मेटल भाव और रुपये प्रति डॉलर डालें। |
+| `form.errors.series` | Enter the section group. | सेक्शन ग्रुप डालें। |
+| `form.errors.die` | Pick the section. | सेक्शन चुनें। |
+| `form.errors.alloy` | Enter the alloy, up to 16 characters. | अलॉय डालें, 16 अक्षर तक। |
+| `form.errors.finish` | Enter the finish. | फ़िनिश डालें। |
+| `form.errors.label` | Enter the add-on name. | ऐड-ऑन का नाम डालें। |
+| `form.errors.customer` | Pick the customer. | पार्टी चुनें। |
+| `form.errors.reason` | Give a reason of a few words. | कुछ शब्दों में कारण लिखें। |
+| `form.errors.date` | Pick a date. | तारीख चुनें। |
+| `line.summary` | Price details | भाव का ब्योरा |
+| `line.perKg` | ₹{rate} per kg | ₹{rate} प्रति kg |
+| `line.rows.metal` | Base metal | बेस मेटल |
+| `line.rows.conversion` | Conversion | कन्वर्ज़न |
+| `line.rows.alloy` | Alloy surcharge | अलॉय अतिरिक्त |
+| `line.rows.finish` | Finish | फ़िनिश |
+| `line.rows.addons` | Add-ons, per kg | ऐड-ऑन, प्रति kg |
+| `line.rows.discount` | Discount | छूट |
+| `line.rows.fixed` | Fixed rate for this customer | इस पार्टी का तय रेट |
+| `line.rows.computed` | Rate from the master | मास्टर से बना रेट |
+| `line.rows.override` | Rate changed by hand | हाथ से बदला रेट |
+| `line.rows.final` | Rate on this line | इस लाइन का रेट |
+| `line.notes.metalList` | {source}, list of {date} | {source}, {date} की लिस्ट |
+| `line.notes.lme` | {usd} dollars per tonne at ₹{inr} per dollar, premium ₹{premium} per kg | {usd} डॉलर प्रति टन, ₹{inr} प्रति डॉलर, प्रीमियम ₹{premium} प्रति kg |
+| `line.notes.conversionFrom.customer` | This customer's own conversion | इस पार्टी का अपना कन्वर्ज़न |
+| `line.notes.conversionFrom.die` | Set for this section | इस सेक्शन के लिए तय |
+| `line.notes.conversionFrom.series` | Set for this section group | इस सेक्शन ग्रुप के लिए तय |
+| `line.notes.conversionFrom.default` | Plant conversion | प्लांट कन्वर्ज़न |
+| `line.notes.approved` | Approved by a manager | मैनेजर ने मंज़ूर किया |
+| `line.change` | Change rate | रेट बदलें |
+| `line.changeLabel` | Change rate of line {n} | लाइन {n} का रेट बदलें |
+| `line.changeTitle` | Change the rate of line {n} | लाइन {n} का रेट बदलें |
+| `line.changeIntro` | {order}. The rate from the master is ₹{computed} per kg. | {order}। मास्टर से बना रेट ₹{computed} प्रति kg है। |
+| `line.asked` | New rate (₹ per kg) | नया रेट (₹ प्रति kg) |
+| `line.reason` | Reason | कारण |
+| `line.reasonHint` | Say why this party gets this rate. | लिखें कि इस पार्टी को यह रेट क्यों मिल रहा है। |
+| `line.waits` | This is below the rate from the master. It will wait for a manager to approve it. The line keeps ₹{now} per kg until then. | यह मास्टर से बने रेट से कम है। मैनेजर के मंज़ूर करने तक यह रुका रहेगा। तब तक लाइन का रेट ₹{now} प्रति kg रहेगा। |
+| `line.applies` | This is at or above the rate from the master, so it applies at once. | यह मास्टर के रेट के बराबर या ज़्यादा है, इसलिए तुरंत लागू होगा। |
+| `line.same` | This is the rate the line has now. | लाइन का रेट अभी यही है। |
+| `line.save` | Save rate | रेट सेव करें |
+| `line.submitApproval` | Send for approval | मंज़ूरी के लिए भेजें |
+| `line.savedNow` | Rate changed | रेट बदल गया |
+| `line.sentApproval` | Sent for approval. The line keeps its rate until a manager approves it. | मंज़ूरी के लिए भेजा गया। मैनेजर के मंज़ूर करने तक लाइन का रेट वही रहेगा। |
+| `line.failed` | Couldn't change the rate. Try again. | रेट नहीं बदला जा सका। फिर कोशिश करें। |
+| `line.errors.rate` | Enter a rate in rupees, like 205.50. | रुपये में रेट डालें, जैसे 205.50। |
+| `line.errors.reason` | Give a reason of a few words. | कुछ शब्दों में कारण लिखें। |
+| `approval.openPrices` | Open prices | भाव खोलें |
+| `approval.title` | The change | बदलाव |
+| `approval.hidden` | The rates are shown only to people who can read prices. | रेट सिर्फ़ उन्हें दिखते हैं जो भाव पढ़ सकते हैं। |
+| `approval.loadFailed` | Couldn't load the rate. Try again. | रेट नहीं खुला। फिर कोशिश करें। |
+| `approval.what` | Rate | रेट |
+| `approval.now` | Rate now | अभी का रेट |
+| `approval.noBefore` | No rate before | पहले कोई रेट नहीं |
+| `approval.asked` | Rate asked | माँगा गया रेट |
+| `approval.startsOn` | Starts on | कब से |
+| `approval.order` | Order and line | ऑर्डर और लाइन |
+| `approval.orderValue` | {order}, line {line} | {order}, लाइन {line} |
+| `approval.computed` | Rate from the master | मास्टर से बना रेट |
+| `approval.askedLine` | Rate asked | माँगा गया रेट |
+| `approval.subject.metal` | Base metal rate change | बेस मेटल रेट का बदलाव |
+| `approval.subject.conversion` | Conversion rate change | कन्वर्ज़न रेट का बदलाव |
+| `approval.subject.alloy` | Alloy surcharge change | अलॉय अतिरिक्त का बदलाव |
+| `approval.subject.finish` | Finish rate change | फ़िनिश रेट का बदलाव |
+| `approval.subject.component` | Add-on rate change | ऐड-ऑन रेट का बदलाव |
+| `approval.subject.customer` | Customer terms change | पार्टी की शर्तों का बदलाव |
+| `approval.subject.line` | Order line rate change | ऑर्डर लाइन के रेट का बदलाव |
+| `approval.subject.rate` | Rate change | रेट का बदलाव |
+| `docsTitle` | Quotes and enquiries | कोटेशन और पूछताछ |
+| `quotes.title` | Quotes | कोटेशन |
+| `quotes.subtitle` | Price a customer's enquiry from the price master, send it, and turn it into an order. | ग्राहक की पूछताछ का भाव प्राइस मास्टर से निकालें, भेजें और ऑर्डर बनाएं। |
+| `quotes.new` | New quote | नया कोटेशन |
+| `quotes.empty` | No quotes yet. Make the first one from a customer's enquiry. | अभी कोई कोटेशन नहीं है। ग्राहक की पूछताछ से पहला बनाएं। |
+| `quotes.noMatch` | No quote matches these filters. | इन फ़िल्टर से कोई कोटेशन नहीं मिला। |
+| `quotes.loadFailed` | Quotes didn't load. Check the connection and try again. | कोटेशन नहीं आए। कनेक्शन जांचकर फिर कोशिश करें। |
+| `quotes.pages` | Quote pages | कोटेशन के पन्ने |
+| `quotes.status.draft` | Draft | ड्राफ़्ट |
+| `quotes.status.sent` | Sent | भेजा गया |
+| `quotes.status.converted` | Order made | ऑर्डर बना |
+| `quotes.status.cancelled` | Cancelled | रद्द |
+| `quotes.status.expired` | Expired | मियाद खत्म |
+| `quotes.columns.number` | Quote | कोटेशन |
+| `quotes.columns.customer` | Customer | ग्राहक |
+| `quotes.columns.status` | Status | स्थिति |
+| `quotes.columns.date` | Date | तारीख |
+| `quotes.columns.validUntil` | Valid until | मान्य तारीख |
+| `quotes.columns.weight` | Weight | वज़न |
+| `quotes.columns.amount` | Amount | रकम |
+| `quotes.filters.label` | Filter quotes | कोटेशन छांटें |
+| `quotes.filters.status` | Status | स्थिति |
+| `quotes.filters.anyStatus` | Any status | कोई भी स्थिति |
+| `quotes.filters.customer` | Customer | ग्राहक |
+| `quotes.filters.anyCustomer` | Any customer | कोई भी ग्राहक |
+| `quotes.filters.text` | Quote number or customer | कोटेशन नंबर या ग्राहक |
+| `quotes.filters.textPlaceholder` | Type to narrow the list | सूची छोटी करने के लिए लिखें |
+| `quotes.filters.from` | Quote date from | कोटेशन तारीख से |
+| `quotes.filters.to` | Quote date to | कोटेशन तारीख तक |
+| `quotes.filters.clear` | Clear filters | फ़िल्टर हटाएं |
+| `quotes.form.subtitle` | Pick the customer, add the sections and the weight. Rates come from the price master. | ग्राहक चुनें, सेक्शन और वज़न जोड़ें। भाव प्राइस मास्टर से आता है। |
+| `quotes.form.party` | Customer and validity | ग्राहक और मान्यता |
+| `quotes.form.validUntil` | Valid until | मान्य तारीख |
+| `quotes.form.validHint` | A new quote stays valid for {days} days unless you change the date. | नया कोटेशन {days} दिन मान्य रहता है, जब तक आप तारीख न बदलें। |
+| `quotes.form.addLine` | Add a line | लाइन जोड़ें |
+| `quotes.form.pcsHint` | Optional. The price is on the weight. | ज़रूरी नहीं। भाव वज़न पर है। |
+| `quotes.form.rate` | Rate over the master | मास्टर से ऊपर भाव |
+| `quotes.form.rateHint` | Leave empty for the master rate. A rate can only go above it. | मास्टर भाव के लिए खाली छोड़ें। भाव सिर्फ़ उससे ऊपर जा सकता है। |
+| `quotes.form.addons` | Add-ons | ऐड-ऑन |
+| `quotes.form.addonAlways` | always charged | हमेशा लगता है |
+| `quotes.form.addonOrder` | once per quote | कोटेशन में एक बार |
+| `quotes.form.addonPiece` | per piece | हर पीस पर |
+| `quotes.form.priceHint` | Pick a section and a weight to see the rate. | भाव देखने के लिए सेक्शन और वज़न चुनें। |
+| `quotes.form.pricing` | Working out the rate | भाव निकल रहा है |
+| `quotes.form.lineMissing` | The price master has no rate for this line yet. Ask a manager to add it. | इस लाइन का भाव प्राइस मास्टर में अभी नहीं है। मैनेजर से जुड़वाएं। |
+| `quotes.form.lineRate` | Rate {rate} per kg | भाव {rate} प्रति kg |
+| `quotes.form.breakup` | How the rate is made | भाव कैसे बना |
+| `quotes.form.total` | Quote total: {kg} {massUnit}, {amount} | कोटेशन कुल: {kg} {massUnit}, {amount} |
+| `quotes.form.masterNotReady` | The price master is not complete. Rates can't be worked out yet. | प्राइस मास्टर पूरा नहीं है। अभी भाव नहीं निकल सकते। |
+| `quotes.form.missingRates` | {count} {count:line has\|lines have} no rate yet. | {count} {count:लाइन का\|लाइनों का} भाव अभी नहीं है। |
+| `quotes.form.save` | Save quote | कोटेशन सेव करें |
+| `quotes.form.saveChanges` | Save changes | बदलाव सेव करें |
+| `quotes.form.saved` | Quote saved | कोटेशन सेव हुआ |
+| `quotes.form.errors.kg` | Enter the weight. | वज़न डालें। |
+| `quotes.form.errors.pcs` | Pieces must be a whole number, or empty. | पीस पूरी संख्या में हों, या खाली छोड़ें। |
+| `quotes.form.errors.rateLow` | A quote rate can't go below the master rate. | कोटेशन का भाव मास्टर भाव से नीचे नहीं जा सकता। |
+| `quotes.form.errors.validUntil` | Pick the date the quote is valid until. | कोटेशन की मान्य तारीख चुनें। |
+| `quotes.form.errors.validBefore` | The quote can't run out before its own date. | कोटेशन अपनी तारीख से पहले खत्म नहीं हो सकता। |
+| `quotes.detail.editTitle` | Change quote {number} | कोटेशन {number} बदलें |
+| `quotes.detail.validUntilOn` | Valid until {date} | {date} तक मान्य |
+| `quotes.detail.dated` | Dated {date} | तारीख {date} |
+| `quotes.detail.order` | Order {number} | ऑर्डर {number} |
+| `quotes.detail.lines` | Lines | लाइनें |
+| `quotes.detail.lineTitle` | Line {n}: {section} | लाइन {n}: {section} |
+| `quotes.detail.total` | Total {amount} | कुल {amount} |
+| `quotes.detail.print` | Print quote | कोटेशन प्रिंट करें |
+| `quotes.detail.printFailed` | The quote didn't print. Try again. | कोटेशन प्रिंट नहीं हुआ। फिर कोशिश करें। |
+| `quotes.detail.markSent` | Mark sent | भेजा हुआ मानें |
+| `quotes.detail.sentDone` | Quote marked as sent | कोटेशन भेजा हुआ दर्ज हुआ |
+| `quotes.detail.convert` | Make order | ऑर्डर बनाएं |
+| `quotes.detail.convertTitle` | Make an order from {number} | {number} से ऑर्डर बनाएं |
+| `quotes.detail.convertHint` | This books a sales order with these lines. Add the customer's PO number if you have it. | इससे इन्हीं लाइनों का सेल्स ऑर्डर बुक होगा। ग्राहक का PO नंबर हो तो डालें। |
+| `quotes.detail.converted` | Order {number} made | ऑर्डर {number} बना |
+| `quotes.detail.cancelQuote` | Cancel quote | कोटेशन रद्द करें |
+| `quotes.detail.cancelTitle` | Cancel quote {number} | कोटेशन {number} रद्द करें |
+| `quotes.detail.cancelHint` | A cancelled quote can't be sent or turned into an order. | रद्द कोटेशन भेजा या ऑर्डर में नहीं बदला जा सकता। |
+| `quotes.detail.cancelled` | Quote {number} cancelled | कोटेशन {number} रद्द हुआ |
+| `quotes.detail.keep` | Keep quote | कोटेशन रखें |
+| `quotes.detail.reason` | Reason | कारण |
+| `quotes.breakup.metal` | Metal ({source}) | मेटल ({source}) |
+| `quotes.breakup.source.nalco` | Nalco list | Nalco सूची |
+| `quotes.breakup.source.lme` | London metal price | लंदन मेटल भाव |
+| `quotes.breakup.source.manual` | own price | अपना भाव |
+| `quotes.breakup.conversion` | Conversion | कन्वर्शन |
+| `quotes.breakup.alloy` | Alloy {alloy} | अलॉय {alloy} |
+| `quotes.breakup.finish` | Finish {finish} | फ़िनिश {finish} |
+| `quotes.breakup.component` | Add-on: {label} | ऐड-ऑन: {label} |
+| `quotes.breakup.addons` | Add-ons per kg | ऐड-ऑन प्रति kg |
+| `quotes.breakup.discount` | Customer discount | ग्राहक की छूट |
+| `quotes.breakup.fixed` | Customer's fixed rate | ग्राहक का तय भाव |
+| `quotes.breakup.rate` | Rate per kg | भाव प्रति kg |
+| `quotes.paper.title` | Quotation | कोटेशन |
+| `quotes.paper.number` | Quote | कोटेशन |
+| `quotes.paper.date` | Date | तारीख |
+| `quotes.paper.validUntil` | Valid until | मान्य तारीख |
+| `quotes.paper.to` | To | प्रति |
+| `quotes.paper.taxId` | Tax number | टैक्स नंबर |
+| `quotes.paper.no` | No | क्र. |
+| `quotes.paper.section` | Section | सेक्शन |
+| `quotes.paper.alloy` | Alloy | अलॉय |
+| `quotes.paper.finish` | Finish | फ़िनिश |
+| `quotes.paper.length` | Length | लंबाई |
+| `quotes.paper.pcs` | Pieces | पीस |
+| `quotes.paper.weight` | Weight | वज़न |
+| `quotes.paper.rate` | Rate per kg | भाव प्रति kg |
+| `quotes.paper.amount` | Amount | रकम |
+| `quotes.paper.total` | Total | कुल |
+| `quotes.paper.taxNote` | Amounts are before tax. | रकम टैक्स से पहले की है। |
+| `quotes.paper.perKg` | Rates are per kg of the weight shown. | भाव दिखाए गए वज़न के प्रति kg हैं। |
+| `proforma.make` | Make proforma | प्रोफ़ॉर्मा बनाएं |
+| `proforma.made` | Proforma {number} made | प्रोफ़ॉर्मा {number} बना |
+| `proforma.previous` | Proformas made | बने प्रोफ़ॉर्मा |
+| `proforma.none` | No proforma made yet. | अभी कोई प्रोफ़ॉर्मा नहीं बना। |
+| `proforma.loadFailed` | Proformas didn't load. | प्रोफ़ॉर्मा नहीं आए। |
+| `proforma.printFailed` | The proforma didn't print. Open it again from the list. | प्रोफ़ॉर्मा प्रिंट नहीं हुआ। सूची से फिर खोलें। |
+| `proforma.reprint` | Print again | फिर प्रिंट करें |
+| `proforma.reprintOf` | Print proforma {number} again | प्रोफ़ॉर्मा {number} फिर प्रिंट करें |
+| `proforma.sheetHint` | Each print is the proforma as it was made, with its own number. | हर प्रिंट वही प्रोफ़ॉर्मा है जैसा बना था, अपने नंबर के साथ। |
+| `proforma.paper.title` | Proforma invoice | प्रोफ़ॉर्मा इनवॉइस |
+| `proforma.paper.banner` | Proforma invoice. Not a tax invoice. | Proforma invoice. Not a tax invoice. प्रोफ़ॉर्मा इनवॉइस है, टैक्स इनवॉइस नहीं। |
+| `proforma.paper.number` | Proforma | प्रोफ़ॉर्मा |
+| `proforma.paper.date` | Date | तारीख |
+| `proforma.paper.po` | PO | PO |
+| `proforma.paper.fromOrder` | Order | ऑर्डर |
+| `proforma.paper.fromQuote` | Quote | कोटेशन |
+| `proforma.paper.subtotal` | Amount | रकम |
+| `proforma.paper.tax` | Tax estimate at {percent} percent | टैक्स का अनुमान {percent} प्रतिशत पर |
+| `proforma.paper.total` | Total with estimated tax | अनुमानित टैक्स के साथ कुल |
+| `proforma.paper.estimateNote` | Tax is an estimate at {percent} percent. The tax invoice shows the real tax. | टैक्स {percent} प्रतिशत पर अनुमान है। असली टैक्स टैक्स इनवॉइस में दिखेगा। |
+| `proforma.paper.charges` | Already included in the rates: {list}. | भाव में पहले से शामिल: {list}। |
+| `proforma.paper.bank` | Bank details | बैंक की जानकारी |
+| `proforma.paper.noBank` | Bank details not set | बैंक की जानकारी तय नहीं है |
+| `proforma.paper.breakup` | Per kg: metal {metal}, conversion {conversion}, alloy {alloy}, finish {finish}, add-ons {addons}, discount {discount} | प्रति kg: मेटल {metal}, कन्वर्शन {conversion}, अलॉय {alloy}, फ़िनिश {finish}, ऐड-ऑन {addons}, छूट {discount} |
+| `worksOrder.title` | Works order | वर्क ऑर्डर |
+| `worksOrder.open` | Works order | वर्क ऑर्डर |
+| `worksOrder.backToOrder` | Order | ऑर्डर |
+| `worksOrder.loadFailed` | The works order didn't load. Check the connection and try again. | वर्क ऑर्डर नहीं आया। कनेक्शन जांचकर फिर कोशिश करें। |
+| `worksOrder.print` | Print works order | वर्क ऑर्डर प्रिंट करें |
+| `worksOrder.issueAndPrint` | Take number and print | नंबर लें और प्रिंट करें |
+| `worksOrder.printFailed` | The works order didn't print. Try again. | वर्क ऑर्डर प्रिंट नहीं हुआ। फिर कोशिश करें। |
+| `worksOrder.notIssuedHint` | No works order number yet. Taking the number fixes it for this order. | वर्क ऑर्डर का नंबर अभी नहीं लिया गया। नंबर लेने पर वह इस ऑर्डर का पक्का हो जाता है। |
+| `worksOrder.notConfirmed` | A works order number is taken once the order is confirmed. | वर्क ऑर्डर का नंबर ऑर्डर कन्फ़र्म होने पर लिया जाता है। |
+| `worksOrder.paper.title` | Works order | वर्क ऑर्डर |
+| `worksOrder.paper.number` | Works order | वर्क ऑर्डर |
+| `worksOrder.paper.notIssued` | Number not taken | नंबर नहीं लिया |
+| `worksOrder.paper.order` | Order | ऑर्डर |
+| `worksOrder.paper.orderDate` | Order date | ऑर्डर की तारीख |
+| `worksOrder.paper.expected` | Expected by | कब तक चाहिए |
+| `worksOrder.paper.po` | PO | PO |
+| `worksOrder.paper.customer` | Customer | ग्राहक |
+| `worksOrder.paper.section` | Section | सेक्शन |
+| `worksOrder.paper.temper` | Temper | टेम्पर |
+| `worksOrder.paper.cutLength` | Cut length | कट लंबाई |
+| `worksOrder.paper.tier` | Die tier | Die टियर |
+| `worksOrder.paper.note` | Note | नोट |
+| `enquiries.title` | Enquiries | पूछताछ |
+| `enquiries.subtitle` | Who asked for what, and when to call them back. | किसने क्या मांगा, और कब वापस फ़ोन करना है। |
+| `enquiries.add` | Add enquiry | पूछताछ जोड़ें |
+| `enquiries.empty` | No enquiries here yet. | यहां अभी कोई पूछताछ नहीं है। |
+| `enquiries.noneOverdue` | No enquiry is overdue. | कोई पूछताछ देर से नहीं है। |
+| `enquiries.loadFailed` | Enquiries didn't load. Check the connection and try again. | पूछताछ नहीं आई। कनेक्शन जांचकर फिर कोशिश करें। |
+| `enquiries.cut` | Only the first 100 are shown. Narrow the list to see the rest. | सिर्फ़ पहली 100 दिखाई गई हैं। बाकी देखने के लिए सूची छोटी करें। |
+| `enquiries.added` | Enquiry added | पूछताछ जुड़ी |
+| `enquiries.saved` | Enquiry saved | पूछताछ सेव हुई |
+| `enquiries.overdue` | {days} {days:day\|days} late | {days} {days:दिन\|दिन} की देर |
+| `enquiries.dueToday` | Due today | आज है |
+| `enquiries.makeQuote` | Make quote | कोटेशन बनाएं |
+| `enquiries.filters.label` | Show enquiries | पूछताछ दिखाएं |
+| `enquiries.filters.open` | Open | खुली |
+| `enquiries.filters.overdue` | Overdue | देर वाली |
+| `enquiries.filters.all` | All | सब |
+| `enquiries.status.open` | Open | खुली |
+| `enquiries.status.quoted` | Quoted | कोटेशन दिया |
+| `enquiries.status.won` | Won | मिली |
+| `enquiries.status.lost` | Lost | गई |
+| `enquiries.status.dropped` | Dropped | छोड़ी |
+| `enquiries.columns.party` | From | किसकी |
+| `enquiries.columns.contact` | Contact | संपर्क |
+| `enquiries.columns.section` | Section | सेक्शन |
+| `enquiries.columns.weight` | Weight | वज़न |
+| `enquiries.columns.followUp` | Follow up | फ़ॉलो-अप |
+| `enquiries.columns.status` | Status | स्थिति |
+| `enquiries.columns.actions` | Actions | काम |
+| `enquiries.form.addTitle` | Add enquiry | पूछताछ जोड़ें |
+| `enquiries.form.editTitle` | Change enquiry | पूछताछ बदलें |
+| `enquiries.form.hint` | Name a customer, or a buyer who is not a customer yet. | ग्राहक का नाम दें, या ऐसे खरीदार का जो अभी ग्राहक नहीं है। |
+| `enquiries.form.prospect` | Buyer's name | खरीदार का नाम |
+| `enquiries.form.prospectHint` | For someone who is not in the customer list. | उसके लिए जो ग्राहक सूची में नहीं है। |
+| `enquiries.form.clearCustomer` | Use a buyer's name instead | खरीदार का नाम लिखें |
+| `enquiries.form.contact` | Phone or email | फ़ोन या ईमेल |
+| `enquiries.form.clearSection` | Type the section instead | सेक्शन खुद लिखें |
+| `enquiries.form.sectionText` | Section asked for | मांगा गया सेक्शन |
+| `enquiries.form.sectionTextHint` | Type it if it is not in the catalogue. | कैटलॉग में न हो तो लिख दें। |
+| `enquiries.form.followUp` | Follow up on | फ़ॉलो-अप की तारीख |
+| `enquiries.form.status` | Status | स्थिति |
+| `enquiries.form.save` | Save enquiry | पूछताछ सेव करें |
+| `enquiries.form.errors.party` | Pick a customer or type the buyer's name. | ग्राहक चुनें या खरीदार का नाम लिखें। |
+
 ### ingest (679)
 
 | Key | English | हिंदी |
@@ -8353,7 +8737,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (50)
+### plantSettings (51)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8393,6 +8777,7 @@ Please check, Lalubhai:
 | `modules.names.ageing` | Ageing | एजिंग |
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `modules.names.pricing` | Prices and quotes | भाव और कोटेशन |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -8532,7 +8917,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (337)
+### audit (355)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8594,6 +8979,10 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
 | `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
 | `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
+| `subjectTypes.price_rate` | Price rate | दाम का रेट |
+| `subjectTypes.quote` | Quote | कोटेशन |
+| `subjectTypes.proforma` | Proforma invoice | प्रोफार्मा इनवॉइस |
+| `subjectTypes.enquiry` | Enquiry | पूछताछ |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -8616,6 +9005,20 @@ Please check, Lalubhai:
 | `actions.ageing__oven__create` | Oven added | ओवन जोड़ा |
 | `actions.ageing__oven__update` | Oven changed | ओवन बदला |
 | `actions.ageing__override__request` | Ageing release sent for approval | एजिंग रिलीज़ की मंज़ूरी मांगी |
+| `actions.price__settings__update` | Price settings changed | दाम की सेटिंग बदली |
+| `actions.price__rate__propose` | Rate change sent for approval | रेट बदलाव की मंज़ूरी मांगी |
+| `actions.price__rate__activate` | Rate change approved | रेट बदलाव मंज़ूर हुआ |
+| `actions.price__rate__reject` | Rate change rejected | रेट बदलाव नामंज़ूर हुआ |
+| `actions.price__override__request` | Line rate change asked | लाइन का रेट बदलने को कहा |
+| `actions.quote__create` | Quote made | कोटेशन बनाया |
+| `actions.quote__update` | Quote changed | कोटेशन बदला |
+| `actions.quote__send` | Quote marked as sent | कोटेशन भेजा गया |
+| `actions.quote__cancel` | Quote cancelled | कोटेशन रद्द किया |
+| `actions.quote__convert` | Quote made into an order | कोटेशन से ऑर्डर बनाया |
+| `actions.proforma__create` | Proforma invoice made | प्रोफार्मा इनवॉइस बनाया |
+| `actions.works_order__issue` | Works order issued | वर्क्स ऑर्डर जारी किया |
+| `actions.enquiry__create` | Enquiry noted | पूछताछ दर्ज की |
+| `actions.enquiry__update` | Enquiry changed | पूछताछ बदली |
 | `actions.ageing__readings` | Oven readings received | ओवन की रीडिंग आईं |
 | `actions.ageing__recipe__create` | Cycle recipe added | साइकल रेसिपी जोड़ी |
 | `actions.ageing__recipe__update` | Cycle recipe changed | साइकल रेसिपी बदली |

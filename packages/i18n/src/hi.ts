@@ -290,7 +290,7 @@ export const hi = {
     purchase: "खरीद",
     approvals: "मंज़ूरी",
     audit: "ऑडिट लॉग",
-    pricing: "दाम",
+    pricing: "भाव",
     adminReleases: "ऐप बिल्ड",
     adminBackups: "बैकअप",
     adminSupport: "सपोर्ट",
@@ -3778,6 +3778,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        pricing: "भाव और कोटेशन",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3790,6 +3791,7 @@ export const hi = {
         ageing: "एजिंग बैच और रीडिंग",
         store: "स्टोर आइटम, GRN और इशू",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
+        pricing: "भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6639,6 +6641,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        pricing: "भाव और कोटेशन",
       },
     },
     letterhead: {

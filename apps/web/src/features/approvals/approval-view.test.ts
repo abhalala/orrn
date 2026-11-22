@@ -630,3 +630,68 @@ describe("BACKLOG 89: the sheet reads live facts for a move and for a tier chang
     expect(none).toMatchObject({ nowTier: null, askedFromTier: null, askedToTier: "1" });
   });
 });
+
+describe("XE-PRICE: a price_change request", () => {
+  const rate = (over: Partial<ApprovalForView> = {}): ApprovalForView => ({
+    kind: "price_change",
+    status: "pending",
+    subjectId: "rate-1",
+    requestedBy: "u-office",
+    meta: { rateKind: "metal", key: "nalco", effectiveFrom: "2026-12-01" },
+    ...over,
+  });
+
+  test("a master rate is titled by its kind and opens the price master; no money is read from meta", () => {
+    const s = approvalSubject(rate());
+    expect(s.kindKey).toBe("approvals.kind.price_change");
+    expect(s.titleKey).toBe("price.approval.subject.metal");
+    expect(s.href).toBe("/pricing");
+    expect(s.openKey).toBe("price.approval.openPrices");
+    expect(approvalSubject(rate({ meta: { rateKind: "customer", key: "c1:fixed" } })).titleKey).toBe("price.approval.subject.customer");
+    expect(approvalSubject(rate({ meta: { rateKind: "finish" } })).titleKey).toBe("price.approval.subject.finish");
+    expect(approvalSubject(rate({ meta: { rateKind: "something-new" } })).titleKey).toBe("price.approval.subject.rate");
+    expect(approvalSubject(rate({ meta: {} })).href).toBe("/pricing");
+  });
+
+  test("a line change opens its order, only when the id looks like one", () => {
+    const s = approvalSubject(rate({ meta: { rateKind: "line", key: "line-9", orderId: "ord-4" } }));
+    expect(s.titleKey).toBe("price.approval.subject.line");
+    expect(s.href).toBe("/orders/ord-4");
+    expect(s.openKey).toBe("approvals.openOrder");
+    const bad = approvalSubject(rate({ meta: { rateKind: "line", orderId: "../x" } }));
+    expect(bad.href).toBeNull();
+    expect(bad.openKey).toBeNull();
+  });
+
+  test("the title words exist in English and Hindi, and approvers decide while the requester cannot", async () => {
+    const { en } = await import("@orrn/i18n/en");
+    const { hi } = await import("@orrn/i18n/hi");
+    const get = (dict: unknown, key: string) => key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], dict);
+    for (const key of [
+      "approvals.kind.price_change",
+      "price.approval.subject.metal",
+      "price.approval.subject.conversion",
+      "price.approval.subject.alloy",
+      "price.approval.subject.finish",
+      "price.approval.subject.component",
+      "price.approval.subject.customer",
+      "price.approval.subject.line",
+      "price.approval.subject.rate",
+      "price.approval.openPrices",
+    ]) {
+      expect(typeof get(en, key), `${key} en`).toBe("string");
+      expect(typeof get(hi, key), `${key} hi`).toBe("string");
+    }
+    expect(decideState(me("manager"), rate())).toBe("decide");
+    expect(decideState(me("admin"), rate())).toBe("decide");
+    expect(decideState(me("office"), rate())).toBe("view");
+    expect(decideState(me("manager", "u-office"), rate())).toBe("own");
+  });
+
+  test("Approve never waits for live facts, and the master link follows price.view", async () => {
+    const { canOpenSubject } = await import("./approval-view");
+    expect(hasLiveFacts("price_change")).toBe(false);
+    expect(canOpenSubject(me("office"), rate())).toBe(true);
+    expect(canOpenSubject(me("storekeeper"), rate())).toBe(false);
+  });
+});

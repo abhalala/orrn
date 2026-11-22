@@ -3791,6 +3791,7 @@ export const en = {
         ageing: "Ageing",
         store: "Store",
         purchase: "Scrap purchase",
+        pricing: "Prices and quotes",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3803,6 +3804,7 @@ export const en = {
         ageing: "Ageing batches and readings",
         store: "Store items, GRN and issues",
         purchase: "Scrap vendors, lots and D/C notes",
+        pricing: "Price master, quotes, proformas and enquiries",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6658,6 +6660,7 @@ export const en = {
         ageing: "Ageing",
         store: "Store",
         purchase: "Scrap purchase",
+        pricing: "Prices and quotes",
       },
     },
     letterhead: {
