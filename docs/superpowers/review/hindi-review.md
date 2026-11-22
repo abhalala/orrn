@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
+Counts: 9202 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,10 +191,11 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (89)
+### nav (90)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `qa` | Quality | गुणवत्ता |
 | `ageing` | Ageing | एजिंग |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
@@ -3148,7 +3149,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (384)
+### admin (386)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3360,6 +3361,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleNames.press` | Press | प्रेस |
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
 | `plan.moduleNames.store` | Store | स्टोर |
+| `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
@@ -3370,6 +3372,7 @@ Counts: 8911 screen strings in 51 groups, 45 guides with 866 strings.
 | `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
+| `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
@@ -8269,6 +8272,280 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
+### qa (269)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Quality | गुणवत्ता |
+| `subtitle` | Checks, holds and the lists behind them | जाँच, होल्ड और उनकी सूचियाँ |
+| `moduleOff` | Quality is off for this plant. Ask orrn support to turn it on. | इस प्लांट के लिए गुणवत्ता बंद है। orrn सपोर्ट से चालू करवाएँ। |
+| `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर कोशिश करें। |
+| `failed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
+| `saved` | Saved | सेव हुआ |
+| `tabs.waiting` | Waiting | इंतज़ार में |
+| `tabs.holds` | On hold | होल्ड पर |
+| `tabs.checks` | Checks | जाँच |
+| `tabs.instruments` | Instruments | उपकरण |
+| `tabs.lists` | Lists | सूचियाँ |
+| `tabs.settings` | Settings | सेटिंग |
+| `kind.incoming` | Incoming inspection | आवक जाँच |
+| `kind.first_piece` | First piece | पहला पीस |
+| `kind.in_process` | In-process check | प्रक्रिया के दौरान जाँच |
+| `kind.clearance` | Clearance | क्लियरेंस |
+| `kind.dimension` | Dimensions | माप |
+| `kind.mechanical` | Mechanical test | मैकेनिकल टेस्ट |
+| `kind.ultrasonic` | Ultrasonic test | अल्ट्रासोनिक टेस्ट |
+| `subject.press_run` | Press run | प्रेस रन |
+| `subject.bundle` | Bundle | Bundle |
+| `subject.purchase_lot` | Scrap lot | स्क्रैप लॉट |
+| `subject.store_grn` | Store GRN | स्टोर GRN |
+| `subject.cast` | Cast | कास्ट |
+| `subject.ageing_batch` | Ageing batch | एजिंग बैच |
+| `stage.incoming` | Incoming | आवक |
+| `stage.press` | Press | Press |
+| `stage.ageing` | Ageing | एजिंग |
+| `stage.pack` | Pack | पैक |
+| `stage.dispatch` | Dispatch | डिस्पैच |
+| `result.pass` | Pass | पास |
+| `result.fail` | Fail | फ़ेल |
+| `state.waiting` | Waiting | इंतज़ार में |
+| `state.failed` | Failed | फ़ेल हुआ |
+| `state.passed` | Passed | पास हुआ |
+| `waiting.stage` | Stage | चरण |
+| `waiting.station` | Inspection point | जाँच बिंदु |
+| `waiting.allStations` | All points | सभी बिंदु |
+| `waiting.number` | Number | नंबर |
+| `waiting.since` | Since | कब से |
+| `waiting.empty` | Nothing waits at this stage. | इस चरण में कुछ इंतज़ार में नहीं है। |
+| `waiting.dispatchHint` | At dispatch the hold list is the queue. Open On hold. | डिस्पैच पर होल्ड सूची ही कतार है। होल्ड पर खोलें। |
+| `waiting.putAt` | Put at | यहाँ रखें |
+| `waiting.placed` | Placed at {code} | {code} पर रखा गया |
+| `waiting.check` | Check | जाँच |
+| `holds.holdTitle` | Put a bundle on quality hold | Bundle को गुणवत्ता होल्ड पर रखें |
+| `holds.holdHint` | A held bundle stays in stock. The dispatch scan refuses it until someone releases it. | होल्ड वाला bundle स्टॉक में रहता है। जब तक कोई छोड़ता नहीं, डिस्पैच स्कैन उसे मना करता है। |
+| `holds.serial` | Bundle serial | Bundle सीरियल |
+| `holds.reason` | Reason | कारण |
+| `holds.hold` | Hold | होल्ड |
+| `holds.held` | {serial} is on quality hold | {serial} गुणवत्ता होल्ड पर है |
+| `holds.release` | Release | छोड़ें |
+| `holds.releaseTitle` | Release {serial} | {serial} छोड़ें |
+| `holds.note` | What was done | क्या किया गया |
+| `holds.noteHint` | Say what was checked or fixed before release. | छोड़ने से पहले क्या जाँचा या ठीक किया, लिखें। |
+| `holds.released` | {serial} released | {serial} छोड़ा गया |
+| `holds.empty` | No bundle is on quality hold. | कोई bundle गुणवत्ता होल्ड पर नहीं है। |
+| `holds.logEmpty` | No holds yet. | अभी कोई होल्ड नहीं। |
+| `holds.show` | Show | दिखाएँ |
+| `holds.open` | Open holds | खुले होल्ड |
+| `holds.log` | Hold log | होल्ड लॉग |
+| `holds.bundle` | Bundle | Bundle |
+| `holds.section` | Section | सेक्शन |
+| `holds.weight` | Weight | वज़न |
+| `holds.when` | Held | होल्ड हुआ |
+| `holds.heldBy` | Held by {name} | {name} ने होल्ड किया |
+| `holds.releasedBy` | Released by {name} | {name} ने छोड़ा |
+| `holds.releasedAt` | Released | छोड़ा गया |
+| `checks.kindFilter` | Check | जाँच |
+| `checks.all` | All checks | सभी जाँच |
+| `checks.record` | Record a check | जाँच दर्ज करें |
+| `checks.empty` | No checks recorded yet. | अभी कोई जाँच दर्ज नहीं। |
+| `checks.subject` | On | किस पर |
+| `checks.result` | Result | नतीजा |
+| `checks.by` | By | किसने |
+| `checks.when` | When | कब |
+| `checks.station` | Point | बिंदु |
+| `checks.detail` | Detail | ब्योरा |
+| `checks.flagged` | Out of tolerance: {names} | टॉलरेंस से बाहर: {names} |
+| `checks.low` | Below the minimum: {names} | न्यूनतम से कम: {names} |
+| `checks.more` | Show older | पुराने दिखाएँ |
+| `run.find` | Find a press run | प्रेस रन खोजें |
+| `run.findHint` | The run number, such as PR-12 | रन नंबर, जैसे PR-12 |
+| `run.show` | Show | दिखाएँ |
+| `run.title` | Run {number} | रन {number} |
+| `run.firstPiece` | First piece | पहला पीस |
+| `run.notChecked` | Not checked | जाँचा नहीं गया |
+| `run.blocksPack` | Pack waits for a passed first piece. | पैक के लिए पहला पीस पास होना ज़रूरी है। |
+| `run.inProcess` | In-process checks | प्रक्रिया के दौरान जाँच |
+| `run.due` | A check is due: {count} bundles since the last one. | जाँच बाकी है: पिछली जाँच के बाद {count} bundle। |
+| `run.notDue` | No check is due. | कोई जाँच बाकी नहीं। |
+| `run.breaches` | Readings out of the quality plan | गुणवत्ता प्लान से बाहर रीडिंग |
+| `run.noBreaches` | Every press reading is inside the plan. | प्रेस की हर रीडिंग प्लान के अंदर है। |
+| `run.noPlan` | No quality plan for this section. | इस सेक्शन का कोई गुणवत्ता प्लान नहीं। |
+| `run.notFound` | No press run with that number in this plant. | इस प्लांट में उस नंबर का कोई प्रेस रन नहीं। |
+| `sheet.title` | Record a check | जाँच दर्ज करें |
+| `sheet.kind` | Check | जाँच |
+| `sheet.subjectType` | On | किस पर |
+| `sheet.number` | Number | नंबर |
+| `sheet.numberHint` | As written on the paper | जैसा कागज़ पर लिखा है |
+| `sheet.find` | Find | खोजें |
+| `sheet.notFound` | Nothing with that number in this plant. | इस प्लांट में उस नंबर का कुछ नहीं मिला। |
+| `sheet.found` | Found {number} | {number} मिला |
+| `sheet.result` | Result | नतीजा |
+| `sheet.stage` | For stage | किस चरण के लिए |
+| `sheet.station` | Inspection point | जाँच बिंदु |
+| `sheet.instrument` | Instrument | उपकरण |
+| `sheet.none` | None | कोई नहीं |
+| `sheet.note` | Note | नोट |
+| `sheet.save` | Save check | जाँच सेव करें |
+| `sheet.recorded` | Check recorded | जाँच दर्ज हुई |
+| `sheet.standard` | Standard | मानक |
+| `sheet.operator` | Operator | ऑपरेटर |
+| `sheet.needSubject` | Find what the check is on first. | पहले खोजें कि जाँच किस पर है। |
+| `sheet.dims.title` | Dimensions | माप |
+| `sheet.dims.name` | Name | नाम |
+| `sheet.dims.nominal` | Nominal (mm) | नॉमिनल (mm) |
+| `sheet.dims.minus` | Minus (mm) | माइनस (mm) |
+| `sheet.dims.plus` | Plus (mm) | प्लस (mm) |
+| `sheet.dims.measured` | Measured (mm) | नापा गया (mm) |
+| `sheet.dims.add` | Add a dimension | माप जोड़ें |
+| `sheet.dims.remove` | Remove | हटाएँ |
+| `sheet.dims.bad` | Fill the name and every number of each dimension. | हर माप का नाम और सभी नंबर भरें। |
+| `sheet.mech.tensile` | Tensile (MPa) | टेन्साइल (MPa) |
+| `sheet.mech.yield` | Yield (MPa) | यील्ड (MPa) |
+| `sheet.mech.elongation` | Elongation (%) | एलोंगेशन (%) |
+| `sheet.mech.hardness` | Hardness | हार्डनेस |
+| `sheet.mech.temper` | Temper | टेम्पर |
+| `sheet.mech.temperPlan` | From the quality plan | गुणवत्ता प्लान से |
+| `sheet.readings.title` | Readings | रीडिंग |
+| `sheet.readings.name` | What | क्या |
+| `sheet.readings.value` | Seen | देखा गया |
+| `sheet.readings.add` | Add a reading | रीडिंग जोड़ें |
+| `instruments.add` | Add instrument | उपकरण जोड़ें |
+| `instruments.code` | Code | कोड |
+| `instruments.name` | Name | नाम |
+| `instruments.range` | Range | रेंज |
+| `instruments.place` | Where | कहाँ |
+| `instruments.interval` | Calibrate every (days) | कैलिब्रेशन हर (दिन) |
+| `instruments.last` | Last calibrated | आखिरी कैलिब्रेशन |
+| `instruments.next` | Next due | अगली तारीख |
+| `instruments.status` | Status | स्थिति |
+| `instruments.states.ok` | In date | तारीख के अंदर |
+| `instruments.states.due_soon` | Due soon | जल्द देय |
+| `instruments.states.overdue` | Overdue | देरी हो चुकी |
+| `instruments.states.unknown` | No date | तारीख नहीं |
+| `instruments.calibrate` | Calibrate | कैलिब्रेट करें |
+| `instruments.calibrateTitle` | Calibrate {code} | {code} कैलिब्रेट करें |
+| `instruments.calibratedOn` | Calibrated on | कैलिब्रेशन की तारीख |
+| `instruments.certificate` | Certificate | सर्टिफिकेट |
+| `instruments.upload` | Upload certificate | सर्टिफिकेट अपलोड करें |
+| `instruments.uploaded` | Certificate saved | सर्टिफिकेट सेव हुआ |
+| `instruments.view` | Open certificate | सर्टिफिकेट खोलें |
+| `instruments.uploadFailed` | The file did not upload. Check the connection and try again. | फ़ाइल अपलोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
+| `instruments.empty` | No instruments yet. | अभी कोई उपकरण नहीं। |
+| `instruments.edit` | Edit | बदलें |
+| `instruments.editTitle` | Edit {code} | {code} बदलें |
+| `instruments.retire` | Take out of use | उपयोग से हटाएँ |
+| `instruments.reactivate` | Put back in use | फिर उपयोग में लाएँ |
+| `instruments.note` | Note | नोट |
+| `instruments.invalid` | Fill the code and the name. | कोड और नाम भरें। |
+| `lists.tempers` | Tempers | टेम्पर |
+| `lists.plans` | Quality plans | गुणवत्ता प्लान |
+| `lists.stations` | Inspection points | जाँच बिंदु |
+| `lists.substitutes` | Alloy substitutes | अलॉय विकल्प |
+| `tempers.add` | Add temper | टेम्पर जोड़ें |
+| `tempers.edit` | Edit | बदलें |
+| `tempers.editTitle` | Edit temper {code} | टेम्पर {code} बदलें |
+| `tempers.code` | Code | कोड |
+| `tempers.alloy` | Alloy | अलॉय |
+| `tempers.alloyHint` | Blank for every alloy | खाली छोड़ें तो हर अलॉय के लिए |
+| `tempers.name` | Name | नाम |
+| `tempers.method` | Hardness scale | हार्डनेस स्केल |
+| `tempers.methods.webster` | Webster | Webster |
+| `tempers.methods.hb` | Brinell | Brinell |
+| `tempers.hardnessMin` | Lowest hardness | न्यूनतम हार्डनेस |
+| `tempers.tensileMin` | Lowest tensile (MPa) | न्यूनतम टेन्साइल (MPa) |
+| `tempers.yieldMin` | Lowest yield (MPa) | न्यूनतम यील्ड (MPa) |
+| `tempers.elongationMin` | Lowest elongation (%) | न्यूनतम एलोंगेशन (%) |
+| `tempers.recipes` | Ageing recipes | एजिंग रेसिपी |
+| `tempers.noRecipe` | No ageing recipe | कोई एजिंग रेसिपी नहीं |
+| `tempers.empty` | No tempers yet. | अभी कोई टेम्पर नहीं। |
+| `tempers.pick` | Pick from the temper list | टेम्पर सूची से चुनें |
+| `plans.add` | Add plan | प्लान जोड़ें |
+| `plans.edit` | Edit | बदलें |
+| `plans.editTitle` | Quality plan for {section} | {section} का गुणवत्ता प्लान |
+| `plans.section` | Section | सेक्शन |
+| `plans.sectionHint` | The section code, such as 1234 | सेक्शन कोड, जैसे 1234 |
+| `plans.copy` | Die copy | Die कॉपी |
+| `plans.allCopies` | Every copy | हर कॉपी |
+| `plans.temper` | Temper | टेम्पर |
+| `plans.billetTemp` | Billet temperature (°C) | बिलेट तापमान (°C) |
+| `plans.exitTemp` | Exit temperature (°C) | एग्ज़िट तापमान (°C) |
+| `plans.ramSpeed` | Ram speed (mm/s) | रैम स्पीड (mm/s) |
+| `plans.ageingTemp` | Ageing temperature (°C) | एजिंग तापमान (°C) |
+| `plans.ageingSoak` | Ageing soak (minutes) | एजिंग सोक (मिनट) |
+| `plans.everyBundles` | In-process check every (bundles) | प्रक्रिया जाँच हर (bundle) |
+| `plans.everyMinutes` | In-process check every (minutes) | प्रक्रिया जाँच हर (मिनट) |
+| `plans.min` | Lowest | न्यूनतम |
+| `plans.max` | Highest | अधिकतम |
+| `plans.dimensions` | Dimensions to check | जाँचने के माप |
+| `plans.limits` | Limits | सीमाएँ |
+| `plans.empty` | No quality plans yet. | अभी कोई गुणवत्ता प्लान नहीं। |
+| `plans.sectionNotFound` | No section with that code. | इस कोड का कोई सेक्शन नहीं। |
+| `stations.add` | Add point | बिंदु जोड़ें |
+| `stations.edit` | Edit | बदलें |
+| `stations.editTitle` | Edit point {code} | बिंदु {code} बदलें |
+| `stations.code` | Code | कोड |
+| `stations.name` | Name | नाम |
+| `stations.stage` | Stage | चरण |
+| `stations.empty` | No inspection points yet. | अभी कोई जाँच बिंदु नहीं। |
+| `stations.retire` | Take out of use | उपयोग से हटाएँ |
+| `stations.reactivate` | Put back in use | फिर उपयोग में लाएँ |
+| `substitutes.add` | Add substitute | विकल्प जोड़ें |
+| `substitutes.alloy` | Alloy | अलॉय |
+| `substitutes.substitute` | Allowed instead | इसके बदले मान्य |
+| `substitutes.customer` | Party | पार्टी |
+| `substitutes.everyParty` | Every party | हर पार्टी |
+| `substitutes.note` | Note | नोट |
+| `substitutes.remove` | Remove | हटाएँ |
+| `substitutes.removed` | Removed | हटाया गया |
+| `substitutes.empty` | No substitutes yet. | अभी कोई विकल्प नहीं। |
+| `substitutes.short` | Alloy short | अलॉय कम |
+| `substitutes.shortBody` | {alloy}: {have} kg of billets for {need} kg left. | {alloy}: {need} kg के लिए बिलेट {have} kg बचे हैं। |
+| `substitutes.allowed` | Allowed instead | इसके बदले मान्य |
+| `substitutes.onHand` | {kg} kg on hand | {kg} kg हाथ में |
+| `substitutes.noneAllowed` | No substitute is allowed for {alloy}. | {alloy} के लिए कोई विकल्प मान्य नहीं। |
+| `settings.title` | Quality switches | गुणवत्ता स्विच |
+| `settings.firstPiece` | Pack waits for the first piece | पैक के लिए पहला पीस ज़रूरी |
+| `settings.firstPieceHint` | On: no bundle is packed from a run until its first piece passes. | चालू: रन का पहला पीस पास होने तक उससे कोई bundle पैक नहीं होता। |
+| `settings.lotInspection` | Melt waits for incoming inspection | मेल्ट के लिए आवक जाँच ज़रूरी |
+| `settings.lotInspectionHint` | On: a scrap lot is charged to a melt only after it passes inspection. | चालू: स्क्रैप लॉट जाँच में पास होने के बाद ही मेल्ट में डलता है। |
+| `settings.everyBundles` | In-process check every N bundles | प्रक्रिया जाँच हर N bundle |
+| `settings.everyMinutes` | In-process check every N minutes | प्रक्रिया जाँच हर N मिनट |
+| `settings.blankOff` | Leave blank for off. | बंद रखने के लिए खाली छोड़ें। |
+| `settings.since` | On since {date} | {date} से चालू |
+| `settings.save` | Save switches | स्विच सेव करें |
+| `today.title` | Quality | गुणवत्ता |
+| `today.onHold` | {count} on quality hold | {count} गुणवत्ता होल्ड पर |
+| `today.overdue` | {count} instruments overdue | {count} उपकरण की देरी |
+| `today.dueSoon` | {count} due within 7 days | {count} 7 दिन में देय |
+| `today.allClear` | No hold and no instrument overdue. | कोई होल्ड नहीं और कोई उपकरण देरी पर नहीं। |
+| `today.open` | Open quality | गुणवत्ता खोलें |
+| `refusal.bundleOnHold` | Bundle {serial} is on quality hold | Bundle {serial} गुणवत्ता होल्ड पर है |
+| `refusal.alreadyOnHold` | Bundle {serial} is already on quality hold | Bundle {serial} पहले से गुणवत्ता होल्ड पर है |
+| `refusal.notOnHold` | Bundle {serial} is not on quality hold | Bundle {serial} गुणवत्ता होल्ड पर नहीं है |
+| `refusal.bundleNotInStock` | Bundle {serial} is not in stock; only stock can go on quality hold | Bundle {serial} स्टॉक में नहीं है; सिर्फ़ स्टॉक होल्ड पर जा सकता है |
+| `refusal.bundleOnLoad` | Bundle {serial} is held on a load; take it off the load first | Bundle {serial} लोड पर रुका है; पहले उसे लोड से हटाएँ |
+| `refusal.lotWaiting` | {lot} is waiting for inspection | {lot} जाँच के इंतज़ार में है |
+| `refusal.lotFailed` | {lot} failed inspection | {lot} जाँच में फ़ेल हुआ |
+| `refusal.firstPieceWaiting` | The first piece of {run} is not checked yet | {run} का पहला पीस अभी जाँचा नहीं गया |
+| `refusal.firstPieceFailed` | The first piece of {run} failed; check a new piece first | {run} का पहला पीस फ़ेल हुआ; पहले नया पीस जाँचें |
+| `refusal.kindSubject` | This check cannot be recorded on that | यह जाँच उस पर दर्ज नहीं हो सकती |
+| `refusal.dimensionsNone` | Enter at least one dimension | कम से कम एक माप भरें |
+| `refusal.dimensionsTooMany` | Enter at most {n} dimensions | ज़्यादा से ज़्यादा {n} माप भरें |
+| `refusal.dimensionsBadValue` | Each dimension needs a name, a nominal above zero and its tolerances | हर माप में नाम, शून्य से ऊपर नॉमिनल और उसकी टॉलरेंस चाहिए |
+| `refusal.dimensionsDuplicate` | A dimension is listed twice | एक माप दो बार लिखा है |
+| `refusal.mechanicalNone` | Enter at least one test value | कम से कम एक टेस्ट वैल्यू भरें |
+| `refusal.resultNeeded` | Pick pass or fail | पास या फ़ेल चुनें |
+| `refusal.temperCode` | Use a temper code such as T6, T5 or O, at most 8 letters and digits | T6, T5 या O जैसा टेम्पर कोड लें, ज़्यादा से ज़्यादा 8 अक्षर और अंक |
+| `refusal.temperTaken` | Temper {code} is already in the list | टेम्पर {code} सूची में पहले से है |
+| `refusal.temperYield` | The yield minimum cannot be above the tensile minimum | न्यूनतम यील्ड, न्यूनतम टेन्साइल से ऊपर नहीं हो सकती |
+| `refusal.planLimits` | A lower limit is above its upper limit | एक निचली सीमा अपनी ऊपरी सीमा से ऊपर है |
+| `refusal.substituteSame` | An alloy cannot be its own substitute | कोई अलॉय अपना ही विकल्प नहीं हो सकता |
+| `refusal.substituteTaken` | {alloy} is already a substitute here | {alloy} यहाँ पहले से विकल्प है |
+| `refusal.instrumentTaken` | Instrument {code} is already in the list | उपकरण {code} सूची में पहले से है |
+| `refusal.instrumentCode` | Use letters, digits and dashes for the instrument code, at most 24 | उपकरण कोड में अक्षर, अंक और डैश लें, ज़्यादा से ज़्यादा 24 |
+| `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
+| `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -8353,7 +8630,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (50)
+### plantSettings (51)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8392,6 +8669,7 @@ Please check, Lalubhai:
 | `modules.names.press` | Press | प्रेस |
 | `modules.names.ageing` | Ageing | एजिंग |
 | `modules.names.store` | Store | स्टोर |
+| `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
@@ -8532,7 +8810,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (337)
+### audit (355)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8594,6 +8872,11 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
 | `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
 | `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
+| `subjectTypes.qa_check` | Quality check | गुणवत्ता जांच |
+| `subjectTypes.qa_temper` | Temper | टेम्पर |
+| `subjectTypes.qa_station` | Inspection point | जांच स्थान |
+| `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
+| `subjectTypes.qa_instrument` | Instrument | उपकरण |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -8807,6 +9090,19 @@ Please check, Lalubhai:
 | `actions.portal__user__accept` | Party login accepted | पार्टी लॉगिन स्वीकार हुआ |
 | `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
 | `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
+| `actions.qa__check__record` | Quality check recorded | गुणवत्ता जांच दर्ज |
+| `actions.qa__hold` | Bundle put on quality hold | बंडल गुणवत्ता होल्ड पर रखा |
+| `actions.qa__release` | Bundle released from quality hold | बंडल गुणवत्ता होल्ड से छोड़ा |
+| `actions.qa__place` | Put at an inspection point | जांच स्थान पर रखा |
+| `actions.qa__settings__update` | Quality switches changed | गुणवत्ता स्विच बदले |
+| `actions.qa__temper__save` | Temper saved | टेम्पर सेव |
+| `actions.qa__plan__save` | Quality plan saved | गुणवत्ता प्लान सेव |
+| `actions.qa__station__save` | Inspection point saved | जांच स्थान सेव |
+| `actions.qa__substitute__save` | Alloy substitute saved | मिश्रधातु विकल्प सेव |
+| `actions.qa__substitute__remove` | Alloy substitute removed | मिश्रधातु विकल्प हटाया |
+| `actions.qa__instrument__save` | Instrument saved | उपकरण सेव |
+| `actions.qa__instrument__calibrate` | Instrument calibrated | उपकरण कैलिब्रेट किया |
+| `actions.qa__instrument__certificate` | Calibration certificate saved | कैलिब्रेशन सर्टिफिकेट सेव |
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
 | `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |

@@ -295,6 +295,8 @@ const AGEING_DISPATCH: readonly { re: RegExp; key: MessageKey }[] = [
   { re: /^Bundle (\S+) is held in ageing on (\S+)$/, key: "ageing.refusal.bundleAgeingHeld" },
   { re: /^Bundle (\S+) is in ageing on (\S+)$/, key: "ageing.refusal.bundleInAgeing" },
   { re: /^Bundle (\S+) is not aged\b/, key: "ageing.refusal.bundleNotAged" },
+  // XE parity lane QA: a bundle on quality hold is refused by name until someone releases it.
+  { re: /^Bundle (\S+) is on quality hold$/, key: "qa.refusal.bundleOnHold" },
 ];
 
 /** The ageing wording of a failed dispatch scan or add, or null when the failure is something else. */

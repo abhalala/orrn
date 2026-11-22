@@ -10,6 +10,7 @@ import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
+import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
@@ -215,6 +216,7 @@ export const hi = {
   },
 
   nav: {
+    qa: "गुणवत्ता",
     ageing: "एजिंग",
     main: "मुख्य",
     today: "आज",
@@ -3770,6 +3772,7 @@ export const hi = {
         press: "प्रेस",
         ageing: "एजिंग",
         store: "स्टोर",
+        qa: "गुणवत्ता",
         purchase: "स्क्रैप खरीद",
       },
       moduleHints: {
@@ -3782,6 +3785,7 @@ export const hi = {
         press: "प्रेस रन और प्रेस कंसोल",
         ageing: "एजिंग बैच और रीडिंग",
         store: "स्टोर आइटम, GRN और इशू",
+        qa: "गुणवत्ता जांच, होल्ड और उपकरण",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
       },
       save: "प्लान सेव करें",
@@ -6474,6 +6478,8 @@ export const hi = {
 
   buddy: buddyHi,
 
+  qa: qaHi,
+
   reasons: {
     kinds: {
       downtime: "रुकावट",
@@ -6628,6 +6634,7 @@ export const hi = {
         press: "प्रेस",
         ageing: "एजिंग",
         store: "स्टोर",
+        qa: "गुणवत्ता",
         purchase: "स्क्रैप खरीद",
       },
     },
@@ -6845,6 +6852,11 @@ export const hi = {
       ingest_hole: "इम्पोर्ट का लेआउट",
       buddy_draft: "Buddy का बदलाव",
       buddy_grant: "Hermes कनेक्शन",
+      qa_check: "गुणवत्ता जांच",
+      qa_temper: "टेम्पर",
+      qa_station: "जांच स्थान",
+      qa_alloy_substitute: "मिश्रधातु विकल्प",
+      qa_instrument: "उपकरण",
     },
     onlyThis: "सिर्फ़ यह",
     byStaff: "orrn सपोर्ट",
@@ -7061,6 +7073,19 @@ export const hi = {
       portal__user__accept: "पार्टी लॉगिन स्वीकार हुआ",
       portal__user__grant: "पार्टी को लॉगिन दिया",
       portal__user__revoke: "पार्टी लॉगिन बंद किया",
+      qa__check__record: "गुणवत्ता जांच दर्ज",
+      qa__hold: "बंडल गुणवत्ता होल्ड पर रखा",
+      qa__release: "बंडल गुणवत्ता होल्ड से छोड़ा",
+      qa__place: "जांच स्थान पर रखा",
+      qa__settings__update: "गुणवत्ता स्विच बदले",
+      qa__temper__save: "टेम्पर सेव",
+      qa__plan__save: "गुणवत्ता प्लान सेव",
+      qa__station__save: "जांच स्थान सेव",
+      qa__substitute__save: "मिश्रधातु विकल्प सेव",
+      qa__substitute__remove: "मिश्रधातु विकल्प हटाया",
+      qa__instrument__save: "उपकरण सेव",
+      qa__instrument__calibrate: "उपकरण कैलिब्रेट किया",
+      qa__instrument__certificate: "कैलिब्रेशन सर्टिफिकेट सेव",
       press__alert__ack: "प्रेस अलर्ट देखा",
       press__alert__ackEnded: "खत्म हुए प्रेस अलर्ट देखे",
       press__alert__threshold: "प्रेस अलर्ट की सीमा बदली",

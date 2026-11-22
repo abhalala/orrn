@@ -26,6 +26,7 @@ import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
+import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 
 export const en = {
@@ -223,6 +224,7 @@ export const en = {
   },
 
   nav: {
+    qa: "Quality",
     ageing: "Ageing",
     main: "Main",
     today: "Today",
@@ -3783,6 +3785,7 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
       },
       moduleHints: {
@@ -3795,6 +3798,7 @@ export const en = {
         press: "Press runs and the press console",
         ageing: "Ageing batches and readings",
         store: "Store items, GRN and issues",
+        qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
       },
       save: "Save plan",
@@ -6492,6 +6496,8 @@ export const en = {
 
   buddy: buddyEn,
 
+  qa: qaEn,
+
   reasons: {
     kinds: {
       downtime: "Downtime",
@@ -6646,6 +6652,7 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
       },
     },
@@ -6863,6 +6870,11 @@ export const en = {
       ingest_hole: "Import layout",
       buddy_draft: "Buddy change",
       buddy_grant: "Hermes connection",
+      qa_check: "Quality check",
+      qa_temper: "Temper",
+      qa_station: "Inspection point",
+      qa_alloy_substitute: "Alloy substitute",
+      qa_instrument: "Instrument",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -7079,6 +7091,19 @@ export const en = {
       portal__user__accept: "Party login accepted",
       portal__user__grant: "Party login given",
       portal__user__revoke: "Party login turned off",
+      qa__check__record: "Quality check recorded",
+      qa__hold: "Bundle put on quality hold",
+      qa__release: "Bundle released from quality hold",
+      qa__place: "Put at an inspection point",
+      qa__settings__update: "Quality switches changed",
+      qa__temper__save: "Temper saved",
+      qa__plan__save: "Quality plan saved",
+      qa__station__save: "Inspection point saved",
+      qa__substitute__save: "Alloy substitute saved",
+      qa__substitute__remove: "Alloy substitute removed",
+      qa__instrument__save: "Instrument saved",
+      qa__instrument__calibrate: "Instrument calibrated",
+      qa__instrument__certificate: "Calibration certificate saved",
       press__alert__ack: "Press alert acknowledged",
       press__alert__ackEnded: "Ended press alerts acknowledged",
       press__alert__threshold: "Press alert limits changed",

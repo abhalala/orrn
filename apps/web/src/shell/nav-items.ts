@@ -1,6 +1,7 @@
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
+  BadgeCheck,
   BookOpen,
   BookMarked,
   Boxes,
@@ -31,7 +32,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "qa";
 
 export type NavItem = {
   key: string;
@@ -72,6 +73,9 @@ const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.re
 /** The foundry: who enters casts and melts, closes them, and who reads reports (the cast pages are readable by any member). */
 const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.close", "reports.read"];
 
+/** Quality (XE parity lane QA): who checks, holds, releases, keeps its lists, or reads reports. */
+const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.masters", "reports.read"];
+
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
@@ -81,6 +85,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "foundry", to: "/casts", labelKey: "nav.foundry", icon: Flame, requires: FOUNDRY_PEOPLE, module: "foundry" },
   // W3-AG-W: the ageing ovens and trolleys, between the press and pack. Floor roles hold ageing.view / ageing.enter.
   { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
+  // XE parity lane QA: what waits for a check, quality holds, registers and instruments.
+  { key: "qa", to: "/qa", labelKey: "nav.qa", icon: BadgeCheck, requires: QA_PEOPLE, module: "qa" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
