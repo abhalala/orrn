@@ -12,6 +12,7 @@ import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { trpcCsrfRefusal } from "@orrn/server/lib/trpcCsrf";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
+import { runIrnCronJob } from "@orrn/server/lib/billing/cron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/vault";
 import { handleIngestPart } from "@orrn/server/lib/ingest/upload-parts";
@@ -223,11 +224,18 @@ async function scheduled(controller: ScheduledController, _env: unknown, ctx: Ex
     );
     return;
   }
+  // XE-BILL: the 5-minute cron retries and cancels IRNs.
+  if (controller.cron === IRN_CRON) {
+    ctx.waitUntil(runIrnCronJob(createDb(), Date.now()));
+    return;
+  }
   ctx.waitUntil(runDailyCron(createDb(), new Date()));
 }
 
 /** Must match the second entry of `crons` in packages/server/src/infra/alchemy.run.ts. */
 const HOURLY_CRON = "5 * * * *";
+/** Must match the third entry of `crons` in packages/server/src/infra/alchemy.run.ts (XE-BILL). */
+const IRN_CRON = "*/5 * * * *";
 
 const worker: ExportedHandler<Env> = { fetch: app.fetch, scheduled };
 export default worker;

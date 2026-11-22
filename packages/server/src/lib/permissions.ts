@@ -139,6 +139,12 @@ export const PLANT_ACTIONS = [
   "docs.manage", // add, edit, retire plant documents and their files (#80)
   "approvalRule.manage", // who may approve each approval kind, and thresholds (#78)
   "refFormat.manage", // number formats per doc type (#77)
+  // XE-BILL (opt-in `billing` module): tax invoices, credit notes, payments received, GST settings.
+  "gst.settings", // plant GST state and HSN codes, customer GST details
+  "invoice.read", // invoices, credit notes, payments and outstanding, read only
+  "invoice.issue", // draft and issue invoices and credit notes, generate IRN and e-way bill
+  "invoice.cancel", // ask to cancel an issued invoice (approval invoice_cancel)
+  "payment.record", // record and void payments received
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -290,6 +296,12 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "docs.manage": ["admin", "manager", "office"],
   "approvalRule.manage": ["admin"],
   "refFormat.manage": ["admin"],
+  // XE-BILL: the billing desk (office), the accountant and the manager; the admin keeps GST settings.
+  "gst.settings": ["admin", "manager", "accountant", "office"],
+  "invoice.read": ["office", "manager", "accountant", "admin"],
+  "invoice.issue": ["office", "manager", "accountant"],
+  "invoice.cancel": ["office", "manager", "accountant"],
+  "payment.record": ["office", "accountant", "manager"],
   "support.request": [
     "admin",
     "manager",
@@ -408,6 +420,8 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   dispatch_off_band: ["owner", "admin", "manager"],
   // arch 52: a dispatch completed later at the time the truck left (line down). Never the requester.
   dispatch_late_entry: ["owner", "admin", "manager"],
+  // XE-BILL: cancelling an issued tax invoice (its number stays used). Never the requester.
+  invoice_cancel: ["owner", "admin", "manager"],
 };
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */

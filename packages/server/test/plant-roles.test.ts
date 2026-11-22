@@ -112,6 +112,12 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "docs.manage": ["admin", "manager", "office"],
   "approvalRule.manage": ["admin"],
   "refFormat.manage": ["admin"],
+  // XE-BILL.
+  "gst.settings": ["admin", "manager", "accountant", "office"],
+  "invoice.read": ["office", "manager", "accountant", "admin"],
+  "invoice.issue": ["office", "manager", "accountant"],
+  "invoice.cancel": ["office", "manager", "accountant"],
+  "payment.record": ["office", "accountant", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -344,6 +350,7 @@ describe("approvals", () => {
       melt_correct: ["owner", "admin", "manager"],
       dispatch_off_band: ["owner", "admin", "manager"],
       dispatch_late_entry: ["owner", "admin", "manager"],
+      invoice_cancel: ["owner", "admin", "manager"],
     });
   });
 

@@ -41,6 +41,8 @@ import { complaintRouter } from "./complaint";
 import { plantMastersRouter } from "./plantMasters";
 import { toolRoomRouter } from "./toolRoom";
 import { plantDocsRouter } from "./plantDocs";
+import { billingRouter } from "./billing";
+import { einvoiceRouter } from "./einvoice";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -97,5 +99,8 @@ export const appRouter = router({
   masters: plantMastersRouter,
   toolRoom: toolRoomRouter,
   docs: plantDocsRouter,
+  // XE-BILL (opt-in modules).
+  billing: billingRouter,
+  einvoice: einvoiceRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -82,6 +82,9 @@ export interface CloudflareEnv {
    * Hermes API server key. Logged by name only, never by value.
    */
   HERMES_BASE_URL?: string;
+  /** XE-BILL: the GST relay origin (https) and its shared HMAC secret (at least 32 characters). Both or neither. */
+  GST_RELAY_URL?: string;
+  GST_RELAY_SECRET?: string;
   HERMES_ACCESS_CLIENT_ID?: string;
   HERMES_ACCESS_CLIENT_SECRET?: string;
   HERMES_API_KEY?: string;

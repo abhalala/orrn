@@ -24,7 +24,7 @@ export type DocNumber = { seq: number; number: string; period: string };
 export type DocNumberBlock = { period: string; seqs: number[]; numbers: string[] };
 
 /** Prefix for the `{TYPE}-{seq}` families (spec P7). */
-const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "party_bundle">, string> = {
+const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "party_bundle" | "invoice" | "credit_note">, string> = {
   lot: "LOT",
   mrs: "MRS",
   grn: "GRN",
@@ -36,7 +36,22 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
   ageing: "AG",
   die_maker_job: "DM",
   complaint: "CMP",
+  // XE-BILL: payments received.
+  payment: "PAY",
 };
+
+/**
+ * XE-BILL: tax invoice and credit note numbers, `INV/26-27/12` and `CN/26-27/3`. The financial year is
+ * short so a five-digit sequence still fits GST Rule 46's 16 characters (and the IRP's DocDtls.No pattern).
+ * Billing takes these numbers inside the issuing batch (lib/billing/numbering.ts) so none is ever skipped;
+ * `nextDocNumber` formats them the same way for any other caller.
+ */
+export const BILLING_NUMBER_PREFIX = { invoice: "INV/", credit_note: "CN/" } as const;
+
+/** `2026-27` -> `26-27`. */
+export function shortFinancialYear(period: string): string {
+  return period.slice(2);
+}
 
 const DEFAULT_PL_PREFIX = "PL/";
 const MAX_PL_PREFIX_LENGTH = 20;
@@ -98,6 +113,9 @@ function formatNumber(docType: DocType, period: string, seq: number, settings: S
       return `${settings.plPrefix}${period}/${seq}`;
     case "cert":
       return `TC/${period}/${seq}`;
+    case "invoice":
+    case "credit_note":
+      return `${BILLING_NUMBER_PREFIX[docType]}${shortFinancialYear(period)}/${seq}`;
     case "party_bundle":
       throw new Error("party_bundle numbers come from allocatePartyBundleNumbers");
     default:

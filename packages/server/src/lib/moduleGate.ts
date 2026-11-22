@@ -42,6 +42,9 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   complaints: "complaints",
   // XE ADM: tooling, receive inspections, die cost and category ride the die room module.
   toolRoom: "dies",
+  // XE-BILL: both opt-in; their reads are gated in lib/billing/gate.ts too.
+  billing: "billing",
+  einvoice: "einvoice",
 };
 
 /**
@@ -74,6 +77,7 @@ export const APPROVAL_KIND_MODULE: Readonly<Record<ApprovalKind, CompanyModule>>
   melt_correct: "foundry",
   dispatch_off_band: "dispatches",
   dispatch_late_entry: "dispatches",
+  invoice_cancel: "billing",
 };
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
