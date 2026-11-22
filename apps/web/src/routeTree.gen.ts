@@ -90,13 +90,18 @@ import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
 import { Route as TenantOrdersNewRouteImport } from './routes/_tenant/orders.new'
 import { Route as TenantOrdersIdRouteImport } from './routes/_tenant/orders.$id'
 import { Route as TenantMastersTrolleysRouteImport } from './routes/_tenant/masters.trolleys'
+import { Route as TenantMastersToolingRouteImport } from './routes/_tenant/masters.tooling'
 import { Route as TenantMastersScrapRouteImport } from './routes/_tenant/masters.scrap'
+import { Route as TenantMastersRulesRouteImport } from './routes/_tenant/masters.rules'
 import { Route as TenantMastersRecipesRouteImport } from './routes/_tenant/masters.recipes'
 import { Route as TenantMastersReasonsRouteImport } from './routes/_tenant/masters.reasons'
 import { Route as TenantMastersOvensRouteImport } from './routes/_tenant/masters.ovens'
 import { Route as TenantMastersLocationsRouteImport } from './routes/_tenant/masters.locations'
+import { Route as TenantMastersListsRouteImport } from './routes/_tenant/masters.lists'
 import { Route as TenantMastersFurnacesRouteImport } from './routes/_tenant/masters.furnaces'
+import { Route as TenantMastersDocumentsRouteImport } from './routes/_tenant/masters.documents'
 import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.dies'
+import { Route as TenantMastersBankRouteImport } from './routes/_tenant/masters.bank'
 import { Route as TenantMastersAlloysRouteImport } from './routes/_tenant/masters.alloys'
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
 import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
@@ -579,9 +584,19 @@ const TenantMastersTrolleysRoute = TenantMastersTrolleysRouteImport.update({
   path: '/masters/trolleys',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMastersToolingRoute = TenantMastersToolingRouteImport.update({
+  id: '/masters/tooling',
+  path: '/masters/tooling',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantMastersScrapRoute = TenantMastersScrapRouteImport.update({
   id: '/masters/scrap',
   path: '/masters/scrap',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersRulesRoute = TenantMastersRulesRouteImport.update({
+  id: '/masters/rules',
+  path: '/masters/rules',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantMastersRecipesRoute = TenantMastersRecipesRouteImport.update({
@@ -604,14 +619,29 @@ const TenantMastersLocationsRoute = TenantMastersLocationsRouteImport.update({
   path: '/masters/locations',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMastersListsRoute = TenantMastersListsRouteImport.update({
+  id: '/masters/lists',
+  path: '/masters/lists',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantMastersFurnacesRoute = TenantMastersFurnacesRouteImport.update({
   id: '/masters/furnaces',
   path: '/masters/furnaces',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMastersDocumentsRoute = TenantMastersDocumentsRouteImport.update({
+  id: '/masters/documents',
+  path: '/masters/documents',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantMastersDiesRoute = TenantMastersDiesRouteImport.update({
   id: '/masters/dies',
   path: '/masters/dies',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersBankRoute = TenantMastersBankRouteImport.update({
+  id: '/masters/bank',
+  path: '/masters/bank',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantMastersAlloysRoute = TenantMastersAlloysRouteImport.update({
@@ -1092,13 +1122,18 @@ export interface FileRoutesByFullPath {
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
+  '/masters/bank': typeof TenantMastersBankRoute
   '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/documents': typeof TenantMastersDocumentsRoute
   '/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/masters/lists': typeof TenantMastersListsRoute
   '/masters/locations': typeof TenantMastersLocationsRoute
   '/masters/ovens': typeof TenantMastersOvensRoute
   '/masters/reasons': typeof TenantMastersReasonsRoute
   '/masters/recipes': typeof TenantMastersRecipesRoute
+  '/masters/rules': typeof TenantMastersRulesRoute
   '/masters/scrap': typeof TenantMastersScrapRoute
+  '/masters/tooling': typeof TenantMastersToolingRoute
   '/masters/trolleys': typeof TenantMastersTrolleysRoute
   '/orders/$id': typeof TenantOrdersIdRoute
   '/orders/new': typeof TenantOrdersNewRoute
@@ -1257,13 +1292,18 @@ export interface FileRoutesByTo {
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
+  '/masters/bank': typeof TenantMastersBankRoute
   '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/documents': typeof TenantMastersDocumentsRoute
   '/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/masters/lists': typeof TenantMastersListsRoute
   '/masters/locations': typeof TenantMastersLocationsRoute
   '/masters/ovens': typeof TenantMastersOvensRoute
   '/masters/reasons': typeof TenantMastersReasonsRoute
   '/masters/recipes': typeof TenantMastersRecipesRoute
+  '/masters/rules': typeof TenantMastersRulesRoute
   '/masters/scrap': typeof TenantMastersScrapRoute
+  '/masters/tooling': typeof TenantMastersToolingRoute
   '/masters/trolleys': typeof TenantMastersTrolleysRoute
   '/orders/$id': typeof TenantOrdersIdRoute
   '/orders/new': typeof TenantOrdersNewRoute
@@ -1428,13 +1468,18 @@ export interface FileRoutesById {
   '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
   '/_tenant/masters/alloys': typeof TenantMastersAlloysRoute
+  '/_tenant/masters/bank': typeof TenantMastersBankRoute
   '/_tenant/masters/dies': typeof TenantMastersDiesRoute
+  '/_tenant/masters/documents': typeof TenantMastersDocumentsRoute
   '/_tenant/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/_tenant/masters/lists': typeof TenantMastersListsRoute
   '/_tenant/masters/locations': typeof TenantMastersLocationsRoute
   '/_tenant/masters/ovens': typeof TenantMastersOvensRoute
   '/_tenant/masters/reasons': typeof TenantMastersReasonsRoute
   '/_tenant/masters/recipes': typeof TenantMastersRecipesRoute
+  '/_tenant/masters/rules': typeof TenantMastersRulesRoute
   '/_tenant/masters/scrap': typeof TenantMastersScrapRoute
+  '/_tenant/masters/tooling': typeof TenantMastersToolingRoute
   '/_tenant/masters/trolleys': typeof TenantMastersTrolleysRoute
   '/_tenant/orders/$id': typeof TenantOrdersIdRoute
   '/_tenant/orders/new': typeof TenantOrdersNewRoute
@@ -1595,13 +1640,18 @@ export interface FileRouteTypes {
     | '/foundry/stock'
     | '/guides/$slug'
     | '/masters/alloys'
+    | '/masters/bank'
     | '/masters/dies'
+    | '/masters/documents'
     | '/masters/furnaces'
+    | '/masters/lists'
     | '/masters/locations'
     | '/masters/ovens'
     | '/masters/reasons'
     | '/masters/recipes'
+    | '/masters/rules'
     | '/masters/scrap'
+    | '/masters/tooling'
     | '/masters/trolleys'
     | '/orders/$id'
     | '/orders/new'
@@ -1760,13 +1810,18 @@ export interface FileRouteTypes {
     | '/foundry/stock'
     | '/guides/$slug'
     | '/masters/alloys'
+    | '/masters/bank'
     | '/masters/dies'
+    | '/masters/documents'
     | '/masters/furnaces'
+    | '/masters/lists'
     | '/masters/locations'
     | '/masters/ovens'
     | '/masters/reasons'
     | '/masters/recipes'
+    | '/masters/rules'
     | '/masters/scrap'
+    | '/masters/tooling'
     | '/masters/trolleys'
     | '/orders/$id'
     | '/orders/new'
@@ -1930,13 +1985,18 @@ export interface FileRouteTypes {
     | '/_tenant/foundry/stock'
     | '/_tenant/guides/$slug'
     | '/_tenant/masters/alloys'
+    | '/_tenant/masters/bank'
     | '/_tenant/masters/dies'
+    | '/_tenant/masters/documents'
     | '/_tenant/masters/furnaces'
+    | '/_tenant/masters/lists'
     | '/_tenant/masters/locations'
     | '/_tenant/masters/ovens'
     | '/_tenant/masters/reasons'
     | '/_tenant/masters/recipes'
+    | '/_tenant/masters/rules'
     | '/_tenant/masters/scrap'
+    | '/_tenant/masters/tooling'
     | '/_tenant/masters/trolleys'
     | '/_tenant/orders/$id'
     | '/_tenant/orders/new'
@@ -2628,11 +2688,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantMastersTrolleysRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/masters/tooling': {
+      id: '/_tenant/masters/tooling'
+      path: '/masters/tooling'
+      fullPath: '/masters/tooling'
+      preLoaderRoute: typeof TenantMastersToolingRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/masters/scrap': {
       id: '/_tenant/masters/scrap'
       path: '/masters/scrap'
       fullPath: '/masters/scrap'
       preLoaderRoute: typeof TenantMastersScrapRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/rules': {
+      id: '/_tenant/masters/rules'
+      path: '/masters/rules'
+      fullPath: '/masters/rules'
+      preLoaderRoute: typeof TenantMastersRulesRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/masters/recipes': {
@@ -2663,6 +2737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantMastersLocationsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/masters/lists': {
+      id: '/_tenant/masters/lists'
+      path: '/masters/lists'
+      fullPath: '/masters/lists'
+      preLoaderRoute: typeof TenantMastersListsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/masters/furnaces': {
       id: '/_tenant/masters/furnaces'
       path: '/masters/furnaces'
@@ -2670,11 +2751,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantMastersFurnacesRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/masters/documents': {
+      id: '/_tenant/masters/documents'
+      path: '/masters/documents'
+      fullPath: '/masters/documents'
+      preLoaderRoute: typeof TenantMastersDocumentsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/masters/dies': {
       id: '/_tenant/masters/dies'
       path: '/masters/dies'
       fullPath: '/masters/dies'
       preLoaderRoute: typeof TenantMastersDiesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/bank': {
+      id: '/_tenant/masters/bank'
+      path: '/masters/bank'
+      fullPath: '/masters/bank'
+      preLoaderRoute: typeof TenantMastersBankRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/masters/alloys': {
@@ -3394,13 +3489,18 @@ interface TenantRouteChildren {
   TenantFoundryStockRoute: typeof TenantFoundryStockRoute
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
   TenantMastersAlloysRoute: typeof TenantMastersAlloysRoute
+  TenantMastersBankRoute: typeof TenantMastersBankRoute
   TenantMastersDiesRoute: typeof TenantMastersDiesRoute
+  TenantMastersDocumentsRoute: typeof TenantMastersDocumentsRoute
   TenantMastersFurnacesRoute: typeof TenantMastersFurnacesRoute
+  TenantMastersListsRoute: typeof TenantMastersListsRoute
   TenantMastersLocationsRoute: typeof TenantMastersLocationsRoute
   TenantMastersOvensRoute: typeof TenantMastersOvensRoute
   TenantMastersReasonsRoute: typeof TenantMastersReasonsRoute
   TenantMastersRecipesRoute: typeof TenantMastersRecipesRoute
+  TenantMastersRulesRoute: typeof TenantMastersRulesRoute
   TenantMastersScrapRoute: typeof TenantMastersScrapRoute
+  TenantMastersToolingRoute: typeof TenantMastersToolingRoute
   TenantMastersTrolleysRoute: typeof TenantMastersTrolleysRoute
   TenantOrdersIdRoute: typeof TenantOrdersIdRoute
   TenantOrdersNewRoute: typeof TenantOrdersNewRoute
@@ -3521,13 +3621,18 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantFoundryStockRoute: TenantFoundryStockRoute,
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,
   TenantMastersAlloysRoute: TenantMastersAlloysRoute,
+  TenantMastersBankRoute: TenantMastersBankRoute,
   TenantMastersDiesRoute: TenantMastersDiesRoute,
+  TenantMastersDocumentsRoute: TenantMastersDocumentsRoute,
   TenantMastersFurnacesRoute: TenantMastersFurnacesRoute,
+  TenantMastersListsRoute: TenantMastersListsRoute,
   TenantMastersLocationsRoute: TenantMastersLocationsRoute,
   TenantMastersOvensRoute: TenantMastersOvensRoute,
   TenantMastersReasonsRoute: TenantMastersReasonsRoute,
   TenantMastersRecipesRoute: TenantMastersRecipesRoute,
+  TenantMastersRulesRoute: TenantMastersRulesRoute,
   TenantMastersScrapRoute: TenantMastersScrapRoute,
+  TenantMastersToolingRoute: TenantMastersToolingRoute,
   TenantMastersTrolleysRoute: TenantMastersTrolleysRoute,
   TenantOrdersIdRoute: TenantOrdersIdRoute,
   TenantOrdersNewRoute: TenantOrdersNewRoute,

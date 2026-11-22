@@ -26,6 +26,7 @@ import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
+import { admEn } from "./adm/en";
 import { buddyEn } from "./buddy/en";
 
 export const en = {
@@ -6489,6 +6490,8 @@ export const en = {
   ageing: ageingEn.ageing,
 
   ingest: ingestEn,
+
+  adm: admEn,
 
   buddy: buddyEn,
 

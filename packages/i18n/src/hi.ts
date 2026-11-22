@@ -10,6 +10,7 @@ import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
+import { admHi } from "./adm/hi";
 import { buddyHi } from "./buddy/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
@@ -6471,6 +6472,8 @@ export const hi = {
   ageing: ageingHi.ageing,
 
   ingest: ingestHi,
+
+  adm: admHi,
 
   buddy: buddyHi,
 

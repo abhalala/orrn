@@ -28,6 +28,7 @@ import { NitridingPanel } from "./card-nitriding";
 import { ReadingsPanel } from "./card-readings";
 import { RunsPanel } from "./card-runs";
 import { TierPanel } from "./card-tier";
+import { ToolRoomBlock } from "./card-toolroom";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
   bandTitle,
@@ -273,6 +274,8 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
             </dl>
           </details>
         </Card>
+
+        <ToolRoomBlock copyId={copyId} code={instance.code} />
 
         <Tabs items={tabItems} value={tab} onValueChange={(id) => onTab(id as CardTab)} label={t("dieRoom.card.title")}>
           {tab === "readings" ? <ReadingsPanel card={card} onAdd={() => setPadOpen(true)} /> : null}

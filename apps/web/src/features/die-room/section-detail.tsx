@@ -30,6 +30,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useNewCopyOnTrial } from "./use-die-room";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
+import { SectionCategory } from "./section-category";
 import { ShareSheet } from "./share-sheet";
 import {
   bandTitle,
@@ -256,6 +257,14 @@ export function SectionDetail({ id }: { id: string }) {
           )}
         </span>
       </p>
+
+      <Can do={["die.card", "masters.publish"]}>
+        <SectionCategory
+          key={(die as { dieCategoryId?: string | null }).dieCategoryId ?? "none"}
+          sectionId={die.id}
+          current={(die as { dieCategoryId?: string | null }).dieCategoryId ?? null}
+        />
+      </Can>
 
       {pick ? (
         <p
