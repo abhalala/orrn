@@ -143,6 +143,7 @@ export const refusalEn = {
     maxDies: "At most {max} dies on a plan.",
     alreadyDecided: "This request was already decided.",
     ownRequest: "Someone else has to approve your request.",
+    frozenRate: "This line's rate was fixed when the order was confirmed. Ask for a rate change from the price sheet.",
     minOverMax: "The minimum weight can't be more than the maximum weight.",
     dieExists: "A die with this series and section code already exists.",
     copyOwnerClash: "{code} belongs to another customer. Clear that copy's owner first.",
