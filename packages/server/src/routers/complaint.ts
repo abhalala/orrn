@@ -198,11 +198,15 @@ export const complaintRouter = router({
         .refine((v) => v.bundleId || v.serial, { message: "Give the bundle" }),
     )
     .mutation(async ({ ctx, input }) => {
-      const [b] = await ctx.db
-        .select({ id: bundle.id })
-        .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), input.bundleId ? eq(bundle.id, input.bundleId) : or(eq(bundle.serial, input.serial!), eq(bundle.partyNo, input.serial!))))
-        .limit(2);
+      // Serial is unique per plant; a party number is not (each customer numbers its own bundles), so
+      // try the serial first and refuse a party number that matches more than one bundle (review REG #2).
+      const pick = (where: SQL) => ctx.db.select({ id: bundle.id }).from(bundle).where(and(eq(bundle.companyId, ctx.companyId), where)).limit(2);
+      let rows = input.bundleId ? await pick(eq(bundle.id, input.bundleId)) : await pick(eq(bundle.serial, input.serial!));
+      if (!input.bundleId && rows.length === 0) {
+        rows = await pick(eq(bundle.partyNo, input.serial!));
+        if (rows.length > 1) throw new TRPCError({ code: "BAD_REQUEST", message: "More than one bundle has that number. Scan the bundle QR." });
+      }
+      const [b] = rows;
       if (!b) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
       const row = await openComplaint(ctx, { bundleId: b.id, source: "staff", kind: input.kind, description: input.description, affectedPcs: input.affectedPcs ?? null });
       return { id: row.id, number: row.number, period: row.period };

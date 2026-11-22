@@ -7,7 +7,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, complaint } from "@orrn/db/schema";
+import { auditLog, bundle, complaint } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -165,6 +165,32 @@ describe("party complaints", () => {
     await env.db.update(company).set({ modules: ["customers", "dies", "bundles", "dispatches", "orders"] }).where(eq(company.id, p.companyId));
     expect((await party.api.portal.me()).complaints).toBe(false);
     expect(await errOf(party.api.portal.complaints.list())).toMatchObject({ code: "FORBIDDEN" });
+  }, SLOW);
+});
+
+describe("review fixes", () => {
+  test("a staff complaint with no dispatch stays out of the party's portal, even when it names the party", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const party = await helpers.partyLogin(p);
+    const unshipped = await p.pack(p.dieA, [{ kg: 5 }]);
+    const internal = await p.as("office").complaints.open({ serial: unshipped[0]!, kind: "surface", description: "Die marks, polish skipped" });
+    // Pin the worst case: the row names this party (the sales-order fallback) but has no dispatch.
+    await env.db.update(complaint).set({ customerId: p.customerId, dispatchId: null }).where(eq(complaint.id, internal.id));
+    expect((await party.api.portal.complaints.list()).items.map((c) => c.id)).not.toContain(internal.id);
+    expect(await errOf(party.api.portal.complaints.get({ id: internal.id }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
+  }, SLOW);
+
+  test("staff open by a party number shared by two bundles is refused; the serial still works", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const a = await shipped(p, [10]);
+    const b = await shipped(p, [8], p.otherCustomer);
+    await env.db.update(bundle).set({ partyNo: "123" }).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, a.serials[0]!)));
+    await env.db.update(bundle).set({ partyNo: "123" }).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, b.serials[0]!)));
+    expect(await errOf(p.as("office").complaints.open({ serial: "123", kind: "bend", description: "Bent" }))).toMatchObject({ code: "BAD_REQUEST" });
+    const ok = await p.as("office").complaints.open({ serial: b.serials[0]!, kind: "bend", description: "Bent" });
+    expect((await p.as("office").complaints.get({ id: ok.id })).customerId).toBe(p.otherCustomer);
   }, SLOW);
 });
 

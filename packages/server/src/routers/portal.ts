@@ -18,7 +18,7 @@
  */
 import { documentPrefs, isModuleOn, readFloorSettings, readUnitSettings } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { user } from "@orrn/db/schema/auth";
@@ -64,6 +64,9 @@ const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? 
 /** Invite life (same as member invites). */
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** Most lines a party may book on one order (an office order takes 100). */
+/** Portal complaint visibility (review REG #1): raised in the portal, or tied to a dispatch. */
+const partyCanSee = or(eq(complaint.source, "portal"), isNotNull(complaint.dispatchId));
+
 export const MAX_PORTAL_LINES = 20;
 
 async function sha256Hex(value: string): Promise<string> {
@@ -1024,12 +1027,14 @@ export const portalRouter = router({
    * party sees number, status, its own words and the plant's reply; never the trace or the investigation.
    */
   complaints: router({
+    // A staff complaint on a bundle that never left on a dispatch is internal: the party sees only
+    // its own complaints and staff complaints tied to a dispatch it received (review REG #1).
     list: portalProcedure.input(z.object(pageInput).optional()).query(async ({ ctx, input }) => {
       await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
       const rows = await ctx.db
         .select()
         .from(complaint)
-        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId)))
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), partyCanSee))
         .orderBy(desc(complaint.createdAt), desc(complaint.id))
         .limit(input?.limit ?? 20)
         .offset(input?.offset ?? 0);
@@ -1040,7 +1045,7 @@ export const portalRouter = router({
       const [row] = await ctx.db
         .select()
         .from(complaint)
-        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), eq(complaint.id, input.id)))
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), eq(complaint.id, input.id), partyCanSee))
         .limit(1);
       if (!row) portalNotFound();
       return partyView(row);
@@ -1062,6 +1067,8 @@ export const portalRouter = router({
             isNull(dispatch.deletedAt),
           ),
         )
+        // A serial is unique; a party number can repeat, so prefer the serial, then the newest dispatch.
+        .orderBy(sql`case when ${bundle.serial} = ${input.bundleNo} then 0 else 1 end`, desc(dispatch.completedAt))
         .limit(1);
       if (!hit) portalNotFound();
       const row = await openComplaint(
