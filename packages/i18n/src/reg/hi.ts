@@ -48,7 +48,7 @@ export const regHi = {
   },
   billet: {
     title: "इस प्लान के लिए billet",
-    hint: "billet kg = प्लान kg भाग die की अपनी रिकवरी (उसके दर्ज रन से)।",
+    hint: "billet वज़न = प्लान वज़न भाग die की अपनी रिकवरी (उसके दर्ज रन से)।",
     alloy: "अलॉय",
     length: "billet लंबाई",
     needKg: "चाहिए billet",
@@ -64,5 +64,10 @@ export const regHi = {
     billetsShort: "{alloy} के billet कम हैं",
     readyLabel: "लाइन की तैयारी",
     loadFailed: "billet की ज़रूरत नहीं खुली।",
+  },
+  recut: {
+    label: "छोटा क्यों काटा?",
+    placeholder: "एक सिरे पर मुड़ा हुआ",
+    hint: "वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही।",
   },
 } as const;

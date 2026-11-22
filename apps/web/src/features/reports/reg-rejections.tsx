@@ -99,6 +99,15 @@ function Body({ search, onSearch }: { search: RejectionsSearch; onSearch: (next:
         </div>
       ) : null}
 
+      {search.section || search.line || search.shift ? (
+        <div className="report-no-print flex flex-wrap items-center gap-2">
+          <Chip tone="neutral">{t("reg.reports.rejections.filteredByCell")}</Chip>
+          <button type="button" className="min-h-11 text-[14px] font-medium text-primary underline" onClick={() => onSearch({ ...search, section: undefined, line: undefined, shift: undefined })}>
+            {t("reg.reports.rejections.clearCells")}
+          </button>
+        </div>
+      ) : null}
+
       {showsQueryError(query) ? (
         <RegLoadFailed onRetry={() => void query.refetch()} />
       ) : !first ? (
@@ -136,10 +145,10 @@ function Body({ search, onSearch }: { search: RejectionsSearch; onSearch: (next:
                     <td className={`${TD} whitespace-nowrap`}>{r.day ?? <Dash />}</td>
                     <td className={TD}>{t(r.source === "press" ? "reg.reports.rejections.sourcePress" : "reg.reports.rejections.sourcePack")}</td>
                     <td className={TD}>{r.runNumber ?? <Dash />}</td>
-                    <td className={TD}>{r.sectionCode}</td>
+                    <td className={TD}>{r.sectionId ? <button type="button" className="min-h-11 text-left underline-offset-2 hover:underline" aria-label={t("reg.reports.rejections.pickReason", { reason: r.sectionCode })} onClick={() => onSearch({ ...search, section: r.sectionId ?? undefined })}>{r.sectionCode}</button> : <Dash />}</td>
                     <td className={TD}>{r.copyCode ?? <Dash />}</td>
-                    <td className={TD}>{r.pressCode ?? <Dash />}</td>
-                    <td className={TD}>{r.shiftName ?? <Dash />}</td>
+                    <td className={TD}>{(r.pressCode && r.pressLineId) ? <button type="button" className="min-h-11 text-left underline-offset-2 hover:underline" aria-label={t("reg.reports.rejections.pickReason", { reason: r.pressCode ?? "" })} onClick={() => onSearch({ ...search, line: (r.pressCode && r.pressLineId) ?? undefined })}>{r.pressCode ?? ""}</button> : <Dash />}</td>
+                    <td className={TD}>{(r.shiftName && r.shiftId) ? <button type="button" className="min-h-11 text-left underline-offset-2 hover:underline" aria-label={t("reg.reports.rejections.pickReason", { reason: r.shiftName ?? "" })} onClick={() => onSearch({ ...search, shift: (r.shiftName && r.shiftId) ?? undefined })}>{r.shiftName ?? ""}</button> : <Dash />}</td>
                     <td className={TD}>{rejectionReason(r) || <Dash />}</td>
                     <td className={`${TD} ${NUM}`}>{r.pcs}</td>
                     <td className={`${TD} ${NUM} whitespace-nowrap`}>{kg(r.kgG)}</td>

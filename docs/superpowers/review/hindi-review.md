@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9252 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9257 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -8273,7 +8273,7 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
-### reg (330)
+### reg (335)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8336,6 +8336,8 @@ Please check, Lalubhai:
 | `reports.rejections.noReason` | No reason given | कारण नहीं लिखा |
 | `reports.rejections.filterReason` | Reason: {reason} | कारण: {reason} |
 | `reports.rejections.clearReason` | Show all reasons | सभी कारण दिखाएँ |
+| `reports.rejections.filteredByCell` | Filtered by die, press or shift | die, प्रेस या शिफ़्ट से छँटा हुआ |
+| `reports.rejections.clearCells` | Show every die, press and shift | हर die, प्रेस और शिफ़्ट दिखाएँ |
 | `reports.rejections.pickReason` | Show only {reason} | सिर्फ़ {reason} दिखाएँ |
 | `reports.recuts.title` | Recut register | रीकट रजिस्टर |
 | `reports.recuts.subtitle` | Bundles cut shorter than their trolley line, newest first. The totals cover the whole period. | ट्रॉली लाइन से छोटे काटे गए बंडल, नए पहले। कुल पूरी अवधि का है। |
@@ -8607,6 +8609,9 @@ Please check, Lalubhai:
 | `billet.billetsShort` | Not enough billets of {alloy} | {alloy} के billet कम हैं |
 | `billet.readyLabel` | Readiness of the line | लाइन की तैयारी |
 | `billet.loadFailed` | Could not load the billet need. | billet की ज़रूरत नहीं खुली। |
+| `recut.label` | Why was it cut shorter? | छोटा क्यों काटा? |
+| `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
+| `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
 ### reasons (79)
 

@@ -1889,4 +1889,5 @@ export const gu = mergeGu(
   typeof guPrintingPrinters &
   typeof guPrintingQueue &
   typeof guIngest &
-  typeof guBuddy satisfies GuMessages;
+  typeof guBuddy &
+  typeof guReg satisfies GuMessages;

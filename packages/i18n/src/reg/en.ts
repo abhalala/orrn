@@ -55,7 +55,7 @@ export const regEn = {
   /** The billet need on the press plan (#49). */
   billet: {
     title: "Billets for this plan",
-    hint: "Billet kg = plan kg divided by the die's own recovery from its logged runs.",
+    hint: "Billet weight = plan weight divided by the die's own recovery from its logged runs.",
     alloy: "Alloy",
     length: "Billet length",
     needKg: "Billets needed",
@@ -71,5 +71,11 @@ export const regEn = {
     billetsShort: "Not enough billets of {alloy}",
     readyLabel: "Readiness of the line",
     loadFailed: "Could not load the billet need.",
+  },
+  /** Pack floor: why a bundle was cut shorter than its trolley line (optional). */
+  recut: {
+    label: "Why was it cut shorter?",
+    placeholder: "Bend at one end",
+    hint: "Optional. Saved with this bundle so the office can see why the line ran short.",
   },
 } as const;

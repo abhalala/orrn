@@ -575,6 +575,13 @@ function DefaultsForm({
       return;
     }
     const trimmed = po.trim();
+    // The picked trolley line's cut length (from the loaded lines, else the one the draft already holds for this line).
+    const pickedLine = choice.ageingRowId ? gate.trolleys.data?.items.find((r) => r.ageingRowId === choice.ageingRowId) : undefined;
+    const trolleyCutMm = pickedLine
+      ? pickedLine.cutLengthMm
+      : choice.ageingRowId && choice.ageingRowId === draft.defaults.ageingRowId
+        ? draft.defaults.trolleyCutMm
+        : undefined;
     onSubmit({
       lengthMm,
       ...(trimmed ? { po: trimmed } : {}),
@@ -582,6 +589,7 @@ function DefaultsForm({
       ...(choice.dieInstanceId ? { dieInstanceId: choice.dieInstanceId } : {}),
       ...(choice.castId ? { castId: choice.castId } : {}),
       ...(choice.ageingRowId ? { ageingRowId: choice.ageingRowId } : {}),
+      ...(trolleyCutMm ? { trolleyCutMm } : {}),
       ...(choice.salesOrderLineId ? { salesOrderLineId: choice.salesOrderLineId } : {}),
       ...(choice.salesOrderLineId && choice.overridePin ? { overridePin: true } : {}),
       ...(choice.showLogo ? {} : { showLogo: false }),
