@@ -129,6 +129,7 @@ import {
   type Ctx,
   type LotForMelt,
 } from "../lib/foundryKit";
+import { assertLotsInspected } from "../lib/qa";
 import { foundryMastersRouter } from "./foundryMasters";
 import { MELT_GATE_TEXT, meltStepperProcedures } from "./foundryMelt";
 import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
@@ -1328,6 +1329,8 @@ const meltsRouter = router({
         if (lot.status !== "ok" || !lot.locationId) bad(`${lot.number} is not in scrap stock`);
         if (lot.remainingG < i.kgG) bad(`Only ${fmtKg(Math.max(lot.remainingG, 0))} kg left in ${lot.number}`);
       }
+      // XE QA (row 22): a lot waiting for inspection or failed cannot be charged (plant setting).
+      await assertLotsInspected(ctx.db, ctx.companyId, [...lots.values()]);
       const outReturns = input.outputs.returns;
       const returnIds = new Set<string>();
       for (const r of outReturns) {

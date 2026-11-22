@@ -38,6 +38,8 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   purchase: "purchase",
   // Scrap vendors are purchase masters (routers/vendor.ts).
   vendor: "purchase",
+  // XE parity lane QA.
+  qa: "qa",
 };
 
 /**

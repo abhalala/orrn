@@ -73,6 +73,7 @@ import {
   type Ctx,
   type LotForMelt,
 } from "../lib/foundryKit";
+import { assertLotsInspected } from "../lib/qa";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, MAX_STORE_DRAWS, MAX_STORE_QTY_MILLI, prepareStoreDraws, type PreparedStoreDraws } from "../lib/store";
@@ -671,6 +672,8 @@ export const meltStepperProcedures = {
         if (!lot || lot.status !== "ok" || lot.locationId !== l.locationId) bad(`${lot?.number ?? "A lot"} is no longer in scrap stock`);
         if (lot.remainingG < l.kgG) bad(`Only ${fmtKg(Math.max(lot.remainingG, 0))} kg left in ${lot.number}`);
       }
+      // XE QA (row 22): a lot waiting for inspection or failed cannot be charged (plant setting).
+      await assertLotsInspected(ctx.db, ctx.companyId, [...lots.values()]);
       const streamLineIds = [...new Set([...d.inputs.filter((i) => i.kind === "return_stream").map((i) => i.returnStreamId!), ...d.outputs.filter((o) => o.returnStreamId).map((o) => o.returnStreamId!)])];
       const streams = await streamsByIds(ctx, streamLineIds);
       for (const sid of streamLineIds) {

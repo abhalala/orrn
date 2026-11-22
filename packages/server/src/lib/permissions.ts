@@ -130,6 +130,11 @@ export const PLANT_ACTIONS = [
   // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
   // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
   "ingest.check",
+  // XE parity lane QA (migration 0055). `qc.enter` stays the press station's reject entry.
+  "qa.check", // record a quality check (incoming, first piece, in process, clearance, dimensions, mechanical, ultrasonic), place a lot at an inspection point, record a calibration
+  "qa.hold", // put a bundle on quality hold
+  "qa.release", // release a bundle from quality hold, with a note
+  "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -271,6 +276,12 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "ingest.merge": ["admin"],
   // Item 16: the people who see prices tick a model-read table; the admin approves it.
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE parity lane QA: the floor people who already judge quality record checks (press first piece, the
+  // foundry's incoming lots, the store's bought-in material); a supervisor or manager holds and releases.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
   "support.request": [
     "admin",
     "manager",

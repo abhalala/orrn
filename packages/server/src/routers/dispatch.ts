@@ -44,6 +44,7 @@ import {
   type SqliteBatchItem,
 } from "../lib/atomic";
 import { heldElsewhere, type BundleBlock } from "../lib/bundleHold";
+import { assertNoQaHold } from "../lib/qa";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextDocNumber } from "../lib/docNumber";
@@ -1213,6 +1214,8 @@ async function addByCodes(
     const toAdd = refuseOutsideOrder(classified, new Set(picks.keys()));
     // W3-AG-S: a bundle in the oven or held in ageing (or never aged, under requireAgeing) does not load.
     await assertDispatchAgeing(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
+    // XE QA (row 29): a bundle on quality hold does not load (scan and the office's add by serial).
+    await assertNoQaHold(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
     const report: ScanReport = {
       added: [],
       linked: [],
