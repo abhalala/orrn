@@ -22,6 +22,7 @@ import {
   validateThresholds,
   type Shift,
   type ThresholdError,
+  readMorningSummarySettings,
 } from "@orrn/domain";
 import { buddyRevokePlantStatements, buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
@@ -252,6 +253,13 @@ export const companyRouter = router({
          * but is refused); it has its own audit row, `company.security.update`.
          */
         requireStrongSignIn: z.boolean().optional(),
+        /**
+         * The owner's morning mail (XE parity REG #82): off by default; `hour` is the plant-time hour
+         * (0 to 23) it goes out. Partial: only the fields sent change.
+         */
+        morningSummary: z
+          .object({ enabled: z.boolean().optional(), hour: z.number().int().min(0).max(23).optional() })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -343,6 +351,13 @@ export const companyRouter = router({
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
+      if (input.morningSummary !== undefined) {
+        const was = readMorningSummarySettings(row.settings?.morningSummary);
+        patch.morningSummary = {
+          enabled: input.morningSummary.enabled ?? was.enabled,
+          hour: input.morningSummary.hour ?? was.hour,
+        };
+      }
       if (input.ageing !== undefined) {
         const was = readFloorSettings(row.settings).ageing;
         const next = { ...was, ...Object.fromEntries(Object.entries(input.ageing).filter(([, v]) => v !== undefined)) };
@@ -503,6 +518,8 @@ export const companyRouter = router({
       dcTolerancePct: typeof raw.dcTolerancePct === "number" ? raw.dcTolerancePct : null,
       orderToleranceBp: typeof raw.orderToleranceBp === "number" ? raw.orderToleranceBp : null,
       castSeriesStart: floor.castSeriesStart,
+      /** The owner's morning mail (XE parity REG #82): off by default, 07:00 plant time. */
+      morningSummary: readMorningSummarySettings(raw.morningSummary),
       modules: Array.isArray(row.modules) ? row.modules : [],
       productionDay: {
         day: day.productionDay,

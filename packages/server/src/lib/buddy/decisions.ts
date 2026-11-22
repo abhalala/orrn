@@ -71,7 +71,7 @@ export const BUDDY_DECISIONS = {
     foundry: allow,
     audit: allow,
     transporter: allow,
-    // XE parity lane REG: reads only; its mutations stay drafts-denied until named in `changes`.
+    // XE parity lane REG: the complaint register's reads; its writes are named in `paths` (denied).
     complaints: allow,
   } satisfies Record<string, RouterDecision>,
 
@@ -105,6 +105,11 @@ export const BUDDY_DECISIONS = {
     // Delta round decision 1 (B1, D-M1): the link's token comes from the request key, which Confirm sets to the draft id
     // that Hermes and the audit log know. The buddy links the person to the die screen instead.
     "die.share.create": deny("Mints a public share link, which would leave orrn through the chat; the person makes it on the die screen."),
+    // XE parity lane REG: a complaint's words go to the customer; a person writes them on the complaint screen.
+    "complaints.open": deny("Raising a complaint is a person's act on the bundle or complaint screen."),
+    "complaints.investigate": deny("The investigation is a person's record on the complaint screen."),
+    "complaints.reply": deny("The reply goes to the customer; a person writes it on the complaint screen."),
+    "complaints.close": deny("Closing a complaint is a person's act on the complaint screen."),
     "reports.ageing": {
       kind: "allow",
       unless: { field: "format", values: ["csv"], reason: "§10 scan: the CSV form is a download." },

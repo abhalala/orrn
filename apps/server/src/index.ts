@@ -211,9 +211,23 @@ app.get("/", (c) => {
  * BACKUPS / DIE_FILES binding (R2 not enabled) those two steps log "skipped" and do nothing
  * (lib/dailyCron.ts); the collector purge still runs.
  */
-async function scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+async function scheduled(controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+  // The hourly trigger (XE parity REG #82) only sends the plants' morning mails; the daily one keeps
+  // backups and purges. Lazy import keeps the report code off the fetch path.
+  if (controller.cron === HOURLY_CRON) {
+    ctx.waitUntil(
+      import("@orrn/server/lib/morningSummary").then(async ({ runMorningSummaries }) => {
+        const { sendEmail } = await import("@orrn/server/lib/email");
+        await runMorningSummaries(createDb(), new Date(), sendEmail);
+      }),
+    );
+    return;
+  }
   ctx.waitUntil(runDailyCron(createDb(), new Date()));
 }
+
+/** Must match the second entry of `crons` in packages/server/src/infra/alchemy.run.ts. */
+const HOURLY_CRON = "5 * * * *";
 
 const worker: ExportedHandler<Env> = { fetch: app.fetch, scheduled };
 export default worker;
