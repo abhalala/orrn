@@ -142,7 +142,7 @@ describe("the forms that take a weight, length or section weight", () => {
     "features/foundry/stock-view.tsx", "features/masters/die-copy-sheet.tsx", "features/orders/components/die-block.tsx", "features/orders/components/line-editor.tsx",
     "features/orders/plan-board-page.tsx", "features/orders/plan-trial-form.tsx", "features/pack/bundles-step.tsx", "features/pack/die-step.tsx",
     "features/pack/rejects-panel.tsx", "features/portal/new-order-page.tsx", "features/press/station-count.tsx", "features/purchase/lot-sheets.tsx",
-    "features/purchase/new-lot-page.tsx", "features/store/entry-form.tsx",
+    "features/purchase/new-lot-page.tsx", "features/store/entry-form.tsx", "features/store-buy/qty-box.tsx",
   ];
   test("every form on the list takes its quantity through the plant's unit", () => {
     expect(FORMS.filter((f) => !used.has(f))).toEqual([]);

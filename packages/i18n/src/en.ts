@@ -30,6 +30,7 @@ import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
+import { store2En } from "./store2/en";
 
 export const en = {
   common: {
@@ -227,6 +228,7 @@ export const en = {
 
   nav: {
     qa: "Quality",
+    storeBuying: "Buying",
     ageing: "Ageing",
     complaints: "Complaints",
     owner: "Owner",
@@ -6506,6 +6508,7 @@ export const en = {
 
   reg: regEn,
   qa: qaEn,
+  store2: store2En,
 
   reasons: {
     kinds: {
@@ -6886,6 +6889,8 @@ export const en = {
       qa_station: "Inspection point",
       qa_alloy_substitute: "Alloy substitute",
       qa_instrument: "Instrument",
+      store_indent: "Indent",
+      store_po: "Purchase order",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -7173,6 +7178,16 @@ export const en = {
       store__exchange: "Store items exchanged",
       store__issue: "Store items issued",
       store__receive: "Store items received",
+      store__indent__create: "Indent raised",
+      store__indent__approve: "Indent approved",
+      store__indent__reject: "Indent rejected",
+      store__indent__cancel: "Indent cancelled",
+      store__po__create: "Purchase order made",
+      store__po__update: "Purchase order changed",
+      store__po__issue: "Purchase order sent",
+      store__po__close: "Purchase order closed short",
+      store__po__cancel: "Purchase order cancelled",
+      store__settings__update: "Over-delivery allowance changed",
       store_item__create: "Store item added",
       store_item__update: "Store item changed",
       support_request__close: "Help request closed",

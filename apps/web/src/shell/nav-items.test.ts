@@ -39,6 +39,7 @@ describe("visibleItems", () => {
       "dies",
       "customers",
       "store",
+      "storeBuying",
       "printing",
       "masters",
       "guides",

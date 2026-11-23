@@ -21,6 +21,7 @@ import {
   Rocket,
   Scale,
   ScrollText,
+  ShoppingCart,
   Settings,
   DatabaseBackup,
   LifeBuoy,
@@ -101,6 +102,16 @@ export const TENANT_MORE: readonly NavItem[] = [
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
   { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },
+  // XE store (rows 69, 70, 73): indents, purchase orders and the store's value, for department heads, the office,
+  // the store and managers.
+  {
+    key: "storeBuying",
+    to: "/store/buy",
+    labelKey: "nav.storeBuying",
+    icon: ShoppingCart,
+    requires: ["indent.raise", "indent.approve", "po.view", "po.manage", "store.value"],
+    module: "store",
+  },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the
   // role-aware nav table and moves this into the sidebar's Masters group.

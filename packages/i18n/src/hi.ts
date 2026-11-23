@@ -14,6 +14,7 @@ import { admHi } from "./adm/hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
+import { store2Hi } from "./store2/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -219,6 +220,7 @@ export const hi = {
 
   nav: {
     qa: "गुणवत्ता",
+    storeBuying: "खरीद",
     ageing: "एजिंग",
     complaints: "शिकायतें",
     owner: "मालिक",
@@ -6488,6 +6490,7 @@ export const hi = {
 
   reg: regHi,
   qa: qaHi,
+  store2: store2Hi,
 
   reasons: {
     kinds: {
@@ -6868,6 +6871,8 @@ export const hi = {
       qa_station: "जांच स्थान",
       qa_alloy_substitute: "मिश्रधातु विकल्प",
       qa_instrument: "उपकरण",
+      store_indent: "इंडेंट",
+      store_po: "परचेज़ ऑर्डर",
     },
     onlyThis: "सिर्फ़ यह",
     byStaff: "orrn सपोर्ट",
@@ -7155,6 +7160,16 @@ export const hi = {
       store__exchange: "स्टोर आइटम बदले",
       store__issue: "स्टोर से सामान दिया",
       store__receive: "स्टोर में सामान आया",
+      store__indent__create: "इंडेंट बना",
+      store__indent__approve: "इंडेंट मंज़ूर",
+      store__indent__reject: "इंडेंट नामंज़ूर",
+      store__indent__cancel: "इंडेंट रद्द",
+      store__po__create: "परचेज़ ऑर्डर बना",
+      store__po__update: "परचेज़ ऑर्डर बदला",
+      store__po__issue: "परचेज़ ऑर्डर भेजा",
+      store__po__close: "परचेज़ ऑर्डर बाकी छोड़कर बंद",
+      store__po__cancel: "परचेज़ ऑर्डर रद्द",
+      store__settings__update: "ज़्यादा माल की छूट बदली",
       store_item__create: "स्टोर आइटम जोड़ा",
       store_item__update: "स्टोर आइटम बदला",
       support_request__close: "मदद की रिक्वेस्ट बंद की",
