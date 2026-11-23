@@ -27,11 +27,27 @@ export async function errOf(promise: Promise<unknown>) {
   return { code: "OK", message: "" };
 }
 
-export function maintPlant(getEnv: () => TestEnv) {
-  return async function plant(opts: { modules?: string[] } = {}) {
+type Caller = ReturnType<TestEnv["caller"]>;
+
+export type MaintPlant = Record<CompanyRole, Caller> & {
+  env: TestEnv;
+  companyId: string;
+  users: Record<CompanyRole, { id: string; email: string }>;
+  lineId: string;
+  as(role: CompanyRole): Caller;
+  run(start: Date, stop: Date | null, status?: "logged" | "running" | "voided", line?: string): Promise<string>;
+  downtime(start: Date, stop: Date | null, code?: string, runId?: string | null, note?: string | null, line?: string): Promise<string>;
+  furnace(): Promise<string>;
+  melt(furnaceId: string, start: Date, end: Date, status?: "locked" | "cancelled"): Promise<void>;
+  oven(): Promise<string>;
+  batch(ovenId: string, inAt: Date, outAt: Date | null, status?: "out" | "void" | "in_oven"): Promise<void>;
+};
+
+export function maintPlant(getEnv: () => TestEnv): (opts?: { modules?: string[] }) => Promise<MaintPlant> {
+  return async function plant(opts: { modules?: string[] } = {}): Promise<MaintPlant> {
     const env = getEnv();
     const { companyId, users } = await env.seedCompany({ modules: opts.modules });
-    const callers = Object.fromEntries(ROLES.map((role) => [role, env.caller({ role, companyId })])) as Record<CompanyRole, ReturnType<typeof env.caller>>;
+    const callers = Object.fromEntries(ROLES.map((role) => [role, env.caller({ role, companyId })])) as Record<CompanyRole, Caller>;
     const lineId = crypto.randomUUID();
     await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });
     const dieId = await env.seedDie(companyId);
@@ -86,5 +102,3 @@ export function maintPlant(getEnv: () => TestEnv) {
     };
   };
 }
-
-export type MaintPlant = Awaited<ReturnType<ReturnType<typeof maintPlant>>>;

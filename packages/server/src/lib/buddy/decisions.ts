@@ -82,7 +82,7 @@ export const BUDDY_DECISIONS = {
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
     // XE parity lane MAINT: maintenance reads (assets, plans due, work orders, readings, reports). Its writes are
-    // not named in `changes`, so every one of them stays denied (a person raises and closes work orders).
+    // denied by name in `paths` (a person sets up the register and raises and closes work orders).
     maint: allow,
   } satisfies Record<string, RouterDecision>,
 
@@ -115,6 +115,24 @@ export const BUDDY_DECISIONS = {
     "die.share.view": deny("The public share page, opened with a share token; not a plant tool."),
     // Delta round decision 1 (B1, D-M1): the link's token comes from the request key, which Confirm sets to the draft id
     // that Hermes and the audit log know. The buddy links the person to the die screen instead.
+    // XE parity lane MAINT: every write is a person's act on the maintenance screens.
+    "maint.assets.create": deny("The asset register is set up by a person on the maintenance screen."),
+    "maint.assets.update": deny("The asset register is set up by a person on the maintenance screen."),
+    "maint.assets.addFromMasters": deny("Adds assets in bulk; a person does it on the maintenance screen."),
+    "maint.plans.create": deny("Preventive plans are set up by a person on the asset screen."),
+    "maint.plans.update": deny("Preventive plans are set up by a person on the asset screen."),
+    "maint.plans.makeWorkOrder": deny("Opening a work order is a person's act on the maintenance screen."),
+    "maint.workOrders.create": deny("Raising a work order is a person's act on the maintenance screen."),
+    "maint.workOrders.fromDowntime": deny("Raising a work order is a person's act on the press station or the maintenance screen."),
+    "maint.workOrders.update": deny("The work done, the cause and the times are a person's record on the work order."),
+    "maint.workOrders.move": deny("Moving or closing a work order is a person's act on the work order screen."),
+    "maint.spares.link": deny("Spares are linked by a person on the work order screen."),
+    "maint.spares.unlink": deny("Spares are linked by a person on the work order screen."),
+    "maint.readings.createKind": deny("Reading limits are set up by a person on the asset screen."),
+    "maint.readings.updateKind": deny("Reading limits are set up by a person on the asset screen."),
+    "maint.readings.record": deny("A reading is taken by a person at the machine."),
+    "maint.readings.makeWorkOrder": deny("Raising a work order is a person's act on the maintenance screen."),
+    "maint.settings.set": deny("The labour rate is money; a person sets it on the maintenance screen."),
     "die.share.create": deny("Mints a public share link, which would leave orrn through the chat; the person makes it on the die screen."),
     // XE parity lane REG: a complaint's words go to the customer; a person writes them on the complaint screen.
     "complaints.open": deny("Raising a complaint is a person's act on the bundle or complaint screen."),
