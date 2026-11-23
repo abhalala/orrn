@@ -585,6 +585,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         pending={preview.isPending}
         warnPct={warnPct}
         gates={shownGates}
+        floorShort={preview.data?.floorShort ?? []}
         showGates={last || (gates?.length ?? 0) > 0}
         canClose={canClose}
         t={t}
@@ -689,6 +690,7 @@ function PreviewPanel({
   pending,
   warnPct,
   gates,
+  floorShort,
   showGates,
   canClose,
   t,
@@ -699,6 +701,8 @@ function PreviewPanel({
   pending: boolean;
   warnPct: number;
   gates: readonly string[];
+  /** XE FOUNDRY (#50): casts the press floor holds less of than the run used. A warning: the run still logs. */
+  floorShort: readonly { castId: string; castNumber: string; floorCode: string; needG: number; haveG: number }[];
   showGates: boolean;
   canClose: boolean;
   t: ReturnType<typeof useT>["t"];
@@ -731,6 +735,11 @@ function PreviewPanel({
             <Fig label={t("press.console.balanceLabel")} value={`${kgGrouped1(fmt, figures.balanceG)} ${massUnit(fmt)}`} testid="preview-balance" />
           </dl>
           {figures.balanceWarn ? <p className="m-0 text-[14px] leading-6">{t("press.console.balanceWarn", { pct: warnPct })}</p> : null}
+          {floorShort.map((f) => (
+            <p key={f.castId} role="status" data-slot="floor-short" className="m-0 text-[14px] leading-6">
+              {t("press.console.floorShort", { cast: f.castNumber, floor: f.floorCode, have: kgGrouped1(fmt, f.haveG), need: kgGrouped1(fmt, f.needG), massUnit: massUnit(fmt) })}
+            </p>
+          ))}
         </>
       ) : pending ? (
         <p className="m-0 text-[14px] text-muted-foreground">{t("press.console.loading")}</p>

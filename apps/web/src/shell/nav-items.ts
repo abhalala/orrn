@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
@@ -6,11 +7,13 @@ import {
   BookMarked,
   Boxes,
   Building2,
+  FileText,
   ClipboardCheck,
   ChartColumn,
   Cylinder,
   Factory,
   Flame,
+  Hammer,
   Handshake,
   Thermometer,
   House,
@@ -20,9 +23,11 @@ import {
   PackagePlus,
   Printer,
   Ruler,
+  Tags,
   Rocket,
   Scale,
   ScrollText,
+  ShoppingCart,
   Settings,
   DatabaseBackup,
   LifeBuoy,
@@ -30,14 +35,14 @@ import {
   UserCog,
   Users,
   Warehouse,
-  Wrench,
   UploadCloud,
   MessageSquareWarning,
   Sunrise,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "jobwork" | "drawbench" | "fabrication";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "jobwork" | "drawbench" | "fabrication";
 
 export type NavItem = {
   key: string;
@@ -82,6 +87,8 @@ const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.clo
 const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.masters", "reports.read"];
 /** Job work: who sends, receives or sees cost on a challan, and who runs the in-house line (`process.run`). The pages gate each button. */
 const JOBWORK_PEOPLE: readonly Action[] = ["jobwork.send", "jobwork.receive", "jobwork.cost", "process.run"];
+/** Billing: who reads invoices, issues them, records payments or sets up GST. */
+const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
 
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
@@ -97,19 +104,35 @@ export const TENANT_MORE: readonly NavItem[] = [
   // XE JOBWORK: challans out to vendors, the in-house finishing line, the draw bench and fabrication, each its own module.
   { key: "jobwork", to: "/jobwork", labelKey: "nav.jobwork", icon: Handshake, requires: JOBWORK_PEOPLE, module: "jobwork" },
   { key: "drawbench", to: "/drawbench", labelKey: "nav.drawbench", icon: Ruler, requires: ["process.run"], module: "drawbench" },
-  { key: "fabrication", to: "/fabrication", labelKey: "nav.fabrication", icon: Wrench, requires: ["process.run"], module: "fabrication" },
+  { key: "fabrication", to: "/fabrication", labelKey: "nav.fabrication", icon: Hammer, requires: ["process.run"], module: "fabrication" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   // XE parity REG: the complaint register and the owner's morning page.
   { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
   { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
+  // XE-BILL: tax invoices, payments, outstanding and the accounts exports. Opt-in module, hidden while it is off.
+  { key: "billing", to: "/billing", labelKey: "nav.billing", icon: FileText, requires: BILLING_PEOPLE, module: "billing" },
+  // XE parity lane MAINT: assets, preventive plans, work orders and readings.
+  { key: "maintenance", to: "/maintenance", labelKey: "nav.maintenance", icon: Wrench, requires: ["maint.view"], module: "maintenance" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
+  // XE-PRICE: the price master, quotes and enquiries. People who read prices or run enquiries.
+  { key: "pricing", to: "/pricing", labelKey: "nav.pricing", icon: Tags, requires: ["price.view", "enquiry.manage"], module: "pricing" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
-  { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },
+  { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"], module: "store" },
+  // XE store (rows 69, 70, 73): indents, purchase orders and the store's value, for department heads, the office,
+  // the store and managers.
+  {
+    key: "storeBuying",
+    to: "/store/buy",
+    labelKey: "nav.storeBuying",
+    icon: ShoppingCart,
+    requires: ["indent.raise", "indent.approve", "po.view", "po.manage", "store.value"],
+    module: "store",
+  },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the
   // role-aware nav table and moves this into the sidebar's Masters group.
@@ -154,16 +177,22 @@ export const GODSEYE_MORE: readonly NavItem[] = [
   { key: "support", to: "/admin/support", labelKey: "nav.adminSupport", icon: LifeBuoy, requires: ["platform.company.manage"] },
 ];
 
+/** Is this company module on? The server's rule (`isModuleOn`): opt-in modules only when named. */
+export function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
+  return isModuleOn(me?.company?.modules ?? [], module);
+}
+
 /**
  * Items this person may see: permission (`canAny`) and company modules. An
  * empty modules list means every module is on (companies created before
  * modules existed have none set).
  */
 export function visibleItems(items: readonly NavItem[], me: Me | null | undefined): NavItem[] {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  const modules = me?.company?.modules ?? [];
   return items.filter((item) => {
     if (item.requires && !canAny(me, item.requires)) return false;
-    if (item.module && modules.length > 0 && !modules.includes(item.module)) return false;
+    // The server's rule (`isModuleOn`): opt-in modules such as billing show only when named.
+    if (item.module && !isModuleOn(modules, item.module)) return false;
     return true;
   });
 }

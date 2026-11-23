@@ -9,9 +9,13 @@ import {
 } from "./reasonCodes";
 import {
   COMPANY_MODULES,
+  OPT_IN_MODULES,
+  STANDARD_MODULES,
   FLOOR_SETTINGS_DEFAULTS,
   GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS,
   castRequiredOnBundle,
+  anyModuleOn,
+  effectiveModules,
   isModuleOn,
   validateThresholds,
   normalizeModules,
@@ -36,6 +40,8 @@ describe("reason codes (C39: one master with a kind)", () => {
       "die_work",
       "melt_correct",
       "cast_tail",
+      "log_reject", // XE FOUNDRY #43
+      "billet_reject",
     ]);
     expect(isReasonCodeKind("downtime")).toBe(true);
     expect(isReasonCodeKind("threshold")).toBe(false);
@@ -79,8 +85,31 @@ describe("reason codes (C39: one master with a kind)", () => {
 });
 
 describe("modules (FP-PF-07, C42)", () => {
-  test("allowed set includes purchase (D6)", () => {
-    expect([...COMPANY_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "jobwork", "drawbench", "fabrication"]);
+  test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
+    expect([...COMPANY_MODULES]).toEqual([
+      "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "pricing",
+      "maintenance", "jobwork", "drawbench", "fabrication", "billing", "einvoice",
+    ]);
+    expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll"]);
+    expect(STANDARD_MODULES).toHaveLength(17);
+  });
+  test("opt-in modules are off on an empty list and on only when named", () => {
+    for (const m of ["billing", "einvoice"] as const) {
+      expect(isModuleOn([], m)).toBe(false);
+      expect(isModuleOn(null, m)).toBe(false);
+      expect(isModuleOn(["press", "dispatches"], m)).toBe(false);
+      expect(isModuleOn([m], m)).toBe(true);
+    }
+    expect(isModuleOn(["billing"], "einvoice")).toBe(false);
+  });
+  test("naming only opt-in modules keeps every standard module on (billing never switches the floor off)", () => {
+    for (const m of STANDARD_MODULES) {
+      expect(isModuleOn(["billing"], m)).toBe(true);
+      expect(isModuleOn(["billing", "einvoice"], m)).toBe(true);
+    }
+    expect(isModuleOn(["billing", "press"], "press")).toBe(true);
+    expect(isModuleOn(["billing", "press"], "dispatches")).toBe(false);
+    expect(isModuleOn(["Billing"], "billing")).toBe(true);
   });
   test("empty = all on; listed = only those", () => {
     expect(isModuleOn([], "press")).toBe(true);
@@ -90,6 +119,25 @@ describe("modules (FP-PF-07, C42)", () => {
   });
   test("normalise: lower case, de-duplicate, unknown returned", () => {
     expect(normalizeModules(["Press", "press", " Orders ", "crm"])).toEqual({ modules: ["press", "orders"], unknown: ["crm"] });
+  });
+  test("effective list (B1): an old client's rule over it agrees with isModuleOn on the stored list", () => {
+    const oldRule = (list: readonly string[], m: string) => list.length === 0 || list.includes(m);
+    for (const raw of [[], ["billing"], ["billing", "einvoice"], ["bundles"], ["bundles", "billing"], ["press", "dispatches", "einvoice"]]) {
+      const eff = effectiveModules(raw);
+      for (const m of COMPANY_MODULES) {
+        expect(oldRule(eff, m)).toBe(isModuleOn(raw, m));
+        expect(isModuleOn(eff, m)).toBe(isModuleOn(raw, m));
+      }
+    }
+    expect(effectiveModules(["billing"])).toEqual([...STANDARD_MODULES, "billing"]);
+    expect(effectiveModules([])).toEqual([...STANDARD_MODULES]);
+  });
+  test("anyModuleOn: no keys = on; unknown keys off; same rule as isModuleOn", () => {
+    expect(anyModuleOn(["billing"], ["bundles", "dies"])).toBe(true);
+    expect(anyModuleOn(["press"], ["bundles", "dies"])).toBe(false);
+    expect(anyModuleOn(["press"], [])).toBe(true);
+    expect(anyModuleOn([], ["billing"])).toBe(false);
+    expect(anyModuleOn([], ["crm"])).toBe(false);
   });
 });
 

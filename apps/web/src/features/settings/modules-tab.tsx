@@ -11,6 +11,8 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
+import { isOptInModule } from "@orrn/domain";
+
 import { moduleStates, SWITCH_DEFAULTS } from "./model";
 import { Note, SwitchRow, TabState, usePlantSettings, type PlantSettings } from "./ui";
 
@@ -39,7 +41,8 @@ function ModulesPanel({ settings }: { settings: PlantSettings }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const states = moduleStates(settings.modules);
-  const everyOn = states.every((s) => s.on);
+  // Opt-in statutory modules (billing and the like) are off by default and never count against "all on".
+  const everyOn = states.every((s) => s.on || isOptInModule(s.id));
 
   const save = useMutation(
     trpc.company.updateSettings.mutationOptions({

@@ -252,7 +252,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
           <TimesStep {...common} furnaces={activeFurnaces} alloys={alloyList} castAlloy={castAlloy} timeZone={timeZone} />
         ) : step === "charge" ? (
           <>
-            <ChargeStep {...common} lots={(lots.data?.lots ?? []) as never} streams={(streams.data?.items ?? []) as never} capacityG={capacityG} />
+            <ChargeStep {...common} lots={(lots.data?.lots ?? []) as never} streams={(streams.data?.items ?? []) as never} capacityG={capacityG} castAlloyId={data.cast.alloyId ?? ""} />
             <Balance form={form} capacityG={capacityG} />
           </>
         ) : step === "chemicals" ? (

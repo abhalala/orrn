@@ -71,7 +71,8 @@ async function callerWith(p: BuddyPlant, opts: { origin?: string | null; created
 
 describe("Origin on the buddy's mutations (security H1, M5; decision 4)", () => {
   test("every buddy.* mutation is FORBIDDEN from a foreign Origin, the string null, or no Origin", async () => {
-    const { appRouter } = await import("../src/routers/index");
+    const { appRouter, loadAllRouters } = await import("../src/routers/index");
+    await loadAllRouters();
     const procedures = (appRouter as unknown as { _def: { procedures: Record<string, { _def: { type: string } }> } })._def.procedures;
     const mutations = Object.entries(procedures)
       .filter(([path, proc]) => path.startsWith("buddy.") && proc._def.type === "mutation")

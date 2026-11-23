@@ -33,6 +33,18 @@ describe("native tabs", () => {
     expect(visibleTabs(me("owner", ["BUNDLES"]))).toEqual(["today", "pack", "scan", "stock"]);
   });
 
+  test("a stored list of only opt-in modules (billing) keeps every floor tab and More row (B1)", () => {
+    expect(visibleTabs(me("owner", ["billing"]))).toEqual(visibleTabs(me("owner")));
+    expect(visibleTabs(me("owner", ["billing", "einvoice"]))).toEqual(visibleTabs(me("owner")));
+    expect(moreRows(me("owner", ["billing"])).map((r) => r.key)).toEqual(moreRows(me("owner")).map((r) => r.key));
+    expect(extraTabs(me("owner", ["billing"]))).toEqual(extraTabs(me("owner")));
+  });
+
+  test("an old phone's rule over the server's effective list still shows every tab (B1)", async () => {
+    const { effectiveModules } = await import("@orrn/domain");
+    expect(visibleTabs(me("owner", effectiveModules(["billing"])))).toEqual(visibleTabs(me("owner")));
+  });
+
   test("signed out or no company shows Today only", () => {
     expect(visibleTabs(null)).toEqual(["today"]);
   });

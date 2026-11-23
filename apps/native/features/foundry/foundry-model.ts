@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 /**
  * Pure rules of the foundry phone screens (W2-FD-N): tones, the tail chip, the close count, which cast
  * the Cast tab shows, the lock button's state, billet stock cards, the spectro photo. The phone shows the
@@ -337,10 +338,9 @@ export function spectroInput(texts: Partial<Record<SpectroElementKey, string>>):
 
 // --- Who sees the foundry on Stock and Today ---------------------------------------------------------------------
 
-/** The company has the foundry module on (an empty module list means every module is on). */
+/** The company has the foundry module on (the server's rule, `isModuleOn`). */
 function foundryOn(me: Pick<Me, "company"> | null | undefined): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes("foundry");
+  return isModuleOn(me?.company?.modules, "foundry");
 }
 
 /** The Billets section on Stock: the foundry floor and the people who open casts or close them, in a plant with the foundry module. */

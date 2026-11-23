@@ -151,8 +151,11 @@ export async function exportCompanyPayload(db: OrrnDb, companyId: string, at: Da
       t.columns.map((c) => sql.identifier(c)),
       sql`, `,
     );
+    // `order by rowid`: rows go out in the order they were written, and the restore inserts them in
+    // payload order, so restored rowids keep that order. The store cancel guard (`storeOutSinceSql`),
+    // pack.ts and press.ts compare rowids; without it the planner may hand rows back in index order.
     const rows = await db.all<Record<string, unknown>>(
-      sql`select ${cols} from ${sql.identifier(t.name)} where ${sql.identifier("company_id")} = ${companyId}`,
+      sql`select ${cols} from ${sql.identifier(t.name)} where ${sql.identifier("company_id")} = ${companyId} order by rowid`,
     );
     tables[t.name] = { columns: t.columns, rows: rows.map((r) => t.columns.map((c) => r[c] ?? null)) };
   }
@@ -352,6 +355,8 @@ export async function runDrill(
       const statements = chunk(table.rows, rowsPerStatement(table.columns.length)).map((rows) =>
         d1.prepare(head + rows.map(() => tuple).join(", ")).bind(...rows.flatMap((r) => r.map((v) => remap(v) ?? null))),
       );
+      // Statements and batches run one after another in payload order (the export's rowid order), so
+      // the restored rows get rowids in the same order (store cancel guard, pack.ts, press.ts).
       // Rows of one table that cite each other (supersedes, parent ids) may arrive out of order:
       // foreign keys are checked at the end of each batch.
       for (const part of chunk(statements, 200)) {

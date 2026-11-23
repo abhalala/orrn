@@ -13,7 +13,11 @@ import { validateShifts, type Shift } from "./shifts";
 // Modules (FP-PF-07)
 // ---------------------------------------------------------------------------
 
-/** Allowed `company.modules` keys (lower case). Empty list = every module on. */
+/**
+ * Allowed `company.modules` keys (lower case). An empty list (or one naming only opt-in keys) means
+ * every STANDARD module is on. The opt-in keys at the end are statutory modules (XE-BILL): they are on
+ * only when the list names them, so a plant on `[]` never gets billing by default.
+ */
 export const COMPANY_MODULES = [
   "customers",
   "dies",
@@ -29,21 +33,74 @@ export const COMPANY_MODULES = [
   "complaints",
   // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
   "qa",
+  // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
+  "pricing",
+  // XE parity lane MAINT (#63 to #68): assets, preventive plans, work orders, spares, readings.
+  "maintenance",
   // XE parity lane JOBWORK: job-work to vendors and in-house finishing, the draw bench, fabrication.
   "jobwork",
   "drawbench",
   "fabrication",
+  // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
+  "billing",
+  "einvoice",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
+
+/**
+ * Statutory modules: on only when `company.modules` names them (never by an empty list). `payroll` is
+ * reserved here for wave 3: it joins `COMPANY_MODULES` when its lane builds it, and is opt-in from then.
+ */
+export const OPT_IN_MODULES = ["billing", "einvoice", "payroll"] as const;
+export type OptInModule = (typeof OPT_IN_MODULES)[number];
+
+/** The modules an empty list switches on (every module but the opt-in ones). */
+export const STANDARD_MODULES = COMPANY_MODULES.filter((m) => !(OPT_IN_MODULES as readonly string[]).includes(m)) as Exclude<
+  CompanyModule,
+  OptInModule
+>[];
 
 export function isCompanyModule(value: unknown): value is CompanyModule {
   return typeof value === "string" && (COMPANY_MODULES as readonly string[]).includes(value);
 }
 
-/** Server rule for `assertModule`: an empty or missing list means all on. */
+export function isOptInModule(value: unknown): value is OptInModule {
+  return typeof value === "string" && (OPT_IN_MODULES as readonly string[]).includes(value);
+}
+
+/**
+ * Server rule for `assertModule` (and the web nav, the Godseye tab, Today's tiles):
+ * - an opt-in module is on only when the list names it;
+ * - a standard module is on when the list names it, or when the list names no standard module at all
+ *   (empty, missing, or only opt-in keys: turning billing on never switches the floor off).
+ */
 export function isModuleOn(modules: readonly string[] | null | undefined, module: CompanyModule): boolean {
-  if (!modules || modules.length === 0) return true;
-  return modules.includes(module);
+  const list = (modules ?? []).map((m) => m.trim().toLowerCase());
+  if (isOptInModule(module)) return list.includes(module);
+  if (!list.some((m) => isCompanyModule(m) && !isOptInModule(m))) return true;
+  return list.includes(module);
+}
+
+/**
+ * The EFFECTIVE module list a client receives (auth.me, company.getSettings): every module `isModuleOn`
+ * says is on, spelled out. A stored `["billing"]` reaches clients as every standard module plus billing, so
+ * a phone built before opt-in modules (rule "empty = all on, else includes") still shows every floor tab.
+ * The stored list stays compact; Godseye and backups read it raw.
+ */
+export function effectiveModules(modules: readonly string[] | null | undefined): CompanyModule[] {
+  return COMPANY_MODULES.filter((m) => isModuleOn(modules, m));
+}
+
+/**
+ * Client helper: is any of `keys` on for this list? Same rule as `isModuleOn` (unknown keys count as off).
+ * An empty `keys` means "not gated" and is on.
+ */
+export function anyModuleOn(modules: readonly string[] | null | undefined, keys: readonly string[] | null | undefined): boolean {
+  if (!keys || keys.length === 0) return true;
+  return keys.some((k) => {
+    const key = k.trim().toLowerCase();
+    return isCompanyModule(key) && isModuleOn(modules, key);
+  });
 }
 
 /** Lower-case, de-duplicate and check a modules list; unknown keys are returned, never stored. */
@@ -164,10 +221,22 @@ export type FloorSettings = {
    * truck, each with its own packing list under the same vehicle.
    */
   packingList: { kgPerPiece: boolean; scope: PackingListScope };
+  /**
+   * XE FOUNDRY (#41, default off): 6xxx logs are cut into billets only after a released homogenizing batch.
+   * `requireHomogenizingSince` (epoch ms, fix round 2) is when the switch went on: only logs cut, issued or
+   * pressed from then on use up homogenized logs, so a cast half used before the switch stays usable
+   * (null = count everything). `homogToleranceBp` lets a press's weighed kg run past the homogenized kg
+   * by that much (default 200 bp = 2 %, the press balance warning band).
+   */
+  foundry: { requireHomogenizing: boolean; requireHomogenizingSince: number | null; homogToleranceBp: number };
 };
 
 export const PACKING_LIST_SCOPES = ["one_so", "one_customer", "per_truck"] as const;
 export type PackingListScope = (typeof PACKING_LIST_SCOPES)[number];
+
+/** The weighing gap a floor-less press may run past the homogenized kg by (2 %, as `PRESS_BALANCE_WARN_BP`). */
+export const HOMOG_TOLERANCE_BP_DEFAULT = 200;
+export const HOMOG_TOLERANCE_BP_MAX = 2_000;
 
 /** Lead time a new sales order's expected date starts from (OWNER_QUESTIONS Q8 A: 15 days). */
 export const ORDER_LEAD_DAYS_DEFAULT = 15;
@@ -196,6 +265,7 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   castSeriesStart: null,
   orderLeadDays: ORDER_LEAD_DAYS_DEFAULT,
   packingList: { kgPerPiece: false, scope: "one_customer" },
+  foundry: { requireHomogenizing: false, requireHomogenizingSince: null, homogToleranceBp: HOMOG_TOLERANCE_BP_DEFAULT },
 };
 
 // ---------------------------------------------------------------------------
@@ -328,7 +398,39 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
         ? (obj(s.packingList).scope as PackingListScope)
         : d.packingList.scope,
     },
+    foundry: readFoundrySettings(obj(s.foundry), d.foundry),
   };
+}
+
+function readFoundrySettings(f: Record<string, unknown>, d: FloorSettings["foundry"]): FloorSettings["foundry"] {
+  const requireHomogenizing = bool(f.requireHomogenizing, d.requireHomogenizing);
+  const since = f.requireHomogenizingSince;
+  const tol = f.homogToleranceBp;
+  return {
+    requireHomogenizing,
+    requireHomogenizingSince: requireHomogenizing && typeof since === "number" && Number.isFinite(since) && since >= 0 ? Math.floor(since) : null,
+    homogToleranceBp:
+      typeof tol === "number" && Number.isInteger(tol) && tol >= 0 && tol <= HOMOG_TOLERANCE_BP_MAX ? tol : d.homogToleranceBp,
+  };
+}
+
+/**
+ * Merge a foundry settings edit (fix round 2). Turning homogenizing on stamps `nowMs` as its start, so
+ * logs cut, issued or pressed earlier never count against the homogenized logs; turning it off clears
+ * it, and turning it off and on again starts afresh (the supervisor's way out of a wrong batch).
+ */
+export function applyFoundrySettingsEdit(
+  was: FloorSettings["foundry"],
+  edit: { requireHomogenizing?: boolean; homogToleranceBp?: number },
+  nowMs: number,
+): FloorSettings["foundry"] {
+  const next = { ...was };
+  if (edit.requireHomogenizing !== undefined) {
+    next.requireHomogenizing = edit.requireHomogenizing;
+    next.requireHomogenizingSince = edit.requireHomogenizing ? (was.requireHomogenizing ? (was.requireHomogenizingSince ?? nowMs) : nowMs) : null;
+  }
+  if (edit.homogToleranceBp !== undefined) next.homogToleranceBp = edit.homogToleranceBp;
+  return next;
 }
 
 /** `requireCastOnBundle` in effect: the plant's choice, else on once a melt has been locked. */

@@ -102,6 +102,7 @@ export const PAGE_ALIASES: Readonly<Record<string, readonly string[]>> = {
   approvals: ["approve", "pending", "मंज़ूरी", "મંજૂરી"],
   dies: ["die", "matrix", "bolster", "die room", "डाई", "डाई रूम", "बोल्स्टर", "ડાઈ", "બોલ્સ્ટર"],
   customers: ["party", "client", "buyer", "ग्राहक", "पार्टी", "ગ્રાહક", "પાર્ટી"],
+  pricing: ["price", "prices", "rate", "rates", "quote", "quotation", "enquiry", "proforma", "conversion", "premium"],
   store: ["maal", "spares", "consumables", "स्टोर", "माल", "સ્ટોર"],
   printing: [
     "print",

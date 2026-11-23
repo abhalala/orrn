@@ -42,6 +42,8 @@ const BAD_REQUEST: [RegExp, MessageKey][] = [
   [/^Only .+ in the store$/, "store.errors.short"],
   [/still has stock/, "store.errors.retireWithStock"],
   [/unit can no longer change/, "store.errors.unitLocked"],
+  [/^Stock from this delivery has already been issued/, "store.errors.cancelIssued"],
+  [/stock already has an opening rate/, "store.errors.cancelRated"],
   [/^Cannot cancel /, "store.errors.cancelDrawn"],
   [/^Store location .*reactivate it before cancelling/, "store.errors.cancelLocationRetired"],
   [/is retired; reactivate it before cancelling/, "store.errors.cancelItemRetired"],

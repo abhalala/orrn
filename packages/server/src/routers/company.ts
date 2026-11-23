@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -7,11 +7,14 @@ import { cast } from "@orrn/db/schema/foundry";
 import { pressRun } from "@orrn/db/schema/press";
 import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
 import {
+  applyFoundrySettingsEdit,
+  HOMOG_TOLERANCE_BP_MAX,
   MAX_SHIFT_NAME,
   MAX_SHIFTS,
   MAX_STANDARD_TEXT,
   PACKING_LIST_SCOPES,
   SETTINGS_LOCALES,
+  effectiveModules,
   offeredUnitProblems,
   readFloorSettings,
   mergeUnitSettings,
@@ -202,6 +205,13 @@ export const companyRouter = router({
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
         /** W3-AG-S: ageing switches (manualLoad, split, requireForPack, requireAgeing, requireAgeingSince). */
         ageing: ageingSettingsInput.optional(),
+        /**
+         * XE FOUNDRY (#41): 6xxx logs are cut only after a released homogenizing batch (default off).
+         * Switching it on stamps the moment (fix round 2); `homogToleranceBp` is the press weighing gap.
+         */
+        foundry: z
+          .object({ requireHomogenizing: z.boolean().optional(), homogToleranceBp: z.number().int().min(0).max(HOMOG_TOLERANCE_BP_MAX).optional() })
+          .optional(),
         /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
         orderLeadDays: z.number().int().min(0).max(120).optional(),
         /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
@@ -350,6 +360,10 @@ export const companyRouter = router({
       if (input.dieRoom !== undefined) {
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
+      if (input.foundry !== undefined) {
+        const next = applyFoundrySettingsEdit(readFloorSettings(row.settings).foundry, input.foundry, now().getTime());
+        patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), ...next };
+      }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
       if (input.morningSummary !== undefined) {
         const was = readMorningSummarySettings(row.settings?.morningSummary);
@@ -416,7 +430,8 @@ export const companyRouter = router({
           const used = await ctx.db
             .select({ id: cast.id })
             .from(cast)
-            .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month)))
+            // A bought-in cast (OL-n) is not a cast of the plant's book (XE FOUNDRY fix round 1).
+            .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month), ne(cast.source, "bought_in")))
             .limit(1)
             .get();
           if (used) {
@@ -520,7 +535,8 @@ export const companyRouter = router({
       castSeriesStart: floor.castSeriesStart,
       /** The owner's morning mail (XE parity REG #82): off by default, 07:00 plant time. */
       morningSummary: readMorningSummarySettings(raw.morningSummary),
-      modules: Array.isArray(row.modules) ? row.modules : [],
+      /** The EFFECTIVE list (B1, `effectiveModules`), never the stored one. */
+      modules: effectiveModules(Array.isArray(row.modules) ? row.modules : []),
       productionDay: {
         day: day.productionDay,
         startMs: day.startMs,

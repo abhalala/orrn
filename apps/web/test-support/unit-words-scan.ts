@@ -17,6 +17,11 @@ const DICT: Record<string, unknown> = { en, hi, gu };
  * Anything not listed here must use {massUnit}, {sectionUnit} or {lengthUnit} (or carry the figure with its unit already).
  */
 export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
+  // XE-BILL (review N3): only the invoice paper's rate and the typed rate per kg. The GST unit code is KGS
+  // whatever unit the plant shows on screen; other billing screen text follows the plant's unit setting.
+  { prefix: "bill.doc.rate", why: "the tax invoice's rate is per kg: the HSN unit code is KGS" },
+  { prefix: "bill.new.perKg", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
+  { prefix: "bill.new.rates", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
   { prefix: "units.", why: "the unit words themselves (and the names in the pickers)" },
   { prefix: "settings.", why: "Settings names the units it lets a plant choose" },
   { prefix: "packingList.", why: "the packing list view mirrors the paper, which keeps kg and feet and inches until the paper has its own setting" },
@@ -63,6 +68,33 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "orders.form.lengthHintInch", why: "describes the feet and inches form" },
   { prefix: "orders.line.lengthHintInch", why: "describes the feet and inches form" },
   { prefix: "press.collector", why: "machine data units" },
+  { prefix: "price.quotes.breakup.addons", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.quotes.breakup.rate", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.quotes.form.lineRate", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.quotes.paper.rate", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.quotes.paper.perKg", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.proforma.paper.breakup", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.perKg", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.rateDiscount", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.rateFixed", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.rate", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.lmePremium", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.lmePreview", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.lmeWaiting", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.kinds.metal.hint", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.kinds.conversion.hint", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.kinds.alloy.hint", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.kinds.finish.hint", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.master.kinds.customer.hint", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.modes.conversion", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.modes.discount", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.form.modes.fixed", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.perKg", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.notes.lme", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.changeIntro", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.asked", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.waits", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "price.line.rows.addons", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
 ];
 
 export function isFixedOk(key: string): boolean {

@@ -8,7 +8,7 @@
  * Audit: order.confirm / order.close / order.cancel / order.weight.refresh / order.reallocate /
  * order.hold / order.release (FP-OP-17, `lib/orderHold.ts`).
  */
-import { confirmBlockers, holdCheck, MAX_HOLD_BUNDLES, MAX_REALLOCATE_BUNDLES, reallocationCheck } from "@orrn/domain";
+import { confirmBlockers, holdCheck, MAX_HOLD_BUNDLES, MAX_REALLOCATE_BUNDLES, reallocationCheck, type PriceBreakup } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
@@ -63,6 +63,7 @@ import {
   type TransferRow,
 } from "../lib/reallocate";
 import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
+import { planConfirmFreeze } from "../lib/pricing";
 import { nextCompanySeq } from "../lib/sequence";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import type { Context } from "../context";
@@ -340,6 +341,9 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
   }
   const at = clockNow();
   const userId = ctx.session.user.id;
+  // XE-PRICE: freeze each line's price breakdown from the master (no-op unless pricing applies;
+  // never for an Infinity Portal import, whose rates come from the file).
+  const freeze = await planConfirmFreeze(ctx.db, ctx.companyId, order, lines, { at, ingest: !!ctx.ingestSource });
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   try {
     await atomicBatch(ctx.db, [
@@ -362,12 +366,21 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
           ),
         ),
       batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
+      ...freeze.statements(orderLanded(ctx.companyId, order.id, seq)),
       poRepeatGuard(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber! }),
       auditInsert(ctx, {
         action: "order.confirm",
         subjectType: "sales_order",
         subjectId: order.id,
-        meta: { number: order.number, period: order.period, orderId: order.id, lines: lines.length, ...sourceMeta(ctx) },
+        meta: {
+          number: order.number,
+          period: order.period,
+          orderId: order.id,
+          lines: lines.length,
+          ...(freeze.priced > 0 ? { pricedLines: freeze.priced, rateDate: freeze.rateDate } : {}),
+          ...(freeze.overridesDropped > 0 ? { overridesDropped: freeze.overridesDropped } : {}),
+          ...sourceMeta(ctx),
+        },
       }),
     ]);
   } catch (e) {
@@ -1964,7 +1977,7 @@ export async function orderDetailExtras(
       basisNote: l.basisNote,
       alloy: l.alloy,
       temper: l.temper,
-      ...(opts.showRates ? { ratePaise: l.ratePaise } : {}),
+      ...(opts.showRates ? { ratePaise: l.ratePaise, priceBreakup: (l.priceBreakup ?? null) as PriceBreakup | null } : {}),
       strip: strips.get(l.id)!,
     })),
   };

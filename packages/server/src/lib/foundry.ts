@@ -401,6 +401,27 @@ export function castPressReturnsSql(companyId: string, castId: SQL): SQL<number>
 }
 
 /**
+ * XE FOUNDRY (#43, #44): billets that left the cast's stock through a foundry document, not the press:
+ * end cuts of a billet cut (the cut posts −log kg and +billet kg, so it nets to −ends) and rejected logs
+ * or billets. Counted beside the press's use in the tail, so cutting and rejecting never open a tail.
+ */
+export function castFoundryOutSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select -sum(fo.qty_g) from ${stockLedger} fo
+    where fo.company_id = ${companyId} and fo.item_kind = 'billet' and fo.item_ref = ${castId}
+      and fo.voucher_type in ('billet_cut', 'foundry_reject')
+  ), 0)`;
+}
+
+/** XE FOUNDRY (#42): logs a bought-in cast received (its `log_receipt` rows). Part of what the cast produced. */
+export function castBoughtInSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(bi.qty_g) from ${stockLedger} bi
+    where bi.company_id = ${companyId} and bi.item_kind = 'billet' and bi.item_ref = ${castId} and bi.voucher_type = 'log_receipt'
+  ), 0)`;
+}
+
+/**
  * Q59-A (W2-FD-S r1): the close's count adjustment, Σ `cast_tail` billet rows of the cast (grams;
  * negative = billets the count did not find). Part of on hand, so after a close the identity
  * produced − credited − on hand equals −adjusted = the recorded tail.
@@ -441,9 +462,9 @@ export function castTailAdjustRow(
   );
 }
 
-/** Tail = produced − on hand − credited (grams), as one SQL expression. */
+/** Tail = produced − on hand − credited (grams), as one SQL expression. Credited = press use + foundry out (XE FOUNDRY). */
 export function castTailSql(companyId: string, castId: SQL): SQL<number> {
-  return sql<number>`(${castLogsSql(companyId, castId)} - ${castBilletsOnHandSql(companyId, castId)} - ${castPressReturnsSql(companyId, castId)})`;
+  return sql<number>`(${castLogsSql(companyId, castId)} + ${castBoughtInSql(companyId, castId)} - ${castBilletsOnHandSql(companyId, castId)} - ${castPressReturnsSql(companyId, castId)} - ${castFoundryOutSql(companyId, castId)})`;
 }
 
 export type CastCloseout = CastCloseCheck & {
@@ -464,6 +485,10 @@ export type CastCloseout = CastCloseCheck & {
   billetsShortG: number;
   /** Q59-A: the close's count adjustment posted so far (`cast_tail` rows; 0 before a close). */
   adjustedG: number;
+  /** XE FOUNDRY: end cuts and rejected logs or billets (counted in the tail beside the press's use). */
+  foundryOutG: number;
+  /** XE FOUNDRY: logs received from a vendor (bought-in casts; part of `producedG`). */
+  boughtInG: number;
   liveMelts: number;
   draftMelts: number;
 };
@@ -482,6 +507,8 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
       billetsOnHandG: castBilletsOnHandSql(companyId, id),
       billetsShortG: castBilletsShortSql(companyId, id),
       adjustedG: castTailAdjustSql(companyId, id),
+      foundryOutG: castFoundryOutSql(companyId, id),
+      boughtInG: castBoughtInSql(companyId, id),
       liveMelts: castLiveMeltsSql(companyId, id),
       draftMelts: castDraftMeltsSql(companyId, id),
     })
@@ -489,22 +516,26 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
     .where(eq(company.id, companyId))
     .limit(1);
   const n = (v: unknown) => Number(v ?? 0);
-  const producedG = n(row?.logsG);
+  const boughtInG = n(row?.boughtInG);
+  const producedG = n(row?.logsG) + boughtInG;
   const billetsOnHandG = n(row?.billetsOnHandG);
   const creditedG = n(row?.creditedG);
+  const foundryOutG = n(row?.foundryOutG);
   return {
-    ...castCloseCheck({ producedG, onHandG: billetsOnHandG, creditedG }),
+    ...castCloseCheck({ producedG, onHandG: billetsOnHandG, creditedG: creditedG + foundryOutG }),
     producedG,
     billetsOnHandG,
     creditedG,
     pressReturnsG: creditedG,
     inputG: n(row?.inputG),
-    logsG: producedG,
+    logsG: n(row?.logsG),
     byproductG: n(row?.byproductG),
     burnG: n(row?.lossG),
     bundlesG: n(row?.bundlesG),
     billetsShortG: n(row?.billetsShortG),
     adjustedG: n(row?.adjustedG),
+    foundryOutG,
+    boughtInG,
     liveMelts: n(row?.liveMelts),
     draftMelts: n(row?.draftMelts),
   };

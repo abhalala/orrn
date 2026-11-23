@@ -117,7 +117,7 @@ export const bundle = sqliteTable(
     // cancel, and by the dispatch that takes it. History is the `order.hold` / `order.release` audit.
     heldForLineId: text("held_for_line_id"),
     heldAt: integer("held_at", { mode: "timestamp_ms" }),
-    // XE JOBWORK (migration 0063): the finish the bundle carries after a process step (anodise,
+    // XE JOBWORK (migration 0064): the finish the bundle carries after a process step (anodise,
     // powder_coat, pvd) and its colour code. NULL = mill finish. Set only by `process.steps.receive`.
     finish: text("finish"),
     finishCode: text("finish_code"),

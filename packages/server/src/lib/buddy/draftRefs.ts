@@ -56,6 +56,7 @@ export type RefEntity =
   | "spectroInbox"
   | "spectroResult"
   | "storeItem"
+  | "storePoLine"
   | "storeTxn"
   | "transporter"
   | "trolley"
@@ -124,6 +125,7 @@ const BY_PATH_KEY: Record<string, RefEntity> = {
   "store.receive:itemId": "storeItem",
   "store.issue:itemId": "storeItem",
   "store.exchange:itemId": "storeItem",
+  "store.receive:poLineId": "storePoLine",
   "purchase.lots.create:itemId": "scrapItem",
   "purchase.lots.update:itemId": "scrapItem",
 };

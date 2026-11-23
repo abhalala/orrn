@@ -49,6 +49,13 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   process: "jobwork",
   drawbench: "drawbench",
   fabrication: "fabrication",
+  // XE-PRICE: price master, quotes, proforma, works order, enquiries (routers/pricing.ts).
+  pricing: "pricing",
+  // XE-BILL: both opt-in; their reads are gated in lib/billing/gate.ts too.
+  billing: "billing",
+  einvoice: "einvoice",
+  // XE parity lane MAINT (#63 to #68): plant maintenance (reads call assertModule too, routers/maintenance.ts).
+  maint: "maintenance",
 };
 
 /**
@@ -81,6 +88,8 @@ export const APPROVAL_KIND_MODULE: Readonly<Record<ApprovalKind, CompanyModule>>
   melt_correct: "foundry",
   dispatch_off_band: "dispatches",
   dispatch_late_entry: "dispatches",
+  price_change: "pricing",
+  invoice_cancel: "billing",
 };
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);

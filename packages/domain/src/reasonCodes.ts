@@ -19,6 +19,8 @@ export const REASON_CODE_KINDS = [
   "die_work", // FP-DR-18 die work log kinds (W4-NEXTROWS)
   "melt_correct", // FP-FD-13 correction of a locked melt (approval melt_correct, W2-FD-S)
   "cast_tail", // FP-FD-14 why a cast closes with a tail or billets short (W2-FD-S)
+  "log_reject", // XE FOUNDRY #43 log reject register
+  "billet_reject", // XE FOUNDRY #43 billet reject register
 ] as const;
 export type ReasonCodeKind = (typeof REASON_CODE_KINDS)[number];
 
@@ -98,6 +100,9 @@ export const DEFAULT_REASON_CODES: Record<ReasonCodeKind, readonly ReasonCodeSee
     seed("scrapped", "Billets scrapped"),
     other,
   ],
+  // XE FOUNDRY #43: why a log or a billet is taken out of stock (the metal goes back as scrap).
+  log_reject: [seed("crack", "Crack"), seed("inclusion", "Inclusion"), seed("size", "Wrong size"), seed("chemistry", "Chemistry out"), seed("bend", "Bent log"), other],
+  billet_reject: [seed("crack", "Crack"), seed("inclusion", "Inclusion"), seed("size", "Wrong size"), seed("chemistry", "Chemistry out"), seed("short_length", "Short length"), other],
 };
 
 /** Longest note on any reason (FD/PR/PK caps: 1-500 characters). */

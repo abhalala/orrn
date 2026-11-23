@@ -1,3 +1,4 @@
+import { invoiceSource } from "@orrn/db/schema/billing";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, exists, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
@@ -1974,6 +1975,16 @@ export const dispatchRouter = router({
       }
       if (headerKeys.some((k) => (INVOICE_FIELDS as readonly string[]).includes(k)) && !can(me, "invoice.link")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      }
+      // XE-BILL: once orrn's own tax invoice covers this dispatch, its number is that invoice's; the Tally
+      // link stays for every dispatch that is not on a live orrn invoice (plants not on billing included).
+      if (headerKeys.some((k) => (INVOICE_FIELDS as readonly string[]).includes(k))) {
+        const [billed] = await ctx.db
+          .select({ id: invoiceSource.id })
+          .from(invoiceSource)
+          .where(and(eq(invoiceSource.companyId, ctx.companyId), eq(invoiceSource.dispatchId, existing.id), eq(invoiceSource.active, true)))
+          .limit(1);
+        if (billed) throw new TRPCError({ code: "BAD_REQUEST", message: "This dispatch is on an orrn invoice: its number comes from that invoice" });
       }
       if (
         existing.status === "completed" &&

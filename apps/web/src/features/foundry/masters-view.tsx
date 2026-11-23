@@ -19,7 +19,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ELEMENT_LABEL, furnaceInput, limitDraft, limitRows, limitText, type LimitDraft } from "./model";
-import { ErrorLine, LoadFailed, Note } from "./ui";
+import { ErrorLine, FieldSelect, LoadFailed, Note } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
 import { DIAMETER_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
@@ -57,6 +57,7 @@ export function FurnacesPage() {
   const columns: ResponsiveListColumn<Furnace>[] = [
     { key: "code", header: t("foundry.masters.code"), cell: (f) => <span className="font-mono text-[16px] font-bold">{f.code}</span> },
     { key: "name", header: t("foundry.masters.name"), cell: (f) => f.name },
+    { key: "kind", header: t("fdy2.furnaceKind.label"), cell: (f) => t(`fdy2.furnaceKind.${f.kind}`) },
     { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}</span> },
     { key: "dia", header: t("foundry.masters.billetDia", diameterVars(fmt)), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? diameterText(fmt, f.billetDiaMm, t("units.mm")) : "-"}</span> },
     { key: "status", header: t("foundry.masters.status"), phoneWide: true, cell: (f) => <Chip tone={STATUS_TONE[f.status]}>{t(`foundry.masters.state.${f.status}`)}</Chip> },
@@ -103,10 +104,12 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
   const fmt = useFmt();
   const row = editing && editing !== "new" ? editing : null;
   const [form, setForm] = useState({ code: "", name: "", capacityKg: "", billetDiaMm: "" });
+  const [kind, setKind] = useState<"melting" | "homogenizing">("melting");
   const [seeded, setSeeded] = useState<string | null>(null);
   const key = editing === null ? null : row ? row.id : "new";
   if (seeded !== key) {
     setSeeded(key);
+    setKind("melting");
     setForm(row ? { code: row.code, name: row.name, capacityKg: String(row.capacityG / 1000), billetDiaMm: row.billetDiaMm ? String(row.billetDiaMm) : "" } : { code: "", name: "", capacityKg: "6000", billetDiaMm: "127" });
   }
   const [tried, setTried] = useState(false);
@@ -141,7 +144,7 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
               setTried(true);
               if (!parsed.ok) return;
               if (row) update.mutate({ id: row.id, name: parsed.name, capacityG: parsed.capacityG, billetDiaMm: parsed.billetDiaMm });
-              else create.mutate({ code: parsed.code, name: parsed.name, capacityG: parsed.capacityG, billetDiaMm: parsed.billetDiaMm });
+              else create.mutate({ code: parsed.code, name: parsed.name, capacityG: parsed.capacityG, billetDiaMm: parsed.billetDiaMm, kind });
             }}
           >
             {t("common.save")}
@@ -158,6 +161,14 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
         <Field label={t("foundry.masters.name")} error={err === "name" ? t("foundry.masters.nameRequired") : undefined}>
           <TextInput value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} data-testid="furnace-name" />
         </Field>
+        {!row ? (
+          <Field label={t("fdy2.furnaceKind.label")}>
+            <FieldSelect value={kind} onChange={(e) => setKind(e.currentTarget.value as "melting" | "homogenizing")} data-testid="furnace-kind">
+              <option value="melting">{t("fdy2.furnaceKind.melting")}</option>
+              <option value="homogenizing">{t("fdy2.furnaceKind.homogenizing")}</option>
+            </FieldSelect>
+          </Field>
+        ) : null}
         <Field label={t("foundry.masters.capacityKg")} hint={t("foundry.masters.capacityHint")} error={err === "capacity" ? t("foundry.masters.capacityInvalid") : undefined}>
           <PlantInput spec={MASS_KG} value={form.capacityKg} onValueChange={(v) => setForm({ ...form, capacityKg: v })} data-testid="furnace-capacity" />
         </Field>

@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import "@orrn/i18n/refusal-jobwork";
 import { useT } from "@orrn/i18n";
 import { companyToday } from "@orrn/server/lib/purchase";
@@ -71,6 +72,5 @@ export function useVendors(includeInactive = false, enabled = true) {
 /** Whether the company has the job-work module on (an empty list means every module is on, as for the nav). */
 export function useJobworkOn(): boolean {
   const { data: me } = useMe();
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes("jobwork");
+  return isModuleOn(me?.company?.modules ?? [], "jobwork");
 }
