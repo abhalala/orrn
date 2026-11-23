@@ -110,6 +110,12 @@ describe("invoice paper", () => {
     expect(p.signedQr).toBe("eyJhbGciOi.payload.sig");
   });
 
+  test("an IRN recorded from the IRP portal (no signed QR, no ack date) prints the IRN and ack no only", () => {
+    const p = invoicePaperModel(doc({ irn: { irn: "b".repeat(64), ackNo: "112610000000123", ackDt: null, signedQrCode: null } }));
+    expect(p.ack.map((a) => a.label)).toEqual(["IRN", "Ack no"]);
+    expect(p.signedQr).toBeNull();
+  });
+
   test("a supply without tax says so", () => {
     const s = snapshot();
     s.supplyType = "sez_wop";

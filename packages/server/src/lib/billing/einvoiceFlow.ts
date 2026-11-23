@@ -167,11 +167,17 @@ export async function generateIrn(db: OrrnDb, companyId: string, invoiceId: stri
   // earlier call whose answer was lost may still have made one, so the marker stays and a cancel looks it up.
   const irpRefused = !res.retryable && /^\d+$/.test(res.code) && res.code !== "2150";
   const onlyThisCall = sql`${invoice.irnUnknownSince} = ${at} and ${invoice.irnCallAt} = ${at}`;
+  // A 2150 the IRP would not hand back by document: an IRN exists that the lookup does not serve (too old, or a
+  // wrong "none" from the portal check). The marker is aged past the lookup window, so a later "not found" is
+  // never taken as proof and the portal check opens at once.
+  const dupUnrecovered = res.code === "2150";
+  const aged = at - IRP_DETAILS_MS - 1;
   await atomicBatch(db, [
     db
       .update(invoice)
       .set({
         ...(irpRefused ? { irnUnknownSince: sql`case when ${onlyThisCall} then null else ${invoice.irnUnknownSince} end` } : {}),
+        ...(dupUnrecovered ? { irnUnknownSince: sql`min(coalesce(${invoice.irnUnknownSince}, ${aged}), ${aged})` } : {}),
         irnStatus: retry ? "auto_retry" : "failed",
         irnAttempts: attempts,
         irnNextTryAt: retry ? new Date(at + IRN_RETRY_EVERY_MS) : null,
@@ -260,10 +266,11 @@ export async function resetFailedIrn(db: OrrnDb, companyId: string, invoiceId: s
 }
 
 /**
- * How long a generate call may still be in flight, measured from ITS OWN stamp (`irn_call_at`). The Worker
- * gives up on the relay after `RELAY_TIMEOUT_MS` (15 s), but the relay goes on with the call for up to
- * `RELAY_UPSTREAM_MAX_MS` (an auth plus the call, 10 s each = 20 s). 2 minutes is that 20 s plus 100 s for
- * clock skew and queueing at the IRP. A test pins it above the larger of the two plus a minute.
+ * How long a generate call may still be in flight, measured from ITS OWN stamp (`irn_call_at`). The request
+ * may reach the relay as late as `RELAY_TIMEOUT_MS` (15 s, when the Worker gives up), and the relay then goes
+ * on with it for up to `RELAY_UPSTREAM_MAX_MS` (an auth plus the call, 10 s each = 20 s): 35 s in all.
+ * 2 minutes is that 35 s plus 85 s for clock skew and queueing at the IRP. A test pins it above the sum plus
+ * a minute.
  */
 export const IRN_CALL_SETTLE_MS = 2 * 60 * 1000;
 export const IRN_CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000;

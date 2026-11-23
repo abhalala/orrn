@@ -938,6 +938,28 @@ describe("e-invoice fix round 2", () => {
     await p.as("office").billing.invoices.createCreditDraft({ againstInvoiceId: two.id, reason: "other", note: "", lines: [{ kind: "amount", description: "Cancel", amountPaise: 10_000 }] });
   }, SLOW);
 
+  test("3: a wrong \"no IRN\" from the portal: the IRP answers duplicate, so the next cancel never takes \"not found\" as proof", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => new Date());
+    // The first call made the IRN, its answer was lost, and the IRP no longer serves it by document.
+    const blind = { ...fake, irnByDocument: async () => ({ ok: false as const, code: "2283", message: "not found", retryable: false }) };
+    lib.setAdapter({ ...blind, generateIrn: async (to: Target, payload: Record<string, unknown>) => (await fake.generateIrn(to, payload), down()) });
+    const pl = await completedPl(p, [300]);
+    const inv = await issued(p, [pl.plId]);
+    lib.setClock(null);
+    const old = new Date(Date.now() - 3 * 24 * 3600_000);
+    await env.db.update(invoice).set({ irnStatus: "failed", irnCallAt: old, irnUnknownSince: old }).where(eq(invoice.id, inv.id));
+    await p.as("office").einvoice.recordPortalCheck({ id: inv.id, seen: "none", note: "Looked, saw nothing" });
+    lib.setAdapter(blind);
+    expect(await p.as("office").einvoice.generate({ id: inv.id })).toEqual({ outcome: "failed" });
+    expect(await p.as("office").einvoice.status({ id: inv.id })).toMatchObject({ portalCheckNeeded: true });
+    await approveCancel(p, inv.id);
+    await onlyThisPlant(p.companyId);
+    await lib.runIrnCron(env.db, blind, Date.now() + 10 * 60_000);
+    expect(await rowOf(inv.id)).toMatchObject({ status: "cancel_pending" });
+    expect(await billable(p)).not.toContain(pl.plId);
+  }, SLOW);
+
   test("4: a cancel whose answer was lost is finished from the IRP's own record, also at the 24 h edge", async () => {
     const p = await billingPlant(["billing", "einvoice"]);
     const fake = lib.fakeAdapter(() => new Date());
@@ -1029,9 +1051,10 @@ describe("e-invoice fix round 2", () => {
     expect(await rowOf(inv.id)).toMatchObject({ status: "issued" });
   }, SLOW);
 
-  test("settle window: longer than the Worker's relay timeout and the relay's own upstream limit, with margin", async () => {
+  test("settle window: longer than the Worker's relay timeout plus the relay's own upstream limit, with margin", async () => {
     const flow = await import("../src/lib/billing/einvoiceFlow");
     const irp = await import("../src/lib/billing/irp");
-    expect(flow.IRN_CALL_SETTLE_MS).toBeGreaterThanOrEqual(Math.max(irp.RELAY_TIMEOUT_MS, irp.RELAY_UPSTREAM_MAX_MS) + 60_000);
+    // The relay may first see the call up to 15 s after the stamp, then run it for up to 20 s more.
+    expect(flow.IRN_CALL_SETTLE_MS).toBeGreaterThanOrEqual(irp.RELAY_TIMEOUT_MS + irp.RELAY_UPSTREAM_MAX_MS + 60_000);
   });
 });
