@@ -110,7 +110,6 @@ export const TENANT_MORE: readonly NavItem[] = [
     labelKey: "nav.storeBuying",
     icon: ShoppingCart,
     requires: ["indent.raise", "indent.approve", "po.view", "po.manage", "store.value"],
-    module: "store",
   },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the
