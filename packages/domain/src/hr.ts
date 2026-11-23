@@ -50,11 +50,6 @@ export function dayOfWeek(ymd: string): number {
 }
 
 /** Monday of the week holding `ymd`. */
-export function weekStart(ymd: string): string {
-  const dow = dayOfWeek(ymd);
-  return addDaysYmd(ymd, dow === 0 ? -6 : 1 - dow);
-}
-
 export function isMonth(v: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 }

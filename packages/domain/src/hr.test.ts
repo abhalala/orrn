@@ -15,8 +15,8 @@ import {
   timesheet,
   trainingExpiry,
   trainingState,
-  weekStart,
 } from "./hr";
+import { weekStart } from "./costing";
 import type { Shift } from "./shifts";
 
 const DAY: Shift = { id: "d", name: "Day", seq: 1, startMin: 8 * 60, endMin: 20 * 60 };

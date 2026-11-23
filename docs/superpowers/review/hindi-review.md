@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 13411 screen strings in 62 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (97)
+### nav (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -272,6 +272,9 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `pricing` | Prices | भाव |
 | `billing` | Billing | बिलिंग |
 | `costing` | Costing | लागत |
+| `people` | People | लोग |
+| `payroll` | Payroll | वेतन |
+| `myWork` | My work | मेरा काम |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
@@ -3164,7 +3167,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (398)
+### admin (402)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3384,6 +3387,8 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
 | `plan.moduleNames.costing` | Costing | लागत |
+| `plan.moduleNames.hr` | People and attendance | लोग और हाज़िरी |
+| `plan.moduleNames.payroll` | Payroll | वेतन |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3401,6 +3406,8 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
 | `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
+| `plan.moduleHints.hr` | People register, attendance, leave, training and incentive. Off until switched on | लोगों की सूची, हाज़िरी, छुट्टी, ट्रेनिंग और इंसेंटिव। चालू करने तक बंद |
+| `plan.moduleHints.payroll` | Salary, monthly payroll, payslips and bank and government files. Needs People. Off until switched on | वेतन, महीने की पेरोल, पेस्लिप और बैंक व सरकारी फ़ाइलें। लोग मॉड्यूल ज़रूरी। चालू करने तक बंद |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -3941,7 +3948,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `buddyConfirmBlocked` | This change cannot be undone and the card cannot show it plainly, so it cannot be confirmed here. Reject it, or make it on its own screen. | यह बदलाव वापस नहीं होता और कार्ड इसे साफ़ नहीं दिखा सकता, इसलिए यह यहां पक्का नहीं हो सकता। इसे नामंज़ूर करें, या इसकी अपनी स्क्रीन पर करें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (269)
+### native (329)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4103,6 +4110,66 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `invite.checkAccount` | Check my account | मेरा अकाउंट जांचें |
 | `invite.tryAgain` | Try again | फिर कोशिश करें |
 | `invite.signOutOther` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
+| `hr.title` | My work | मेरा काम |
+| `hr.notLinked` | You are not linked to a person yet. Ask the office to link your sign-in. | आप अभी किसी व्यक्ति से जुड़े नहीं हैं। ऑफिस से अपना साइन-इन जुड़वाएँ। |
+| `hr.attendance` | Attendance this month | इस महीने की हाज़िरी |
+| `hr.present` | Present | हाज़िर |
+| `hr.absent` | Absent | गैरहाज़िर |
+| `hr.halfDays` | Half days | आधे दिन |
+| `hr.leavePaid` | Paid leave | वेतन वाली छुट्टी |
+| `hr.leaveUnpaid` | Unpaid leave | बिना वेतन छुट्टी |
+| `hr.weeklyOff` | Weekly offs | साप्ताहिक छुट्टी |
+| `hr.holiday` | Holidays | त्योहार की छुट्टी |
+| `hr.notMarked` | Not marked | दर्ज नहीं |
+| `hr.overtime` | Overtime | ओवरटाइम |
+| `hr.balances` | Leave balances | छुट्टी का हिसाब |
+| `hr.balancesEmpty` | No leave kinds are set up. | छुट्टी का कोई प्रकार तय नहीं है। |
+| `hr.balanceLine` | {left} of {quota} days left | {quota} में से {left} दिन बाकी |
+| `hr.balanceWaiting` | {count} days waiting for a decision | {count} दिन फ़ैसले के इंतज़ार में |
+| `hr.openLeave` | Apply for leave | छुट्टी माँगें |
+| `hr.openLeaveHint` | Ask for leave and see your requests | छुट्टी माँगें और अपनी अर्ज़ियाँ देखें |
+| `hr.openPayslips` | My payslips | मेरी वेतन पर्चियाँ |
+| `hr.openPayslipsHint` | Payslips of the months the office has locked | ऑफिस ने जो महीने बंद किए उनकी पर्चियाँ |
+| `hr.leave.title` | Leave | छुट्टी |
+| `hr.leave.apply` | Ask for leave | छुट्टी माँगें |
+| `hr.leave.kind` | Kind of leave | छुट्टी का प्रकार |
+| `hr.leave.from` | First day | पहला दिन |
+| `hr.leave.to` | Last day | आखिरी दिन |
+| `hr.leave.dateHint` | Write the date like 2026-11-03 | तारीख ऐसे लिखें: 2026-11-03 |
+| `hr.leave.halfDay` | Half day | आधा दिन |
+| `hr.leave.reason` | Reason (optional) | कारण (चाहें तो) |
+| `hr.leave.send` | Send the request | अर्ज़ी भेजें |
+| `hr.leave.sent` | Your request was sent. | आपकी अर्ज़ी भेज दी गई। |
+| `hr.leave.needKind` | Choose a kind of leave. | छुट्टी का प्रकार चुनें। |
+| `hr.leave.needDays` | Write the first and last day like 2026-11-03. The last day cannot be before the first. | पहला और आखिरी दिन 2026-11-03 जैसे लिखें। आखिरी दिन पहले से पहले नहीं हो सकता। |
+| `hr.leave.requests` | My requests | मेरी अर्ज़ियाँ |
+| `hr.leave.empty` | You have not asked for leave yet. | आपने अभी छुट्टी नहीं माँगी। |
+| `hr.leave.cancel` | Cancel the request | अर्ज़ी रद्द करें |
+| `hr.leave.cancelTitle` | Cancel this request? | यह अर्ज़ी रद्द करें? |
+| `hr.leave.cancelBody` | The leave will not be taken. | यह छुट्टी नहीं ली जाएगी। |
+| `hr.leave.keep` | Keep it | रहने दें |
+| `hr.leave.cancelled` | Request cancelled. | अर्ज़ी रद्द हो गई। |
+| `hr.leave.days` | {days} days | {days} दिन |
+| `hr.leave.range` | {from} to {to} | {from} से {to} |
+| `hr.leave.unsure` | We are not sure the request was saved. Look at the list below before you send it again. | पक्का नहीं कि अर्ज़ी सहेजी गई। दोबारा भेजने से पहले नीचे की सूची देखें। |
+| `hr.status.pending` | Waiting | इंतज़ार में |
+| `hr.status.approved` | Approved | मंज़ूर |
+| `hr.status.rejected` | Rejected | नामंज़ूर |
+| `hr.status.cancelled` | Cancelled | रद्द |
+| `hr.payslips.title` | My payslips | मेरी वेतन पर्चियाँ |
+| `hr.payslips.empty` | No payslip yet. A payslip appears once the office has locked the month. | अभी कोई वेतन पर्ची नहीं। ऑफिस के महीना बंद करने पर पर्ची आती है। |
+| `hr.payslips.net` | Net pay {amount} | हाथ में {amount} |
+| `hr.refusal.overlap` | You already asked for leave on some of these days, or it was approved. | इनमें से कुछ दिनों की छुट्टी आप पहले माँग चुके हैं, या वह मंज़ूर हो चुकी है। |
+| `hr.refusal.notWaiting` | Only a waiting request can be cancelled here. Ask your supervisor. | यहाँ सिर्फ़ इंतज़ार वाली अर्ज़ी रद्द हो सकती है। अपने सुपरवाइज़र से कहें। |
+| `hr.refusal.allOff` | Those days are all holidays or weekly offs. | वे सब दिन त्योहार या साप्ताहिक छुट्टी के हैं। |
+| `hr.refusal.badRange` | The last day is before the first. | आखिरी दिन पहले दिन से पहले है। |
+| `hr.refusal.splitYear` | Split a leave that runs into the next year. | जो छुट्टी अगले साल में जाती है उसे दो हिस्सों में बाँटें। |
+| `hr.refusal.tooLong` | A leave can be at most 62 days. Split it. | एक छुट्टी अधिकतम 62 दिन की हो सकती है। उसे बाँट दें। |
+| `hr.refusal.beforeJoin` | You cannot ask for leave from before you joined. | आप भर्ती से पहले की छुट्टी नहीं माँग सकते। |
+| `hr.refusal.left` | You have left, so you cannot ask for leave. | आप जा चुके हैं, इसलिए छुट्टी नहीं माँग सकते। |
+| `hr.refusal.notLinked` | You are not linked to a person yet. Ask the office. | आप अभी किसी व्यक्ति से जुड़े नहीं हैं। ऑफिस से कहें। |
+| `hr.refusal.quota` | Only {days} days of {kind} are left. | {kind} के सिर्फ़ {days} दिन बाकी हैं। |
+| `hr.refusal.locked` | That month is closed for payroll. Ask the office. | वह महीना वेतन के लिए बंद है। ऑफिस से कहें। |
 | `dies.searchLabel` | Find a copy | कॉपी खोजें |
 | `dies.found` | {count} {count:copy\|copies} found | {count} कॉपी मिली |
 | `dies.noMatch` | No copy matches | कोई कॉपी नहीं मिली |
@@ -4478,7 +4545,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (170)
+### approvals (177)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4509,6 +4576,8 @@ Please check, Lalubhai:
 | `kind.dispatch_late_entry` | Packing list entered late | देर से भरी पैकिंग लिस्ट |
 | `kind.price_change` | Price change | दाम में बदलाव |
 | `kind.invoice_cancel` | Cancel an invoice | इनवॉइस रद्द करना |
+| `kind.leave_request` | Leave request | छुट्टी का अनुरोध |
+| `kind.payroll_run` | Payroll run | महीने का वेतन |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
@@ -4526,6 +4595,9 @@ Please check, Lalubhai:
 | `subject.offBand` | {serial} on {code}: {kg} {sectionUnit}, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} {sectionUnit}, {order} लाइन {line} में {lineKg} |
 | `subject.lateDispatch` | {code}, entered late | {code}, देर से भरा |
 | `subject.invoiceCancel` | Cancel {number} | {number} रद्द करना |
+| `subject.leaveRequest` | {name} ({code}): {kind}, {from} to {to}, {days} {count:day\|days} | {name} ({code}): {kind}, {from} से {to}, {days} {count:दिन\|दिन} |
+| `subject.leaveRequestOne` | {name} ({code}): {kind} on {from}, {days} {count:day\|days} | {name} ({code}): {kind}, {from} को, {days} {count:दिन\|दिन} |
+| `subject.payrollRun` | Payroll for {month}, {headcount} {headcount:person\|people} | {month} का वेतन, {headcount} {headcount:व्यक्ति\|व्यक्ति} |
 | `foundry.title` | Figures | आँकड़े |
 | `foundry.produced` | Billets made | बने बिलेट |
 | `foundry.metalIn` | Metal in | डाला मेटल |
@@ -4611,6 +4683,8 @@ Please check, Lalubhai:
 | `openOrder` | Open order | ऑर्डर खोलें |
 | `openDispatch` | Open dispatch | Dispatch खोलें |
 | `openInvoice` | Open invoice | इनवॉइस खोलें |
+| `openLeave` | Open leave | छुट्टी खोलें |
+| `openPayroll` | Open payroll | वेतन खोलें |
 | `askedBy` | Asked by {name} | {name} ने मांगा |
 | `someone` | Someone | किसी ने |
 | `decidedBy` | {status} by {name} | {name} ने {status} किया |
@@ -11257,6 +11331,918 @@ Please check, Lalubhai:
 | `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
 | `reports.rate.loadFailed` | Could not load the labour rate. | मजदूरी का रेट नहीं खुला। |
 
+### hr (511)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | People | लोग |
+| `payrollTitle` | Payroll | वेतन |
+| `moduleOff` | People is off for this plant. Ask orrn support to turn it on. | इस प्लांट में लोग वाला हिस्सा बंद है। चालू कराने के लिए orrn सपोर्ट से कहें। |
+| `noAccess` | Your role cannot open this screen. | आपकी भूमिका यह स्क्रीन नहीं खोल सकती। |
+| `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर से कोशिश करें। |
+| `saveFailed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखकर फिर कोशिश करें। |
+| `tabs.label` | People screens | लोगों की स्क्रीन |
+| `tabs.people` | People | लोग |
+| `tabs.attendance` | Attendance | हाज़िरी |
+| `tabs.roster` | Roster | रोस्टर |
+| `tabs.timesheet` | Timesheet | टाइमशीट |
+| `tabs.leave` | Leave | छुट्टी |
+| `tabs.training` | Training | ट्रेनिंग |
+| `tabs.recruitment` | Hiring | भर्ती |
+| `tabs.devices` | Punch devices | पंच मशीन |
+| `tabs.incentive` | Incentive | इंसेंटिव |
+| `tabs.settings` | Rules | नियम |
+| `month.prev` | Earlier month | पिछला महीना |
+| `month.next` | Later month | अगला महीना |
+| `status.active` | Working | काम पर |
+| `status.left` | Left | छोड़ गए |
+| `kind.permanent` | Permanent | पक्का |
+| `kind.contract` | Contract | ठेका |
+| `kind.apprentice` | Apprentice | प्रशिक्षु |
+| `kind.casual` | Casual | दिहाड़ी |
+| `dow.d0` | Sunday | रविवार |
+| `dow.d1` | Monday | सोमवार |
+| `dow.d2` | Tuesday | मंगलवार |
+| `dow.d3` | Wednesday | बुधवार |
+| `dow.d4` | Thursday | गुरुवार |
+| `dow.d5` | Friday | शुक्रवार |
+| `dow.d6` | Saturday | शनिवार |
+| `mark.present` | Present | हाज़िर |
+| `mark.absent` | Absent | गैरहाज़िर |
+| `mark.half_day` | Half day | आधा दिन |
+| `mark.leave` | Leave | छुट्टी |
+| `mark.weekly_off` | Weekly off | साप्ताहिक छुट्टी |
+| `mark.holiday` | Holiday | त्योहार की छुट्टी |
+| `people.subtitle` | Everyone who works at the plant. | प्लांट में काम करने वाले सभी लोग। |
+| `people.add` | Add person | व्यक्ति जोड़ें |
+| `people.label` | People | लोग |
+| `people.search` | Search | खोजें |
+| `people.searchHint` | Name or code | नाम या कोड |
+| `people.statusLabel` | Show | दिखाएं |
+| `people.all` | All | सभी |
+| `people.name` | Name | नाम |
+| `people.code` | Code | कोड |
+| `people.department` | Department | विभाग |
+| `people.kind` | Type | प्रकार |
+| `people.joined` | Joined | जुड़े |
+| `people.bank` | Bank account | बैंक खाता |
+| `people.status` | Status | स्थिति |
+| `people.empty` | No people yet. Add the first person. | अभी कोई नहीं है। पहला व्यक्ति जोड़ें। |
+| `people.noMatch` | Nobody matches that search. | इस खोज से कोई नहीं मिला। |
+| `person.addTitle` | Add person | व्यक्ति जोड़ें |
+| `person.editTitle` | Change person | व्यक्ति की जानकारी बदलें |
+| `person.hint` | The code is the number on the punch card or the device. | कोड वही नंबर है जो पंच कार्ड या मशीन पर है। |
+| `person.save` | Save person | व्यक्ति सेव करें |
+| `person.saved` | Person saved | व्यक्ति सेव हुआ |
+| `person.edit` | Change | बदलें |
+| `person.code` | Employee code | कर्मचारी कोड |
+| `person.codeHint` | A short code, like E07. Each person has their own. | छोटा कोड, जैसे E07। हर व्यक्ति का अपना। |
+| `person.name` | Name | नाम |
+| `person.kind` | Type | प्रकार |
+| `person.contractor` | Contractor | ठेकेदार |
+| `person.department` | Department | विभाग |
+| `person.designation` | Designation | पद |
+| `person.joinedOn` | Joined on | जुड़ने की तारीख |
+| `person.dob` | Date of birth | जन्म तारीख |
+| `person.dobHint` | Used for the retirement list. | रिटायरमेंट की सूची के लिए। |
+| `person.phone` | Phone | फ़ोन |
+| `person.deviceCode` | Punch device number | पंच मशीन नंबर |
+| `person.deviceCodeHint` | The number the punch machine knows this person by. | पंच मशीन इस व्यक्ति को जिस नंबर से जानती है। |
+| `person.shift` | Usual shift | आम शिफ्ट |
+| `person.shiftNone` | No usual shift | कोई आम शिफ्ट नहीं |
+| `person.weeklyOff` | Weekly off | साप्ताहिक छुट्टी |
+| `person.weeklyOffPlant` | As the plant rule says | जो प्लांट का नियम है |
+| `person.bankTitle` | Bank | बैंक |
+| `person.bankName` | Bank name | बैंक का नाम |
+| `person.ifsc` | IFSC | IFSC |
+| `person.account` | Account number | खाता नंबर |
+| `person.accountHint` | Only the last four digits show anywhere after you save. | सेव करने के बाद कहीं भी सिर्फ़ आखिरी चार अंक दिखते हैं। |
+| `person.accountKept` | Saved as {masked}. Leave empty to keep it. | {masked} के रूप में सेव है। रखने के लिए खाली छोड़ें। |
+| `person.idsTitle` | Papers | कागज़ात |
+| `person.pan` | PAN | PAN |
+| `person.aadhaar` | Aadhaar | आधार |
+| `person.lastFourOnly` | Type it in full. Only the last four characters are kept. | पूरा लिखें। सिर्फ़ आखिरी चार अक्षर रखे जाते हैं। |
+| `person.lastFourKept` | Ending in {last4} is kept. Leave empty to keep it. | {last4} पर खत्म होने वाला रखा है। रखने के लिए खाली छोड़ें। |
+| `person.endingIn` | ending in {last4} | {last4} पर खत्म |
+| `person.uan` | UAN | UAN |
+| `person.esic` | ESIC number | ESIC नंबर |
+| `person.leftOn` | Left on {date} | {date} को छोड़ा |
+| `person.openTimesheet` | Open timesheet | टाइमशीट खोलें |
+| `person.openTraining` | Open training | ट्रेनिंग खोलें |
+| `person.tabsLabel` | About this person | इस व्यक्ति के बारे में |
+| `person.tab.details` | Details | जानकारी |
+| `person.tab.joining` | Joining | जुड़ना |
+| `person.tab.leaving` | Leaving | छोड़ना |
+| `person.tab.leave` | Leave | छुट्टी |
+| `person.tab.training` | Training | ट्रेनिंग |
+| `person.tab.notes` | Work notes | काम के नोट |
+| `person.problem.code` | Enter a code. | कोड लिखें। |
+| `person.problem.name` | Enter the name. | नाम लिखें। |
+| `person.problem.joinedOn` | Pick the joining date. | जुड़ने की तारीख चुनें। |
+| `person.problem.dob` | The date of birth must be before the joining date. | जन्म तारीख जुड़ने की तारीख से पहले होनी चाहिए। |
+| `person.problem.phone` | Use digits for the phone. | फ़ोन में अंक लिखें। |
+| `person.problem.account` | Use digits for the account number. | खाता नंबर में अंक लिखें। |
+| `person.problem.ifsc` | The IFSC is 11 characters, like SBIN0001234. | IFSC 11 अक्षर का होता है, जैसे SBIN0001234। |
+| `person.problem.uan` | The UAN is 12 digits. | UAN 12 अंक का होता है। |
+| `person.problem.esic` | The ESIC number is 10 digits. | ESIC नंबर 10 अंक का होता है। |
+| `person.problem.contractor` | Enter the contractor's name. | ठेकेदार का नाम लिखें। |
+| `checklist.joining` | Joining checklist | जुड़ने की चेकलिस्ट |
+| `checklist.leaving` | Leaving checklist | छोड़ने की चेकलिस्ट |
+| `checklist.progress` | {done} of {total} done | {total} में से {done} हुए |
+| `checklist.none` | No items yet. Add them under Rules. | अभी कोई आइटम नहीं। नियम में जोड़ें। |
+| `checklist.done` | Done | हो गया |
+| `checklist.notDone` | Not done | बाकी |
+| `checklist.itemsHint` | Items show on every person's checklist. A ticked-off item is kept even if you switch it off here. | आइटम हर व्यक्ति की चेकलिस्ट में दिखते हैं। यहां बंद करने पर भी टिक किया हुआ आइटम रहता है। |
+| `checklist.itemActive` | {label}: in use | {label}: चालू |
+| `checklist.newItem` | New item | नया आइटम |
+| `checklist.itemBad` | Write the item. | आइटम लिखें। |
+| `checklist.addItem` | Add item | आइटम जोड़ें |
+| `leaving.title` | Leaving | छोड़ना |
+| `leaving.hint` | Enter the last day and the reason. Attendance and the roster close from the next day. | आखिरी दिन और कारण लिखें। हाज़िरी और रोस्टर अगले दिन से बंद हो जाते हैं। |
+| `leaving.leftHint` | This person has left. If it was a mistake, take it back before full and final. | इस व्यक्ति ने काम छोड़ दिया है। गलती से हुआ हो तो फ़ुल और फ़ाइनल से पहले वापस लें। |
+| `leaving.action` | Mark as left | छोड़ गए चिन्हित करें |
+| `leaving.rejoin` | Take leaving back | छोड़ना वापस लें |
+| `leaving.rejoined` | Leaving taken back | छोड़ना वापस लिया गया |
+| `leaving.sheetTitle` | {name} is leaving | {name} काम छोड़ रहे हैं |
+| `leaving.sheetHint` | Check the checklist first. | पहले चेकलिस्ट देख लें। |
+| `leaving.date` | Last day | आखिरी दिन |
+| `leaving.dateBad` | Pick a date on or after the joining date. | जुड़ने की तारीख या उसके बाद की तारीख चुनें। |
+| `leaving.reason` | Reason | कारण |
+| `leaving.reasonBad` | Write the reason. | कारण लिखें। |
+| `leaving.confirm` | Mark as left | छोड़ गए चिन्हित करें |
+| `leaving.saved` | Marked as left | छोड़ गए चिन्हित हुआ |
+| `balances.hint` | Leave left this year, in days. Waiting requests are not counted yet. | इस साल की बची छुट्टी, दिनों में। इंतज़ार वाले अनुरोध अभी गिने नहीं गए। |
+| `balances.year` | Year | साल |
+| `balances.none` | No leave kinds are set up yet. | अभी छुट्टी का कोई प्रकार नहीं बना। |
+| `balances.left` | days left | दिन बाकी |
+| `balances.carried` | Carried in | पिछले साल से |
+| `balances.quota` | This year | इस साल |
+| `balances.taken` | Taken | ली |
+| `balances.waiting` | {days} {count:day\|days} waiting to be decided | {days} {count:दिन\|दिन} का फ़ैसला बाकी |
+| `notes.hint` | Short notes on how the person is doing. | व्यक्ति के काम पर छोटे नोट। |
+| `notes.add` | Add note | नोट जोड़ें |
+| `notes.none` | No work notes yet. | अभी कोई काम का नोट नहीं। |
+| `notes.period` | Period | अवधि |
+| `notes.periodHint` | A year, a quarter or a month, like 2026 or Q2. | साल, तिमाही या महीना, जैसे 2026 या Q2। |
+| `notes.periodBad` | Write the period. | अवधि लिखें। |
+| `notes.ratingLabel` | Rating | रेटिंग |
+| `notes.ratingHint` | 1 is weak, 5 is very good. | 1 कमज़ोर, 5 बहुत अच्छा। |
+| `notes.rating` | {rating} out of 5 | 5 में से {rating} |
+| `notes.remarks` | Remarks | टिप्पणी |
+| `notes.save` | Save note | नोट सेव करें |
+| `notes.saved` | Note saved | नोट सेव हुआ |
+| `notes.sheetTitle` | Work note for {name} | {name} के लिए काम का नोट |
+| `attendance.title` | Attendance | हाज़िरी |
+| `attendance.subtitle` | Mark a whole shift at once. Pick the day and the shift. | पूरी शिफ्ट की हाज़िरी एक साथ लगाएं। दिन और शिफ्ट चुनें। |
+| `attendance.day` | Day | दिन |
+| `attendance.today` | Today | आज |
+| `attendance.yesterday` | Yesterday | कल |
+| `attendance.shift` | Shift | शिफ्ट |
+| `attendance.everyone` | Everyone | सभी |
+| `attendance.dayBad` | Pick a day. | दिन चुनें। |
+| `attendance.future` | This day has not come yet. Pick today or an earlier day. | यह दिन अभी आया नहीं। आज या पहले का दिन चुनें। |
+| `attendance.lateAllowed` | This day is older than yesterday. It will be saved as a late entry. | यह दिन कल से पुराना है। यह देर से भरी हाज़िरी के रूप में सेव होगी। |
+| `attendance.lateBlocked` | This day is older than yesterday. Only a manager or the office can enter it. | यह दिन कल से पुराना है। इसे सिर्फ़ मैनेजर या दफ़्तर भर सकता है। |
+| `attendance.discard` | Some marks are not saved. Leave them? | कुछ निशान सेव नहीं हुए। छोड़ दें? |
+| `attendance.empty` | Nobody is on this shift for this day. | इस दिन इस शिफ्ट में कोई नहीं है। |
+| `attendance.markAll` | Mark all present | सभी को हाज़िर लगाएं |
+| `attendance.counts` | {present} present, {absent} absent, {half} half day, {other} other, {left} not marked | {present} हाज़िर, {absent} गैरहाज़िर, {half} आधा दिन, {other} दूसरे, {left} बाकी |
+| `attendance.listLabel` | People on this shift | इस शिफ्ट के लोग |
+| `attendance.in` | In | आए |
+| `attendance.out` | Out | गए |
+| `attendance.timeBad` | Use a time like 07:30. | समय ऐसे लिखें: 07:30। |
+| `attendance.timesBad` | Fix the times marked in red, then save. | लाल निशान वाले समय ठीक करें, फिर सेव करें। |
+| `attendance.save` | Save shift ({count}) | शिफ्ट सेव करें ({count}) |
+| `attendance.saved` | {count} marked | {count} की हाज़िरी लगी |
+| `attendance.savedLate` | {count} marked as a late entry | {count} की हाज़िरी देर से भरी गई |
+| `attendance.fromPunch` | Punch | पंच |
+| `attendance.lateChip` | Late entry | देर से भरी |
+| `attendance.notMarked` | Not marked | बाकी |
+| `attendance.overtime` | Overtime {h} h {m} min | ओवरटाइम {h} घंटे {m} मिनट |
+| `roster.title` | Roster | रोस्टर |
+| `roster.subtitle` | Who works which shift each day of the week. | हफ़्ते के हर दिन कौन किस शिफ्ट में काम करेगा। |
+| `roster.copy` | Copy last week | पिछला हफ़्ता कॉपी करें |
+| `roster.copied` | Last week copied. {count} cells set this week. | पिछला हफ़्ता कॉपी हुआ। इस हफ़्ते {count} खाने भरे हैं। |
+| `roster.prev` | Earlier week | पिछला हफ़्ता |
+| `roster.next` | Later week | अगला हफ़्ता |
+| `roster.thisWeek` | This week | यह हफ़्ता |
+| `roster.week` | {from} to {to} | {from} से {to} |
+| `roster.hint` | A cell left on the first choice uses the person's usual shift. | पहले विकल्प पर छोड़ा खाना व्यक्ति की आम शिफ्ट लेता है। |
+| `roster.gridLabel` | Roster for the week | हफ़्ते का रोस्टर |
+| `roster.empty` | No people to roster yet. | रोस्टर के लिए अभी कोई नहीं है। |
+| `roster.default` | Usual ({shift}) | आम ({shift}) |
+| `roster.defaultNone` | Usual | आम |
+| `roster.off` | Weekly off | साप्ताहिक छुट्टी |
+| `timesheet.title` | Timesheet | टाइमशीट |
+| `timesheet.subtitle` | One person's month, day by day. | एक व्यक्ति का महीना, दिन दर दिन। |
+| `timesheet.person` | Person | व्यक्ति |
+| `timesheet.pick` | Pick a person | व्यक्ति चुनें |
+| `timesheet.none` | Pick a person to see the month. | महीना देखने के लिए व्यक्ति चुनें। |
+| `timesheet.day` | Day | दिन |
+| `timesheet.status` | Mark | निशान |
+| `timesheet.present` | Present days | हाज़िर दिन |
+| `timesheet.absent` | Absent | गैरहाज़िर |
+| `timesheet.halfDays` | Half days | आधे दिन |
+| `timesheet.leave` | Leave | छुट्टी |
+| `timesheet.weeklyOff` | Weekly offs | साप्ताहिक छुट्टी |
+| `timesheet.holidays` | Holidays | त्योहार की छुट्टी |
+| `timesheet.notMarked` | Not marked | बाकी |
+| `timesheet.overtime` | Overtime | ओवरटाइम |
+| `timesheet.hm` | {h} h {m} min | {h} घंटे {m} मिनट |
+| `timesheet.paidDays` | Paid days | वेतन वाले दिन |
+| `timesheet.paidHint` | Paid days are worked out from the {days} days of the month. A day not marked counts as unpaid. | वेतन वाले दिन महीने के {days} दिनों से निकलते हैं। जिस दिन हाज़िरी नहीं लगी वह बिना वेतन गिना जाता है। |
+| `leave.title` | Leave | छुट्टी |
+| `leave.subtitle` | Leave asked, leave given, and the kinds of leave. | मांगी गई छुट्टी, दी गई छुट्टी और छुट्टी के प्रकार। |
+| `leave.applyFor` | Apply for someone | किसी और के लिए मांगें |
+| `leave.requestsTitle` | Leave requests | छुट्टी के अनुरोध |
+| `leave.decideHint` | Leave is decided on the approvals screen. | छुट्टी का फ़ैसला मंज़ूरी स्क्रीन पर होता है। |
+| `leave.openApprovals` | Open approvals | मंज़ूरी खोलें |
+| `leave.statusLabel` | Show | दिखाएं |
+| `leave.status.pending` | Waiting | इंतज़ार में |
+| `leave.status.approved` | Approved | मंज़ूर |
+| `leave.status.rejected` | Refused | नामंज़ूर |
+| `leave.status.cancelled` | Cancelled | रद्द |
+| `leave.noneWaiting` | No leave is waiting. | कोई छुट्टी इंतज़ार में नहीं है। |
+| `leave.none` | No leave to show. | दिखाने के लिए कोई छुट्टी नहीं। |
+| `leave.range` | {from} to {to} | {from} से {to} |
+| `leave.days` | {days} {count:day\|days} | {days} {count:दिन\|दिन} |
+| `leave.cancel` | Cancel leave | छुट्टी रद्द करें |
+| `leave.cancelled` | Leave cancelled | छुट्टी रद्द हुई |
+| `leave.paid` | Paid | वेतन सहित |
+| `leave.unpaid` | Unpaid | बिना वेतन |
+| `leave.retired` | Not in use | चालू नहीं |
+| `leave.applyTitle` | Apply for leave | छुट्टी मांगें |
+| `leave.applyHint` | For a person who does not sign in. It goes for approval like any other leave. | उस व्यक्ति के लिए जो साइन इन नहीं करता। यह भी बाकी छुट्टी की तरह मंज़ूरी के लिए जाती है। |
+| `leave.applied` | Leave asked for {days} {count:day\|days} | {days} {count:दिन\|दिन} की छुट्टी मांगी गई |
+| `leave.apply` | Ask for leave | छुट्टी मांगें |
+| `leave.person` | Person | व्यक्ति |
+| `leave.personBad` | Pick the person. | व्यक्ति चुनें। |
+| `leave.kind` | Kind of leave | छुट्टी का प्रकार |
+| `leave.kindPick` | Pick a kind | प्रकार चुनें |
+| `leave.kindBad` | Pick the kind of leave. | छुट्टी का प्रकार चुनें। |
+| `leave.from` | First day | पहला दिन |
+| `leave.to` | Last day | आखिरी दिन |
+| `leave.datesBad` | The last day cannot be before the first day. | आखिरी दिन पहले दिन से पहले नहीं हो सकता। |
+| `leave.halfDay` | Half day (one day only) | आधा दिन (सिर्फ़ एक दिन) |
+| `leave.reason` | Reason | कारण |
+| `leave.kindsTitle` | Kinds of leave | छुट्टी के प्रकार |
+| `leave.kindsHint` | How many days a person gets each year, and how many carry over. | हर साल एक व्यक्ति को कितने दिन मिलते हैं और कितने आगे जाते हैं। |
+| `leave.kindsNone` | No kinds yet. Add the first one. | अभी कोई प्रकार नहीं। पहला जोड़ें। |
+| `leave.kindAdd` | Add kind | प्रकार जोड़ें |
+| `leave.kindAddTitle` | Add a kind of leave | छुट्टी का प्रकार जोड़ें |
+| `leave.kindEditTitle` | Change a kind of leave | छुट्टी का प्रकार बदलें |
+| `leave.kindEdit` | Change | बदलें |
+| `leave.kindFigures` | Days a year: {quota}. Carry over: up to {carry}. | साल के दिन: {quota}। आगे ले जाना: {carry} तक। |
+| `leave.kindCode` | Short code | छोटा कोड |
+| `leave.kindCodeHint` | Letters only, like CL. | सिर्फ़ अक्षर, जैसे CL। |
+| `leave.kindCodeBad` | Use 1 to 6 letters. | 1 से 6 अक्षर लिखें। |
+| `leave.kindName` | Name | नाम |
+| `leave.kindNameBad` | Enter the name. | नाम लिखें। |
+| `leave.kindQuota` | Days each year | हर साल के दिन |
+| `leave.kindQuotaHint` | Whole or half days, like 12 or 7.5. | पूरे या आधे दिन, जैसे 12 या 7.5। |
+| `leave.kindCarry` | Most days carried over | आगे ले जाने के ज़्यादा से ज़्यादा दिन |
+| `leave.kindCarryHint` | What can pass to next year. | अगले साल में जो जा सकता है। |
+| `leave.daysBad` | Use whole or half days, up to 365. | पूरे या आधे दिन लिखें, 365 तक। |
+| `leave.kindPaid` | Paid leave | वेतन सहित छुट्टी |
+| `leave.kindActive` | In use | चालू |
+| `leave.kindSave` | Save kind | प्रकार सेव करें |
+| `leave.kindSaved` | Kind of leave saved | छुट्टी का प्रकार सेव हुआ |
+| `training.title` | Training | ट्रेनिंग |
+| `training.subtitle` | Who was trained in what, and who is due again. | किसे क्या ट्रेनिंग मिली और किसकी फिर से बाकी है। |
+| `training.add` | Record training | ट्रेनिंग दर्ज करें |
+| `training.dueTitle` | Due for a refresher | फिर से ट्रेनिंग बाकी |
+| `training.dueHint` | Expired, or ending within 30 days. | खत्म हो चुकी, या 30 दिन में खत्म होने वाली। |
+| `training.dueNone` | Nobody is due. | किसी की बाकी नहीं। |
+| `training.registerTitle` | Training given | दी गई ट्रेनिंग |
+| `training.empty` | No training recorded yet. | अभी कोई ट्रेनिंग दर्ज नहीं। |
+| `training.noneForPerson` | No training recorded for this person. | इस व्यक्ति की कोई ट्रेनिंग दर्ज नहीं। |
+| `training.lastOn` | last on {date} | आखिरी {date} को |
+| `training.expires` | ends {date} | {date} को खत्म |
+| `training.byTrainer` | by {trainer} | {trainer} द्वारा |
+| `training.validFor` | valid {months} {months:month\|months} | {months} {months:महीने\|महीने} मान्य |
+| `training.noExpiry` | never expires | कभी खत्म नहीं होती |
+| `training.state.valid` | Valid | मान्य |
+| `training.state.due_soon` | Due soon | जल्द खत्म |
+| `training.state.expired` | Expired | खत्म |
+| `training.state.no_expiry` | No end date | अंतिम तारीख नहीं |
+| `training.sheetTitle` | Record training | ट्रेनिंग दर्ज करें |
+| `training.sheetHint` | One course, one day, and everyone who attended. | एक कोर्स, एक दिन और आने वाले सभी लोग। |
+| `training.course` | Course | कोर्स |
+| `training.courseBad` | Enter the course. | कोर्स लिखें। |
+| `training.date` | Date | तारीख |
+| `training.dateBad` | Pick the date. | तारीख चुनें। |
+| `training.validity` | Valid for (months) | कितने महीने मान्य |
+| `training.validityHint` | 0 means it never expires. | 0 का मतलब कभी खत्म नहीं होती। |
+| `training.validityBad` | Use whole months, up to 120. | पूरे महीने लिखें, 120 तक। |
+| `training.trainer` | Trainer | ट्रेनर |
+| `training.note` | Note | नोट |
+| `training.people` | People trained | जिन्हें ट्रेनिंग मिली |
+| `training.pickAll` | Pick all shown | दिखते सभी चुनें |
+| `training.peopleBad` | Pick at least one person. | कम से कम एक व्यक्ति चुनें। |
+| `training.save` | Save training | ट्रेनिंग सेव करें |
+| `training.saved` | Training saved | ट्रेनिंग सेव हुई |
+| `recruit.title` | Hiring | भर्ती |
+| `recruit.subtitle` | Open posts and the people who applied. | खाली पद और जिन्होंने आवेदन किया। |
+| `recruit.addOpening` | Add post | पद जोड़ें |
+| `recruit.editOpening` | Change post | पद बदलें |
+| `recruit.statusLabel` | Show | दिखाएं |
+| `recruit.status.open` | Open | खुला |
+| `recruit.status.closed` | Closed | बंद |
+| `recruit.empty` | No posts here. | यहां कोई पद नहीं। |
+| `recruit.figures` | {positions} {positions:post\|posts}, {candidates} applied, {joined} joined | {positions} {positions:पद\|पद}, {candidates} ने आवेदन किया, {joined} जुड़े |
+| `recruit.candidates` | Candidates | उम्मीदवार |
+| `recruit.candidatesFor` | Candidates for {title} | {title} के उम्मीदवार |
+| `recruit.addCandidate` | Add candidate | उम्मीदवार जोड़ें |
+| `recruit.editCandidate` | Change | बदलें |
+| `recruit.noCandidates` | No candidates yet. | अभी कोई उम्मीदवार नहीं। |
+| `recruit.noPhone` | No phone | फ़ोन नहीं |
+| `recruit.candidateName` | Name | नाम |
+| `recruit.nameBad` | Enter the name. | नाम लिखें। |
+| `recruit.stageFor` | Stage of {name} | {name} का चरण |
+| `recruit.stageLabel` | Stage | चरण |
+| `recruit.stage.applied` | Applied | आवेदन किया |
+| `recruit.stage.called` | Called | बुलाया |
+| `recruit.stage.interviewed` | Interviewed | इंटरव्यू हुआ |
+| `recruit.stage.offered` | Offered | प्रस्ताव दिया |
+| `recruit.stage.joined` | Joined | जुड़ गए |
+| `recruit.stage.dropped` | Dropped out | छोड़ दिया |
+| `recruit.notes` | Notes | नोट |
+| `recruit.save` | Save | सेव करें |
+| `recruit.candidateSaved` | Candidate saved | उम्मीदवार सेव हुआ |
+| `recruit.openingSaved` | Post saved | पद सेव हुआ |
+| `recruit.openingTitle` | Post | पद |
+| `recruit.titleBad` | Enter the post, like Press helper. | पद लिखें, जैसे प्रेस हेल्पर। |
+| `recruit.positions` | Places to fill | भरने की जगहें |
+| `recruit.positionsBad` | Use a number from 1 to 500. | 1 से 500 के बीच संख्या लिखें। |
+| `devices.title` | Punch devices | पंच मशीन |
+| `devices.subtitle` | Where punches come from, and how to read their files. | पंच कहां से आते हैं और उनकी फ़ाइल कैसे पढ़ें। |
+| `devices.add` | Add device | मशीन जोड़ें |
+| `devices.empty` | No devices yet. | अभी कोई मशीन नहीं। |
+| `devices.active` | On | चालू |
+| `devices.off` | Off | बंद |
+| `devices.mapped` | File columns set | फ़ाइल के कॉलम तय |
+| `devices.notMapped` | File columns not set | फ़ाइल के कॉलम तय नहीं |
+| `devices.pushSet` | Push token made | पुश टोकन बना है |
+| `devices.pushNone` | No push token | पुश टोकन नहीं |
+| `devices.lastPunch` | Last punch {when} | आखिरी पंच {when} |
+| `devices.noPunch` | No punches yet | अभी कोई पंच नहीं |
+| `devices.edit` | Change | बदलें |
+| `devices.newToken` | New push token | नया पुश टोकन |
+| `devices.addTitle` | Add device | मशीन जोड़ें |
+| `devices.editTitle` | Change device | मशीन बदलें |
+| `devices.name` | Name | नाम |
+| `devices.nameBad` | Enter the name. | नाम लिखें। |
+| `devices.make` | Make and model | कंपनी और मॉडल |
+| `devices.activeLabel` | In use | उपयोग में |
+| `devices.useMap` | This device gives files I will import | इस मशीन की फ़ाइलें मैं इम्पोर्ट करूंगा |
+| `devices.mapHint` | Tell orrn which column holds what, once. It reads every file the same way. | orrn को एक बार बताएं कि किस कॉलम में क्या है। फिर हर फ़ाइल उसी तरह पढ़ी जाती है। |
+| `devices.mapTitle` | Columns in the file | फ़ाइल के कॉलम |
+| `devices.colsFrom1` | Count columns from 1, the first column on the left. | कॉलम 1 से गिनें, यानी बाईं ओर का पहला कॉलम। |
+| `devices.codeCol` | Column with the device number | मशीन नंबर वाला कॉलम |
+| `devices.codeColHint` | The number each person has on the machine. | मशीन पर हर व्यक्ति का नंबर। |
+| `devices.timeMode` | Date and time are | तारीख और समय |
+| `devices.modeOne` | In one column | एक कॉलम में |
+| `devices.modeTwo` | In two columns | दो कॉलम में |
+| `devices.dateTimeCol` | Column with date and time | तारीख और समय वाला कॉलम |
+| `devices.dateCol` | Date column | तारीख का कॉलम |
+| `devices.timeCol` | Time column | समय का कॉलम |
+| `devices.colBad` | Use a column number from 1 to 51. | 1 से 51 के बीच कॉलम नंबर लिखें। |
+| `devices.dateOrder` | Date is written | तारीख ऐसे लिखी है |
+| `devices.orderYmd` | Year first (2026-11-03) | पहले साल (2026-11-03) |
+| `devices.orderDmy` | Day first (03/11/2026) | पहले दिन (03/11/2026) |
+| `devices.delimiter` | Columns are split by | कॉलम अलग होते हैं |
+| `devices.delim.comma` | Comma | कॉमा से |
+| `devices.delim.tab` | Tab | टैब से |
+| `devices.delim.semicolon` | Semicolon | सेमीकोलन से |
+| `devices.delim.bar` | Bar | खड़ी रेखा से |
+| `devices.hasHeader` | The first line is a heading | पहली लाइन शीर्षक है |
+| `devices.save` | Save device | मशीन सेव करें |
+| `devices.saved` | Device saved | मशीन सेव हुई |
+| `devices.tokenTitle` | Push token for {name} | {name} का पुश टोकन |
+| `devices.tokenHint` | Give this token to whoever sets up the machine to send punches. | यह टोकन उसे दें जो मशीन से पंच भिजवाने का सेटअप करे। |
+| `devices.tokenOnce` | This is shown only now. Copy it before you close this. A new token stops the old one. | यह सिर्फ़ अभी दिखता है। बंद करने से पहले कॉपी कर लें। नया टोकन बनने पर पुराना बंद हो जाता है। |
+| `devices.token` | Token | टोकन |
+| `devices.copy` | Copy token | टोकन कॉपी करें |
+| `devices.copied` | Copied | कॉपी हो गया |
+| `devices.pushPath` | Send punches to | पंच यहां भेजें |
+| `devices.pushPathHint` | Send the punches to the plant's address, with the token as a bearer token. | पंच प्लांट के पते पर भेजें, टोकन को बेयरर टोकन की तरह लगाकर। |
+| `devices.tokenDone` | I have copied it | मैंने कॉपी कर लिया |
+| `import.title` | Import a punch file | पंच फ़ाइल इम्पोर्ट करें |
+| `import.hint` | Read the file first. Nothing is saved until you import. | पहले फ़ाइल पढ़ें। इम्पोर्ट करने तक कुछ सेव नहीं होता। |
+| `import.device` | Device | मशीन |
+| `import.devicePick` | Pick a device | मशीन चुनें |
+| `import.file` | File | फ़ाइल |
+| `import.fileHint` | A .csv or .txt file from the machine. | मशीन से मिली .csv या .txt फ़ाइल। |
+| `import.paste` | Or paste the lines here | या लाइनें यहां चिपकाएं |
+| `import.pasteHint` | One punch per line, in the columns you set for the device. | हर लाइन में एक पंच, मशीन के लिए तय कॉलम में। |
+| `import.tooBig` | This file is too big. Split it and import in parts. | यह फ़ाइल बहुत बड़ी है। इसे तोड़कर हिस्सों में इम्पोर्ट करें। |
+| `import.noMap` | Set this device's file columns first. | पहले इस मशीन की फ़ाइल के कॉलम तय करें। |
+| `import.delimiterGuess` | Looks split by: {delim} | लगता है कॉलम इससे अलग हैं: {delim} |
+| `import.preview` | Read file | फ़ाइल पढ़ें |
+| `import.previewFailed` | Could not read the file. | फ़ाइल नहीं पढ़ी जा सकी। |
+| `import.commit` | Import {count} punches | {count} पंच इम्पोर्ट करें |
+| `import.done` | {inserted} new punches. {duplicates} already there. {days} days updated. | {inserted} नए पंच। {duplicates} पहले से थे। {days} दिन अपडेट हुए। |
+| `import.read` | {total} punches read | {total} पंच पढ़े गए |
+| `import.unknown` | {count} device numbers match nobody | {count} मशीन नंबर किसी से नहीं मिलते |
+| `import.unknownHint` | Give each person their device number on the person's page, then import again. | हर व्यक्ति के पेज पर उसका मशीन नंबर डालें, फिर दोबारा इम्पोर्ट करें। |
+| `import.bad` | {count} lines could not be read | {count} लाइनें पढ़ी नहीं जा सकीं |
+| `import.badLine` | Line {line}: {reason} | लाइन {line}: {reason} |
+| `import.reason.columns` | too few columns | कॉलम कम हैं |
+| `import.reason.code` | no device number | मशीन नंबर नहीं |
+| `import.reason.time` | date or time not understood | तारीख या समय समझ नहीं आया |
+| `import.line` | Line | लाइन |
+| `import.at` | Time | समय |
+| `import.noPerson` | Not found | नहीं मिला |
+| `incentive.title` | Incentive | इंसेंटिव |
+| `incentive.subtitle` | What each operator earned from the press runs. | प्रेस रन से हर ऑपरेटर ने कितना कमाया। |
+| `incentive.download` | Download CSV | CSV डाउनलोड करें |
+| `incentive.operator` | Operator | ऑपरेटर |
+| `incentive.day` | Day | दिन |
+| `incentive.shift` | Shift | शिफ्ट |
+| `incentive.good` | Good ({massUnit}) | अच्छा ({massUnit}) |
+| `incentive.input` | Input ({massUnit}) | डाला ({massUnit}) |
+| `incentive.reject` | Reject ({massUnit}) | रिजेक्ट ({massUnit}) |
+| `incentive.recovery` | Recovery | रिकवरी |
+| `incentive.belowFloor` | Below floor | सीमा से नीचे |
+| `incentive.amount` | Incentive | इंसेंटिव |
+| `incentive.total` | Total | कुल |
+| `incentive.perPerson` | Total for each person | हर व्यक्ति का कुल |
+| `incentive.sheet` | Every operator, day and shift | हर ऑपरेटर, दिन और शिफ्ट |
+| `incentive.sheetHint` | All figures come from the closed press runs. Nothing is typed here. | सभी आंकड़े बंद हुए प्रेस रन से आते हैं। यहां कुछ टाइप नहीं होता। |
+| `incentive.unlinked` | Operator not linked to a person | ऑपरेटर किसी व्यक्ति से जुड़ा नहीं |
+| `incentive.empty` | No closed press runs with an operator in this month. | इस महीने ऑपरेटर वाला कोई बंद प्रेस रन नहीं। |
+| `incentive.ruleLine` | Rule from {from}: target {target} {massUnit} a shift, recovery floor {floor}%. | {from} से नियम: शिफ्ट का लक्ष्य {target} {massUnit}, रिकवरी की सीमा {floor}%। |
+| `incentive.noRule` | No incentive rule is set yet. Set it under Rules. | अभी इंसेंटिव का नियम नहीं बना। नियम में बनाएं। |
+| `incentiveRule.title` | Incentive rule | इंसेंटिव का नियम |
+| `incentiveRule.hint` | Paid for good weight above a target in a shift, less a charge on rejects. | शिफ्ट में लक्ष्य से ऊपर के अच्छे वज़न पर मिलता है, रिजेक्ट पर कटौती के बाद। |
+| `incentiveRule.none` | No rule set yet. | अभी कोई नियम नहीं। |
+| `incentiveRule.target` | Target for a shift | शिफ्ट का लक्ष्य |
+| `incentiveRule.targetHint` | Good weight in {massUnit} below which nothing is paid. | {massUnit} में अच्छा वज़न, जिससे नीचे कुछ नहीं मिलता। |
+| `incentiveRule.rate` | Rate above the target | लक्ष्य से ऊपर की दर |
+| `incentiveRule.rateHint` | Rupees for each {massUnit} of good weight above the target. | लक्ष्य से ऊपर हर {massUnit} अच्छे वज़न के रुपये। |
+| `incentiveRule.floor` | Recovery floor (%) | रिकवरी की सीमा (%) |
+| `incentiveRule.floorHint` | Below this recovery nothing is paid. 0 means no floor. | इस रिकवरी से नीचे कुछ नहीं मिलता। 0 का मतलब कोई सीमा नहीं। |
+| `incentiveRule.floorBad` | Use a percent from 0 to 100. | 0 से 100 के बीच प्रतिशत लिखें। |
+| `incentiveRule.penalty` | Charge on rejects | रिजेक्ट पर कटौती |
+| `incentiveRule.penaltyHint` | Rupees taken back for each {massUnit} of reject. | हर {massUnit} रिजेक्ट पर वापस लिए जाने वाले रुपये। |
+| `settings.title` | People rules | लोगों के नियम |
+| `settings.subtitle` | Rules, holidays, checklists and the retirement list. | नियम, छुट्टियां, चेकलिस्ट और रिटायरमेंट की सूची। |
+| `settings.inForce` | The rule in force starts from {from}. | चालू नियम {from} से शुरू हुआ। |
+| `settings.defaults` | No rule saved yet. These are the starting values. | अभी कोई नियम सेव नहीं। ये शुरुआती मान हैं। |
+| `settings.effectiveFrom` | Starts from month | किस महीने से |
+| `settings.effectiveHint` | A change starts in this month and never rewrites an earlier month. | बदलाव इसी महीने से लागू होता है और पिछले महीनों को नहीं बदलता। |
+| `settings.monthBad` | Pick a month. | महीना चुनें। |
+| `settings.note` | Note | नोट |
+| `settings.save` | Save from this month | इस महीने से सेव करें |
+| `settings.saved` | Saved | सेव हुआ |
+| `settings.history` | Earlier rules ({count}) | पुराने नियम ({count}) |
+| `rules.title` | HR rules | लोगों के नियम |
+| `rules.hint` | Retirement, weekly off, overtime, month length and the rest. | रिटायरमेंट, साप्ताहिक छुट्टी, ओवरटाइम, महीने की लंबाई और बाकी। |
+| `rules.retirementAge` | Retirement age (years) | रिटायरमेंट की उम्र (साल) |
+| `rules.weeklyOff` | Weekly off | साप्ताहिक छुट्टी |
+| `rules.hoursPerDay` | Hours in a day | दिन के घंटे |
+| `rules.hoursPerDayHint` | Used to find the pay for one hour. | एक घंटे की मज़दूरी निकालने के लिए। |
+| `rules.overtimeMin` | Overtime starts after (minutes) | ओवरटाइम इसके बाद शुरू (मिनट) |
+| `rules.overtimeMinHint` | Extra time shorter than this is not counted. | इससे कम अतिरिक्त समय गिना नहीं जाता। |
+| `rules.overtimeStep` | Overtime counted in steps of (minutes) | ओवरटाइम इतने मिनट के टुकड़ों में |
+| `rules.overtimeStepHint` | Extra time is rounded down to a whole step. | अतिरिक्त समय पूरे टुकड़े तक नीचे किया जाता है। |
+| `rules.overtimeRate` | Overtime pay rate | ओवरटाइम की दर |
+| `rules.overtimeRateHint` | 2 means double pay, 1.5 means one and a half. | 2 का मतलब दुगुना, 1.5 का मतलब डेढ़ गुना। |
+| `rules.overtimeBase` | Overtime is worked out on | ओवरटाइम इस पर निकलता है |
+| `rules.overtimeBaseHint` | The part of the salary used for the hour's pay. | वेतन का वह हिस्सा जिससे घंटे की मज़दूरी निकलती है। |
+| `rules.baseBasic` | Basic and dearness allowance | बेसिक और महंगाई भत्ता |
+| `rules.baseGross` | Gross pay | कुल वेतन |
+| `rules.monthDays` | Days in a month for pay | वेतन के लिए महीने के दिन |
+| `rules.monthDaysHint` | How many days a month's salary is divided by. | महीने के वेतन को कितने दिनों से बांटा जाता है। |
+| `rules.daysCalendar` | Days in that month | उस महीने के दिन |
+| `rules.days26` | 26 days | 26 दिन |
+| `rules.days30` | 30 days | 30 दिन |
+| `rules.bonus` | Bonus (%) | बोनस (%) |
+| `rules.bonusHint` | Share of pay set aside as yearly bonus. | वेतन का वह हिस्सा जो सालाना बोनस के लिए अलग रखा जाता है। |
+| `rules.encash` | Leave encashment divisor | छुट्टी के बदले पैसे का भाजक |
+| `rules.encashHint` | A day of leave is paid as salary divided by this. | छुट्टी के एक दिन का पैसा वेतन को इस संख्या से बांटकर मिलता है। |
+| `rules.bad.retirementAge` | Use a whole number from 45 to 75. | 45 से 75 के बीच पूरी संख्या लिखें। |
+| `rules.bad.weeklyOffDow` | Pick a day. | दिन चुनें। |
+| `rules.bad.overtimeMinMinutes` | Use minutes from 0 to 240. | 0 से 240 मिनट लिखें। |
+| `rules.bad.overtimeStepMinutes` | Use minutes from 1 to 120. | 1 से 120 मिनट लिखें। |
+| `rules.bad.overtimeRate` | Use a rate from 1 to 4. | 1 से 4 के बीच दर लिखें। |
+| `rules.bad.overtimeBase` | Pick one. | एक चुनें। |
+| `rules.bad.hoursPerDay` | Use hours from 4 to 12. | 4 से 12 घंटे लिखें। |
+| `rules.bad.monthDaysBasis` | Pick one. | एक चुनें। |
+| `rules.bad.bonusPercent` | Use a percent from 0 to 20. | 0 से 20 के बीच प्रतिशत लिखें। |
+| `rules.bad.encashDivisor` | Use a number from 20 to 31. | 20 से 31 के बीच संख्या लिखें। |
+| `holidays.title` | Holidays | त्योहार की छुट्टियां |
+| `holidays.hint` | Days the plant is shut. They are paid and are not leave. | जिन दिनों प्लांट बंद रहता है। इनका वेतन मिलता है और ये छुट्टी में नहीं गिने जाते। |
+| `holidays.none` | No holidays for this year yet. | इस साल की कोई छुट्टी अभी नहीं। |
+| `holidays.date` | Date | तारीख |
+| `holidays.dateBad` | Pick the date. | तारीख चुनें। |
+| `holidays.name` | Name | नाम |
+| `holidays.nameBad` | Enter the name, like Diwali. | नाम लिखें, जैसे दिवाली। |
+| `holidays.add` | Add holiday | छुट्टी जोड़ें |
+| `holidays.remove` | Remove | हटाएं |
+| `holidays.saved` | Holiday added | छुट्टी जोड़ी गई |
+| `retiring.title` | Retiring soon | जल्द रिटायर होने वाले |
+| `retiring.hint` | People who reach {age} years in this time. | जो इस समय में {age} साल के हो जाएंगे। |
+| `retiring.window` | How far ahead | कितना आगे तक |
+| `retiring.next` | Next {days} days | अगले {days} दिन |
+| `retiring.none` | Nobody retires in this time. | इस समय में कोई रिटायर नहीं होता। |
+
+### payroll (391)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Payroll | वेतन |
+| `subtitle` | Work out each month's pay, check it, and lock it. | हर महीने का वेतन निकालें, जाँचें और बंद करें। |
+| `off` | Payroll is not switched on for this plant. The owner can switch it on in Settings. | इस प्लांट में वेतन चालू नहीं है। मालिक इसे सेटिंग में चालू कर सकता है। |
+| `loadError` | Could not load payroll. | वेतन का पन्ना नहीं खुल सका। |
+| `noAccess` | Salary figures are for the office, accountants, managers and admins. | वेतन के आँकड़े ऑफिस, अकाउंटेंट, मैनेजर और एडमिन के लिए हैं। |
+| `tabs.label` | Payroll sections | वेतन के हिस्से |
+| `tabs.runs` | Months | महीने |
+| `tabs.people` | Salaries | वेतन ढाँचे |
+| `tabs.adjustments` | Deductions | कटौतियाँ |
+| `tabs.settings` | Rates | दरें |
+| `state.draft` | Draft | मसौदा |
+| `state.checked` | Waiting for approval | मंज़ूरी का इंतज़ार |
+| `state.approved` | Approved | मंज़ूर |
+| `state.locked` | Locked | बंद |
+| `months.label` | Payroll months | वेतन के महीने |
+| `months.empty` | No month has been worked out yet. | अभी कोई महीना नहीं निकाला गया। |
+| `months.emptyHint` | Pick a month and work it out to make every payslip from the attendance. | महीना चुनें और निकालें। हाज़िरी से हर वेतन पर्ची बन जाएगी। |
+| `months.pick` | Month | महीना |
+| `months.open` | Open the month | महीना खोलें |
+| `months.month` | Month | महीना |
+| `months.people` | People | लोग |
+| `months.gross` | Gross | कुल |
+| `months.net` | Net | हाथ में |
+| `months.status` | State | स्थिति |
+| `months.ratesLink` | Statutory rates | कानूनी दरें |
+| `run.back` | Payroll | वेतन |
+| `run.title` | Payroll for {month} | {month} का वेतन |
+| `run.none` | This month has not been worked out yet. | इस महीने का वेतन अभी नहीं निकाला गया। |
+| `run.noneHint` | Work out the month to make every payslip from the attendance and the salary structures. | महीना निकालें। हाज़िरी और वेतन ढाँचों से हर वेतन पर्ची बन जाएगी। |
+| `run.compute` | Work out | निकालें |
+| `run.recompute` | Work out again | फिर से निकालें |
+| `run.computed` | Worked out. {count} payslips. | निकल गया। {count} वेतन पर्चियाँ। |
+| `run.check` | Check | जाँचें |
+| `run.checkHint` | Check freezes these figures and sends them to a manager or admin to approve. | जाँचने पर ये आँकड़े पक्के हो जाते हैं और मैनेजर या एडमिन को मंज़ूरी के लिए जाते हैं। |
+| `run.checkNote` | Note for the approver (optional) | मंज़ूर करने वाले के लिए नोट (चाहें तो) |
+| `run.checkTitle` | Send {month} for approval? | {month} मंज़ूरी के लिए भेजें? |
+| `run.checked` | Sent for approval. | मंज़ूरी के लिए भेज दिया। |
+| `run.reopen` | Reopen | फिर खोलें |
+| `run.reopenTitle` | Reopen {month}? | {month} फिर खोलें? |
+| `run.reopenBody` | The run goes back to a draft. A waiting approval is withdrawn. | वेतन मसौदे में लौट जाएगा। इंतज़ार कर रही मंज़ूरी वापस ले ली जाएगी। |
+| `run.reopened` | Reopened as a draft. | मसौदे के रूप में फिर खुल गया। |
+| `run.lock` | Lock | बंद करें |
+| `run.lockTitle` | Lock {month}? | {month} बंद करें? |
+| `run.lockBody` | A locked month never changes. Corrections go in the next month. | बंद महीना कभी नहीं बदलता। सुधार अगले महीने में होते हैं। |
+| `run.locked` | Locked. | बंद हो गया। |
+| `run.cancel` | Cancel | रद्द करें |
+| `run.approvalLink` | Open the approvals screen | मंज़ूरी का पन्ना खोलें |
+| `run.waiting` | Waiting for a manager or admin to approve this month on the approvals screen. | मैनेजर या एडमिन को मंज़ूरी के पन्ने पर इस महीने को मंज़ूर करना है। |
+| `run.approvedNote` | Approved. Make the files, then lock the month. | मंज़ूर हो गया। फाइलें बनाएँ, फिर महीना बंद करें। |
+| `run.lockedNote` | Locked. Corrections go in the next month. | बंद है। सुधार अगले महीने में होते हैं। |
+| `run.draftNote` | A draft can be worked out again as often as you like. | मसौदा जितनी बार चाहें फिर से निकाला जा सकता है। |
+| `run.table` | Payslips of the month | महीने की वेतन पर्चियाँ |
+| `run.code` | Code | कोड |
+| `run.name` | Name | नाम |
+| `run.paidDays` | Paid days | भुगतान के दिन |
+| `run.gross` | Gross | कुल |
+| `run.deductions` | Deductions | कटौती |
+| `run.net` | Net | हाथ में |
+| `run.warnCol` | Check | जाँच |
+| `run.total` | Total | जोड़ |
+| `run.headcount` | People: {count} | लोग: {count} |
+| `run.notMarked` | {count} working days not marked, counted as unpaid | {count} कामकाजी दिन दर्ज नहीं, बिना वेतन गिने गए |
+| `run.noWarnings` | Nothing to check | जाँचने को कुछ नहीं |
+| `run.warnings` | {count} people have unmarked working days. They are counted as unpaid. Mark them in Attendance, then work out again. | {count} लोगों के कामकाजी दिन दर्ज नहीं हैं। उन्हें बिना वेतन गिना गया है। हाज़िरी में दर्ज करें, फिर दोबारा निकालें। |
+| `run.open` | Open payslip | वेतन पर्ची खोलें |
+| `run.empty` | No one has a salary structure for this month. | इस महीने के लिए किसी का वेतन ढाँचा नहीं है। |
+| `run.noChange` | Someone changed this run. It has been loaded again. | किसी ने यह वेतन बदल दिया। इसे फिर से खोल दिया गया है। |
+| `files.title` | Files for the bank and the government | बैंक और सरकार के लिए फाइलें |
+| `files.hint` | Made from the approved run. Save the file and upload it yourself; nothing is sent from here. | मंज़ूर वेतन से बनती हैं। फाइल सहेजें और खुद अपलोड करें; यहाँ से कुछ नहीं भेजा जाता। |
+| `files.notReady` | Files can be made once the run is approved. | वेतन मंज़ूर होने पर फाइलें बन सकती हैं। |
+| `files.bank` | Bank sheet | बैंक शीट |
+| `files.ecr` | EPF ECR file | EPF ECR फाइल |
+| `files.esic` | ESIC sheet | ESIC शीट |
+| `files.saved` | Saved {name}. | {name} सहेज ली। |
+| `files.nothing` | There was nothing to put in {name}. | {name} में डालने को कुछ नहीं था। |
+| `files.failed` | Could not make the file. | फाइल नहीं बन सकी। |
+| `files.leftOut` | Left out of the file | फाइल से छूटे हुए |
+| `files.missingBank` | No bank account: {codes} | बैंक खाता नहीं: {codes} |
+| `files.missingEcr` | No UAN: {codes} | UAN नहीं: {codes} |
+| `files.missingEsic` | No ESIC number: {codes} | ESIC नंबर नहीं: {codes} |
+| `files.ecrFacts` | {count} members. Admin charges {admin}. EDLI {edli}. | {count} सदस्य। एडमिन शुल्क {admin}। EDLI {edli}। |
+| `files.esicFacts` | {count} members covered this month. | इस महीने {count} सदस्य कवर हैं। |
+| `slip.title` | Payslip | वेतन पर्ची |
+| `slip.print` | Print | छापें |
+| `slip.printFailed` | Could not open the print page. | छपाई का पन्ना नहीं खुल सका। |
+| `slip.close` | Close | बंद करें |
+| `slip.structure` | Salary structure from {month} | {month} से वेतन ढाँचा |
+| `people.title` | Salary structures | वेतन ढाँचे |
+| `people.subtitle` | What each person is paid, dated by month. | हर व्यक्ति को क्या मिलता है, महीने के हिसाब से। |
+| `people.register` | Salary register for {month} | {month} का वेतन रजिस्टर |
+| `people.registerLabel` | Salary register | वेतन रजिस्टर |
+| `people.month` | Month | महीना |
+| `people.empty` | No one has a salary structure yet. | अभी किसी का वेतन ढाँचा नहीं है। |
+| `people.code` | Code | कोड |
+| `people.name` | Name | नाम |
+| `people.basic` | Basic | बेसिक |
+| `people.da` | DA | DA |
+| `people.hra` | HRA | HRA |
+| `people.other` | Other | अन्य |
+| `people.basis` | Paid | भुगतान |
+| `people.basisDay` | Per day | रोज़ के हिसाब से |
+| `people.basisMonth` | Per month | महीने के हिसाब से |
+| `people.from` | From | से |
+| `people.flags` | Statutory | कानूनी |
+| `people.flagEpf` | EPF | EPF |
+| `people.flagEsic` | ESIC | ESIC |
+| `people.flagPt` | Professional tax | व्यावसायिक कर |
+| `people.pick` | Open a person | व्यक्ति खोलें |
+| `people.person` | Person | व्यक्ति |
+| `people.pickPerson` | Choose a person | व्यक्ति चुनें |
+| `people.history` | Salary history of {name} | {name} का वेतन इतिहास |
+| `people.historyEmpty` | No structure saved for this person yet. | इस व्यक्ति का कोई ढाँचा अभी सहेजा नहीं है। |
+| `people.formTitle` | Save a structure | ढाँचा सहेजें |
+| `people.formHint` | The structure applies from the month you pick until the next one. | ढाँचा चुने महीने से अगले ढाँचे तक लागू रहता है। |
+| `people.effectiveFrom` | Applies from month | इस महीने से लागू |
+| `people.basicBox` | Basic | बेसिक |
+| `people.daBox` | Dearness allowance (DA) | महँगाई भत्ता (DA) |
+| `people.hraBox` | House rent allowance (HRA) | मकान किराया भत्ता (HRA) |
+| `people.otherBox` | Other allowance | अन्य भत्ता |
+| `people.perDay` | Amounts are | रकम है |
+| `people.perDayYes` | Per day | रोज़ की |
+| `people.perDayNo` | Per month | महीने की |
+| `people.pfMember` | Member of EPF | EPF का सदस्य |
+| `people.pfOnActual` | EPF on the actual basic and DA, even above the wage ceiling | वेतन सीमा से ऊपर भी असली बेसिक और DA पर EPF |
+| `people.esicMember` | Member of ESIC | ESIC का सदस्य |
+| `people.esicCovered` | ESIC cover | ESIC कवर |
+| `people.esicAuto` | Automatic, by the wage ceiling | अपने आप, वेतन सीमा से |
+| `people.esicYes` | Covered | कवर है |
+| `people.esicNo` | Not covered | कवर नहीं |
+| `people.ptApplies` | Professional tax applies | व्यावसायिक कर लगता है |
+| `people.save` | Save structure | ढाँचा सहेजें |
+| `people.saved` | Structure saved. | ढाँचा सहेज लिया। |
+| `people.needPerson` | Choose a person. | व्यक्ति चुनें। |
+| `people.needMonth` | Pick a month like 2026-11. | 2026-11 जैसा महीना चुनें। |
+| `people.needBasic` | Enter the basic. | बेसिक भरें। |
+| `people.badAmount` | Enter an amount like 12500 or 12500.50. | 12500 या 12500.50 जैसी रकम भरें। |
+| `adj.title` | Deductions and extra pay | कटौती और अतिरिक्त वेतन |
+| `adj.subtitle` | Things to take off, or add to, one month's pay. | एक महीने के वेतन से काटने या उसमें जोड़ने की बातें। |
+| `adj.month` | Month | महीना |
+| `adj.list` | Entries for {month} | {month} की प्रविष्टियाँ |
+| `adj.empty` | Nothing entered for this month. | इस महीने कुछ दर्ज नहीं है। |
+| `adj.person` | Person | व्यक्ति |
+| `adj.pickPerson` | Choose a person | व्यक्ति चुनें |
+| `adj.kind` | Kind | प्रकार |
+| `adj.label` | Note (optional) | नोट (चाहें तो) |
+| `adj.amount` | Amount | रकम |
+| `adj.add` | Add | जोड़ें |
+| `adj.added` | Added. | जोड़ दिया। |
+| `adj.remove` | Remove | हटाएँ |
+| `adj.removed` | Removed. | हटा दिया। |
+| `adj.code` | Code | कोड |
+| `adj.name` | Name | नाम |
+| `adj.total` | Total deductions {deductions}, extra pay {earnings} | कुल कटौती {deductions}, अतिरिक्त वेतन {earnings} |
+| `adj.kinds.advance` | Advance recovery | एडवांस की वसूली |
+| `adj.kinds.canteen` | Canteen | कैंटीन |
+| `adj.kinds.other` | Other deduction | अन्य कटौती |
+| `adj.kinds.tds` | TDS by your CA | आपके CA का TDS |
+| `adj.kinds.earning` | Extra earning | अतिरिक्त कमाई |
+| `adj.tdsHint` | Type the TDS figure your CA gives you. orrn does not work it out. | आपका CA जो TDS बताए वही भरें। orrn इसे नहीं निकालता। |
+| `adj.needPerson` | Choose a person. | व्यक्ति चुनें। |
+| `adj.needAmount` | Enter an amount like 500 or 500.50. | 500 या 500.50 जैसी रकम भरें। |
+| `adj.closed` | This month is checked or locked. Reopen the run to change it. | यह महीना जाँचा जा चुका है या बंद है। बदलने के लिए वेतन फिर खोलें। |
+| `settings.title` | Statutory rates | कानूनी दरें |
+| `settings.subtitle` | EPF, ESIC, professional tax, bonus and gratuity, dated by month. | EPF, ESIC, व्यावसायिक कर, बोनस और ग्रेच्युटी, महीने के हिसाब से। |
+| `settings.defaultsTitle` | Defaults in use | अभी चल रही डिफ़ॉल्ट दरें |
+| `settings.defaultsHint` | These are defaults, not advice. Confirm every figure with your CA, then save the rates that apply to you. | ये डिफ़ॉल्ट हैं, सलाह नहीं। हर आँकड़ा अपने CA से पक्का करें, फिर अपनी दरें सहेजें। |
+| `settings.sourceTitle` | Where the defaults come from | डिफ़ॉल्ट कहाँ से आए |
+| `settings.inForce` | In force from {month} | {month} से लागू |
+| `settings.inForceNone` | No rates saved yet. The defaults are used. | अभी कोई दर सहेजी नहीं है। डिफ़ॉल्ट चल रही हैं। |
+| `settings.historyTitle` | Saved rates | सहेजी हुई दरें |
+| `settings.historyNote` | Source: {note} | स्रोत: {note} |
+| `settings.formTitle` | Save rates | दरें सहेजें |
+| `settings.effectiveFrom` | Applies from month | इस महीने से लागू |
+| `settings.fromDefaults` | Start from the defaults | डिफ़ॉल्ट से शुरू करें |
+| `settings.fromLatest` | Start from the saved rates | सहेजी हुई दरों से शुरू करें |
+| `settings.epfEmployee` | EPF, employee share (%) | EPF, कर्मचारी का हिस्सा (%) |
+| `settings.epsEmployer` | EPS, employer share (%) | EPS, मालिक का हिस्सा (%) |
+| `settings.epfCeiling` | EPF wage ceiling | EPF वेतन सीमा |
+| `settings.edli` | EDLI (%) | EDLI (%) |
+| `settings.epfAdmin` | EPF admin charges (%) | EPF एडमिन शुल्क (%) |
+| `settings.epsMaxAge` | EPS stops at age | EPS इस उम्र पर रुकता है |
+| `settings.esicEmployee` | ESIC, employee share (%) | ESIC, कर्मचारी का हिस्सा (%) |
+| `settings.esicEmployer` | ESIC, employer share (%) | ESIC, मालिक का हिस्सा (%) |
+| `settings.esicCeiling` | ESIC wage ceiling | ESIC वेतन सीमा |
+| `settings.esicExempt` | ESIC: no employee share at or below daily pay of | ESIC: रोज़ के वेतन के इस स्तर या नीचे कर्मचारी का हिस्सा नहीं |
+| `settings.ptState` | Professional tax state | व्यावसायिक कर का राज्य |
+| `settings.slabs` | Professional tax slabs, by gross pay of the month | व्यावसायिक कर के स्लैब, महीने के कुल वेतन के हिसाब से |
+| `settings.slabFrom` | Gross pay from | कुल वेतन से |
+| `settings.slabTax` | Tax a month | महीने का कर |
+| `settings.addSlab` | Add a slab | स्लैब जोड़ें |
+| `settings.removeSlab` | Remove slab | स्लैब हटाएँ |
+| `settings.bonusEligible` | Bonus: basic and DA up to | बोनस: बेसिक और DA इतने तक |
+| `settings.bonusCalc` | Bonus: worked out on at most | बोनस: अधिकतम इतने पर निकाला जाता है |
+| `settings.bonusMin` | Bonus minimum (%) | बोनस न्यूनतम (%) |
+| `settings.bonusMax` | Bonus maximum (%) | बोनस अधिकतम (%) |
+| `settings.gratuityMin` | Gratuity: years of service needed | ग्रेच्युटी: ज़रूरी सेवा के साल |
+| `settings.gratuityCeiling` | Gratuity ceiling | ग्रेच्युटी की सीमा |
+| `settings.note` | Where these figures come from | ये आँकड़े कहाँ से आए |
+| `settings.noteHint` | Required. Name the law, the circular or your CA, so the next person knows. | ज़रूरी। कानून, परिपत्र या अपने CA का नाम लिखें, ताकि अगला व्यक्ति जान सके। |
+| `settings.save` | Save rates | दरें सहेजें |
+| `settings.saved` | Rates saved. | दरें सहेज लीं। |
+| `settings.needNote` | Say where the figures come from. | बताएँ कि आँकड़े कहाँ से आए। |
+| `settings.badNumber` | Check the numbers. Percentages and amounts must be plain numbers. | संख्याएँ देखें। प्रतिशत और रकम सादी संख्या होनी चाहिए। |
+| `settings.needMonth` | Pick a month like 2026-11. | 2026-11 जैसा महीना चुनें। |
+| `settings.epsOverEpf` | The EPS rate cannot be above the EPF rate. | EPS की दर EPF की दर से ऊपर नहीं हो सकती। |
+| `settings.bonusRange` | The bonus minimum cannot be above the maximum. | बोनस का न्यूनतम अधिकतम से ऊपर नहीं हो सकता। |
+| `settings.ptSlabs` | Check the professional tax slabs. | व्यावसायिक कर के स्लैब देखें। |
+| `settings.outOfRange` | A rate is out of range. | कोई दर सीमा से बाहर है। |
+| `settlement.title` | Full and final | फुल एंड फाइनल |
+| `settlement.back` | Salaries | वेतन ढाँचे |
+| `settlement.subtitle` | {name} ({code}) | {name} ({code}) |
+| `settlement.notLeft` | Full and final is for a person who has left. Enter the leaving in People first. | फुल एंड फाइनल उस व्यक्ति का होता है जो जा चुका है। पहले लोग में जाने की तारीख भरें। |
+| `settlement.left` | Left on {date} | {date} को गए |
+| `settlement.reason` | Reason: {reason} | कारण: {reason} |
+| `settlement.inputs` | What is still to be settled | अभी क्या निपटाना बाकी है |
+| `settlement.unpaid` | Days of salary not yet paid | वेतन के बिना चुकाए दिन |
+| `settlement.unpaidHint` | Days of the last month that are still to be paid. Half days are fine, like 2.5. | पिछले महीने के वे दिन जिनका वेतन देना बाकी है। आधा दिन चलेगा, जैसे 2.5। |
+| `settlement.encash` | Leave days to encash | भुनाने के छुट्टी के दिन |
+| `settlement.encashHint` | Paid leave left that the plant pays out. | बची हुई वेतन वाली छुट्टी जिसका पैसा प्लांट देता है। |
+| `settlement.recoveries` | Recoveries | वसूलियाँ |
+| `settlement.recLabel` | What for | किस बात की |
+| `settlement.recAmount` | Amount | रकम |
+| `settlement.addRecovery` | Add a recovery | वसूली जोड़ें |
+| `settlement.removeRecovery` | Remove | हटाएँ |
+| `settlement.compute` | Work out | निकालें |
+| `settlement.recompute` | Work out again | फिर से निकालें |
+| `settlement.computed` | Worked out. | निकल गया। |
+| `settlement.statement` | Statement | विवरण |
+| `settlement.noStatement` | Work it out to see the statement. | विवरण देखने के लिए निकालें। |
+| `settlement.draft` | Draft | मसौदा |
+| `settlement.final` | Final | अंतिम |
+| `settlement.finalize` | Make final | अंतिम करें |
+| `settlement.finalizeHint` | Someone other than the person who worked it out makes it final. | जिसने निकाला उसके अलावा कोई और इसे अंतिम करता है। |
+| `settlement.finalizeTitle` | Make this statement final? | यह विवरण अंतिम करें? |
+| `settlement.finalizeBody` | A final statement cannot change. | अंतिम विवरण बदला नहीं जा सकता। |
+| `settlement.finalized` | Made final. | अंतिम हो गया। |
+| `settlement.cancel` | Cancel | रद्द करें |
+| `settlement.print` | Print | छापें |
+| `settlement.printFailed` | Could not open the print page. | छपाई का पन्ना नहीं खुल सका। |
+| `settlement.isFinal` | This statement is final and cannot change. | यह विवरण अंतिम है और बदला नहीं जा सकता। |
+| `settlement.badDays` | Enter whole or half days, like 3 or 3.5. | पूरे या आधे दिन भरें, जैसे 3 या 3.5। |
+| `settlement.badAmount` | Enter an amount like 500 or 500.50. | 500 या 500.50 जैसी रकम भरें। |
+| `settlement.needLabel` | Say what each recovery is for. | बताएँ कि हर वसूली किस बात की है। |
+| `me.title` | My page | मेरा पन्ना |
+| `me.subtitle` | My attendance, leave and payslips. | मेरी हाज़िरी, छुट्टी और वेतन पर्चियाँ। |
+| `me.notLinked` | You are not linked to a person in the people list yet. Ask the office. | आप अभी लोगों की सूची में किसी व्यक्ति से जुड़े नहीं हैं। ऑफिस से कहें। |
+| `me.loadError` | Could not load your page. | आपका पन्ना नहीं खुल सका। |
+| `me.attendance` | My attendance this month | इस महीने की मेरी हाज़िरी |
+| `me.present` | Present days | हाज़िर दिन |
+| `me.absent` | Absent days | गैरहाज़िर दिन |
+| `me.halfDays` | Half days | आधे दिन |
+| `me.leavePaid` | Paid leave days | वेतन वाली छुट्टी के दिन |
+| `me.leaveUnpaid` | Unpaid leave days | बिना वेतन छुट्टी के दिन |
+| `me.weeklyOff` | Weekly offs | साप्ताहिक छुट्टी |
+| `me.holiday` | Holidays | त्योहार की छुट्टी |
+| `me.notMarked` | Not marked | दर्ज नहीं |
+| `me.overtime` | Overtime | ओवरटाइम |
+| `me.days` | Days of the month | महीने के दिन |
+| `me.day` | Day | दिन |
+| `me.mark` | Mark | स्थिति |
+| `me.mark_present` | Present | हाज़िर |
+| `me.mark_absent` | Absent | गैरहाज़िर |
+| `me.mark_half_day` | Half day | आधा दिन |
+| `me.mark_leave` | Leave | छुट्टी |
+| `me.mark_weekly_off` | Weekly off | साप्ताहिक छुट्टी |
+| `me.mark_holiday` | Holiday | त्योहार की छुट्टी |
+| `me.mark_none` | Not marked | दर्ज नहीं |
+| `me.balances` | Leave balances | छुट्टी का हिसाब |
+| `me.balanceKind` | Leave | छुट्टी |
+| `me.balanceQuota` | Yearly | सालाना |
+| `me.balanceTaken` | Taken | ली |
+| `me.balanceWaiting` | Waiting | इंतज़ार में |
+| `me.balanceLeft` | Left | बाकी |
+| `me.balancesEmpty` | No leave kinds are set up. | छुट्टी का कोई प्रकार तय नहीं है। |
+| `me.apply` | Apply for leave | छुट्टी माँगें |
+| `me.kind` | Kind of leave | छुट्टी का प्रकार |
+| `me.pickKind` | Choose a kind | प्रकार चुनें |
+| `me.from` | First day | पहला दिन |
+| `me.to` | Last day | आखिरी दिन |
+| `me.halfDay` | Half day | आधा दिन |
+| `me.reason` | Reason (optional) | कारण (चाहें तो) |
+| `me.send` | Send the request | अर्ज़ी भेजें |
+| `me.sent` | Your request was sent. | आपकी अर्ज़ी भेज दी गई। |
+| `me.needKind` | Choose a kind of leave. | छुट्टी का प्रकार चुनें। |
+| `me.needDays` | Pick the first and last day. The last day cannot be before the first. | पहला और आखिरी दिन चुनें। आखिरी दिन पहले से पहले नहीं हो सकता। |
+| `me.requests` | My requests | मेरी अर्ज़ियाँ |
+| `me.requestsEmpty` | You have not asked for leave yet. | आपने अभी छुट्टी नहीं माँगी। |
+| `me.requestDays` | {from} to {to} | {from} से {to} |
+| `me.requestHalves` | {days} days | {days} दिन |
+| `me.cancel` | Cancel the request | अर्ज़ी रद्द करें |
+| `me.cancelled` | Request cancelled. | अर्ज़ी रद्द हो गई। |
+| `me.status.pending` | Waiting | इंतज़ार में |
+| `me.status.approved` | Approved | मंज़ूर |
+| `me.status.rejected` | Rejected | नामंज़ूर |
+| `me.status.cancelled` | Cancelled | रद्द |
+| `me.payslips` | My payslips | मेरी वेतन पर्चियाँ |
+| `me.payslipsEmpty` | No payslip yet. A payslip appears once the office has locked the month. | अभी कोई वेतन पर्ची नहीं। ऑफिस के महीना बंद करने पर पर्ची आती है। |
+| `me.net` | Net pay | हाथ में |
+| `me.open` | Open | खोलें |
+| `me.print` | Print | छापें |
+| `payslip.title` | Payslip | वेतन पर्ची |
+| `payslip.forMonth` | Pay for {month} | {month} का वेतन |
+| `payslip.month.m1` | January | जनवरी |
+| `payslip.month.m2` | February | फ़रवरी |
+| `payslip.month.m3` | March | मार्च |
+| `payslip.month.m4` | April | अप्रैल |
+| `payslip.month.m5` | May | मई |
+| `payslip.month.m6` | June | जून |
+| `payslip.month.m7` | July | जुलाई |
+| `payslip.month.m8` | August | अगस्त |
+| `payslip.month.m9` | September | सितंबर |
+| `payslip.month.m10` | October | अक्टूबर |
+| `payslip.month.m11` | November | नवंबर |
+| `payslip.month.m12` | December | दिसंबर |
+| `payslip.person.code` | Employee code | कर्मचारी कोड |
+| `payslip.person.name` | Name | नाम |
+| `payslip.person.department` | Department | विभाग |
+| `payslip.person.designation` | Designation | पद |
+| `payslip.person.joined` | Joined on | भर्ती की तारीख |
+| `payslip.person.uan` | UAN | UAN |
+| `payslip.person.esicIp` | ESIC number | ESIC नंबर |
+| `payslip.person.bank` | Bank account | बैंक खाता |
+| `payslip.days.month` | Days in the month | महीने के दिन |
+| `payslip.days.paid` | Paid days | भुगतान के दिन |
+| `payslip.days.noPay` | Days without pay | बिना वेतन के दिन |
+| `payslip.days.overtime` | Overtime | ओवरटाइम |
+| `payslip.earnings` | Earnings | कमाई |
+| `payslip.deductions` | Deductions | कटौती |
+| `payslip.employer` | Paid by the employer on top, not taken from you | मालिक ऊपर से देता है, आपके वेतन से नहीं कटता |
+| `payslip.gross` | Gross pay | कुल वेतन |
+| `payslip.totalDeductions` | Total deductions | कुल कटौती |
+| `payslip.net` | Net pay | हाथ में वेतन |
+| `payslip.amount` | Amount in rupees | रकम रुपये में |
+| `payslip.why` | How it was worked out | कैसे निकला |
+| `payslip.line.basic` | Basic | बेसिक |
+| `payslip.line.da` | Dearness allowance (DA) | महँगाई भत्ता (DA) |
+| `payslip.line.hra` | House rent allowance (HRA) | मकान किराया भत्ता (HRA) |
+| `payslip.line.otherAllowance` | Other allowance | अन्य भत्ता |
+| `payslip.line.overtime` | Overtime | ओवरटाइम |
+| `payslip.line.earning` | Extra pay | अतिरिक्त वेतन |
+| `payslip.line.incentive` | Production incentive | उत्पादन प्रोत्साहन |
+| `payslip.line.epf` | EPF | EPF |
+| `payslip.line.esic` | ESIC | ESIC |
+| `payslip.line.pt` | Professional tax | व्यावसायिक कर |
+| `payslip.line.advance` | Advance recovered | एडवांस की वसूली |
+| `payslip.line.canteen` | Canteen | कैंटीन |
+| `payslip.line.tds` | Income tax (TDS) | आयकर (TDS) |
+| `payslip.line.otherDeduction` | Other deduction | अन्य कटौती |
+| `payslip.line.eps` | EPS, employer pension share | EPS, मालिक का पेंशन हिस्सा |
+| `payslip.line.er_epf` | EPF, employer share | EPF, मालिक का हिस्सा |
+| `payslip.line.edli` | EDLI | EDLI |
+| `payslip.line.epf_admin` | EPF admin charges | EPF एडमिन शुल्क |
+| `payslip.line.esic_er` | ESIC, employer share | ESIC, मालिक का हिस्सा |
+| `payslip.explain.paid` | {paid} of {days} days paid | {days} में से {paid} दिन का भुगतान |
+| `payslip.explain.noPay` | {count} days without pay | {count} दिन बिना वेतन |
+| `payslip.explain.notMarked` | {count} working days were not marked and are counted as unpaid | {count} कामकाजी दिन दर्ज नहीं थे और बिना वेतन गिने गए |
+| `payslip.explain.structure` | Salary structure from {month} | {month} से वेतन ढाँचा |
+| `payslip.explain.epf` | EPF {rate}% of {base} | {base} का {rate}% EPF |
+| `payslip.explain.epfCeiling` | EPF {rate}% of {base}, the wage ceiling (basic and DA are {wages}) | {base} का {rate}% EPF, यानी वेतन सीमा (बेसिक और DA {wages} हैं) |
+| `payslip.explain.epfActual` | EPF {rate}% of {base}, the full basic and DA, as chosen for this person | {base} का {rate}% EPF, पूरा बेसिक और DA, इस व्यक्ति के लिए चुना हुआ |
+| `payslip.explain.esic` | ESIC on gross pay of {wages} | {wages} के कुल वेतन पर ESIC |
+| `payslip.explain.esicLow` | Covered by ESIC, but daily pay is low, so nothing is taken from you | ESIC में कवर है, पर रोज़ का वेतन कम है, इसलिए आपसे कुछ नहीं कटता |
+| `payslip.explain.esicOver` | Not covered by ESIC: gross pay is over the ESIC ceiling | ESIC में कवर नहीं: कुल वेतन ESIC की सीमा से ऊपर है |
+| `payslip.explain.esicNot` | Not a member of ESIC | ESIC के सदस्य नहीं |
+| `payslip.explain.pt` | Professional tax for {state}, at gross pay of {gross} | {state} का व्यावसायिक कर, {gross} के कुल वेतन पर |
+| `payslip.explain.ptNone` | No professional tax at gross pay of {gross} ({state}) | {gross} के कुल वेतन पर व्यावसायिक कर नहीं ({state}) |
+| `payslip.explain.overtime` | Overtime of {time} at {rate} times the hourly pay of {hourly} | {time} का ओवरटाइम, घंटे के वेतन {hourly} का {rate} गुना |
+| `payslip.explain.time` | {hours} h {minutes} min | {hours} घंटे {minutes} मिनट |
+| `payslip.footer` | This payslip is made by the computer from the attendance and the salary structure. | यह वेतन पर्ची कंप्यूटर ने हाज़िरी और वेतन ढाँचे से बनाई है। |
+| `payslip.fnf.title` | Full and final statement | फुल एंड फाइनल विवरण |
+| `payslip.fnf.joined` | Joined on | भर्ती की तारीख |
+| `payslip.fnf.left` | Left on | छोड़ने की तारीख |
+| `payslip.fnf.reason` | Reason | कारण |
+| `payslip.fnf.service` | Service | सेवा |
+| `payslip.fnf.serviceValue` | {years} years, {months} months, {days} days | {years} साल, {months} महीने, {days} दिन |
+| `payslip.fnf.net` | Net payable | कुल देय |
+| `payslip.fnf.amount` | Amount in rupees | रकम रुपये में |
+| `payslip.fnf.line.unpaid_salary` | Salary not yet paid | बाकी वेतन |
+| `payslip.fnf.line.leave_encashment` | Leave encashment | छुट्टी का भुगतान |
+| `payslip.fnf.line.gratuity` | Gratuity | ग्रेच्युटी |
+| `payslip.fnf.line.bonus_due` | Bonus due | बाकी बोनस |
+| `payslip.fnf.line.recovery` | Recovery | वसूली |
+| `payslip.fnf.explain.unpaid` | Salary for {days} days not yet paid | {days} दिन का बाकी वेतन |
+| `payslip.fnf.explain.encash` | {days} leave days: basic and DA of {basic} divided by {divisor} for each day | {days} छुट्टी के दिन: बेसिक और DA {basic} को रोज़ के हिसाब से {divisor} से भाग दिया |
+| `payslip.fnf.explain.gratuity` | Last basic and DA of {basic} x 15 / 26 x {years} years | आखिरी बेसिक और DA {basic} x 15 / 26 x {years} साल |
+| `payslip.fnf.explain.gratuityCapped` | Last basic and DA of {basic} x 15 / 26 x {years} years is above the limit, so it is capped at {ceiling} | आखिरी बेसिक और DA {basic} x 15 / 26 x {years} साल सीमा से ऊपर है, इसलिए {ceiling} पर रोका गया |
+| `payslip.fnf.explain.gratuityNot` | No gratuity: {min} full years of service are needed and {years} were served | ग्रेच्युटी नहीं: {min} पूरे साल की सेवा चाहिए और {years} साल हुए |
+| `payslip.fnf.explain.gratuityNone` | No gratuity: there are not enough years of service | ग्रेच्युटी नहीं: सेवा के साल काफ़ी नहीं हैं |
+| `payslip.fnf.explain.bonus` | Bonus earned this financial year on approved payslips | मंज़ूर वेतन पर्चियों पर इस वित्त वर्ष में बना बोनस |
+| `payslip.fnf.explain.recovery` | Taken back from the amount payable | देय रकम में से वापस ली गई |
+| `payslip.fnf.footer` | This statement is made by the computer from the payroll figures. | यह विवरण कंप्यूटर ने वेतन के आँकड़ों से बनाया है। |
+
 ### reasons (93)
 
 | Key | English | हिंदी |
@@ -11355,7 +12341,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (57)
+### plantSettings (59)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11402,6 +12388,8 @@ Please check, Lalubhai:
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `modules.names.maintenance` | Maintenance | मेंटेनेंस |
 | `modules.names.costing` | Costing | लागत |
+| `modules.names.hr` | People | लोग |
+| `modules.names.payroll` | Payroll | वेतन |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -11541,7 +12529,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (480)
+### audit (527)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11620,6 +12608,19 @@ Please check, Lalubhai:
 | `subjectTypes.gst_hsn` | HSN code | HSN कोड |
 | `subjectTypes.store_indent` | Indent | इंडेंट |
 | `subjectTypes.store_po` | Purchase order | परचेज़ ऑर्डर |
+| `subjectTypes.hr_employee` | Person | व्यक्ति |
+| `subjectTypes.hr_leave_request` | Leave request | छुट्टी का अनुरोध |
+| `subjectTypes.hr_attendance` | Attendance | हाज़िरी |
+| `subjectTypes.hr_holiday` | Holiday | छुट्टी |
+| `subjectTypes.hr_roster` | Roster | रोस्टर |
+| `subjectTypes.hr_device` | Punch device | पंच मशीन |
+| `subjectTypes.hr_opening` | Job opening | खाली पद |
+| `subjectTypes.hr_candidate` | Candidate | उम्मीदवार |
+| `subjectTypes.hr_leave_kind` | Leave kind | छुट्टी का प्रकार |
+| `subjectTypes.hr_training` | Training | ट्रेनिंग |
+| `subjectTypes.hr_setting` | HR setting | लोगों की सेटिंग |
+| `subjectTypes.hr_checklist_item` | Checklist item | चेकलिस्ट आइटम |
+| `subjectTypes.pay_run` | Payroll month | वेतन का महीना |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -11638,6 +12639,40 @@ Please check, Lalubhai:
 | `actions.billing__hsn__seed` | Aluminium HSN codes added | एल्युमिनियम के HSN कोड जुड़े |
 | `actions.billing__party__save` | Customer GST details saved | ग्राहक का GST ब्योरा सेव हुआ |
 | `actions.billing__settings` | GST settings saved | GST सेटिंग सेव हुई |
+| `actions.hr__person__create` | Person added | व्यक्ति जोड़ा गया |
+| `actions.hr__person__update` | Person changed | व्यक्ति की जानकारी बदली |
+| `actions.hr__person__leave` | Person left the plant | व्यक्ति ने काम छोड़ा |
+| `actions.hr__person__rejoin` | Leaving taken back | काम छोड़ना वापस लिया |
+| `actions.hr__checklist__save` | Checklist item saved | चेकलिस्ट आइटम सेव हुआ |
+| `actions.hr__checklist__tick` | Checklist item ticked | चेकलिस्ट आइटम टिक हुआ |
+| `actions.hr__opening__save` | Job opening saved | खाली पद सेव हुआ |
+| `actions.hr__candidate__save` | Candidate saved | उम्मीदवार सेव हुआ |
+| `actions.hr__holiday__save` | Holiday added | छुट्टी जोड़ी गई |
+| `actions.hr__holiday__remove` | Holiday removed | छुट्टी हटाई गई |
+| `actions.hr__roster__copy` | Last week's roster copied | पिछले हफ़्ते का रोस्टर कॉपी हुआ |
+| `actions.hr__attendance__mark` | Attendance marked | हाज़िरी लगी |
+| `actions.hr__attendance__late` | Attendance entered late | हाज़िरी देर से भरी गई |
+| `actions.hr__device__save` | Punch device saved | पंच मशीन सेव हुई |
+| `actions.hr__device__token` | New push token made for a device | मशीन के लिए नया पुश टोकन बना |
+| `actions.hr__punch__import` | Punch file imported | पंच फ़ाइल इम्पोर्ट हुई |
+| `actions.hr__leaveKind__save` | Leave kind saved | छुट्टी का प्रकार सेव हुआ |
+| `actions.hr__leave__apply` | Leave asked | छुट्टी मांगी गई |
+| `actions.hr__leave__cancel` | Leave cancelled | छुट्टी रद्द हुई |
+| `actions.hr__training__save` | Training recorded | ट्रेनिंग दर्ज हुई |
+| `actions.hr__review__add` | Performance note added | काम का नोट जोड़ा गया |
+| `actions.hr__setting__rules` | HR rules saved | लोगों के नियम सेव हुए |
+| `actions.hr__setting__incentive` | Incentive rule saved | इंसेंटिव नियम सेव हुआ |
+| `actions.hr__setting__statutory` | Statutory rates saved | सरकारी दरें सेव हुईं |
+| `actions.payroll__structure__save` | Salary structure saved | वेतन ढांचा सेव हुआ |
+| `actions.payroll__adjustment__add` | Payroll adjustment added | पेरोल में समायोजन जोड़ा गया |
+| `actions.payroll__adjustment__remove` | Payroll adjustment removed | पेरोल का समायोजन हटाया गया |
+| `actions.payroll__run__compute` | Payroll worked out | पेरोल निकाली गई |
+| `actions.payroll__run__check` | Payroll checked | पेरोल जांची गई |
+| `actions.payroll__run__reopen` | Payroll reopened | पेरोल फिर खोली गई |
+| `actions.payroll__run__lock` | Payroll locked | पेरोल लॉक हुई |
+| `actions.payroll__file__bank` | Bank sheet downloaded | बैंक शीट डाउनलोड हुई |
+| `actions.payroll__settlement__compute` | Full and final worked out | फ़ुल और फ़ाइनल निकाला गया |
+| `actions.payroll__settlement__final` | Full and final closed | फ़ुल और फ़ाइनल बंद हुआ |
 | `actions.credit_note__draft` | Credit note drafted | क्रेडिट नोट का ड्राफ्ट बना |
 | `actions.credit_note__issue` | Credit note issued | क्रेडिट नोट जारी हुआ |
 | `actions.invoice__cancel` | Invoice cancelled | इनवॉइस रद्द हुआ |
