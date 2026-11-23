@@ -279,7 +279,8 @@ describe("the lab tab", () => {
     } finally {
       await withQa.cleanup();
     }
-    const noQa = await render(<LabTab />, { role: "manager", modules: ["devices"], seed });
+    // A list naming only opt-in modules turns every standard module on, so name one that is not qa.
+    const noQa = await render(<LabTab />, { role: "manager", modules: ["devices", "press"], seed });
     try {
       expect(noQa.q("dev3-attach-m1")).toBeNull();
       expect(noQa.q("dev3-aside-m1")).not.toBeNull();
