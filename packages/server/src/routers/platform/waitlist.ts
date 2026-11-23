@@ -14,6 +14,9 @@ import { renderOrrnEmailHtml, sendEmail } from "../../lib/email";
 import { can, type PlatformStaffRole } from "../../lib/permissions";
 import { webBaseUrl } from "../../lib/webUrl";
 import { platformGuard } from "../../index";
+import { newPlantQaSettings } from "@orrn/domain";
+import { companyTimezone } from "../../lib/dayWindow";
+import { companyDay } from "../../lib/qa";
 
 type Db = ReturnType<typeof createDb>;
 type WaitlistRequestRow = typeof waitlistRequest.$inferSelect;
@@ -274,7 +277,8 @@ export const waitlistProcedures = {
             name: request.companyName.trim(),
             slug,
             status: "active",
-            settings: {},
+            // XE QA (row 22): a new plant inspects scrap lots before a melt from its first day.
+            settings: { qa: newPlantQaSettings(companyDay(companyTimezone({}), Date.now())) },
             modules: [],
           }),
         );

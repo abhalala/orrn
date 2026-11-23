@@ -19,6 +19,7 @@ import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as BSerialRouteImport } from './routes/b.$serial'
 import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
+import { Route as TenantQaRouteImport } from './routes/_tenant/qa'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantOwnerRouteImport } from './routes/_tenant/owner'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
@@ -237,6 +238,11 @@ const TenantTodayRoute = TenantTodayRouteImport.update({
 const TenantSettingsRoute = TenantSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantQaRoute = TenantQaRouteImport.update({
+  id: '/qa',
+  path: '/qa',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPrintingRoute = TenantPrintingRouteImport.update({
@@ -1164,6 +1170,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
+  '/qa': typeof TenantQaRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1345,6 +1352,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
+  '/qa': typeof TenantQaRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1531,6 +1539,7 @@ export interface FileRoutesById {
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/owner': typeof TenantOwnerRoute
   '/_tenant/printing': typeof TenantPrintingRouteWithChildren
+  '/_tenant/qa': typeof TenantQaRoute
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
   '/_tenant/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1715,6 +1724,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/owner'
     | '/printing'
+    | '/qa'
     | '/settings'
     | '/today'
     | '/b/$serial'
@@ -1896,6 +1906,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/owner'
     | '/printing'
+    | '/qa'
     | '/settings'
     | '/today'
     | '/b/$serial'
@@ -2081,6 +2092,7 @@ export interface FileRouteTypes {
     | '/_tenant/dashboard'
     | '/_tenant/owner'
     | '/_tenant/printing'
+    | '/_tenant/qa'
     | '/_tenant/settings'
     | '/_tenant/today'
     | '/b/$serial'
@@ -2323,6 +2335,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof TenantSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/qa': {
+      id: '/_tenant/qa'
+      path: '/qa'
+      fullPath: '/qa'
+      preLoaderRoute: typeof TenantQaRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/printing': {
@@ -3687,6 +3706,7 @@ interface TenantRouteChildren {
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantOwnerRoute: typeof TenantOwnerRoute
   TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
+  TenantQaRoute: typeof TenantQaRoute
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
   TenantTodayRoute: typeof TenantTodayRoute
   TenantAgeingHistoryRoute: typeof TenantAgeingHistoryRoute
@@ -3828,6 +3848,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDashboardRoute: TenantDashboardRoute,
   TenantOwnerRoute: TenantOwnerRoute,
   TenantPrintingRoute: TenantPrintingRouteWithChildren,
+  TenantQaRoute: TenantQaRoute,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
   TenantTodayRoute: TenantTodayRoute,
   TenantAgeingHistoryRoute: TenantAgeingHistoryRoute,

@@ -78,6 +78,9 @@ export const BUDDY_DECISIONS = {
     masters: deny("XE wave 1: bank accounts, approver rules and number formats are plant settings (§4.2), not yet reviewed for the buddy."),
     toolRoom: deny("XE wave 1: tooling and die cost (money), not yet reviewed for the buddy."),
     docs: deny("XE wave 1: the document register mints signed file links, which would leave orrn through the chat."),
+    // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
+    // buddy cannot hold, release or record a check until the owner decides.
+    qa: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -183,6 +186,22 @@ export const BUDDY_DECISIONS = {
     "ingest.vision.nextBatch": deny("Hands out page image tickets for the next batch; the images come from the browser only."),
     "ingest.vision.finishRest": deny("Skips the pages not read yet; that is a check against the pages, made in the browser."),
     "ingest.vision.waiting": allow, // "Tables waiting for a check", a read-only list.
+    // XE parity lane QA: quality writes are a person's judgement at the piece or the gauge; not reviewed for the buddy yet.
+    "qa.instruments.certificateUrl": deny("A signed link to a file; file bytes and links stay with the person (as die files)."),
+    "qa.checks.record": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.holds.hold": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.holds.release": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.beginCertificate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.calibrate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.commitCertificate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.plans.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.settings.update": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.stations.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.substitutes.remove": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

@@ -112,6 +112,11 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "docs.manage": ["admin", "manager", "office"],
   "approvalRule.manage": ["admin"],
   "refFormat.manage": ["admin"],
+  // XE parity lane QA.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

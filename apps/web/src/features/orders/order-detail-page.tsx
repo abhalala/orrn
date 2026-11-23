@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/shared/lib/fmt-text";
+import { OrderLineAlloy } from "@/features/qa/flags";
 import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -409,6 +410,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                 <Can do="order.manage">
                   <LinePackingMode orderId={order.id} lineId={line.lineId} lineNo={line.lineNo} />
                 </Can>
+                {/* XE parity lane QA (row 37): on an open order, the alloy is short, with the substitutes allowed. Nothing otherwise. */}
+                {status === "booking" || status === "confirmed" || status === "dispatching" ? <OrderLineAlloy lineId={line.lineId} /> : null}
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,

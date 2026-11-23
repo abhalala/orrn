@@ -27,6 +27,8 @@ export const COMPANY_MODULES = [
   "purchase",
   // XE parity lane REG (#18, #34): the complaint register.
   "complaints",
+  // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
+  "qa",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 

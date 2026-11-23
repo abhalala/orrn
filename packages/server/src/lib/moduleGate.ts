@@ -42,6 +42,8 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   complaints: "complaints",
   // XE ADM: tooling, receive inspections, die cost and category ride the die room module.
   toolRoom: "dies",
+  // XE parity lane QA.
+  qa: "qa",
 };
 
 /**

@@ -6,6 +6,7 @@ import { SCAN_OUTCOMES } from "@orrn/server/lib/scan";
 import { SCAN_REFUSALS } from "@orrn/server/lib/scanRefusal";
 
 import { ageingRefusalMessage } from "@orrn/server/lib/ageingRefusals";
+import { QA_REFUSALS } from "@orrn/server/lib/qaRefusals";
 import { addOutcome, ageingDispatchRefusal, blockMessage, blockOf, blocksOf, offBandText, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, scanErrorText, type ScanResultRow } from "./scan-outcome";
 
 const { t } = createI18n("en");
@@ -295,5 +296,17 @@ describe("W3-AG-W: dispatch refuses a bundle in ageing", () => {
       }
       expect(scanErrorText(t, failure("bundle_in_ageing"), "dispatch")).toContain("AG-38");
     }
+  });
+});
+
+describe("XE parity lane QA: dispatch refuses a bundle on quality hold", () => {
+  test("the server sentence is said with the bundle, in each language", () => {
+    const r = QA_REFUSALS.bundle_on_qa_hold({ serial: "26J12" });
+    const failure = { message: r.message, data: { code: r.code } };
+    expect(ageingDispatchRefusal(failure)?.key).toBe("qa.refusal.bundleOnHold");
+    for (const lang of ["en", "hi", "gu"] as const) {
+      expect(scanErrorText(createI18n(lang).t, failure, "dispatch")).toContain("26J12");
+    }
+    expect(scanErrorText(createI18n("hi").t, failure, "dispatch")).not.toBe(r.message);
   });
 });

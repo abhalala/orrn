@@ -1,4 +1,6 @@
 import "@orrn/i18n/refusal-ageing";
+// XE parity lane QA: pack waiting for the first piece is refused in the person's language.
+import "@orrn/i18n/refusal-qa";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
