@@ -94,6 +94,7 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "price.line.changeIntro", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
   { prefix: "price.line.asked", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
   { prefix: "price.line.waits", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
+  { prefix: "cost.settings.", why: "costing settings are typed in kg, kg an hour and rupees per kg, which is how the server stores them" },
   { prefix: "price.line.rows.addons", why: "a price is rupees per kg; the price master stores and quotes rates per kg, not in the plant's unit" },
 ];
 

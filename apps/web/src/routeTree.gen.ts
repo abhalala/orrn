@@ -23,6 +23,7 @@ import { Route as TenantQaRouteImport } from './routes/_tenant/qa'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantOwnerRouteImport } from './routes/_tenant/owner'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as TenantCostingRouteImport } from './routes/_tenant/costing'
 import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
@@ -126,6 +127,7 @@ import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$s
 import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
 import { Route as TenantFoundryRejectsRouteImport } from './routes/_tenant/foundry.rejects'
 import { Route as TenantFoundryPlanRouteImport } from './routes/_tenant/foundry.plan'
+import { Route as TenantFoundryLogsRouteImport } from './routes/_tenant/foundry.logs'
 import { Route as TenantFoundryChemistryRouteImport } from './routes/_tenant/foundry.chemistry'
 import { Route as TenantFoundryBilletsRouteImport } from './routes/_tenant/foundry.billets'
 import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispatches.new'
@@ -294,6 +296,11 @@ const TenantOwnerRoute = TenantOwnerRouteImport.update({
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCostingRoute = TenantCostingRouteImport.update({
+  id: '/costing',
+  path: '/costing',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantAuditRoute = TenantAuditRouteImport.update({
@@ -810,6 +817,11 @@ const TenantFoundryRejectsRoute = TenantFoundryRejectsRouteImport.update({
 const TenantFoundryPlanRoute = TenantFoundryPlanRouteImport.update({
   id: '/foundry/plan',
   path: '/foundry/plan',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantFoundryLogsRoute = TenantFoundryLogsRouteImport.update({
+  id: '/foundry/logs',
+  path: '/foundry/logs',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantFoundryChemistryRoute = TenantFoundryChemistryRouteImport.update({
@@ -1390,6 +1402,7 @@ export interface FileRoutesByFullPath {
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
+  '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
@@ -1426,6 +1439,7 @@ export interface FileRoutesByFullPath {
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/foundry/billets': typeof TenantFoundryBilletsRoute
   '/foundry/chemistry': typeof TenantFoundryChemistryRoute
+  '/foundry/logs': typeof TenantFoundryLogsRoute
   '/foundry/plan': typeof TenantFoundryPlanRoute
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
@@ -1608,6 +1622,7 @@ export interface FileRoutesByTo {
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
+  '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
@@ -1644,6 +1659,7 @@ export interface FileRoutesByTo {
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/foundry/billets': typeof TenantFoundryBilletsRoute
   '/foundry/chemistry': typeof TenantFoundryChemistryRoute
+  '/foundry/logs': typeof TenantFoundryLogsRoute
   '/foundry/plan': typeof TenantFoundryPlanRoute
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
@@ -1831,6 +1847,7 @@ export interface FileRoutesById {
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/audit': typeof TenantAuditRoute
+  '/_tenant/costing': typeof TenantCostingRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/owner': typeof TenantOwnerRoute
   '/_tenant/printing': typeof TenantPrintingRouteWithChildren
@@ -1868,6 +1885,7 @@ export interface FileRoutesById {
   '/_tenant/dispatches/new': typeof TenantDispatchesNewRoute
   '/_tenant/foundry/billets': typeof TenantFoundryBilletsRoute
   '/_tenant/foundry/chemistry': typeof TenantFoundryChemistryRoute
+  '/_tenant/foundry/logs': typeof TenantFoundryLogsRoute
   '/_tenant/foundry/plan': typeof TenantFoundryPlanRoute
   '/_tenant/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
@@ -2052,6 +2070,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/approvals'
     | '/audit'
+    | '/costing'
     | '/dashboard'
     | '/owner'
     | '/printing'
@@ -2088,6 +2107,7 @@ export interface FileRouteTypes {
     | '/dispatches/new'
     | '/foundry/billets'
     | '/foundry/chemistry'
+    | '/foundry/logs'
     | '/foundry/plan'
     | '/foundry/rejects'
     | '/foundry/stock'
@@ -2270,6 +2290,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/approvals'
     | '/audit'
+    | '/costing'
     | '/dashboard'
     | '/owner'
     | '/printing'
@@ -2306,6 +2327,7 @@ export interface FileRouteTypes {
     | '/dispatches/new'
     | '/foundry/billets'
     | '/foundry/chemistry'
+    | '/foundry/logs'
     | '/foundry/plan'
     | '/foundry/rejects'
     | '/foundry/stock'
@@ -2492,6 +2514,7 @@ export interface FileRouteTypes {
     | '/_public/waitlist'
     | '/_tenant/approvals'
     | '/_tenant/audit'
+    | '/_tenant/costing'
     | '/_tenant/dashboard'
     | '/_tenant/owner'
     | '/_tenant/printing'
@@ -2529,6 +2552,7 @@ export interface FileRouteTypes {
     | '/_tenant/dispatches/new'
     | '/_tenant/foundry/billets'
     | '/_tenant/foundry/chemistry'
+    | '/_tenant/foundry/logs'
     | '/_tenant/foundry/plan'
     | '/_tenant/foundry/rejects'
     | '/_tenant/foundry/stock'
@@ -2802,6 +2826,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof TenantDashboardRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/costing': {
+      id: '/_tenant/costing'
+      path: '/costing'
+      fullPath: '/costing'
+      preLoaderRoute: typeof TenantCostingRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/audit': {
@@ -3523,6 +3554,13 @@ declare module '@tanstack/react-router' {
       path: '/foundry/plan'
       fullPath: '/foundry/plan'
       preLoaderRoute: typeof TenantFoundryPlanRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/foundry/logs': {
+      id: '/_tenant/foundry/logs'
+      path: '/foundry/logs'
+      fullPath: '/foundry/logs'
+      preLoaderRoute: typeof TenantFoundryLogsRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/foundry/chemistry': {
@@ -4394,6 +4432,7 @@ const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
 interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
   TenantAuditRoute: typeof TenantAuditRoute
+  TenantCostingRoute: typeof TenantCostingRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantOwnerRoute: typeof TenantOwnerRoute
   TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
@@ -4421,6 +4460,7 @@ interface TenantRouteChildren {
   TenantDispatchesNewRoute: typeof TenantDispatchesNewRoute
   TenantFoundryBilletsRoute: typeof TenantFoundryBilletsRoute
   TenantFoundryChemistryRoute: typeof TenantFoundryChemistryRoute
+  TenantFoundryLogsRoute: typeof TenantFoundryLogsRoute
   TenantFoundryPlanRoute: typeof TenantFoundryPlanRoute
   TenantFoundryRejectsRoute: typeof TenantFoundryRejectsRoute
   TenantFoundryStockRoute: typeof TenantFoundryStockRoute
@@ -4572,6 +4612,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
   TenantAuditRoute: TenantAuditRoute,
+  TenantCostingRoute: TenantCostingRoute,
   TenantDashboardRoute: TenantDashboardRoute,
   TenantOwnerRoute: TenantOwnerRoute,
   TenantPrintingRoute: TenantPrintingRouteWithChildren,
@@ -4599,6 +4640,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchesNewRoute: TenantDispatchesNewRoute,
   TenantFoundryBilletsRoute: TenantFoundryBilletsRoute,
   TenantFoundryChemistryRoute: TenantFoundryChemistryRoute,
+  TenantFoundryLogsRoute: TenantFoundryLogsRoute,
   TenantFoundryPlanRoute: TenantFoundryPlanRoute,
   TenantFoundryRejectsRoute: TenantFoundryRejectsRoute,
   TenantFoundryStockRoute: TenantFoundryStockRoute,

@@ -134,6 +134,7 @@ export const guShell = {
     audit: "ઑડિટ લૉગ",
     pricing: "ભાવ",
     billing: "બિલિંગ",
+    costing: "ખર્ચ",
     adminReleases: "ઍપ બિલ્ડ",
     adminBackups: "બૅકઅપ",
     adminSupport: "સપોર્ટ",

@@ -24,6 +24,7 @@ import {
   Printer,
   Ruler,
   Tags,
+  Calculator,
   Rocket,
   Scale,
   ScrollText,
@@ -42,7 +43,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "jobwork" | "drawbench" | "fabrication";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "jobwork" | "drawbench" | "fabrication";
 
 export type NavItem = {
   key: string;
@@ -120,6 +121,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
   // XE-PRICE: the price master, quotes and enquiries. People who read prices or run enquiries.
   { key: "pricing", to: "/pricing", labelKey: "nav.pricing", icon: Tags, requires: ["price.view", "enquiry.manage"], module: "pricing" },
+  // XE parity lane COST: cost per kg, margins, press load, forecast, dies due. Opt-in module.
+  { key: "costing", to: "/costing", labelKey: "nav.costing", icon: Calculator, requires: ["cost.view"], module: "costing" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
   { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"], module: "store" },

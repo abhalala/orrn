@@ -95,6 +95,9 @@ export const BUDDY_DECISIONS = {
     // XE parity lane MAINT: maintenance reads (assets, plans due, work orders, readings, reports). Its writes are
     // denied by name in `paths` (a person sets up the register and raises and closes work orders).
     maint: allow,
+    // XE parity lane COST: reads (cost per kg, capacity, forecast, dies due) run under the person's grant
+    // (`cost.view`, and `order.price` for margins). The one change, the costing settings, is denied by name.
+    costing: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -293,6 +296,8 @@ export const BUDDY_DECISIONS = {
     "foundry.castPlan.update": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
     "foundry.castPlan.drop": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
     "foundry.castPlan.open": deny("XE FOUNDRY write: opens a cast from the casting plan (not reviewed for drafts yet)."),
+    // XE parity lane COST: default deny.
+    "costing.settings.update": deny("Changes the plant's cost rates and the low-margin line (XE COST default deny)."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

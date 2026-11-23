@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12721 screen strings in 61 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (99)
+### nav (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -274,6 +274,7 @@ Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
 | `audit` | Audit log | ऑडिट लॉग |
 | `pricing` | Prices | भाव |
 | `billing` | Billing | बिलिंग |
+| `costing` | Costing | लागत |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
@@ -3167,7 +3168,7 @@ Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (402)
+### admin (404)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3389,6 +3390,7 @@ Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
+| `plan.moduleNames.costing` | Costing | लागत |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3408,6 +3410,7 @@ Counts: 12456 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
+| `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -10247,6 +10250,271 @@ Please check, Lalubhai:
 | `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
 | `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
+### cost (260)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Costing | कॉस्टिंग |
+| `subtitle` | What a {massUnit} costs, what it earns, how full the presses are and what is coming. | एक {massUnit} की लागत, उससे कमाई, प्रेस कितने भरे हैं और आगे क्या आ रहा है। |
+| `moduleOff` | Costing is not on for this plant. | इस प्लांट के लिए कॉस्टिंग चालू नहीं है। |
+| `noAccess` | Costing is for the owner, managers and accounts. | कॉस्टिंग मालिक, मैनेजर और अकाउंट्स के लिए है। |
+| `loadFailed` | Could not load. Try again. | लोड नहीं हुआ। फिर कोशिश करें। |
+| `empty` | Nothing in this range. | इस अवधि में कुछ नहीं है। |
+| `from` | From | से |
+| `to` | To | तक |
+| `total` | Plant | प्लांट |
+| `weeksShort` | wk | हफ़्ता |
+| `tabs.outlook` | Outlook | आगे की तस्वीर |
+| `tabs.cost` | Cost | लागत |
+| `tabs.profit` | Profit | मुनाफ़ा |
+| `tabs.capacity` | Press load | प्रेस लोड |
+| `tabs.forecast` | Forecast | अनुमान |
+| `tabs.dies` | Dies | Die |
+| `tabs.settings` | Settings | सेटिंग |
+| `stage.metal` | Metal | धातु |
+| `stage.casting` | Casting | कास्टिंग |
+| `stage.extrusion` | Extrusion | एक्सट्रूज़न |
+| `stage.ageing` | Ageing | एजिंग |
+| `stage.finishing` | Finishing | फ़िनिशिंग |
+| `stage.packing` | Packing | पैकिंग |
+| `method.ma3` | Average of the last 3 months | पिछले 3 महीनों का औसत |
+| `method.ma3_seasonal` | Average of the last 3 months, adjusted for the season | पिछले 3 महीनों का औसत, मौसम के हिसाब से ठीक किया हुआ |
+| `method.too_little` | Not enough orders to forecast | अनुमान के लिए ऑर्डर कम हैं |
+| `basis.actual` | its own runs | उसके अपने रन |
+| `basis.section_month` | the section that month | उस महीने का सेक्शन |
+| `basis.section` | the section's recent runs | सेक्शन के हाल के रन |
+| `basis.plant_month` | the plant that month | उस महीने का प्लांट |
+| `basis.plant` | the plant's recent runs | प्लांट के हाल के रन |
+| `basis.none` | no cost known | लागत पता नहीं |
+| `outlook.diesTitle` | Dies to look at | देखने लायक die |
+| `outlook.diesDue` | {n} due | {n} का समय हो गया |
+| `outlook.diesSoon` | {n} soon | {n} जल्दी |
+| `outlook.diesNone` | No die copy needs a treatment soon. | किसी die copy को जल्दी ट्रीटमेंट नहीं चाहिए। |
+| `outlook.diesAll` | See all dies | सभी die देखें |
+| `outlook.diesLine` | {code} · {section} | {code} · {section} |
+| `outlook.diesWhat` | Nitriding: {nitride}. Correction: {correct}. | Nitriding: {nitride}। करेक्शन: {correct}। |
+| `outlook.capTitle` | Press load, next {n} weeks | प्रेस लोड, अगले {n} हफ़्ते |
+| `outlook.capOver` | {n} over-booked press weeks | {n} प्रेस हफ़्ते ज़रूरत से ज़्यादा बुक |
+| `outlook.capNone` | No press week is over-booked. | कोई प्रेस हफ़्ता ज़रूरत से ज़्यादा बुक नहीं है। |
+| `outlook.capWorst` | Fullest: {line}, week of {day}, {load} loaded. | सबसे भरा: {line}, {day} वाला हफ़्ता, {load} लोड। |
+| `outlook.capAll` | See press load | प्रेस लोड देखें |
+| `outlook.fcTitle` | Orders for the whole plant | पूरे प्लांट के ऑर्डर |
+| `outlook.fcMethod` | Method: {method}. | तरीका: {method}। |
+| `outlook.fcBacktest` | What it would have said, against what came | तब क्या कहता, और असल में क्या आया |
+| `outlook.fcNext` | Next months | अगले महीने |
+| `outlook.fcMonth` | Month | महीना |
+| `outlook.fcForecast` | Forecast {massUnit} | अनुमान {massUnit} |
+| `outlook.fcActual` | Booked {massUnit} | बुक {massUnit} |
+| `outlook.fcError` | Average miss: {pct} | औसत चूक: {pct} |
+| `outlook.fcAll` | See the forecast | अनुमान देखें |
+| `outlook.marginTitle` | Low-margin share by month | महीने के हिसाब से कम मार्जिन का हिस्सा |
+| `outlook.marginHint` | Share of costed {massUnit} sold below a margin of {pct}. | लागत वाले {massUnit} का वह हिस्सा जो {pct} से कम मार्जिन पर बिका। |
+| `outlook.marginShare` | Low margin | कम मार्जिन |
+| `outlook.marginNone` | No costed orders in these months. | इन महीनों में लागत वाले ऑर्डर नहीं हैं। |
+| `outlook.marginAll` | See profit | मुनाफ़ा देखें |
+| `cost.section` | Section | सेक्शन |
+| `cost.runs` | Runs | रन |
+| `cost.good` | Good {massUnit} | अच्छा {massUnit} |
+| `cost.recovery` | Recovery | रिकवरी |
+| `cost.metal` | Metal | धातु |
+| `cost.total` | Total per {massUnit} | कुल प्रति {massUnit} |
+| `cost.unknown` | Unknown | पता नहीं |
+| `cost.ratesFrom` | Stage rates from {date}. | स्टेज रेट {date} से। |
+| `cost.noRates` | No stage rates are set yet. | अभी कोई स्टेज रेट नहीं डाला गया। |
+| `cost.missing` | Not set, counted as 0: {stages}. | सेट नहीं, 0 गिना गया: {stages}। |
+| `cost.unknownKg` | {kg} of good output has no known cost and is left out of the averages. | {kg} अच्छे उत्पादन की लागत पता नहीं, इसलिए औसत में नहीं गिना। |
+| `cost.truncated` | Only part of the runs are counted. Choose a shorter range. | सिर्फ़ कुछ रन गिने गए हैं। छोटी अवधि चुनें। |
+| `cost.openRuns` | Show its runs | इसके रन दिखाएं |
+| `cost.runsTitle` | Runs of {section} | {section} के रन |
+| `cost.runsEmpty` | No runs for this section in this range. | इस अवधि में इस सेक्शन का कोई रन नहीं। |
+| `cost.runsMore` | Show more runs | और रन दिखाएं |
+| `cost.number` | Run | रन |
+| `cost.day` | Day | दिन |
+| `cost.copy` | Copy | Copy |
+| `cost.input` | Billet {massUnit} | Billet {massUnit} |
+| `cost.ends` | Ends | Ends |
+| `cost.rejects` | Rejects | रिजेक्ट |
+| `cost.butt` | Butt | Butt |
+| `cost.pressMinutes` | Press time | प्रेस का समय |
+| `cost.metalIn` | Metal | धातु |
+| `cost.cast` | Cast cost{casts}: {rate} per billet {massUnit} | Cast की लागत{casts}: हर billet {massUnit} पर {rate} |
+| `cost.castList` | , casts {list} | , cast {list} |
+| `cost.master` | Price master rate {list} on {date}, melt yield {yield}, bought share {share}: {rate} per billet {massUnit} | प्राइस मास्टर रेट {list}, दिन {date}, मेल्ट यील्ड {yield}, ख़रीदा हिस्सा {share}: हर billet {massUnit} पर {rate} |
+| `cost.metalNone` | Metal cost unknown | धातु की लागत पता नहीं |
+| `cost.lossLine` | {kind}: {kg}, {rate} per good {massUnit} | {kind}: {kg}, हर अच्छे {massUnit} पर {rate} |
+| `cost.loss.melt` | Melt | मेल्ट |
+| `cost.loss.butt` | Butt | Butt |
+| `cost.loss.ends` | Ends | Ends |
+| `cost.loss.rejects` | Rejects | रिजेक्ट |
+| `cost.stageLine` | {stage}: {rate} per good {massUnit} | {stage}: हर अच्छे {massUnit} पर {rate} |
+| `cost.stageBasisKg` | rate per {massUnit} | रेट प्रति {massUnit} |
+| `cost.stageBasisHour` | rate per hour | रेट प्रति घंटा |
+| `cost.note.not_set` | not set, counted as 0 | सेट नहीं, 0 गिना |
+| `cost.note.no_time` | press times not trusted | प्रेस का समय भरोसे का नहीं |
+| `cost.note.no_throughput` | no {massUnit} per hour set | प्रति घंटा {massUnit} सेट नहीं |
+| `cost.note.run_time` | from this run's press time | इस रन के प्रेस समय से |
+| `cost.note.section_speed` | at the section's usual speed | सेक्शन की आम रफ़्तार से |
+| `cost.ratesFromRun` | Rates from {date} | रेट {date} से |
+| `cost.noRatesRun` | No rates applied | कोई रेट लागू नहीं |
+| `cost.totalLine` | Total {rate} per good {massUnit} | कुल हर अच्छे {massUnit} पर {rate} |
+| `cost.perHour` | per hour | प्रति घंटा |
+| `profit.groupBy` | Group by | ऐसे जोड़ें |
+| `profit.bySection` | Section | सेक्शन |
+| `profit.byCustomer` | Customer | ग्राहक |
+| `profit.byMonth` | Month | महीना |
+| `profit.group` | Group | समूह |
+| `profit.lines` | Lines | लाइनें |
+| `profit.kg` | Ordered {massUnit} | ऑर्डर {massUnit} |
+| `profit.revenue` | Revenue | बिक्री |
+| `profit.costCol` | Cost | लागत |
+| `profit.margin` | Margin | मार्जिन |
+| `profit.marginPct` | Margin % | मार्जिन % |
+| `profit.lowKg` | Low-margin {massUnit} | कम मार्जिन {massUnit} |
+| `profit.basisNote` | Cost came from: {parts}. | लागत यहां से आई: {parts}। |
+| `profit.basisPart` | {what} ({kg}) | {what} ({kg}) |
+| `profit.noRate` | {kg} has no rate and is left out. | {kg} पर रेट नहीं है, इसे छोड़ा गया। |
+| `profit.noCost` | {kg} has no known cost and is left out. | {kg} की लागत पता नहीं, इसे छोड़ा गया। |
+| `profit.lowRule` | Low margin means under {pct} of the rate. | कम मार्जिन यानी रेट के {pct} से कम। |
+| `profit.notAllowed` | Rates and margins are not shown to you. | आपको रेट और मार्जिन नहीं दिखाए जाते। |
+| `profit.truncated` | Only part of the lines are counted. Choose a shorter range. | सिर्फ़ कुछ लाइनें गिनी गई हैं। छोटी अवधि चुनें। |
+| `profit.csvName` | profit | profit |
+| `capacity.weeks` | Weeks | हफ़्ते |
+| `capacity.withForecast` | Add forecast | अनुमान जोड़ें |
+| `capacity.whatIf` | What if | अगर ऐसा हो |
+| `capacity.whatIfHint` | Change one customer's open work and expected orders by a share, then read the weeks again. | एक ग्राहक का खुला काम और आने वाले ऑर्डर कुछ प्रतिशत घटाएं या बढ़ाएं, फिर हफ़्ते दोबारा देखें। |
+| `capacity.customer` | Customer | ग्राहक |
+| `capacity.pickCustomer` | Pick a customer | ग्राहक चुनें |
+| `capacity.change` | Change by % | % से बदलें |
+| `capacity.add` | Add | जोड़ें |
+| `capacity.clear` | Clear | हटाएं |
+| `capacity.scenarioLine` | {customer}: {pct} | {customer}: {pct} |
+| `capacity.line` | Press | प्रेस |
+| `capacity.week` | Week of | हफ़्ता, शुरू |
+| `capacity.available` | Available hours | उपलब्ध घंटे |
+| `capacity.booked` | Booked hours | बुक घंटे |
+| `capacity.load` | Load | लोड |
+| `capacity.over` | Over-booked | ज़रूरत से ज़्यादा बुक |
+| `capacity.causes` | Orders behind it | इसके पीछे के ऑर्डर |
+| `capacity.noLines` | No press lines are set up. | कोई प्रेस लाइन सेट नहीं है। |
+| `capacity.unassigned` | No press known for {n} lines. Their work is not counted above. | {n} लाइनों के लिए प्रेस पता नहीं। उनका काम ऊपर नहीं गिना। |
+| `capacity.noSpeed` | No press speed known for {n} lines. Their work is not counted above. | {n} लाइनों के लिए प्रेस की रफ़्तार पता नहीं। उनका काम ऊपर नहीं गिना। |
+| `capacity.pressInactive` | {n} lines were last pressed on a press that is now off. Their work is not counted above. | {n} लाइनें आखिरी बार ऐसे प्रेस पर चलीं जो अभी बंद है। उनका काम ऊपर नहीं गिना। |
+| `capacity.later` | {kg} falls due after these weeks. | {kg} इन हफ़्तों के बाद देय है। |
+| `capacity.forecastNote` | Forecast added for {n} customer and section pairs. | {n} ग्राहक और सेक्शन जोड़ियों के लिए अनुमान जोड़ा गया। |
+| `capacity.truncated` | Only part of the open work is counted. | सिर्फ़ कुछ खुला काम गिना गया है। |
+| `capacity.refKg` | {ref}: {hours} h, {kg} | {ref}: {hours} घंटे, {kg} |
+| `capacity.hoursShort` | h | घंटे |
+| `forecast.groupBy` | Group by | ऐसे जोड़ें |
+| `forecast.plant` | Whole plant | पूरा प्लांट |
+| `forecast.section` | Section | सेक्शन |
+| `forecast.customer` | Customer | ग्राहक |
+| `forecast.name` | Name | नाम |
+| `forecast.last12` | Last 12 months {massUnit} | पिछले 12 महीने {massUnit} |
+| `forecast.method` | Method | तरीका |
+| `forecast.next` | Next months | अगले महीने |
+| `forecast.error` | Backtest miss | बैकटेस्ट की चूक |
+| `forecast.backtest` | Backtest | बैकटेस्ट |
+| `forecast.backtestRow` | {month}: said {forecast}, came {actual} | {month}: अनुमान {forecast}, आया {actual} |
+| `forecast.none` | Not enough orders to forecast. | अनुमान के लिए ऑर्डर कम हैं। |
+| `forecast.note` | A forecast is a plain average of booked orders. It shows its method and what it would have said before. | अनुमान बुक हुए ऑर्डर का सादा औसत है। वह अपना तरीका और पहले की चूक दिखाता है। |
+| `forecast.truncated` | Only part of the order history is counted. | सिर्फ़ कुछ ऑर्डर इतिहास गिना गया है। |
+| `forecast.csvName` | forecast | forecast |
+| `dies.show` | Show | दिखाएं |
+| `dies.attention` | Needs attention | ध्यान चाहिए |
+| `dies.all` | All copies | सभी copy |
+| `dies.copy` | Copy | Copy |
+| `dies.section` | Section | सेक्शन |
+| `dies.nitride` | Nitriding | Nitriding |
+| `dies.correct` | Correction | करेक्शन |
+| `dies.drift` | Weight drift | वज़न का बहाव |
+| `dies.summary` | {due} due, {soon} soon, of {copies} copies. | {copies} copy में से {due} का समय हो गया, {soon} जल्दी। |
+| `dies.copiesTruncated` | Only the first {n} copies are counted. | सिर्फ़ पहली {n} copy गिनी गईं। |
+| `dies.more` | More copies match. Narrow the list or choose a shorter one. | और copy मेल खाती हैं। सूची छोटी करें। |
+| `dies.empty` | No copy needs attention. | किसी copy को ध्यान नहीं चाहिए। |
+| `dies.state.due` | Due | समय हो गया |
+| `dies.state.soon` | Soon | जल्दी |
+| `dies.state.ok` | Not yet | अभी नहीं |
+| `dies.state.unknown` | Not enough history | इतिहास कम है |
+| `dies.since` | {kg} pressed since the last one | पिछले के बाद {kg} प्रेस हुआ |
+| `dies.interval` | Typical interval {kg}, from {basis} | आम अंतर {kg}, आधार: {basis} |
+| `dies.daysLeft` | about {n} days left at its recent pace | हाल की रफ़्तार से करीब {n} दिन बाकी |
+| `dies.noPace` | no recent pace to count days from | दिन गिनने लायक हाल की रफ़्तार नहीं |
+| `dies.basis.copy` | this copy's last {n} treatments | इस copy के पिछले {n} ट्रीटमेंट |
+| `dies.basis.section` | this section's copies | इस सेक्शन की copy |
+| `dies.basis.plant` | the plant's copies | प्लांट की copy |
+| `dies.basis.setting` | the plant setting | प्लांट की सेटिंग |
+| `dies.basis.none` | no history | इतिहास नहीं |
+| `dies.driftLeft` | About {kg} left before it leaves the weight band | वज़न बैंड से बाहर जाने में करीब {kg} बाकी |
+| `dies.driftOut` | Already outside the weight band | वज़न बैंड से बाहर हो चुका |
+| `dies.driftFlat` | Weight is steady | वज़न स्थिर है |
+| `dies.driftNoLimit` | Weight is moving, and the section has no band limit to measure against | वज़न खिसक रहा है, पर सेक्शन में नापने के लिए बैंड की सीमा नहीं है |
+| `dies.driftFew` | Needs {n} readings over {kg} of pressing ({have} so far) | {kg} प्रेस पर {n} रीडिंग चाहिए (अभी {have}) |
+| `dies.noTreatments` | No treatment on record | कोई ट्रीटमेंट दर्ज नहीं |
+| `settings.title` | Costing settings | कॉस्टिंग सेटिंग |
+| `settings.readOnly` | Only the owner, admins and managers change these. | इन्हें सिर्फ़ मालिक, एडमिन और मैनेजर बदलते हैं। |
+| `settings.general` | Margin and press time | मार्जिन और प्रेस का समय |
+| `settings.lowMargin` | Low margin is under (% of the rate) | कम मार्जिन यानी (रेट का %) से नीचे |
+| `settings.workDays` | Press days per week | हफ़्ते में प्रेस के दिन |
+| `settings.hoursPerDay` | Hours per press day | प्रेस के दिन के घंटे |
+| `settings.downtimePlant` | Planned stops per week, every press (hours) | हफ़्ते में तय रुकावट, हर प्रेस (घंटे) |
+| `settings.downtimeLine` | Planned stops per week, {line} (hours, empty uses the plant figure) | हफ़्ते में तय रुकावट, {line} (घंटे, खाली हो तो प्लांट वाला) |
+| `settings.defaultSpeed` | Press speed when nothing is known (kg an hour) | कुछ पता न हो तो प्रेस की रफ़्तार (kg प्रति घंटा) |
+| `settings.leadDays` | Days from order to due when the order has no date | ऑर्डर पर तारीख़ न हो तो ऑर्डर से देय तक के दिन |
+| `settings.dieTitle` | Die treatments | Die ट्रीटमेंट |
+| `settings.nitrideEvery` | Nitride every (kg), when a copy has no history | हर कितने (kg) पर nitride, जब copy का इतिहास न हो |
+| `settings.correctEvery` | Correct every (kg), when a copy has no history | हर कितने (kg) पर करेक्शन, जब copy का इतिहास न हो |
+| `settings.soonPct` | Due soon within (% of the interval) | जल्दी माना जाए, अंतर के (%) के भीतर |
+| `settings.soonDays` | or within (days) | या (दिन) के भीतर |
+| `settings.save` | Save settings | सेटिंग सेव करें |
+| `settings.saved` | Saved | सेव हुआ |
+| `settings.saveFailed` | Could not save. Check the numbers and try again. | सेव नहीं हुआ। संख्याएं जांचें और फिर कोशिश करें। |
+| `settings.badNumber` | Enter a whole number | पूरी संख्या लिखें |
+| `settings.badPercent` | Enter a percent, such as 8 or 12.5 | प्रतिशत लिखें, जैसे 8 या 12.5 |
+| `settings.ratesTitle` | Stage rates | स्टेज रेट |
+| `settings.ratesHint` | Rates apply from a date. A change adds a version, so past runs keep their rates. Casting is per kg of billets, the others per good kg. Extrusion by the hour uses the run's press time. | रेट एक तारीख़ से लागू होते हैं। बदलाव से नया वर्ज़न जुड़ता है, इसलिए पुराने रन अपने रेट रखते हैं। कास्टिंग billet के हर kg पर, बाकी हर अच्छे kg पर। घंटे वाला एक्सट्रूज़न रन का प्रेस समय लेता है। |
+| `settings.from` | From date | किस तारीख़ से |
+| `settings.basis` | Basis | आधार |
+| `settings.basisKg` | Rupees per kg | रुपये प्रति kg |
+| `settings.basisHour` | Rupees per hour | रुपये प्रति घंटा |
+| `settings.amount` | Rupees | रुपये |
+| `settings.kgPerHour` | kg made in an hour | एक घंटे में बना kg |
+| `settings.notSet` | Not set | सेट नहीं |
+| `settings.addVersion` | Save rates from this date | इस तारीख़ से रेट सेव करें |
+| `settings.versions` | Versions | वर्ज़न |
+| `settings.inUse` | In use today | आज लागू |
+| `settings.remove` | Remove | हटाएं |
+| `settings.removeConfirm` | Remove the rates from {date}? | {date} से लागू रेट हटाएं? |
+| `settings.noVersions` | No rates yet. Stages without a rate are counted as 0. | अभी कोई रेट नहीं। बिना रेट वाले स्टेज 0 गिने जाते हैं। |
+| `settings.versionLine` | {stage}: {amount} {basis} | {stage}: {amount} {basis} |
+| `settings.needThroughput` | An hourly rate for {stage} needs the kg made in an hour. | {stage} के घंटे वाले रेट के लिए एक घंटे में बना kg चाहिए। |
+| `settings.badDate` | Enter a date | तारीख़ लिखें |
+| `settings.badAmount` | Enter an amount in rupees | रुपयों में रकम लिखें |
+| `settings.rateKg` | {amount} per kg | {amount} प्रति kg |
+| `settings.rateHour` | {amount} per hour | {amount} प्रति घंटा |
+| `settings.rateHourKph` | {amount} per hour at {kph} kg an hour | {amount} प्रति घंटा, एक घंटे में {kph} kg |
+| `settings.metalSource` | Metal rate list: {source} | धातु रेट सूची: {source} |
+| `order.title` | Cost and margin | लागत और मार्जिन |
+| `order.hint` | Cost per {massUnit} from the plant's own figures. Margin is the line rate less cost. | प्लांट के अपने आंकड़ों से प्रति {massUnit} लागत। मार्जिन यानी लाइन का रेट घटा लागत। |
+| `order.line` | Line {n} · {section} | लाइन {n} · {section} |
+| `order.cost` | Cost per {massUnit} | लागत प्रति {massUnit} |
+| `order.pressed` | Pressed {kg} | प्रेस हुआ {kg} |
+| `order.unknown` | Cost unknown | लागत पता नहीं |
+| `order.rate` | Rate | रेट |
+| `order.margin` | Margin per {massUnit} | मार्जिन प्रति {massUnit} |
+| `order.marginPct` | Margin % | मार्जिन % |
+| `order.low` | Low margin | कम मार्जिन |
+| `order.noRate` | No rate on this line | इस लाइन पर रेट नहीं |
+| `order.noMargin` | No margin: the cost is not known | मार्जिन नहीं: लागत पता नहीं |
+| `order.truncated` | Only the newest runs are counted. | सिर्फ़ नए रन गिने गए। |
+| `order.basis.actual` | from its runs | इसके अपने रन से |
+| `order.basis.section_month` | section average | सेक्शन का औसत |
+| `order.basis.section` | section average | सेक्शन का औसत |
+| `order.basis.plant_month` | plant average | प्लांट का औसत |
+| `order.basis.plant` | plant average | प्लांट का औसत |
+| `order.basis.none` | no cost known | लागत पता नहीं |
+| `order.failed` | Could not load cost. | लागत लोड नहीं हुई। |
+| `csv.cost` | cost | cost |
+
 ### qa (276)
 
 | Key | English | हिंदी |
@@ -11417,7 +11685,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (59)
+### plantSettings (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11466,6 +11734,7 @@ Please check, Lalubhai:
 | `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `modules.names.maintenance` | Maintenance | मेंटेनेंस |
+| `modules.names.costing` | Costing | लागत |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -11605,7 +11874,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (486)
+### audit (487)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11734,6 +12003,7 @@ Please check, Lalubhai:
 | `actions.ageing__oven__update` | Oven changed | ओवन बदला |
 | `actions.ageing__override__request` | Ageing release sent for approval | एजिंग रिलीज़ की मंज़ूरी मांगी |
 | `actions.price__settings__update` | Price settings changed | दाम की सेटिंग बदली |
+| `actions.cost__settings__update` | Cost settings changed | लागत की सेटिंग बदली |
 | `actions.price__rate__propose` | Rate change sent for approval | रेट बदलाव की मंज़ूरी मांगी |
 | `actions.price__rate__activate` | Rate change approved | रेट बदलाव मंज़ूर हुआ |
 | `actions.price__rate__reject` | Rate change rejected | रेट बदलाव नामंज़ूर हुआ |

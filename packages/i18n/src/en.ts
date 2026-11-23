@@ -32,6 +32,7 @@ import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
+import { costEn } from "./cost/en";
 import { regEn } from "./reg/en";
 import { store2En } from "./store2/en";
 import { maintEn } from "./maint/en";
@@ -315,6 +316,7 @@ export const en = {
     audit: "Audit log",
     pricing: "Prices",
     billing: "Billing",
+    costing: "Costing",
     adminReleases: "App builds",
     adminBackups: "Backups",
     adminSupport: "Support",
@@ -3821,6 +3823,7 @@ export const en = {
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
         maintenance: "Maintenance",
+        costing: "Costing",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3842,6 +3845,7 @@ export const en = {
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
         maintenance: "Assets, preventive plans, work orders and machine readings",
+        costing: "Cost per kg, margins, press load, forecast and dies due (off until named)",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6553,6 +6557,7 @@ export const en = {
   fdy2: fdy2En,
 
   reg: regEn,
+  cost: costEn,
   qa: qaEn,
   store2: store2En,
   maint: maintEn,
@@ -6739,6 +6744,7 @@ export const en = {
         billing: "Tax invoices",
         einvoice: "E-invoice",
         maintenance: "Maintenance",
+        costing: "Costing",
       },
     },
     letterhead: {
@@ -7025,6 +7031,7 @@ export const en = {
       ageing__oven__update: "Oven changed",
       ageing__override__request: "Ageing release sent for approval",
       price__settings__update: "Price settings changed",
+      cost__settings__update: "Cost settings changed",
       price__rate__propose: "Rate change sent for approval",
       price__rate__activate: "Rate change approved",
       price__rate__reject: "Rate change rejected",

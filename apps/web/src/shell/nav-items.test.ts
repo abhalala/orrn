@@ -148,10 +148,11 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // Billing is opt-in: a plant with no modules named has it off, and naming it turns it on without touching the rest.
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 1);
+    // Billing and costing are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 2);
     expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
-    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length);
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - 1);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "costing"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
@@ -288,6 +289,23 @@ describe("Reports (W4-ANALYTICS)", () => {
     for (const role of ["operator", "packer", "press", "foundry", "storekeeper", "die_room"] as const) {
       expect({ role, reports: has(role) }).toEqual({ role, reports: false });
     }
+  });
+});
+
+describe("costing is opt-in (XE parity lane COST)", () => {
+  const shown = (role: CompanyRole, modules?: string[]) => keys(visibleItems(ALL, me(role, modules))).includes("costing");
+  test("hidden on an empty module list and on a list without it", () => {
+    expect(shown("owner", [])).toBe(false);
+    expect(shown("owner")).toBe(false);
+    expect(shown("owner", ["pricing", "qa"])).toBe(false);
+  });
+  test("shown on a list that names it, for a role that holds cost.view", () => {
+    expect(shown("owner", ["costing"])).toBe(true);
+    expect(shown("manager", ["Costing"])).toBe(true);
+    expect(shown("accountant", ["costing"])).toBe(true);
+  });
+  test("a floor role never sees it", () => {
+    expect(shown("operator", ["costing"])).toBe(false);
   });
 });
 
