@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 /**
  * Pure view models for the ageing station on the phone (FP-AG-16, W3-AG-N): the stage stepper, the one action a
  * batch allows, the typed numbers (temperature and hardness are x10 integers on the wire, the gas meter is in
@@ -412,10 +413,9 @@ export function voidPermission(batch: Pick<BatchView, "status"> & Partial<Pick<B
 /** Anyone holding one of these opens the station (More, then the board). The server still checks each write. */
 export const AGEING_OPENERS = ["ageing.view", "ageing.load", "ageing.record", "ageing.release"] as const satisfies readonly Action[];
 
-/** The company has the ageing module on (an empty module list means every module is on, as on the web's nav). */
+/** The company has the ageing module on (the server's rule, `isModuleOn`, as on the web's nav). */
 export function ageingModuleOn(me: Pick<Me, "company"> | null | undefined): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes("ageing");
+  return isModuleOn(me?.company?.modules, "ageing");
 }
 
 /** Who sees Ageing under More: the module is on and the role holds a view or a floor action. */

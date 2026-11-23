@@ -1,5 +1,5 @@
 import { useT, type MessageKey } from "@orrn/i18n";
-import { COMPANY_MODULES, COMPANY_PLANS, type CompanyModule } from "@orrn/server/lib/modules";
+import { COMPANY_MODULES, COMPANY_PLANS, OPT_IN_MODULES, type CompanyModule } from "@orrn/server/lib/modules";
 import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
@@ -34,7 +34,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
   const qc = useQueryClient();
   const groupId = useId();
   const initialPlan = startingPlan(company.plan);
-  const initialModules = modulesOn(company.modules ?? [], COMPANY_MODULES);
+  const initialModules = modulesOn(company.modules ?? [], COMPANY_MODULES, OPT_IN_MODULES);
   const [plan, setPlan] = useState(initialPlan);
   const [modules, setModules] = useState<CompanyModule[]>(initialModules);
 
@@ -45,7 +45,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.plan, (company.modules ?? []).join(",")]);
 
-  const { dirty, noPlanYet, noneOn } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules });
+  const { dirty, noPlanYet, noneOn } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules }, OPT_IN_MODULES);
 
   const save = useMutation({
     ...trpc.platform.updatePlanAndModules.mutationOptions(),
@@ -126,7 +126,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
             disabled={!dirty || noneOn}
             loading={save.isPending}
             className="w-full sm:w-auto pointer-coarse:h-14"
-            onPress={() => save.mutate({ companyId: company.id, plan, modules: modulesToSave(modules, COMPANY_MODULES) })}
+            onPress={() => save.mutate({ companyId: company.id, plan, modules: modulesToSave(modules, COMPANY_MODULES, OPT_IN_MODULES) })}
           >
             {t("admin.plan.save")}
           </Button>

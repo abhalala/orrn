@@ -30,6 +30,11 @@ export const docTypes = [
   "quote",
   "proforma",
   "works_order",
+  // XE-BILL (0059): tax invoice INV/26-27/n, credit note CN/26-27/n, payment received PAY-n. Invoice and
+  // credit note numbers are taken INSIDE the issuing batch (no gap, never reused; lib/billing/numbering.ts).
+  "invoice",
+  "credit_note",
+  "payment",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

@@ -19,6 +19,7 @@ import { holdsOf, releaseOnVoidStatement } from "./orderHold";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { priceChangeDecision } from "./pricing";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
+import { explainInvoiceCancelAbort, invoiceCancelDecision } from "./billing/invoices";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
@@ -371,6 +372,8 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   ageing_override: ageingOverrideDecision,
   // XE-PRICE: a price master change or a line override goes live (or is rejected) with the decision.
   price_change: priceChangeDecision,
+  // XE-BILL: an approved invoice cancel; its abort is explained by explainInvoiceCancelAbort.
+  invoice_cancel: invoiceCancelDecision,
 };
 
 /**
@@ -383,6 +386,10 @@ export async function explainApplyAbort(
   row: { kind: ApprovalKind; subjectId: string },
   e: unknown,
 ): Promise<void> {
+  if (row.kind === "invoice_cancel") {
+    await explainInvoiceCancelAbort(db, companyId, row.subjectId, e);
+    return;
+  }
   if (!isFoundryAbort(e)) return;
   if (row.kind === "cast_close") {
     // r2 (m-d): the frozen count adjustment's billet store was retired after the request.

@@ -72,7 +72,7 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, STANDARD_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -152,8 +152,8 @@ const DEMO_SETTINGS = {
   requireCastOnBundle: false,
 };
 
-/** Every module on, Wave 1 floor modules included (FP-PF-07). */
-const ALL_MODULES: string[] = [...COMPANY_MODULES];
+/** Every standard module on, Wave 1 floor modules included (FP-PF-07). The opt-in statutory modules stay off. */
+const ALL_MODULES: string[] = [...STANDARD_MODULES];
 
 // ---------------------------------------------------------------------------
 // Static catalogue

@@ -234,11 +234,18 @@ async function scheduled(controller: ScheduledController, _env: unknown, ctx: Ex
     );
     return;
   }
+  // XE-BILL: the 5-minute cron retries and cancels IRNs.
+  if (controller.cron === IRN_CRON) {
+    ctx.waitUntil(import("@orrn/server/lib/billing/cron").then(({ runIrnCronJob }) => runIrnCronJob(createDb(), Date.now())));
+    return;
+  }
   ctx.waitUntil(import("@orrn/server/lib/dailyCron").then(({ runDailyCron }) => runDailyCron(createDb(), new Date())));
 }
 
 /** Must match the second entry of `crons` in packages/server/src/infra/alchemy.run.ts. */
 const HOURLY_CRON = "5 * * * *";
+/** Must match the third entry of `crons` in packages/server/src/infra/alchemy.run.ts (XE-BILL). */
+const IRN_CRON = "*/5 * * * *";
 
 const worker: ExportedHandler<Env> = { fetch: app.fetch, scheduled };
 export default worker;

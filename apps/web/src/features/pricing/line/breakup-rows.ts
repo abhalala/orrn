@@ -3,7 +3,7 @@
  * person reads it (base metal, conversion, alloy, finish, add-ons, discount, the rate from the master, a rate
  * changed by hand, the rate on the line). The screen puts words and rupees on each row.
  */
-import { overrideNeedsApproval, type PriceBreakup } from "@orrn/domain";
+import { isModuleOn, overrideNeedsApproval, type PriceBreakup } from "@orrn/domain";
 
 export type BreakupNote =
   | { type: "metal"; source: "nalco" | "lme" | "manual"; rateDate: string; lme: { usdPerTonneCents: number; inrPerUsdPaise: number; premiumPaisePerKg: number } | null }
@@ -68,10 +68,9 @@ export function askedRate(b: PriceBreakup, ratePaise: number): AskedRate {
   };
 }
 
-/** The pricing module is on for this company (an empty module list means every module is on). */
+/** The pricing module is on for this company (the shared module rule, opt-in modules included). */
 export function pricingModuleOn(modules: readonly string[] | null | undefined): boolean {
-  const list = (modules ?? []).map((m) => m.toLowerCase());
-  return list.length === 0 || list.includes("pricing");
+  return isModuleOn(modules, "pricing");
 }
 
 /**

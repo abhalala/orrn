@@ -32,6 +32,7 @@ export const guApprovals = {
       dispatch_off_band: "ઓર્ડરના વજનથી અલગ bundle",
       dispatch_late_entry: "મોડી ભરેલી પેકિંગ લિસ્ટ",
       price_change: "ભાવમાં ફેરફાર",
+      invoice_cancel: "ઇનવોઇસ રદ કરવી",
     },
     subject: {
       dcDebit: "{lot} પર ડેબિટ નોટ {number}",
@@ -49,6 +50,7 @@ export const guApprovals = {
       meltCorrect: "Cast {number} નો melt {seq} સુધારો",
       offBand: "{code} પર {serial}: {kg} {sectionUnit}, {order} લાઇન {line} માં {lineKg}",
       lateDispatch: "{code}, મોડું ભરેલું",
+      invoiceCancel: "{number} રદ કરવી",
     },
     foundry: {
       title: "આંકડા",
@@ -144,6 +146,7 @@ export const guApprovals = {
     },
     openOrder: "ઓર્ડર ખોલો",
     openDispatch: "Dispatch ખોલો",
+    openInvoice: "ઇનવોઇસ ખોલો",
     askedBy: "{name} એ માંગ્યું",
     someone: "કોઈએ",
     decidedBy: "{name} દ્વારા {status}",

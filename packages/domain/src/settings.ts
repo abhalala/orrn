@@ -13,7 +13,11 @@ import { validateShifts, type Shift } from "./shifts";
 // Modules (FP-PF-07)
 // ---------------------------------------------------------------------------
 
-/** Allowed `company.modules` keys (lower case). Empty list = every module on. */
+/**
+ * Allowed `company.modules` keys (lower case). An empty list (or one naming only opt-in keys) means
+ * every STANDARD module is on. The opt-in keys at the end are statutory modules (XE-BILL): they are on
+ * only when the list names them, so a plant on `[]` never gets billing by default.
+ */
 export const COMPANY_MODULES = [
   "customers",
   "dies",
@@ -31,17 +35,66 @@ export const COMPANY_MODULES = [
   "qa",
   // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
   "pricing",
+  // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
+  "billing",
+  "einvoice",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
+
+/**
+ * Statutory modules: on only when `company.modules` names them (never by an empty list). `payroll` is
+ * reserved here for wave 3: it joins `COMPANY_MODULES` when its lane builds it, and is opt-in from then.
+ */
+export const OPT_IN_MODULES = ["billing", "einvoice", "payroll"] as const;
+export type OptInModule = (typeof OPT_IN_MODULES)[number];
+
+/** The modules an empty list switches on (every module but the opt-in ones). */
+export const STANDARD_MODULES = COMPANY_MODULES.filter((m) => !(OPT_IN_MODULES as readonly string[]).includes(m)) as Exclude<
+  CompanyModule,
+  OptInModule
+>[];
 
 export function isCompanyModule(value: unknown): value is CompanyModule {
   return typeof value === "string" && (COMPANY_MODULES as readonly string[]).includes(value);
 }
 
-/** Server rule for `assertModule`: an empty or missing list means all on. */
+export function isOptInModule(value: unknown): value is OptInModule {
+  return typeof value === "string" && (OPT_IN_MODULES as readonly string[]).includes(value);
+}
+
+/**
+ * Server rule for `assertModule` (and the web nav, the Godseye tab, Today's tiles):
+ * - an opt-in module is on only when the list names it;
+ * - a standard module is on when the list names it, or when the list names no standard module at all
+ *   (empty, missing, or only opt-in keys: turning billing on never switches the floor off).
+ */
 export function isModuleOn(modules: readonly string[] | null | undefined, module: CompanyModule): boolean {
-  if (!modules || modules.length === 0) return true;
-  return modules.includes(module);
+  const list = (modules ?? []).map((m) => m.trim().toLowerCase());
+  if (isOptInModule(module)) return list.includes(module);
+  if (!list.some((m) => isCompanyModule(m) && !isOptInModule(m))) return true;
+  return list.includes(module);
+}
+
+/**
+ * The EFFECTIVE module list a client receives (auth.me, company.getSettings): every module `isModuleOn`
+ * says is on, spelled out. A stored `["billing"]` reaches clients as every standard module plus billing, so
+ * a phone built before opt-in modules (rule "empty = all on, else includes") still shows every floor tab.
+ * The stored list stays compact; Godseye and backups read it raw.
+ */
+export function effectiveModules(modules: readonly string[] | null | undefined): CompanyModule[] {
+  return COMPANY_MODULES.filter((m) => isModuleOn(modules, m));
+}
+
+/**
+ * Client helper: is any of `keys` on for this list? Same rule as `isModuleOn` (unknown keys count as off).
+ * An empty `keys` means "not gated" and is on.
+ */
+export function anyModuleOn(modules: readonly string[] | null | undefined, keys: readonly string[] | null | undefined): boolean {
+  if (!keys || keys.length === 0) return true;
+  return keys.some((k) => {
+    const key = k.trim().toLowerCase();
+    return isCompanyModule(key) && isModuleOn(modules, key);
+  });
 }
 
 /** Lower-case, de-duplicate and check a modules list; unknown keys are returned, never stored. */

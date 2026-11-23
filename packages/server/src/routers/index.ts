@@ -71,6 +71,9 @@ export const appRouter = router({
   qa: lazy(() => import("./qa").then((m) => m.qaRouter)),
   // XE-PRICE: price master, quotes, proforma, works order, enquiries (module `pricing`).
   pricing: lazy(() => import("./pricing").then((m) => m.pricingRouter)),
+  // XE-BILL (opt-in modules).
+  billing: lazy(() => import("./billing").then((m) => m.billingRouter)),
+  einvoice: lazy(() => import("./einvoice").then((m) => m.einvoiceRouter)),
 });
 export type AppRouter = typeof appRouter;
 

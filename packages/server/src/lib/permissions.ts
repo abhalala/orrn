@@ -150,6 +150,12 @@ export const PLANT_ACTIONS = [
   "price.manage", // propose a master rate or customer term, ask for a line override, set pricing settings
   "quote.manage", // make, send, cancel and convert quotations; make proformas
   "enquiry.manage", // enquiries and their follow-ups
+  // XE-BILL (opt-in `billing` module): tax invoices, credit notes, payments received, GST settings.
+  "gst.settings", // plant GST state and HSN codes, customer GST details
+  "invoice.read", // invoices, credit notes, payments and outstanding, read only
+  "invoice.issue", // draft and issue invoices and credit notes, generate IRN and e-way bill
+  "invoice.cancel", // ask to cancel an issued invoice (approval invoice_cancel)
+  "payment.record", // record and void payments received
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -312,6 +318,13 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "price.manage": ["admin", "office", "manager"],
   "quote.manage": ["office", "manager"],
   "enquiry.manage": ["office", "manager"],
+  // XE-BILL: the billing desk (office), the accountant and the manager. GST settings (incl. the e-invoice start
+  // date) are the admin's and theirs too: the billing desk keeps them up to date (review N2: comment corrected).
+  "gst.settings": ["admin", "manager", "accountant", "office"],
+  "invoice.read": ["office", "manager", "accountant", "admin"],
+  "invoice.issue": ["office", "manager", "accountant"],
+  "invoice.cancel": ["office", "manager", "accountant"],
+  "payment.record": ["office", "accountant", "manager"],
   "support.request": [
     "admin",
     "manager",
@@ -432,6 +445,8 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   dispatch_late_entry: ["owner", "admin", "manager"],
   // XE-PRICE: a master rate change or a line override below the computed rate. Never the requester.
   price_change: ["owner", "admin", "manager"],
+  // XE-BILL: cancelling an issued tax invoice (its number stays used). Never the requester.
+  invoice_cancel: ["owner", "admin", "manager"],
 };
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */

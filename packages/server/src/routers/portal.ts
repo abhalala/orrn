@@ -870,6 +870,9 @@ export const portalRouter = router({
           completedAt: dispatch.completedAt,
           shipDate: dispatch.shipDate,
           plNumber: dispatch.plNumber,
+          // XE-BILL row 13: the invoice number and date once issued (orrn invoice, or the Tally link).
+          invoiceNumber: dispatch.invoiceNumber,
+          invoiceDate: dispatch.invoiceDate,
           vehicleNo: dispatch.vehicleNo,
           bundles: sql<number>`(select count(*) from dispatch_item di where di.company_id = ${DISPATCH_COMPANY} and di.dispatch_id = ${DISPATCH_ID})`,
           weightG: sql<number>`(select coalesce(sum(b.weight_g), 0) from dispatch_item di join bundle b on b.id = di.bundle_id and b.company_id = di.company_id where di.company_id = ${DISPATCH_COMPANY} and di.dispatch_id = ${DISPATCH_ID})`,
@@ -933,6 +936,8 @@ export const portalRouter = router({
         shipDate: d.shipDate,
         shipDay: dispatchShipDay({ status: "completed", completedAt: d.completedAt, shipDate: d.shipDate }, ctx.portal.settings),
         plNumber: d.plNumber,
+        invoiceNumber: d.invoiceNumber ?? null,
+        invoiceDate: d.invoiceDate ?? null,
         vehicleNo: d.vehicleNo,
         bundles,
         totals: {

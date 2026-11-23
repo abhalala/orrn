@@ -230,6 +230,11 @@ export const approvalRouter = router({
       if (!landed) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This request was already decided" });
       }
+      // XE-BILL (review S1): an approved invoice cancel that waits for the IRP is tried at once; the cron retries.
+      if (row.kind === "invoice_cancel" && input.decision === "approved") {
+        const [{ settleCancelNow }, { currentIrpAdapter }] = await Promise.all([import("../lib/billing/einvoiceFlow"), import("../lib/billing/irp")]);
+        await settleCancelNow(ctx.db, ctx.companyId, row.subjectId, currentIrpAdapter(), decidedAt.getTime());
+      }
 
       return { id: row.id, status: input.decision, decidedAt };
     }),

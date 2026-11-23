@@ -225,6 +225,10 @@ if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
  * The base URL, the Access client id and the plant list are not secrets; the Access secret and the API key are.
  */
 const hermesBaseUrl = process.env.HERMES_BASE_URL?.trim() ?? "";
+// XE-BILL: the GST relay (apps/gst-relay on an Indian static-IP host). Both or neither; unset = e-invoicing
+// "not set up" and invoices that need an IRN stay "Draft, IRN pending". The secret is an encrypted binding.
+const gstRelayUrl = process.env.GST_RELAY_URL?.trim() ?? "";
+const gstRelaySecret = process.env.GST_RELAY_SECRET?.trim() ?? "";
 const hermesAccessClientId = process.env.HERMES_ACCESS_CLIENT_ID?.trim() ?? "";
 const hermesAccessClientSecret = process.env.HERMES_ACCESS_CLIENT_SECRET?.trim() ?? "";
 const hermesApiKey = process.env.HERMES_API_KEY?.trim() ?? "";
@@ -304,7 +308,8 @@ export const server = await Worker("server", {
   observability: SERVER_OBSERVABILITY,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   // Hourly at :05 (XE parity REG #82): each plant's morning mail goes out in its chosen local hour.
-  crons: ["30 21 * * *", "5 * * * *"],
+  // XE-BILL: every 5 minutes, IRN retries and IRN cancels (a no-op while the GST relay is not configured).
+  crons: ["30 21 * * *", "5 * * * *", "*/5 * * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
   // Purelymail SMTP is the sender until then (packages/auth/src/smtp.ts).
   // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.
@@ -334,6 +339,7 @@ export const server = await Worker("server", {
     ...(googleConfigured ? { GOOGLE_CLIENT_ID: googleClientId, GOOGLE_CLIENT_SECRET: alchemy.secret(googleClientSecret) } : {}),
     // orrn buddy (see above): absent value = no binding. The Access secret and the API key are encrypted.
     ...(hermesBaseUrl ? { HERMES_BASE_URL: hermesBaseUrl } : {}),
+    ...(gstRelayUrl && gstRelaySecret ? { GST_RELAY_URL: gstRelayUrl, GST_RELAY_SECRET: alchemy.secret(gstRelaySecret) } : {}),
     ...(hermesAccessClientId ? { HERMES_ACCESS_CLIENT_ID: hermesAccessClientId } : {}),
     ...(hermesAccessClientSecret ? { HERMES_ACCESS_CLIENT_SECRET: alchemy.secret(hermesAccessClientSecret) } : {}),
     ...(hermesApiKey ? { HERMES_API_KEY: alchemy.secret(hermesApiKey) } : {}),

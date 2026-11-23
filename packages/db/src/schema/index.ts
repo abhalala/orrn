@@ -3,6 +3,7 @@ export * from "./admin";
 export * from "./ageing";
 export * from "./approval";
 export * from "./audit";
+export * from "./billing";
 export * from "./buddy";
 export * from "./catalog";
 export * from "./collector";

@@ -428,6 +428,17 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
     const titleKey = (PRICE_CHANGE_TITLES as Record<string, MessageKey>)[rateKind] ?? "price.approval.subject.rate";
     return { kindKey, titleKey, vars: {}, href: "/pricing", openKey: "price.approval.openPrices" };
   }
+  if (row.kind === "invoice_cancel") {
+    // XE-BILL: the invoice or credit note asked to be cancelled; the number is the request's own snapshot.
+    const invoiceId = safeId(m.invoiceId) ?? safeId(row.subjectId);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.invoiceCancel",
+      vars: { number: text(m.number) },
+      href: invoiceId ? `/billing/${invoiceId}` : null,
+      openKey: invoiceId ? "approvals.openInvoice" : null,
+    };
+  }
   if (row.kind === "melt_correct") {
     const castId = safeId(m.castId);
     const meltId = safeId(row.subjectId);

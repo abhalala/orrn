@@ -3,7 +3,7 @@
  * clock, the in-stock total, the chart series and the role-aware tiles and
  * "Start here" steps. No React here, so it is unit-tested directly.
  */
-import type { Fmt } from "@orrn/domain";
+import { anyModuleOn, type Fmt } from "@orrn/domain";
 import { countText, kgGrouped1 } from "@/shared/lib/fmt-text";
 import { hourInZone, isValidZone, ymdInZone } from "@/shared/lib/plant-calendar";
 import type { MessageKey } from "@orrn/i18n";
@@ -145,13 +145,9 @@ export type StartHereStep = {
   to: string | null;
 };
 
-/**
- * Company modules as the nav reads them (`visibleItems`): an empty or missing
- * list means every module is on (companies created before modules existed).
- */
+/** Company modules as the nav reads them (`visibleItems`): the server's rule, `isModuleOn` (B1). */
 function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes(module);
+  return anyModuleOn(me?.company?.modules, [module]);
 }
 
 /**
