@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { auditLog, bundle, company, pressRun } from "@orrn/db/schema";
+import { STANDARD_MODULES } from "@orrn/domain";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -253,7 +254,8 @@ describe("commercial switches, standards, locale, cast series (FP-PF-06/09/13)",
       standards: {},
       shifts: [],
       castSeriesStart: null,
-      modules: [],
+      // XE-BILL B1: the EFFECTIVE list, every standard module spelled out (a stored [] means all on).
+      modules: [...STANDARD_MODULES],
       timezone: "Asia/Kolkata",
     });
     expect(JSON.stringify(s)).not.toMatch(/spoolApiKey|r2Key|wrapped/i);
