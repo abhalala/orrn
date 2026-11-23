@@ -331,13 +331,17 @@ export const castPlanLine = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// #47 Typical chemistry per scrap grade and per return stream (for the charge-mix suggestion)
+// #47 Typical chemistry per scrap item and per return stream (for the charge-mix suggestion)
 // ---------------------------------------------------------------------------
 
-export const chargeChemistrySubjects = ["grade", "stream"] as const;
+/**
+ * `item` = a scrap item ("quality" in the purchase book: imp belling, soft cable, …; what decides the
+ * chemistry, the A/B/C grade is about cleanliness), `stream` = a return stream.
+ */
+export const chargeChemistrySubjects = ["item", "stream"] as const;
 export type ChargeChemistrySubject = (typeof chargeChemistrySubjects)[number];
 
-/** One element's typical ppm for a scrap grade (`scrap_grade.id`) or a return stream. Editable per plant. */
+/** One element's typical ppm for a scrap item (`scrap_item.id`) or a return stream. Editable per plant. */
 export const chargeChemistry = sqliteTable(
   "charge_chemistry",
   {

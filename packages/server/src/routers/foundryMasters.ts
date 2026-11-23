@@ -10,7 +10,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { alloy, alloyLimit, foundryMasterStatuses, furnace, type AlloyRow, type FurnaceRow } from "@orrn/db/schema/foundry";
+import { alloy, alloyLimit, foundryMasterStatuses, furnace, furnaceKinds, type AlloyRow, type FurnaceRow } from "@orrn/db/schema/foundry";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
@@ -121,6 +121,7 @@ const furnacesRouter = router({
         capacityG: furnace.capacityG,
         billetDiaMm: furnace.billetDiaMm,
         status: furnace.status,
+        kind: furnace.kind,
         sortOrder: furnace.sortOrder,
       })
       .from(furnace)
@@ -153,6 +154,8 @@ const furnacesRouter = router({
         capacityG: z.number().int().min(1_000).max(FOUNDRY_LINE_MAX_G),
         billetDiaMm: z.number().int().min(25).max(500).nullable().default(null),
         sortOrder: z.number().int().min(0).max(10_000).default(0),
+        /** XE FOUNDRY (#41): melting (default) or homogenizing. Never changes after create. */
+        kind: z.enum(furnaceKinds).default("melting"),
       }),
     )
     .mutation(async ({ ctx, input }) => {

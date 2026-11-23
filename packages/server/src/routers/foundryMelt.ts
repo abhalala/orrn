@@ -374,9 +374,11 @@ async function draftMasters(ctx: Ctx, input: Pick<SaveInput, "furnaceId" | "allo
     furnaceRow = (await ctx.db.select().from(furnace).where(and(eq(furnace.id, input.furnaceId), eq(furnace.companyId, ctx.companyId))).limit(1))[0] ?? null;
     if (!furnaceRow) throw new TRPCError({ code: "NOT_FOUND", message: "Furnace not found" });
     if (furnaceRow.status !== "active") bad(`${furnaceRow.code} is retired`);
+    // XE FOUNDRY (#41): a homogenizing furnace takes log batches, never a melt.
+    if (furnaceRow.kind === "homogenizing") bad(`${furnaceRow.code} is a homogenizing furnace; pick a melting furnace`);
   } else if (input.furnaceId === undefined) {
-    // One active furnace (FourCubes: F1): it is the default.
-    const rows = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"))).limit(2);
+    // One active melting furnace (FourCubes: F1): it is the default.
+    const rows = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"), eq(furnace.kind, "melting"))).limit(2);
     if (rows.length === 1) furnaceRow = rows[0]!;
   }
   let alloyRow: typeof alloy.$inferSelect | null = null;

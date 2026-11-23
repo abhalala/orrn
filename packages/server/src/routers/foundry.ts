@@ -131,6 +131,7 @@ import {
 } from "../lib/foundryKit";
 import { assertLotsInspected, isQaAbort, lotsInspectedGuardStatements } from "../lib/qa";
 import { foundryDepthRouter } from "./foundryDepth";
+import { foundryDataSheetProcedures, foundryPlanRouter } from "./foundryPlan";
 import { foundryMastersRouter } from "./foundryMasters";
 import { MELT_GATE_TEXT, meltStepperProcedures } from "./foundryMelt";
 import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
@@ -528,6 +529,8 @@ function castSummaryFields(companyId: string) {
 const castsRouter = router({
   /** W2-FD-S: trace (FP-FD-16/17), traceBundle, cost (FP-FD-20). */
   ...foundryTraceProcedures,
+  /** XE FOUNDRY (#45): the A4 data sheet's extra facts. */
+  ...foundryDataSheetProcedures,
   /** Newest first; filter by status or by letter code (the code repeats every year). Any member. */
   list: companyProcedure
     .input(
@@ -1390,7 +1393,7 @@ const meltsRouter = router({
       // r1 (I-2): the same lock gates as melts.lock (spec E4, C18): spectro reason (no result can exist
       // yet), furnace capacity (the single active furnace), the balance reason (3 % either way, or more
       // out than in), logs, times. Refused with the stepper's words and `meta.gates`.
-      const furnaces = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, companyId), eq(furnace.status, "active"))).limit(2);
+      const furnaces = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, companyId), eq(furnace.status, "active"), eq(furnace.kind, "melting"))).limit(2);
       const furnaceRow = furnaces.length === 1 ? furnaces[0]! : null;
       const lotsInG = input.inputs.filter((i) => i.kind === "lot").reduce((s, i) => s + i.kgG, 0);
       const gates = meltLockGates({
@@ -2114,4 +2117,6 @@ export const foundryRouter = router({
   readings: foundryReadingsRouter,
   /** XE FOUNDRY: homogenizing, bought-in logs, billet cutting and issue, reject registers. */
   ...foundryDepthRouter,
+  /** XE FOUNDRY: charge-mix suggestion and the typical chemistry master (casting plan joins after REG). */
+  ...foundryPlanRouter,
 });
