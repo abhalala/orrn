@@ -36,6 +36,7 @@ import {
   weekLoads,
   weekMinutes,
   weekStart,
+  weightedPerKg,
   type CostBasis,
   type LoadItem,
 } from "@orrn/domain";
@@ -47,6 +48,7 @@ import { now as clockNow } from "../lib/clock";
 import { settingsPatchSql } from "../lib/companySettings";
 import {
   assertCostingOn,
+  costBasisInputs,
   costingCompany,
   costRuns,
   DAY_MS,
@@ -66,6 +68,8 @@ const manageProcedure = actionProcedure("cost.manage");
 const id = z.string().min(1).max(64);
 const paise = z.number().int().min(0).max(MAX_COST_PAISE);
 const FORBIDDEN_RATES = "Rates are not shown to you";
+/** Most live die copies the dies-due read takes; past it the answer says `copiesTruncated`. */
+const MAX_DIE_COPIES = 3000;
 
 const stageRate = z.object({ basis: z.enum(["kg", "hour"]), paise, kgPerHour: z.number().int().min(1).max(1_000_000).nullable().default(null) });
 
@@ -137,6 +141,7 @@ async function orderHistory(db: Parameters<typeof costingCompany>[0], companyId:
     from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = l.company_id
     where l.company_id = ${companyId} and o.status <> 'cancelled' and o.order_date >= ${`${fromMonth}-01`}
     group by o.customer_id, l.die_id, substr(o.order_date, 1, 7)
+    order by m desc, o.customer_id, l.die_id
     limit ${LIMIT + 1}`);
   return { rows: rows.slice(0, LIMIT).map((r) => ({ ...r, kg_g: Number(r.kg_g) })), truncated: rows.length > LIMIT };
 }
@@ -281,9 +286,10 @@ export const costingRouter = router({
     }
     const at = clockNow();
     const from = addDaysYmd(co.today, -89);
+    const shared = await costBasisInputs(ctx.db, ctx.companyId, co, at);
     const [own, recent, runLines] = await Promise.all([
-      costRuns(ctx.db, ctx.companyId, co, { orderId: input.orderId }, at),
-      costRuns(ctx.db, ctx.companyId, co, { from, to: co.today }, at),
+      costRuns(ctx.db, ctx.companyId, co, { orderId: input.orderId }, at, shared),
+      costRuns(ctx.db, ctx.companyId, co, { from, to: co.today }, at, shared),
       ctx.db.all<{ line_id: string; run_id: string; good_g: number }>(sql`
         select prl.sales_order_line_id as line_id, prl.press_run_id as run_id, sum(prl.good_g) as good_g
         from press_run_line prl join sales_order_line l on l.id = prl.sales_order_line_id and l.company_id = prl.company_id
@@ -297,12 +303,17 @@ export const costingRouter = router({
     return {
       ratesAllowed: allowed,
       lowMarginBp: co.costing.lowMarginBp,
+      /** More runs than one read takes (`MAX_COST_RUNS`): the figures cover the newest of them. */
+      truncated: own.truncated || recent.truncated,
       lines: lines.map((l) => {
-        const parts = runLines.filter((x) => x.line_id === l.id && runById.has(x.run_id)).map((x) => ({ goodG: Number(x.good_g), run: runById.get(x.run_id)! }));
-        const known = parts.filter((p) => p.run.cost.totalPaisePerKg != null);
+        const rows = runLines.filter((x) => x.line_id === l.id && runById.has(x.run_id));
+        // A press-run row with 0 kg (closeGate accepts pcs 0, kg 0) costs nothing and is left out.
+        const parts = rows.filter((x) => Number(x.good_g) > 0).map((x) => ({ goodG: Number(x.good_g), run: runById.get(x.run_id)! }));
         const pressedG = parts.reduce((s, p) => s + p.goodG, 0);
-        const actual = known.length > 0 ? Math.round(known.reduce((s, p) => s + p.goodG * p.run.cost.totalPaisePerKg!, 0) / known.reduce((s, p) => s + p.goodG, 0)) : null;
-        const picked = pickCost({ actual, section: bySection.get(l.die_id) ?? null, plant });
+        const actual = weightedPerKg(parts.map((p) => ({ goodG: p.goodG, paisePerKg: p.run.cost.totalPaisePerKg })));
+        // Rows on costed runs but none with kg: the cost is unknown (no margin), not the section's.
+        const onlyZero = rows.length > 0 && parts.length === 0;
+        const picked = onlyZero ? { paisePerKg: null, basis: "none" as const } : pickCost({ actual, section: bySection.get(l.die_id) ?? null, plant });
         const base = {
           lineId: l.id,
           lineNo: Number(l.line_no),
@@ -344,6 +355,7 @@ export const costingRouter = router({
           join customer c on c.id = o.customer_id and c.company_id = l.company_id
           where l.company_id = ${ctx.companyId} and o.status <> 'cancelled' and o.order_date >= ${from} and o.order_date <= ${to}
           group by l.die_id, d.section_code, o.customer_id, c.name, substr(o.order_date, 1, 7), l.rate_paise
+          order by m desc, l.die_id, o.customer_id, l.rate_paise
           limit ${LIMIT + 1}`),
         costRuns(ctx.db, ctx.companyId, co, { from: addDaysYmd(from, -90), to }, clockNow()),
       ]);
@@ -393,6 +405,9 @@ export const costingRouter = router({
    * Available = press days × hours − planned stops. Optional: a forecast top-up (expected orders not
    * yet booked) and a what-if change per customer.
    * TODO(xe-maint): subtract planned maintenance stops per press once the maintenance lane merges.
+   * TODO(xe-cost): still to press = ordered − packed, so pressed work waiting in ageing still counts as press load.
+   * TODO(xe-cost): week 0 is a full week and also holds every overdue line.
+   * TODO(xe-cost): the forecast top-up is netted per section-week across customers, not per customer.
    */
   capacity: viewProcedure.input(capacityInput).query(async ({ ctx, input }) => {
     const co = await gate(ctx);
@@ -415,9 +430,20 @@ export const costingRouter = router({
       if (co.costing.defaultKgPerHour != null) return { kgPerHour: co.costing.defaultKgPerHour, basis: "setting" as const };
       return { kgPerHour: null, basis: "none" as const };
     };
-    const lineOf = (sectionId: string) => speeds.line.get(sectionId) ?? (lines.length === 1 ? lines[0]!.id : null);
+    const active = new Set(lines.map((l) => l.id));
+    /**
+     * The press a section runs on: the one that ran it most (180 days), else the only active press.
+     * When that press is not active now (stopped for a rebuild, retired) the work goes to the
+     * unassigned list with reason `press_inactive`: it is never dropped.
+     */
+    const lineOf = (sectionId: string): { lineId: string | null; reason: "no_press" | "press_inactive" } => {
+      const last = speeds.line.get(sectionId);
+      if (last && active.has(last)) return { lineId: last, reason: "no_press" };
+      if (last) return { lineId: null, reason: "press_inactive" };
+      return { lineId: lines.length === 1 ? lines[0]!.id : null, reason: "no_press" };
+    };
     const items: LoadItem[] = [];
-    const unassigned: { ref: string; g: number; minutes: number | null }[] = [];
+    const unassigned: { ref: string; g: number; minutes: number | null; reason: "no_press" | "press_inactive" }[] = [];
     const noSpeed: { ref: string; g: number }[] = [];
     const bookedSectionWeek = new Map<string, number>();
     let laterG = 0;
@@ -435,9 +461,9 @@ export const costingRouter = router({
       bookedSectionWeek.set(`${l.sectionId}|${week}`, (bookedSectionWeek.get(`${l.sectionId}|${week}`) ?? 0) + g);
       const sp = speedOf(l.sectionId);
       const minutes = minutesFor(g, sp.kgPerHour);
-      const lineId = lineOf(l.sectionId);
+      const { lineId, reason } = lineOf(l.sectionId);
       if (minutes == null) noSpeed.push({ ref, g });
-      else if (!lineId) unassigned.push({ ref, g, minutes });
+      else if (!lineId) unassigned.push({ ref, g, minutes, reason });
       else items.push({ lineId, week, minutes, g, ref });
     }
 
@@ -485,9 +511,9 @@ export const costingRouter = router({
         if (top <= 0) continue;
         const ref = `forecast ${codes.get(sectionId) ?? sectionId}`;
         const minutes = minutesFor(top, speedOf(sectionId).kgPerHour);
-        const lineId = lineOf(sectionId);
+        const { lineId, reason } = lineOf(sectionId);
         if (minutes == null) noSpeed.push({ ref, g: top });
-        else if (!lineId) unassigned.push({ ref, g: top, minutes });
+        else if (!lineId) unassigned.push({ ref, g: top, minutes, reason });
         else items.push({ lineId, week, minutes, g: top, ref });
       }
       forecastNote = { pairs: n, truncated: hist.truncated };
@@ -501,8 +527,14 @@ export const costingRouter = router({
       plantKgPerHour: speeds.plant,
       lines: lines.map((l) => ({ ...l, weeks: loads.get(l.id) ?? [] })),
       overWeeks: [...loads.values()].reduce((s, ws) => s + ws.filter((w) => w.over).length, 0),
+      // The lists show at most 50 each; the counts and kg cover every line.
       unassigned: unassigned.slice(0, 50),
+      unassignedCount: unassigned.length,
+      unassignedG: unassigned.reduce((s, u) => s + u.g, 0),
+      pressInactiveCount: unassigned.filter((u) => u.reason === "press_inactive").length,
       noSpeed: noSpeed.slice(0, 50),
+      noSpeedCount: noSpeed.length,
+      noSpeedG: noSpeed.reduce((s, u) => s + u.g, 0),
       laterG,
       forecast: forecastNote,
       scenario: input.scenario,
@@ -575,7 +607,7 @@ export const costingRouter = router({
           select di.id, di.code, di.section_id, d.section_code, di.status, d.weight_min_g, d.weight_max_g, di.tier_rank
           from die_instance di join die d on d.id = di.section_id and d.company_id = di.company_id
           where di.company_id = ${cid} and di.status <> 'retired' and d.deleted_at is null
-          order by d.section_code, di.seq_no limit 3000`),
+          order by d.section_code, di.seq_no limit ${MAX_DIE_COPIES + 1}`),
         ctx.db.all<{ copy_id: string; total_g: number; recent_g: number }>(sql`
           select r.die_instance_id as copy_id, sum(r.good_g) as total_g, sum(case when ${RUN_AT} >= ${recentFrom} then r.good_g else 0 end) as recent_g
           from press_run r where r.company_id = ${cid} and r.status = 'logged' and r.die_instance_id is not null group by r.die_instance_id`),
@@ -598,6 +630,8 @@ export const costingRouter = router({
             where w.company_id = ${cid} and di.status <> 'retired'
           ) x where x.rn <= 20 order by x.copy_id, x.at`),
       ]);
+      const copiesTruncated = copies.length > MAX_DIE_COPIES;
+      copies.length = Math.min(copies.length, MAX_DIE_COPIES);
       const tot = new Map(totals.map((t) => [t.copy_id, { totalG: Number(t.total_g), recentG: Number(t.recent_g) }]));
       const eventsBy = (rows: { copy_id: string; section_id: string; at: number; cum_g: number }[]) => {
         const copy = new Map<string, { at: number; cumG: number }[]>();
@@ -678,6 +712,8 @@ export const costingRouter = router({
         settings: { dieSoonBp: s.dieSoonBp, dieSoonDays: s.dieSoonDays, nitrideEveryKg: s.nitrideEveryKg, correctEveryKg: s.correctEveryKg },
         items: pick.slice(0, input.limit),
         more: pick.length > input.limit,
+        /** More live copies than one read takes: `copies`, `due` and `soon` count the first 3000 by section code. */
+        copiesTruncated,
       };
     }),
 });

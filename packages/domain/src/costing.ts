@@ -237,9 +237,13 @@ export function runCost(input: RunCostInput): RunCost {
     missing.push("metal");
   }
   if (input.metal.basis === "master" && input.metal.meltYieldBp != null && input.metal.listPaisePerKg != null) {
-    // Melt loss is in the billet price already; shown so the screen can list it.
-    const lossBp = 10_000 - Math.min(10_000, input.metal.meltYieldBp);
-    losses.unshift({ kind: "melt", g: null, paisePerKg: input.metal.meltYieldBp > 0 ? roundDiv(input.metal.listPaisePerKg * lossBp, input.metal.meltYieldBp) : null });
+    // Melt loss is in the billet price already; shown so the screen can list it. Same basis as the
+    // butt, ends and rejects lines: per good kg, on the bought share of the charge (the part of the
+    // billet price that the melt yield adds: list × bought share × (1 − yield) ÷ yield, × input ÷ good).
+    const y = Math.min(10_000, input.metal.meltYieldBp);
+    const b = input.metal.boughtShareBp != null && input.metal.boughtShareBp >= 0 ? Math.min(input.metal.boughtShareBp, 10_000) : 10_000;
+    const perBillet = y > 0 ? roundDiv(input.metal.listPaisePerKg * b * (10_000 - y), y * 10_000) : null;
+    losses.unshift({ kind: "melt", g: null, paisePerKg: perBillet != null && goodG > 0 && inputG > 0 ? roundDiv(perBillet * inputG, goodG) : null });
   }
 
   const stages: StageLine[] = COST_STAGES.map((stage) => {
@@ -262,7 +266,14 @@ export function runCost(input: RunCostInput): RunCost {
       if (kph != null && kph > 0) return { stage, paisePerKg: roundDiv(r.paise, kph), basis: "hour" as const, ratePaise: r.paise, note: "section_speed" as const };
       return { stage, paisePerKg: null, basis: "hour" as const, ratePaise: r.paise, note: "no_time" as const };
     }
-    if (r.kgPerHour != null && r.kgPerHour > 0) return { stage, paisePerKg: roundDiv(r.paise, r.kgPerHour), basis: "hour" as const, ratePaise: r.paise, note: null };
+    if (r.kgPerHour != null && r.kgPerHour > 0) {
+      // An hourly casting rate over kg per hour is per billet kg, like the per-kg casting rate: scale it the same way.
+      if (stage === "casting") {
+        const v = goodG > 0 && inputG > 0 ? roundDiv(r.paise * inputG, r.kgPerHour * goodG) : null;
+        return { stage, paisePerKg: v, basis: "hour" as const, ratePaise: r.paise, note: null };
+      }
+      return { stage, paisePerKg: roundDiv(r.paise, r.kgPerHour), basis: "hour" as const, ratePaise: r.paise, note: null };
+    }
     return { stage, paisePerKg: null, basis: "hour" as const, ratePaise: r.paise, note: "no_throughput" as const };
   });
 
@@ -479,6 +490,7 @@ function predict(series: readonly { month: string; g: number }[], target: string
   return Math.round(base * ((seasonal[target.slice(5, 7)] ?? 10_000) / 10_000));
 }
 
+// TODO(xe-cost): the seasonal backtest is in-sample (the index is fitted on the months it is tested on).
 /**
  * Monthly demand forecast from order history. `history` holds grams per month (missing months are
  * zero); `currentMonth` is not counted (it is not over). Three full months are needed; with

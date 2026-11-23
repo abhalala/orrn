@@ -45,8 +45,10 @@ export function OrderCostPanel({ orderId }: { orderId: string }) {
                     <span className="text-muted-foreground">({t(`cost.order.basis.${l.costBasis}`)})</span>
                   </p>
                   {priced ? (
-                    priced.ratePaise == null || !priced.margin ? (
+                    priced.ratePaise == null ? (
                       <Note>{t("cost.order.noRate")}</Note>
+                    ) : !priced.margin ? (
+                      <Note>{t("cost.order.noMargin")}</Note>
                     ) : (
                       <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span>{t("cost.order.rate")}: {say.rate(priced.ratePaise)}</span>
@@ -60,6 +62,7 @@ export function OrderCostPanel({ orderId }: { orderId: string }) {
               );
             })}
           </ul>
+          {q.data.truncated ? <Note>{t("cost.order.truncated")}</Note> : null}
         </div>
       )}
     </Card>

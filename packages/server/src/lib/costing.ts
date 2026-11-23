@@ -127,6 +127,17 @@ export type RunRow = {
   minutes: number | null;
 };
 
+const RUN_ORDER = sql`order by r.production_day desc, r.number desc`;
+
+/**
+ * The runs a read actually takes: the first `limit` of the filter in screen order. The cast and
+ * billet reads use this (a subquery, never an id list), so a wide date range never pulls billet
+ * rows for runs past the page or past `MAX_COST_RUNS`.
+ */
+export function selectedRuns(where: SQL, limit: number): SQL {
+  return sql`r.id in (select r.id from ${RUN_FROM} where ${where} ${RUN_ORDER} limit ${limit})`;
+}
+
 async function loadRuns(db: OrrnDb, where: SQL, limit = MAX_COST_RUNS): Promise<{ runs: RunRow[]; truncated: boolean }> {
   const rows = await db.all<Record<string, unknown>>(sql`
     select r.id, r.number, coalesce(r.production_day, '') as production_day, r.section_id, d.section_code, r.die_instance_id, di.code as copy_code,
@@ -136,7 +147,7 @@ async function loadRuns(db: OrrnDb, where: SQL, limit = MAX_COST_RUNS): Promise<
     join die d on d.id = r.section_id and d.company_id = r.company_id
     left join die_instance di on di.id = r.die_instance_id and di.company_id = r.company_id
     where ${where}
-    order by r.production_day desc, r.number desc
+    ${RUN_ORDER}
     limit ${limit + 1}`);
   const truncated = rows.length > limit;
   return {
@@ -296,22 +307,35 @@ export type MetalSourceInfo = MetalInput & { casts: { castId: string; number: st
 
 export type CostedRun = RunRow & { metal: MetalSourceInfo; ratesFrom: string | null; cost: RunCost };
 
-/** Every logged production run the filter matches, costed. */
+/** The plant-wide inputs every costing read shares: foundry factors, the metal list, press speeds. */
+export type CostBasisInputs = { factors: FoundryFactors; metal: PriceRateRow[]; speeds: Speeds };
+
+/** Load the shared inputs once; a read that costs two run sets passes them to both `costRuns` calls. */
+export async function costBasisInputs(db: OrrnDb, companyId: string, co: CostingCompany, at: Date): Promise<CostBasisInputs> {
+  const [factors, metal, speeds] = await Promise.all([foundryFactors(db, companyId, at), metalRows(db, companyId, co.pricing.metalSource), sectionSpeeds(db, companyId, at)]);
+  return { factors, metal, speeds };
+}
+
+/** The selected runs with their casts and billet rows; the cast and billet reads cover only those runs. */
+export async function loadRunInputs(db: OrrnDb, companyId: string, where: SQL, limit: number) {
+  const chosen = sql`${where} and ${selectedRuns(where, limit)}`;
+  const [loaded, casts, uses] = await Promise.all([loadRuns(db, where, limit), castCosts(db, companyId, chosen), billetUses(db, chosen)]);
+  return { ...loaded, casts, uses };
+}
+
+/** Logged production runs the filter matches (at most `limit`, else `MAX_COST_RUNS`), costed. */
 export async function costRuns(
   db: OrrnDb,
   companyId: string,
   co: CostingCompany,
   opts: { from?: string; to?: string; sectionId?: string; orderId?: string; limit?: number },
   at: Date,
+  shared?: CostBasisInputs,
 ): Promise<{ runs: CostedRun[]; truncated: boolean; factors: FoundryFactors }> {
   const where = runFilter(companyId, opts);
-  const [{ runs, truncated }, casts, uses, factors, metal, speeds] = await Promise.all([
-    loadRuns(db, where, opts.limit ?? MAX_COST_RUNS),
-    castCosts(db, companyId, where),
-    billetUses(db, where),
-    foundryFactors(db, companyId, at),
-    metalRows(db, companyId, co.pricing.metalSource),
-    sectionSpeeds(db, companyId, at),
+  const [{ runs, truncated, casts, uses }, { factors, metal, speeds }] = await Promise.all([
+    loadRunInputs(db, companyId, where, opts.limit ?? MAX_COST_RUNS),
+    shared ?? costBasisInputs(db, companyId, co, at),
   ]);
   const costed = runs.map((r): CostedRun => {
     const parts = uses.get(r.id) ?? (r.castId ? [{ castId: r.castId, kgG: r.inputG }] : []);
@@ -324,6 +348,8 @@ export async function costRuns(
     if (known) {
       m = { basis: "cast", paisePerBilletKg: weightedPerKg(castInfo.map((c) => ({ goodG: c.kgG, paisePerKg: c.perBilletKgPaise }))), casts: castInfo, rateDate: null };
     } else {
+      // Limit (owner item): this assumes the billets came from the plant's own furnace. A run on
+      // bought-in billets, or a legacy run with no cast, is costed at bought share × list ÷ yield.
       const rate = r.productionDay ? resolveRate(metal, "metal", co.pricing.metalSource, r.productionDay) : null;
       m = rate
         ? {

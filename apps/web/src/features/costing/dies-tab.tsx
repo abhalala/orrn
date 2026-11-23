@@ -45,6 +45,7 @@ export function DiesTab() {
               </ul>
             )}
             {data.more ? <Note>{t("cost.dies.more")}</Note> : null}
+            {data.copiesTruncated ? <Note>{t("cost.dies.copiesTruncated", { n: data.copies })}</Note> : null}
           </>
         )}
       </Loaded>

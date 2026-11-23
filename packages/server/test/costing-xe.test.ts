@@ -14,6 +14,7 @@ import {
   melt,
   meltInput,
   nitridingLog,
+  pressBilletUse,
   pressLine,
   pressRun,
   pressRunLine,
@@ -28,6 +29,7 @@ import {
 import { and, eq } from "drizzle-orm";
 
 import { setClockForTests } from "../src/lib/clock";
+import { loadRunInputs, runFilter } from "../src/lib/costing";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { SLOW } from "./sales-fixture";
 
@@ -438,6 +440,113 @@ describe("settings", () => {
       s = await p.manager.costing.settings.get();
       expect(s.rates).toEqual([]);
       await expect(p.manager.costing.settings.update({ lowMarginBp: 20_000 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    },
+    SLOW,
+  );
+});
+
+describe("fix round 1", () => {
+  test(
+    "work on a section last pressed on a press that is now off goes to the unassigned list, never lost",
+    async () => {
+      const p = await plant({ costing: { workDaysPerWeek: 1, hoursPerDay: 10, downtimeHoursPerWeek: 0 } });
+      const old = uid();
+      await env.db.insert(pressLine).values({ id: old, companyId: p.companyId, code: `P${++seq}`, name: "Press 2" });
+      await runOf(p, { day: "2026-11-02", inputKg: 1200, goodKg: 1000, hours: 4, lineId: old }); // 250 kg/h on press 2
+      await env.db.update(pressLine).set({ status: "retired" }).where(eq(pressLine.id, old));
+      await orderOf(p, { kg: 2_000, expectedDate: "2026-11-14" });
+      const cap = await p.manager.costing.capacity({ weeks: 4 });
+      expect(cap.lines.map((l) => l.id)).toEqual([p.lineId]);
+      expect(cap.lines[0]!.weeks[0]!.bookedMin).toBe(0);
+      expect(cap.unassigned).toEqual([expect.objectContaining({ g: 2_000_000, minutes: 480, reason: "press_inactive" })]);
+      expect(cap).toMatchObject({ unassignedCount: 1, unassignedG: 2_000_000, pressInactiveCount: 1, noSpeedCount: 0, noSpeedG: 0 });
+    },
+    SLOW,
+  );
+
+  test(
+    "press-run rows with 0 kg are left out of a line's cost; with nothing else the cost is unknown and there is no margin",
+    async () => {
+      const p = await plant();
+      const { castId } = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      const a = await orderOf(p, { kg: 800, ratePaise: 30_000 });
+      // A costed run (Rs 250 per good kg) that pressed for another line; this line got a 0 pcs, 0 kg row.
+      const run = await runOf(p, { day: "2026-11-12", inputKg: 1000, goodKg: 800, castId });
+      await env.db.insert(pressRunLine).values({ id: uid(), companyId: p.companyId, pressRunId: run, line: 1, salesOrderLineId: a.lineId, cutLengthMm: 3_658, pcs: 0, goodG: 0 });
+      const zero = await p.accountant.costing.orderLines({ orderId: a.orderId });
+      expect(zero.lines[0]).toMatchObject({ costPaisePerKg: null, costBasis: "none", pressedG: 0, margin: null });
+      expect(zero.truncated).toBe(false);
+      // A real row on another run: the cost is that run's, the zero row does not dilute it.
+      const run2 = await runOf(p, { day: "2026-11-13", inputKg: 1000, goodKg: 500, castId, orderLineId: a.lineId });
+      expect(run2).toBeTruthy();
+      const mixed = await p.accountant.costing.orderLines({ orderId: a.orderId });
+      expect(mixed.lines[0]).toMatchObject({ costPaisePerKg: 40_000, costBasis: "actual", pressedG: 500_000 });
+    },
+    SLOW,
+  );
+
+  test(
+    "a run's billets from two casts take their kg-weighted cost; one uncosted cast sends the run to the price master",
+    async () => {
+      const p = await plant();
+      await env.db.insert(priceRate).values({ id: uid(), companyId: p.companyId, kind: "metal", key: "nalco", paise: 25_000, effectiveFrom: "2026-11-01", status: "active" } as never);
+      const a = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 }); // Rs 200 per billet kg
+      const b = await castOf(p, { lotKg: 1000, ratePaise: 30_000, billetKg: 1000 }); // Rs 300 per billet kg
+      const run = await runOf(p, { day: "2026-11-12", inputKg: 1000, goodKg: 800, castId: a.castId });
+      await env.db.insert(pressBilletUse).values([
+        { id: uid(), companyId: p.companyId, pressRunId: run, line: 1, castId: a.castId, count: 15, kgG: 600_000 },
+        { id: uid(), companyId: p.companyId, pressRunId: run, line: 2, castId: b.castId, count: 10, kgG: 400_000 },
+      ]);
+      // A cast with no locked melt has no cost.
+      const bare = uid();
+      await env.db.insert(cast).values({ id: bare, companyId: p.companyId, number: `K${++seq}`, period: "2026-11", year: 2026, month: 11, seq, alloy: "6063", openedAt: NOON });
+      const run2 = await runOf(p, { day: "2026-11-13", inputKg: 1000, goodKg: 800 });
+      await env.db.insert(pressBilletUse).values([
+        { id: uid(), companyId: p.companyId, pressRunId: run2, line: 1, castId: a.castId, count: 15, kgG: 600_000 },
+        { id: uid(), companyId: p.companyId, pressRunId: run2, line: 2, castId: bare, count: 10, kgG: 400_000 },
+      ]);
+      const res = await p.manager.costing.runs({ from: "2026-11-01", to: "2026-11-15" });
+      const mixed = res.items.find((r) => r.id === run)!;
+      // (600 × 20 000 + 400 × 30 000) ÷ 1000 = 24 000 per billet kg; × 1000 ÷ 800 = 30 000 per good kg.
+      expect(mixed.metal).toMatchObject({ basis: "cast", paisePerBilletKg: 24_000 });
+      expect(mixed.metal.casts.map((c) => [c.castId, c.kgG, c.perBilletKgPaise])).toEqual(
+        expect.arrayContaining([[a.castId, 600_000, 20_000], [b.castId, 400_000, 30_000]]),
+      );
+      expect(mixed.metalPaisePerKg).toBe(30_000);
+      const fallback = res.items.find((r) => r.id === run2)!;
+      expect(fallback.metal).toMatchObject({ basis: "master", listPaisePerKg: 25_000 });
+      expect(fallback.metal.casts).toHaveLength(2);
+      expect(fallback.metal.casts.find((c) => c.castId === bare)!.perBilletKgPaise).toBeNull();
+    },
+    SLOW,
+  );
+
+  test(
+    "the cast and billet reads cover only the runs a read takes, not the whole date range",
+    async () => {
+      const p = await plant();
+      const oldCast = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      const newCast = await castOf(p, { lotKg: 1000, ratePaise: 30_000, billetKg: 1000 });
+      const early = await runOf(p, { day: "2026-11-05", inputKg: 1000, goodKg: 800 });
+      const late = await runOf(p, { day: "2026-11-12", inputKg: 1000, goodKg: 800 });
+      await env.db.insert(pressBilletUse).values([
+        { id: uid(), companyId: p.companyId, pressRunId: early, line: 1, castId: oldCast.castId, count: 10, kgG: 1_000_000 },
+        { id: uid(), companyId: p.companyId, pressRunId: late, line: 1, castId: newCast.castId, count: 10, kgG: 1_000_000 },
+      ]);
+      const where = runFilter(p.companyId, { from: "2026-11-01", to: "2026-11-15" });
+      const one = await loadRunInputs(env.db as never, p.companyId, where, 1);
+      expect(one.runs.map((r) => r.id)).toEqual([late]);
+      expect(one.truncated).toBe(true);
+      expect([...one.casts.keys()]).toEqual([newCast.castId]);
+      expect([...one.uses.keys()]).toEqual([late]);
+      const both = await loadRunInputs(env.db as never, p.companyId, where, 10);
+      expect(both.casts.size).toBe(2);
+      expect(both.uses.size).toBe(2);
+      // The page read takes offset + limit runs, so a first page of one costs only the newest run.
+      const page = await p.manager.costing.runs({ from: "2026-11-01", to: "2026-11-15", limit: 1 });
+      expect(page.items.map((r) => r.id)).toEqual([late]);
+      expect(page.items[0]!.metal).toMatchObject({ basis: "cast", paisePerBilletKg: 30_000 });
+      expect(page.nextOffset).toBe(1);
     },
     SLOW,
   );

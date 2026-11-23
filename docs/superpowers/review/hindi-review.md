@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10969 screen strings in 57 groups, 45 guides with 866 strings.
+Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -9347,7 +9347,7 @@ Please check, Lalubhai:
 | `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
 | `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
-### cost (256)
+### cost (260)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9495,6 +9495,7 @@ Please check, Lalubhai:
 | `capacity.noLines` | No press lines are set up. | कोई प्रेस लाइन सेट नहीं है। |
 | `capacity.unassigned` | No press known for {n} lines. Their work is not counted above. | {n} लाइनों के लिए प्रेस पता नहीं। उनका काम ऊपर नहीं गिना। |
 | `capacity.noSpeed` | No press speed known for {n} lines. Their work is not counted above. | {n} लाइनों के लिए प्रेस की रफ़्तार पता नहीं। उनका काम ऊपर नहीं गिना। |
+| `capacity.pressInactive` | {n} lines were last pressed on a press that is now off. Their work is not counted above. | {n} लाइनें आखिरी बार ऐसे प्रेस पर चलीं जो अभी बंद है। उनका काम ऊपर नहीं गिना। |
 | `capacity.later` | {kg} falls due after these weeks. | {kg} इन हफ़्तों के बाद देय है। |
 | `capacity.forecastNote` | Forecast added for {n} customer and section pairs. | {n} ग्राहक और सेक्शन जोड़ियों के लिए अनुमान जोड़ा गया। |
 | `capacity.truncated` | Only part of the open work is counted. | सिर्फ़ कुछ खुला काम गिना गया है। |
@@ -9524,6 +9525,7 @@ Please check, Lalubhai:
 | `dies.correct` | Correction | करेक्शन |
 | `dies.drift` | Weight drift | वज़न का बहाव |
 | `dies.summary` | {due} due, {soon} soon, of {copies} copies. | {copies} copy में से {due} का समय हो गया, {soon} जल्दी। |
+| `dies.copiesTruncated` | Only the first {n} copies are counted. | सिर्फ़ पहली {n} copy गिनी गईं। |
 | `dies.more` | More copies match. Narrow the list or choose a shorter one. | और copy मेल खाती हैं। सूची छोटी करें। |
 | `dies.empty` | No copy needs attention. | किसी copy को ध्यान नहीं चाहिए। |
 | `dies.state.due` | Due | समय हो गया |
@@ -9599,6 +9601,8 @@ Please check, Lalubhai:
 | `order.marginPct` | Margin % | मार्जिन % |
 | `order.low` | Low margin | कम मार्जिन |
 | `order.noRate` | No rate on this line | इस लाइन पर रेट नहीं |
+| `order.noMargin` | No margin: the cost is not known | मार्जिन नहीं: लागत पता नहीं |
+| `order.truncated` | Only the newest runs are counted. | सिर्फ़ नए रन गिने गए। |
 | `order.basis.actual` | from its runs | इसके अपने रन से |
 | `order.basis.section_month` | section average | सेक्शन का औसत |
 | `order.basis.section` | section average | सेक्शन का औसत |

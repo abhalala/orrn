@@ -58,6 +58,7 @@ export const guCost = {
       booked: "બુક કલાક",
       load: "લોડ",
       over: "વધુ પડતું બુક",
+      pressInactive: "{n} લાઇન છેલ્લે એવા પ્રેસ પર ચાલી જે હમણાં બંધ છે. તેમનું કામ ઉપર ગણ્યું નથી.",
     },
     dies: {
       attention: "ધ્યાન જોઈએ",

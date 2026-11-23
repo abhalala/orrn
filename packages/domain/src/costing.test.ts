@@ -131,6 +131,15 @@ describe("row 16: cost per kg of a run", () => {
     expect(b.totalPaisePerKg).toBeNull();
   });
 
+  const RUN_MASTER = {
+    discardG: 0,
+    endsG: 0,
+    rejectG: 0,
+    runMinutes: null,
+    metal: { basis: "master" as const, paisePerBilletKg: 15_789, listPaisePerKg: 25_000, meltYieldBp: 9_500, boughtShareBp: 6_000 },
+    rates: null,
+  };
+
   test("metal from the price master: bought share and melt yield, melt loss listed", () => {
     // Rs 250 list, 60 % of the charge is bought scrap, 95 % melt yield: 250 × 0.6 / 0.95 = 157.89
     expect(masterBilletPaise(25_000, 9_500, 6_000)).toBe(15_789);
@@ -145,7 +154,23 @@ describe("row 16: cost per kg of a run", () => {
       metal: { basis: "master", paisePerBilletKg: 15_789, listPaisePerKg: 25_000, meltYieldBp: 9_500, boughtShareBp: 6_000 },
       rates: null,
     });
-    expect(c.losses[0]).toEqual({ kind: "melt", g: null, paisePerKg: 1_316 });
+    // Melt loss on the bought share, as the press losses: 250 × 0.6 × 0.05 ÷ 0.95 = 7.89 per billet kg.
+    expect(c.losses[0]).toEqual({ kind: "melt", g: null, paisePerKg: 789 });
+    // Per good kg like its neighbours: at 80 % recovery it is × 1.25.
+    const d = runCost({ ...RUN_MASTER, inputG: 1_000_000, goodG: 800_000 });
+    expect(d.losses[0]).toEqual({ kind: "melt", g: null, paisePerKg: 986 });
+  });
+
+  test("an hourly casting rate is scaled for press losses like the per-kg rate (80 % recovery)", () => {
+    const base = { inputG: 1_000_000, goodG: 800_000, discardG: 200_000, endsG: 0, rejectG: 0, runMinutes: null, metal: { basis: "none" as const, paisePerBilletKg: null } };
+    // Rs 10 per billet kg, as a per-kg rate and as Rs 100 an hour at 10 kg an hour.
+    const perKg = runCost({ ...base, rates: { from: "2026-01-01", stages: { casting: { basis: "kg", paise: 1_000, kgPerHour: null } } } });
+    const hourly = runCost({ ...base, rates: { from: "2026-01-01", stages: { casting: { basis: "hour", paise: 10_000, kgPerHour: 10 } } } });
+    expect(perKg.stages.find((s) => s.stage === "casting")!.paisePerKg).toBe(1_250);
+    expect(hourly.stages.find((s) => s.stage === "casting")!.paisePerKg).toBe(1_250);
+    // Other hourly stages are per good kg already and are not scaled.
+    const ageing = runCost({ ...base, rates: { from: "2026-01-01", stages: { ageing: { basis: "hour", paise: 10_000, kgPerHour: 10 } } } });
+    expect(ageing.stages.find((s) => s.stage === "ageing")!.paisePerKg).toBe(1_000);
   });
 
   test("a cast charged mostly from return streams is cheap per billet kg and is not credited again", () => {

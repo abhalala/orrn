@@ -137,8 +137,9 @@ function Lines({ data }: { data: CapacityView }) {
         </Panel>
       ))}
       <div className="flex flex-col gap-1">
-        {data.unassigned.length > 0 ? <Note>{t("cost.capacity.unassigned", { n: data.unassigned.length })}</Note> : null}
-        {data.noSpeed.length > 0 ? <Note>{t("cost.capacity.noSpeed", { n: data.noSpeed.length })}</Note> : null}
+        {data.unassignedCount - data.pressInactiveCount > 0 ? <Note>{t("cost.capacity.unassigned", { n: data.unassignedCount - data.pressInactiveCount })}</Note> : null}
+        {data.pressInactiveCount > 0 ? <Note>{t("cost.capacity.pressInactive", { n: data.pressInactiveCount })}</Note> : null}
+        {data.noSpeedCount > 0 ? <Note>{t("cost.capacity.noSpeed", { n: data.noSpeedCount })}</Note> : null}
         {data.laterG > 0 ? <Note>{t("cost.capacity.later", { kg: say.kgU(data.laterG) })}</Note> : null}
         {data.forecast ? <Note>{t("cost.capacity.forecastNote", { n: data.forecast.pairs })}</Note> : null}
         {data.truncated || data.forecast?.truncated ? <Note>{t("cost.capacity.truncated")}</Note> : null}
