@@ -1,3 +1,4 @@
+import { anyModuleOn } from "@orrn/domain";
 import type { Me } from "@orrn/server/lib/permissions";
 
 import { canAny } from "@orrn/server/lib/permissions";
@@ -48,23 +49,21 @@ const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.di
  * die room already have those tabs, so they get no duplicate row.
  */
 export function showsFoundryMasters(me: Pick<Me, "company"> | null | undefined): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  const moduleOn = modules.length === 0 || modules.includes("foundry");
+  const moduleOn = anyModuleOn(me?.company?.modules, ["foundry"]);
   return moduleOn && canAny(me as Me, ["masters.publish"]);
 }
 
 export function showsDieWorkLists(me: Pick<Me, "company"> | null | undefined): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  const moduleOn = modules.length === 0 || modules.includes("dies");
+  const moduleOn = anyModuleOn(me?.company?.modules, ["dies"]);
   return moduleOn && canAny(me as Me, ["die.card", "die.maker"]);
 }
 
 export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  const modules = me?.company?.modules;
   // The die room has a Dies tab: More does not list a second "Dies" that opens the read-only list.
   const hasDiesTab = me?.company ? visibleTabs(me as Me).includes("dies") : false;
   const base = ROWS.filter(
-    (row) => (!row.modules || modules.length === 0 || row.modules.some((m) => modules.includes(m))) && !(row.key === "dies" && hasDiesTab),
+    (row) => anyModuleOn(modules, row.modules) && !(row.key === "dies" && hasDiesTab),
   );
   const extra = me?.company ? extraTabs(me as Me) : [];
   const rows = extra.includes("dies") ? base.map((r) => (r.key === "dies" ? DIE_ROOM_ROW : r)) : base;

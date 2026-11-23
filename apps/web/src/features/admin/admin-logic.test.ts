@@ -207,6 +207,11 @@ describe("plan form", () => {
   test("no box ticked cannot be saved (it would mean every module on)", () => {
     expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: [] }).noneOn).toBe(true);
   });
+  test("only an opt-in box ticked cannot be saved either: it would switch every floor module on (B1)", () => {
+    const optIn = ["billing", "einvoice"];
+    expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: ["billing"] }, optIn).noneOn).toBe(true);
+    expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: ["dies", "billing"] }, optIn).noneOn).toBe(false);
+  });
   test("a changed plan or module is dirty", () => {
     expect(planForm({ plan: "growth", modules: [] }, { plan: "enterprise", modules: [] }).dirty).toBe(true);
     expect(planForm({ plan: "growth", modules: [] }, { plan: "growth", modules: ["dies"] }).dirty).toBe(true);

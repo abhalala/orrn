@@ -71,6 +71,28 @@ export function isModuleOn(modules: readonly string[] | null | undefined, module
   return list.includes(module);
 }
 
+/**
+ * The EFFECTIVE module list a client receives (auth.me, company.getSettings): every module `isModuleOn`
+ * says is on, spelled out. A stored `["billing"]` reaches clients as every standard module plus billing, so
+ * a phone built before opt-in modules (rule "empty = all on, else includes") still shows every floor tab.
+ * The stored list stays compact; Godseye and backups read it raw.
+ */
+export function effectiveModules(modules: readonly string[] | null | undefined): CompanyModule[] {
+  return COMPANY_MODULES.filter((m) => isModuleOn(modules, m));
+}
+
+/**
+ * Client helper: is any of `keys` on for this list? Same rule as `isModuleOn` (unknown keys count as off).
+ * An empty `keys` means "not gated" and is on.
+ */
+export function anyModuleOn(modules: readonly string[] | null | undefined, keys: readonly string[] | null | undefined): boolean {
+  if (!keys || keys.length === 0) return true;
+  return keys.some((k) => {
+    const key = k.trim().toLowerCase();
+    return isCompanyModule(key) && isModuleOn(modules, key);
+  });
+}
+
 /** Lower-case, de-duplicate and check a modules list; unknown keys are returned, never stored. */
 export function normalizeModules(input: readonly string[]): { modules: CompanyModule[]; unknown: string[] } {
   const modules: CompanyModule[] = [];

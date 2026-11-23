@@ -1248,6 +1248,11 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   named: `[]` still means every STANDARD module on, but no opt-in one. A list that names only opt-in keys
   keeps every standard module on (`isModuleOn` in `@orrn/domain` is the one rule; web nav, settings and
   Godseye all call it). Opt-in routers also gate their READS (`lib/billing/gate.ts`), since they carry money.
+  Clients get the EFFECTIVE list (`effectiveModules`: every module that is on, spelled out) from `auth.me` and
+  `company.getSettings`, so a stored `["billing"]` reaches an old phone as every floor module plus billing.
+  Only Godseye (`platform.companies`) and backups read the stored list. Client code checks modules with
+  `isModuleOn` / `anyModuleOn`, never its own "empty = all on" test (`apps/web/src/shell/modules-rule.test.ts`
+  greps web and native for it). Godseye refuses a save with no standard box ticked.
 - **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
   of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
   "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`

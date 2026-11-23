@@ -6,7 +6,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
 import { approval, company, customer, dispatch, docSeries, invoice, packingList, salesOrderLine } from "@orrn/db/schema";
-import { computeInvoice, decodeSignedInvoice, gstinCheckDigit } from "@orrn/domain";
+import { computeInvoice, decodeSignedInvoice, gstinCheckDigit, STANDARD_MODULES } from "@orrn/domain";
 import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -105,6 +105,27 @@ describe("module and permission gate", () => {
     await expect(p.as("viewer").billing.invoices.createDraft({ packingListIds: ["x"] })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(p.as("supervisor").billing.payments.record({ customerId: p.customerId, receivedOn: "2026-10-03", amountPaise: 100, mode: "cash" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(p.as("packer").billing.settings.save({ stateCode: "24", pincode: "394230", place: "Surat" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  }, SLOW);
+});
+
+describe("effective modules (review B1)", () => {
+  test("a plant on [] that ticks billing in Godseye keeps every floor module, in auth.me and on the server", async () => {
+    const { companyId } = await env.seedCompany({ modules: [] });
+    const staff = env.caller({ platformRole: "admin" });
+    // Godseye: every floor box ticked plus Billing saves the compact list.
+    await staff.platform.updatePlanAndModules({ companyId, plan: "growth", modules: ["billing"] });
+    const stored = await env.db.select({ modules: company.modules }).from(company).where(eq(company.id, companyId)).get();
+    expect(stored!.modules).toEqual(["billing"]);
+    const owner = env.caller({ role: "owner", companyId });
+    const me = await owner.auth.me();
+    expect(me.company?.modules).toEqual([...STANDARD_MODULES, "billing"]);
+    // An old phone's rule ("empty = all on, else includes") over that list keeps every floor tab.
+    for (const m of STANDARD_MODULES) expect(me.company!.modules.includes(m)).toBe(true);
+    expect((await owner.company.getSettings()).modules).toEqual([...STANDARD_MODULES, "billing"]);
+    // The server agrees: floor modules are on, einvoice is not.
+    const gate = await import("../src/lib/moduleGate");
+    for (const m of STANDARD_MODULES) await gate.assertModule({ db: env.db, companyId }, m);
+    await expect(gate.assertModule({ db: env.db, companyId }, "einvoice")).rejects.toMatchObject({ code: "FORBIDDEN" });
   }, SLOW);
 });
 

@@ -1,3 +1,4 @@
+import { anyModuleOn } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { ActionTile } from "@orrn/ui/components/action-tile";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -12,9 +13,8 @@ import { SalesRegisterCard } from "./sales-register-card";
 export function ReportsIndex() {
   const { t } = useT();
   const { data: me } = useMe();
-  // A plant that switched a module off has nothing to report on it (an empty list means every module is on).
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  const on = (m: string | null) => m === null || modules.length === 0 || modules.includes(m);
+  // A plant that switched a module off has nothing to report on it (the server's rule, `isModuleOn`).
+  const on = (m: string | null) => m === null || anyModuleOn(me?.company?.modules, [m]);
   const items = [
     { module: "press", to: "/reports/production", title: t("reports.list.production"), hint: t("reports.list.productionBody"), icon: <Factory aria-hidden="true" className="size-5" />, accent: "green" as const },
     { module: "dies", to: "/reports/die-life", title: t("reports.list.dieLife"), hint: t("reports.list.dieLifeBody"), icon: <Cylinder aria-hidden="true" className="size-5" />, accent: "red" as const },

@@ -40,14 +40,15 @@ export function modulesToSave<T extends string>(on: readonly string[], all: read
  * `dirty` when the form differs from what is saved (`saved.modules` as the
  * boxes show it, see `modulesOn`). A company without a plan is always dirty
  * (`noPlanYet`): the form shows Starter, and saving it as is must be
- * possible, otherwise "No plan" could never become Starter. `noneOn`: no box
- * ticked, which cannot be saved (an empty list means every module on).
+ * possible, otherwise "No plan" could never become Starter. `noneOn`: no standard
+ * box ticked, which cannot be saved (an empty list, or one of only opt-in keys, means every module on).
  */
-export function planForm(saved: PlanValues, form: { plan: string; modules: readonly string[] }) {
+export function planForm(saved: PlanValues, form: { plan: string; modules: readonly string[] }, optIn: readonly string[] = []) {
   const noPlanYet = saved.plan === null;
   return {
     dirty: noPlanYet || form.plan !== saved.plan || !sameModules(form.modules, saved.modules),
     noPlanYet,
-    noneOn: form.modules.length === 0,
+    // No STANDARD box ticked cannot be saved: a list of only opt-in keys means every floor module on (B1).
+    noneOn: !form.modules.some((m) => !optIn.includes(m)),
   };
 }

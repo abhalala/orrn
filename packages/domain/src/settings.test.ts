@@ -14,6 +14,8 @@ import {
   FLOOR_SETTINGS_DEFAULTS,
   GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS,
   castRequiredOnBundle,
+  anyModuleOn,
+  effectiveModules,
   isModuleOn,
   validateThresholds,
   normalizeModules,
@@ -115,6 +117,25 @@ describe("modules (FP-PF-07, C42)", () => {
   });
   test("normalise: lower case, de-duplicate, unknown returned", () => {
     expect(normalizeModules(["Press", "press", " Orders ", "crm"])).toEqual({ modules: ["press", "orders"], unknown: ["crm"] });
+  });
+  test("effective list (B1): an old client's rule over it agrees with isModuleOn on the stored list", () => {
+    const oldRule = (list: readonly string[], m: string) => list.length === 0 || list.includes(m);
+    for (const raw of [[], ["billing"], ["billing", "einvoice"], ["bundles"], ["bundles", "billing"], ["press", "dispatches", "einvoice"]]) {
+      const eff = effectiveModules(raw);
+      for (const m of COMPANY_MODULES) {
+        expect(oldRule(eff, m)).toBe(isModuleOn(raw, m));
+        expect(isModuleOn(eff, m)).toBe(isModuleOn(raw, m));
+      }
+    }
+    expect(effectiveModules(["billing"])).toEqual([...STANDARD_MODULES, "billing"]);
+    expect(effectiveModules([])).toEqual([...STANDARD_MODULES]);
+  });
+  test("anyModuleOn: no keys = on; unknown keys off; same rule as isModuleOn", () => {
+    expect(anyModuleOn(["billing"], ["bundles", "dies"])).toBe(true);
+    expect(anyModuleOn(["press"], ["bundles", "dies"])).toBe(false);
+    expect(anyModuleOn(["press"], [])).toBe(true);
+    expect(anyModuleOn([], ["billing"])).toBe(false);
+    expect(anyModuleOn([], ["crm"])).toBe(false);
   });
 });
 

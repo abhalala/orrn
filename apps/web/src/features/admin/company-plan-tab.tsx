@@ -45,7 +45,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.plan, (company.modules ?? []).join(",")]);
 
-  const { dirty, noPlanYet, noneOn } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules });
+  const { dirty, noPlanYet, noneOn } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules }, OPT_IN_MODULES);
 
   const save = useMutation({
     ...trpc.platform.updatePlanAndModules.mutationOptions(),
