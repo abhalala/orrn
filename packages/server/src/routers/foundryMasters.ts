@@ -130,9 +130,9 @@ const furnacesRouter = router({
     return { items };
   }),
 
-  /** F1, 6 t, 127 mm (Q-FD-8, Q27) for a plant with no furnace yet. */
+  /** F1, 6 t, 127 mm (Q-FD-8, Q27) for a plant with no melting furnace yet (a homogenizing one does not count). */
   seedDefaults: actionProcedure("masters.publish").mutation(async ({ ctx }) => {
-    const [any] = await ctx.db.select({ id: furnace.id }).from(furnace).where(eq(furnace.companyId, ctx.companyId)).limit(1);
+    const [any] = await ctx.db.select({ id: furnace.id }).from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.kind, "melting"))).limit(1);
     if (any) return { added: 0 };
     const rowId = crypto.randomUUID();
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
