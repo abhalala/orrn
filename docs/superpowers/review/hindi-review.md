@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
+Counts: 10969 screen strings in 57 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (94)
+### nav (95)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -269,6 +269,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `audit` | Audit log | ऑडिट लॉग |
 | `pricing` | Prices | भाव |
 | `billing` | Billing | बिलिंग |
+| `costing` | Costing | लागत |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
@@ -3157,7 +3158,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (394)
+### admin (396)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3375,6 +3376,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `plan.moduleNames.pricing` | Prices and quotes | भाव और कोटेशन |
 | `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
+| `plan.moduleNames.costing` | Costing | लागत |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3390,6 +3392,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `plan.moduleHints.pricing` | Price master, quotes, proformas and enquiries | भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ |
 | `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
+| `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -9970,7 +9973,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (55)
+### plantSettings (56)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -10015,6 +10018,7 @@ Please check, Lalubhai:
 | `modules.names.pricing` | Prices and quotes | भाव और कोटेशन |
 | `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
+| `modules.names.costing` | Costing | लागत |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -10154,7 +10158,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (430)
+### audit (431)
 
 | Key | English | हिंदी |
 |---|---|---|

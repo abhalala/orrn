@@ -9,19 +9,18 @@
  * readings.
  */
 import { addDaysYmd, roundDiv } from "./pricing";
+import { isModuleOn } from "./settings";
 
 // ---------------------------------------------------------------------------
 // The module gate
 // ---------------------------------------------------------------------------
 
 /**
- * `costing` is opt-in (owner prod rule 2026-11-23): on only when the plant's module list names it.
- * An empty list (which turns every older module on) leaves it off.
- * TODO(xe-bill): switch callers to `isModuleOn(modules, "costing")` once BILL's `OPT_IN_MODULES` lands
- * on main with `costing` in it.
+ * `costing` is opt-in (owner prod rule 2026-11-23, `OPT_IN_MODULES`): on only when the plant's module
+ * list names it. An empty list (which turns every standard module on) leaves it off.
  */
 export function costingOn(modules: readonly string[] | null | undefined): boolean {
-  return Array.isArray(modules) && modules.some((m) => typeof m === "string" && m.trim().toLowerCase() === "costing");
+  return isModuleOn(modules, "costing");
 }
 
 // ---------------------------------------------------------------------------

@@ -49,8 +49,7 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   // XE-BILL: both opt-in; their reads are gated in lib/billing/gate.ts too.
   billing: "billing",
   einvoice: "einvoice",
-  // XE parity lane COST (routers/costing.ts). `costing` is opt-in, and this router-level gate treats an
-  // empty list as "all on", so every costing procedure also calls `assertCostingOn` itself.
+  // XE parity lane COST (routers/costing.ts), opt-in; its reads call `assertCostingOn` too.
   costing: "costing",
 };
 

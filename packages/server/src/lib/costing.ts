@@ -64,9 +64,8 @@ export async function costingCompany(db: OrrnDb, companyId: string, at: Date) {
 export type CostingCompany = Awaited<ReturnType<typeof costingCompany>>;
 
 /**
- * `costing` is opt-in: FORBIDDEN unless the plant's module list names it. Every costing procedure
- * calls this (reads too), because the router-level gate treats an empty list as "all on".
- * TODO(xe-bill): replace with `assertModule(ctx, "costing")` once OPT_IN_MODULES holds `costing`.
+ * `costing` is opt-in (`OPT_IN_MODULES`): FORBIDDEN unless the plant's module list names it. The
+ * router-level gate covers mutations only, so every costing procedure (reads too) calls this.
  */
 export function assertCostingOn(co: Pick<CostingCompany, "on">): void {
   if (!co.on) throw new TRPCError({ code: "FORBIDDEN", message: MODULE_OFF_MESSAGE });

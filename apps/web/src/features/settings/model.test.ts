@@ -140,12 +140,13 @@ describe("standards form", () => {
 
 describe("modules, letterhead, devices, support contact", () => {
   test("an empty module list means every module is on; a list turns the rest off", () => {
-    // Every standard module; the opt-in statutory ones (billing, einvoice, payroll) stay off (XE-BILL).
-    const optIn = ["billing", "einvoice"];
+    // Every standard module; the opt-in ones (billing, einvoice, payroll, costing) stay off (XE-BILL, XE COST).
+    const optIn = ["billing", "einvoice", "costing"];
     expect(moduleStates([]).every((m) => m.on === !optIn.includes(m.id))).toBe(true);
     expect(moduleStates(undefined).every((m) => m.on === !optIn.includes(m.id))).toBe(true);
     expect(moduleStates(["billing"]).find((m) => m.id === "billing")?.on).toBe(true);
     expect(moduleStates(["billing"]).find((m) => m.id === "press")?.on).toBe(true);
+    expect(moduleStates(["costing"]).find((m) => m.id === "costing")?.on).toBe(true);
     const some = moduleStates(["dies", "Bundles"]);
     expect(some.find((m) => m.id === "dies")?.on).toBe(true);
     expect(some.find((m) => m.id === "bundles")?.on).toBe(true);
