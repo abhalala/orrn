@@ -14,6 +14,7 @@ import { MAX_STANDARD_TEXT, STANDARD_KINDS, standardBlank, standardsDraft, stand
 import { Note, TabState, usePlantSettings } from "./ui";
 import { AgeingSettingsCard } from "@/features/ageing/settings-card";
 import { MorningMailCard } from "@/features/owner/morning-mail-card";
+import { FoundrySettingsCard } from "@/features/foundry/settings-card";
 import { CastBookCard } from "./cast-book-card";
 import { CollectorsCard } from "./collectors-card";
 import { ThresholdsCard } from "./thresholds-card";
@@ -34,6 +35,7 @@ export function StandardsTab() {
           <ThresholdsCard settings={settings.data} />
           <AgeingSettingsCard settings={settings.data} />
           <MorningMailCard />
+          <FoundrySettingsCard settings={settings.data} />
           <CastBookCard key={JSON.stringify(settings.data.castSeriesStart)} settings={settings.data} />
           {/* I-5: the press reading limits live with the other plant standards, where managers
               (masters.publish) reach them; the card gates its own editing. */}

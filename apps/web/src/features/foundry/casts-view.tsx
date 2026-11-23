@@ -65,6 +65,21 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
           <Button asChild variant="secondary">
             <UiLink to="/foundry/stock">{t("foundry.stock.title")}</UiLink>
           </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/homog">{t("fdy2.nav.homog")}</UiLink>
+          </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/logs">{t("fdy2.nav.logs")}</UiLink>
+          </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/billets">{t("fdy2.nav.billets")}</UiLink>
+          </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/rejects">{t("fdy2.nav.rejects")}</UiLink>
+          </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/chemistry">{t("fdy2.nav.chemistry")}</UiLink>
+          </Button>
         </div>
       }
     />
