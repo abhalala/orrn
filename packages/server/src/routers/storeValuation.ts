@@ -13,12 +13,12 @@
  * Every figure is a sum of the money frozen on the entries and opening rates (`lib/storeValue.ts`).
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { company } from "@orrn/db/schema/tenant";
 import { COUNTABLE_STORE_UNITS, storeItem, storeTxn } from "@orrn/db/schema/store";
-import { storeIndent, storeIndentLine, storeOpeningRate, storePo } from "@orrn/db/schema/storeBuy";
+import { storeIndent, storeIndentLine, storeOpeningRate } from "@orrn/db/schema/storeBuy";
 import {
   averageRatePaise,
   belowMinimum,
@@ -36,9 +36,10 @@ import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { settingsPatchSql } from "../lib/companySettings";
 import { companyTimezone, zonedMidnightMs } from "../lib/dayWindow";
+import { decodeListCursor, encodeListCursor, listCursorInput } from "../lib/dieRoom";
 import { nextCompanySeq } from "../lib/sequence";
 import { loadStoreItem, resolveStoreLocation, storeBalanceSql } from "../lib/store";
-import { PO_TOLERANCE_KEY, readPoTolerance } from "../lib/storeBuy";
+import { indentCoversItemSql, PO_TOLERANCE_KEY, readPoTolerance } from "../lib/storeBuy";
 import {
   ISSUED_SINCE_MESSAGE,
   storeHeldQtySql,
@@ -146,9 +147,13 @@ export const storeValuationRouter = router({
 
   /**
    * GRNs taken in with their rate pending (newest first), each valued at the average it borrowed, and
-   * whether its rate can still be set (nothing went out of the item since it came in).
+   * whether its rate can still be set (nothing went out of the item since it came in). Paged: pass
+   * `nextCursor` back as `cursor` (null on the last page), so locked rows never hide older ones.
    */
-  pending: rateReader.query(async ({ ctx }) => {
+  pending: rateReader
+    .input(z.object({ limit: z.number().int().min(1).max(200).default(200), cursor: listCursorInput }).default({ limit: 200 }))
+    .query(async ({ ctx, input }) => {
+    const after = decodeListCursor(input.cursor);
     const rows = await ctx.db
       .select({
         id: storeTxn.id,
@@ -170,11 +175,17 @@ export const storeValuationRouter = router({
           eq(storeTxn.kind, "grn"),
           sql`${storeTxn.cancelledAt} is null`,
           eq(storeTxn.ratePending, true),
+          after ? or(lt(storeTxn.createdAt, new Date(after.at)), and(eq(storeTxn.createdAt, new Date(after.at)), lt(storeTxn.id, after.id))) : undefined,
         ),
       )
-      .orderBy(desc(storeTxn.createdAt))
-      .limit(200);
-    return { items: rows.map(({ outSince, ...r }) => ({ ...r, canSet: Number(outSince) !== 1 })) };
+      .orderBy(desc(storeTxn.createdAt), desc(storeTxn.id))
+      .limit(input.limit + 1);
+    const page = rows.slice(0, input.limit);
+    const last = page[page.length - 1];
+    return {
+      items: page.map(({ outSince, ...r }) => ({ ...r, canSet: Number(outSince) !== 1 })),
+      nextCursor: rows.length > input.limit && last ? encodeListCursor(last.createdAt, last.id) : null,
+    };
   }),
 
   /**
@@ -395,7 +406,12 @@ export const storeValuationRouter = router({
           closingUnratedMilli: unratedMilli(closingMilli, Number(r.rated_q) + Number(rate?.rated_q ?? 0)),
         };
       })
-      .filter((r) => r.openingMilli !== 0 || r.inMilli !== 0 || r.outMilli !== 0 || r.closingMilli !== 0 || r.ratedPaise !== 0)
+      // Any quantity or money in the month keeps the row: cancels and new entries can net the quantity to 0 and not the money.
+      .filter(
+        (r) =>
+          r.openingMilli !== 0 || r.inMilli !== 0 || r.outMilli !== 0 || r.closingMilli !== 0 ||
+          r.openingPaise !== 0 || r.inPaise !== 0 || r.outPaise !== 0 || r.ratedPaise !== 0 || r.closingPaise !== 0,
+      )
       .sort((a, b) => a.name.localeCompare(b.name));
     const sum = (k: "openingPaise" | "inPaise" | "outPaise" | "ratedPaise" | "closingPaise") => items.reduce((s, r) => s + r[k], 0);
     return {
@@ -477,12 +493,12 @@ export const storeBelowMinimum = lowReader.query(async ({ ctx }) => {
       .select({ itemId: storeIndentLine.itemId, indentId: storeIndent.id, number: storeIndent.number, status: storeIndent.status })
       .from(storeIndentLine)
       .innerJoin(storeIndent, and(eq(storeIndent.id, storeIndentLine.indentId), eq(storeIndent.companyId, storeIndentLine.companyId)))
-      .leftJoin(storePo, and(eq(storePo.id, storeIndent.poId), eq(storePo.companyId, storeIndent.companyId)))
       .where(
         and(
           eq(storeIndentLine.companyId, ctx.companyId),
           inArray(storeIndentLine.itemId, part),
-          sql`(${storeIndent.status} in ('open', 'approved') or (${storeIndent.status} = 'ordered' and ${storePo.status} in ('draft', 'issued', 'part_received')))`,
+          // The same rule `store.indents.fromReorder` holds: an ordered indent covers only the items its order has.
+          indentCoversItemSql(ctx.companyId, "store_indent", sql`${storeIndentLine.itemId}`),
         ),
       )
       .orderBy(asc(storeIndent.createdAt));

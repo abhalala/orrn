@@ -270,6 +270,17 @@ const itemsRouter = router({
       if (Object.keys(patch).length === 0) return { success: true };
       const changingUnit = input.unit !== undefined && input.unit !== existing.unit;
       const retiring = input.active === false && existing.active;
+      // The whole-number check above read the unit and any level the request left out from `existing`:
+      // hold those in the UPDATE, so a racing edit (one sets a level, another changes the unit) cannot
+      // land a fractional level on a counted item. Values this request sets need no guard.
+      const levelsChecked = input.unit !== undefined || input.minMilli !== undefined || input.reorderMilli !== undefined;
+      const snapshotGuard = levelsChecked
+        ? and(
+            input.unit === undefined ? eq(storeItem.unit, existing.unit) : undefined,
+            input.minMilli === undefined ? sql`${storeItem.minMilli} is ${existing.minMilli}` : undefined,
+            input.reorderMilli === undefined ? sql`${storeItem.reorderMilli} is ${existing.reorderMilli}` : undefined,
+          )
+        : undefined;
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const mine = and(eq(storeItem.id, existing.id), eq(storeItem.companyId, ctx.companyId), eq(storeItem.serverSeq, seq));
       try {
@@ -281,6 +292,7 @@ const itemsRouter = router({
               and(
                 eq(storeItem.id, existing.id),
                 eq(storeItem.companyId, ctx.companyId),
+                snapshotGuard,
                 // The unit gives the quantities their meaning: locked from the first movement on.
                 changingUnit
                   ? sql`not exists (select 1 from ${storeTxn} t where t.company_id = ${ctx.companyId} and t.item_id = ${existing.id})`
@@ -316,6 +328,16 @@ const itemsRouter = router({
       }
       const [ok] = await ctx.db.select({ id: storeItem.id }).from(storeItem).where(mine).limit(1);
       if (!ok) {
+        if (levelsChecked) {
+          const now = await loadStoreItem(ctx.db, ctx.companyId, existing.id);
+          const moved =
+            (input.unit === undefined && now.unit !== existing.unit) ||
+            (input.minMilli === undefined && now.minMilli !== existing.minMilli) ||
+            (input.reorderMilli === undefined && now.reorderMilli !== existing.reorderMilli);
+          if (moved) {
+            throw new TRPCError({ code: "CONFLICT", message: `${existing.name} changed; open it again` });
+          }
+        }
         if (retiring) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -381,6 +403,11 @@ export const storeRouter = router({
       const want = { kind: "grn", itemId: input.itemId, qtyMilli: input.qtyMilli } as const;
       const replay = (prior: StoreTxnRow) => {
         sameEntry(prior, want);
+        // The order line and what was turned back never change after the GRN, so a key reused with others
+        // is a different receipt. The rate is not compared: `setGrnRate` may have set it since.
+        if ((prior.poLineId ?? null) !== (input.poLineId ?? null) || (prior.rejectedMilli ?? 0) !== (input.rejectedMilli ?? 0)) {
+          throw new TRPCError({ code: "CONFLICT", message: "This request id was already used for a different entry" });
+        }
         return { id: prior.id, number: prior.number, replayed: true as const, cancelled: prior.cancelledAt !== null };
       };
       const earlier = await findByRequest(ctx, input.clientRequestId);
