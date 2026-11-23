@@ -770,16 +770,12 @@ describe("store.cancel (RP15)", () => {
     const txns = await txnRows(p.companyId);
     expect(txns.filter((t) => t.cancelledAt !== null)).toEqual([]);
     expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
-    // one more unit in: net 1 - 3 + 2 = 0 on the balance, but the issue went out after the exchange's
-    // new leg (XE store fix round 1, valuation stays exact): still refused, nothing written.
+    // one more unit in: net 1 - 3 + 2 = 0, allowed. Nothing here has a rate, so no issue was valued with
+    // the exchange's money and the cancel stays allowed (XE store fix round 3; a rated exchange is refused
+    // after a later issue, store-xe-value.test.ts).
     await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: U });
-    await expect(p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "x" })).rejects.toThrow(/already been issued/);
-    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
-    // Cancel the issue first: then the exchange cancels, and the balance comes out the same.
-    const issue = (await txnRows(p.companyId)).find((t) => t.kind === "mrs" && t.exchangeId === null)!;
-    await p.storekeeper.store.cancel({ txnId: issue.id, reason: "x" });
     await p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "x" });
-    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(3 * U);
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(0);
   });
 
   test("cancelling twice is refused; one reversal only", async () => {
