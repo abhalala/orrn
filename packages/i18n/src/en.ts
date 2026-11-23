@@ -31,6 +31,7 @@ import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { hrEn } from "./hr/hr.en";
+import { payrollEn } from "./hr/payroll.en";
 import { hrNativeEn } from "./native/hr.en";
 import { buddyEn } from "./buddy/en";
 import { costEn } from "./cost/en";
@@ -6552,6 +6553,7 @@ export const en = {
   store2: store2En,
   maint: maintEn,
   hr: hrEn,
+  payroll: payrollEn,
 
   reasons: {
     kinds: {
