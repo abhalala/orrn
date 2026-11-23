@@ -700,6 +700,35 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
   so the screen offers "open the melt" instead of Cancel.
 
+## Store buying: indents, purchase orders, GRN against PO, valuation (XE store rows 69 to 73)
+
+- Migration `0062_xe_store2`. Tables `store_indent` / `store_indent_line` / `store_po` / `store_po_line`
+  in `packages/db/src/schema/storeBuy.ts`; `store_item.min_milli` / `reorder_milli`; `store_txn`
+  gains `rate_paise` (nullable), `value_paise` (not null, default 0), `po_line_id`, `rejected_milli`.
+  Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
+- Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
+  `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
+  (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
+- Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
+  admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
+  (office, manager, admin, accountant). Indent: open -> approved | rejected (note required) ->
+  ordered (a PO made from it) | cancelled. PO: draft (editable) -> issued -> part_received -> closed;
+  cancel only with no live GRN (the indent goes back to approved); close short by hand.
+- GRN against PO: `store.receive` takes `poLineId`, `ratePaise` (defaults to the line's rate) and
+  `rejectedMilli`. The room check (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in
+  the document INSERT's WHERE, so racing GRNs cannot overrun; `poStatusSync` runs in the same batch,
+  and again on `store.cancel`. Tolerance: `company.settings.storePoOverReceiptBp` (default 500 = 5 %,
+  max 5000), written with `settingsPatchSql`. A GRN without a PO works exactly as before.
+- Valuation (weighted average, `lib/storeValue.ts`): every `store_txn.value_paise` is frozen at write.
+  GRN = round(qty x rate / 1000), 0 with no rate ("no rate" on screens). MRS = held value x qty / held
+  qty, computed in SQL inside `storeTxnInsert` (`issueValueSql`); an issue that empties the item takes
+  all remaining value. Held qty/value sum non-cancelled txns. MAINT and others read an issue's value
+  with `storeIssueValuePaise(db, companyId, storeTxnId)` (0 for a non-MRS, cancelled, missing or other
+  plant's entry). Rates are always per store unit (per kg, never converted to the plant's weight unit).
+- Web: `/store/buy` (tabs indents, orders, value), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy
+  A4 `print`), reorder levels on the item page, PO line / rate / rejected on the GRN form, Today tile
+  `TodayStoreLowTile` (store.txn) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+
 ## Foundry (casts, melts, spectro, close-out)
 
 **Foundry web (W2-FD-W):** `/casts` (list, trace box), `/casts/new`, `/casts/$id` (tail panel, melts, trace tab, cost card for purchase readers, close and cancel), `/casts/$id/melt/$meltId` (the stepper; `$meltId` is a draft, a locked melt as a read-only sheet with the correction request, or `new`), `/casts/$id/certificate` (staff copy), `/casts/inbox`, `/foundry/stock`, `/masters/furnaces`, `/masters/alloys`, `/reports/foundry-yield`, the Today Foundry tile and the Foundry nav entry. A chemical that is not in the store is typed with one of the store's units (`CHEMICAL_UNITS` in `melt-form.ts`, equal to `storeUnits`; the server refuses g, l, ml and pcs; BACKLOG 78). Rules the tests hold: `@orrn/i18n/refusal-foundry` is imported in `features/foundry/errors.ts` (every foundry screen reaches it through `foundryError` / `ErrorLine`; never show `error.message`) and in `features/approvals/review-sheet.tsx` (the approvals sheet shows foundry refusals without loading a foundry screen); any other module that shows a foundry refusal imports it the same way, the lock gates come from the server's `melts.preview` of the SAVED draft (a spectro result or a save refreshes it) and are said through `GATE_KEY`, every figure stored (burn, yield, verdict, tail) is the server's (`melt-form.ts` only previews while typing and never sends one), selects inside a `Field` use `FieldSelect` (a bare `NativeSelect` has no accessible name), search parsers live in the no-import `features/foundry/search.ts`, and `foundry.*` is a lazy dictionary (the floor parts carry gu: `GU_FLOOR_NAMESPACES`; the certificate, masters and yield report read English in gu). `@orrn/domain` declares `sideEffects: false` so its foundry maths used by lazy screens does not enter the `/` closure. The `/preview/foundry*` URLs redirect to the real screens; the fixture components are gone.
