@@ -25,6 +25,7 @@ import { stockEn } from "./native/stock.en";
 import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
+import { jwEn } from "./jw/jw.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
@@ -230,6 +231,9 @@ export const en = {
     ageing: "Ageing",
     complaints: "Complaints",
     owner: "Owner",
+    jobwork: "Job work",
+    drawbench: "Draw bench",
+    fabrication: "Fabrication",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3788,6 +3792,9 @@ export const en = {
         foundry: "Foundry",
         press: "Press",
         ageing: "Ageing",
+        jobwork: "Job work and finishing",
+        drawbench: "Draw bench",
+        fabrication: "Fabrication",
         store: "Store",
         qa: "Quality",
         purchase: "Scrap purchase",
@@ -3802,6 +3809,9 @@ export const en = {
         foundry: "Casts, melts and spectro",
         press: "Press runs and the press console",
         ageing: "Ageing batches and readings",
+        jobwork: "Job work challans, vendors and the finishing line",
+        drawbench: "Draw bench runs",
+        fabrication: "Cutting, punching and CNC steps",
         store: "Store items, GRN and issues",
         qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
@@ -6498,6 +6508,7 @@ export const en = {
   },
 
   ageing: ageingEn.ageing,
+  jw: jwEn,
 
   ingest: ingestEn,
 
@@ -6661,6 +6672,9 @@ export const en = {
         foundry: "Foundry",
         press: "Press",
         ageing: "Ageing",
+        jobwork: "Job work",
+        drawbench: "Draw bench",
+        fabrication: "Fabrication",
         store: "Store",
         qa: "Quality",
         purchase: "Scrap purchase",
@@ -6887,6 +6901,8 @@ export const en = {
       qa_station: "Inspection point",
       qa_alloy_substitute: "Alloy substitute",
       qa_instrument: "Instrument",
+      process_step: "Process step",
+      process_vendor: "Job-work vendor",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -7124,6 +7140,11 @@ export const en = {
       press__alert__ack: "Press alert acknowledged",
       press__alert__ackEnded: "Ended press alerts acknowledged",
       press__alert__threshold: "Press alert limits changed",
+      process__cancel: "Process step cancelled",
+      process__receive: "Bundles came back from a process step",
+      process__send: "Bundles sent for job work",
+      process__start: "Process step started",
+      process__vendor__save: "Job-work vendor saved",
       press__run__close: "Press run logged",
       press_downtime__start: "Press stopped (downtime)",
       press_downtime__stop: "Press running again",

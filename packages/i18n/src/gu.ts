@@ -34,6 +34,7 @@ import { guPrintingQueue } from "./gu-more/printing-queue";
 import { guSettings } from "./gu-more/settings";
 import { guShell } from "./gu-more/shell";
 import { guIngest } from "./ingest/gu";
+import { guJw } from "./gu-more/jw";
 import { foundryRefusalGu } from "./native/foundry-refusal.gu";
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
@@ -83,6 +84,8 @@ export const GU_FLOOR_NAMESPACES = [
   "foundry.refusal",
   // XE parity lane QA: a quality refusal reaches the scan, pack and the melt lock on the floor
   "qa.refusal",
+  // XE parity lane JOBWORK: a refused send or receive reaches the yard floor
+  "jw.refusal",
   // Final explore M5: the press overview and a press's line board (its queue) are where the press role
   // lands; Today's stock-age tile and the chart table toggle are on the owner's floor Today
   "press.title", "press.board", "press.queue", "press.summary.title", "press.report.title", "reports.todayTile", "charts",
@@ -1873,6 +1876,7 @@ export const gu = mergeGu(
   guIngest,
   guBuddy,
   guQa,
+  guJw,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1895,4 +1899,5 @@ export const gu = mergeGu(
   typeof guIngest &
   typeof guBuddy &
   typeof guReg &
-  typeof guQa satisfies GuMessages;
+  typeof guQa &
+  typeof guJw satisfies GuMessages;

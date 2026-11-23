@@ -193,6 +193,15 @@ export function ageingSentences(): { file: string; text: string }[] {
     .flatMap((text) => realize(text).map((t) => ({ file: AGEING_FILE, text: t })));
 }
 
+/** XE parity lane JOBWORK: every process-step refusal (callers say jobworkRefusal(code)); not in FILES, see refusal-jobwork.ts. */
+export const JOBWORK_FILE = "lib/processRefusals.ts";
+
+export function jobworkSentences(): { file: string; text: string }[] {
+  return messageSentences(SRC(JOBWORK_FILE))
+    .filter(isSentence)
+    .flatMap((text) => realize(text).map((t) => ({ file: JOBWORK_FILE, text: t })));
+}
+
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
 

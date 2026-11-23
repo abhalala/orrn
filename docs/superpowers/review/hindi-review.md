@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
+Counts: 9977 screen strings in 55 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (92)
+### nav (95)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -199,6 +199,9 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
+| `jobwork` | Job work | जॉब वर्क |
+| `drawbench` | Draw bench | ड्रॉ बेंच |
+| `fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -3151,7 +3154,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (388)
+### admin (394)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3362,6 +3365,9 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleNames.foundry` | Foundry | फ़ाउंड्री |
 | `plan.moduleNames.press` | Press | प्रेस |
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
+| `plan.moduleNames.jobwork` | Job work and finishing | जॉब वर्क और फ़िनिशिंग |
+| `plan.moduleNames.drawbench` | Draw bench | ड्रॉ बेंच |
+| `plan.moduleNames.fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
@@ -3374,6 +3380,9 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleHints.foundry` | Casts, melts and spectro | कास्ट, मेल्ट और स्पेक्ट्रो |
 | `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
+| `plan.moduleHints.jobwork` | Job work challans, vendors and the finishing line | जॉब वर्क चालान, वेंडर और फ़िनिशिंग लाइन |
+| `plan.moduleHints.drawbench` | Draw bench runs | ड्रॉ बेंच रन |
+| `plan.moduleHints.fabrication` | Cutting, punching and CNC steps | कटिंग, पंचिंग और CNC स्टेप |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
@@ -5122,7 +5131,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (400)
+### orders (401)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5228,6 +5237,7 @@ Please check, Lalubhai:
 | `finish.none` | Mill finish | मिल फ़िनिश |
 | `finish.anodise` | Anodise | एनोडाइज़ |
 | `finish.pvd` | PVD | PVD |
+| `finish.powder_coat` | Powder coat | पाउडर कोटिंग |
 | `weightBasis.copy_current` | Copy's latest weight | कॉपी का ताज़ा वज़न |
 | `weightBasis.band_start` | Band start | बैंड की शुरुआत |
 | `qtyBasis.pcs` | By pieces | पीस से |
@@ -7146,6 +7156,64 @@ Please check, Lalubhai:
 | `forOrder.packed` | Packed | पैक हुए |
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
+
+### jw (53)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Job work | जॉब वर्क |
+| `kind.jobwork` | Job work | जॉब वर्क |
+| `kind.finish` | Finishing line | फ़िनिशिंग लाइन |
+| `kind.draw` | Draw bench | ड्रॉ बेंच |
+| `kind.fabricate` | Fabrication | फ़ैब्रिकेशन |
+| `process.anodise` | Anodise | एनोडाइज़ |
+| `process.powder_coat` | Powder coat | पाउडर कोटिंग |
+| `process.pvd` | PVD | PVD |
+| `process.machining` | Machining | मशीनिंग |
+| `process.other` | Other | अन्य |
+| `process.draw` | Drawing | ड्रॉइंग |
+| `process.fabricate` | Fabrication | फ़ैब्रिकेशन |
+| `op.cut` | Cut to length | लंबाई में कटिंग |
+| `op.punch` | Punch | पंच |
+| `op.cnc` | CNC | CNC |
+| `op.drill` | Drill | ड्रिल |
+| `op.other` | Other | अन्य |
+| `status.open` | Out | बाहर |
+| `status.partial` | Part back | कुछ वापस |
+| `status.done` | Back | वापस |
+| `status.cancelled` | Cancelled | रद्द |
+| `mode.same` | Same bundles back | वही बंडल वापस |
+| `mode.new` | New bundles | नए बंडल |
+| `finishState.done` | Finished | फ़िनिश हो गया |
+| `finishState.at_vendor` | At the vendor | वेंडर के पास |
+| `finishState.in_process` | On the line | लाइन पर |
+| `finishState.pending` | Not finished yet | अभी फ़िनिश नहीं |
+| `ageBucket.d0_7` | Up to 7 days | 7 दिन तक |
+| `ageBucket.d8_15` | 8 to 15 days | 8 से 15 दिन |
+| `ageBucket.d16_30` | 16 to 30 days | 16 से 30 दिन |
+| `ageBucket.d30_plus` | Over 30 days | 30 दिन से ज़्यादा |
+| `refusal.bundleAtVendor` | Bundle {serial} is out for job work on {step} | बंडल {serial} जॉब वर्क के लिए {step} पर बाहर है |
+| `refusal.bundleInProcess` | Bundle {serial} is on process step {step} | बंडल {serial} प्रोसेस स्टेप {step} पर है |
+| `refusal.bundleNotInStock` | Bundle {serial} is not in the yard; only yard stock can go on a process step | बंडल {serial} यार्ड में नहीं है; सिर्फ़ यार्ड का स्टॉक प्रोसेस स्टेप पर जा सकता है |
+| `refusal.bundleOnDispatch` | Bundle {serial} is on a dispatch; take it off the load first | बंडल {serial} डिस्पैच पर है; पहले उसे लोड से हटाएँ |
+| `refusal.bundleOffLedger` | Bundle {serial} is not on the stock ledger yet; take the opening balance first | बंडल {serial} अभी स्टॉक लेजर पर नहीं है; पहले ओपनिंग बैलेंस लें |
+| `refusal.bundleTwice` | Bundle {serial} is listed twice | बंडल {serial} दो बार लिखा है |
+| `refusal.vendorNeeded` | Pick the job-work vendor | जॉब वर्क वेंडर चुनें |
+| `refusal.vendorInactive` | Vendor {code} is not active | वेंडर {code} चालू नहीं है |
+| `refusal.vendorCodeTaken` | Vendor code {code} is already used | वेंडर कोड {code} पहले से इस्तेमाल में है |
+| `refusal.vendorHasStock` | Vendor {code} still has bundles out; receive them first | वेंडर {code} के पास अभी बंडल बाहर हैं; पहले उन्हें वापस लें |
+| `refusal.stepClosed` | Step {step} is already closed | स्टेप {step} पहले से बंद है |
+| `refusal.inputNotOnStep` | Bundle {serial} is not on {step} | बंडल {serial} {step} पर नहीं है |
+| `refusal.inputAlreadyBack` | Bundle {serial} is already back from {step} | बंडल {serial} {step} से पहले ही वापस आ चुका है |
+| `refusal.noOutput` | Enter what came back: good weight, rejects or scrap | जो वापस आया वह लिखें: अच्छा वज़न, रिजेक्ट या स्क्रैप |
+| `refusal.negativeWeight` | Weights cannot be below zero | वज़न शून्य से कम नहीं हो सकता |
+| `refusal.gainTooHigh` | More came back than was sent, by over 5 in 100; check the weights | भेजे गए से 100 में 5 से ज़्यादा वापस आया; वज़न जाँचें |
+| `refusal.outputOverInput` | More came back than was sent; check the weights | भेजे गए से ज़्यादा वापस आया; वज़न जाँचें |
+| `refusal.cancelAfterReturn` | {step} has returns; it cannot be cancelled | {step} में वापसी हो चुकी है; इसे रद्द नहीं किया जा सकता |
+| `refusal.noYard` | Pick the yard the bundles come back to | वह यार्ड चुनें जहाँ बंडल वापस आएँगे |
+| `refusal.processKindMismatch` | That process does not belong to this kind of step | यह प्रोसेस इस तरह के स्टेप का नहीं है |
+| `refusal.vendorLocation` | This place belongs to a job-work vendor; change it on the vendor | यह जगह एक जॉब वर्क वेंडर की है; इसे वेंडर पर बदलें |
+| `refusal.consumedInput` | Bundle {serial} was used up on {step}; it cannot come back | बंडल {serial} {step} पर इस्तेमाल हो चुका है; यह वापस नहीं आ सकता |
 
 ### ingest (679)
 
@@ -9313,7 +9381,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (52)
+### plantSettings (55)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9351,6 +9419,9 @@ Please check, Lalubhai:
 | `modules.names.foundry` | Foundry | फ़ाउंड्री |
 | `modules.names.press` | Press | प्रेस |
 | `modules.names.ageing` | Ageing | एजिंग |
+| `modules.names.jobwork` | Job work | जॉब वर्क |
+| `modules.names.drawbench` | Draw bench | ड्रॉ बेंच |
+| `modules.names.fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
@@ -9494,7 +9565,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (383)
+### audit (390)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9562,6 +9633,8 @@ Please check, Lalubhai:
 | `subjectTypes.qa_station` | Inspection point | जांच स्थान |
 | `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
 | `subjectTypes.qa_instrument` | Instrument | उपकरण |
+| `subjectTypes.process_step` | Process step | प्रोसेस स्टेप |
+| `subjectTypes.process_vendor` | Job-work vendor | जॉब वर्क वेंडर |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -9796,6 +9869,11 @@ Please check, Lalubhai:
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
 | `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |
+| `actions.process__cancel` | Process step cancelled | प्रोसेस स्टेप रद्द किया |
+| `actions.process__receive` | Bundles came back from a process step | प्रोसेस स्टेप से बंडल वापस आए |
+| `actions.process__send` | Bundles sent for job work | बंडल जॉब वर्क पर भेजे |
+| `actions.process__start` | Process step started | प्रोसेस स्टेप शुरू किया |
+| `actions.process__vendor__save` | Job-work vendor saved | जॉब वर्क वेंडर सेव किया |
 | `actions.press__run__close` | Press run logged | प्रेस रन दर्ज किया |
 | `actions.press_downtime__start` | Press stopped (downtime) | प्रेस रुका (डाउनटाइम) |
 | `actions.press_downtime__stop` | Press running again | प्रेस फिर चालू |

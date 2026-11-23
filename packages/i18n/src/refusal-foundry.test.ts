@@ -24,7 +24,8 @@ describe("foundry refusals (FOUNDRY_REFUSALS, foundry.refusal.*)", () => {
     expect(sentences.length).toBeGreaterThan(80);
     expect(sentences.map((s) => s.text)).toContain("Spectro has not passed; say why the melt is locked anyway");
     expect(SERVER_REFUSALS.some((e) => e.id.startsWith("fd_"))).toBe(false);
-    expect(refusalEntries().slice(SERVER_REFUSALS.length)).toEqual([...FOUNDRY_REFUSALS]);
+    // Other module tables (ageing, job work) may be registered by a test file that ran first in this process.
+    expect(refusalEntries().slice(SERVER_REFUSALS.length).filter((e) => FOUNDRY_REFUSALS.includes(e))).toEqual([...FOUNDRY_REFUSALS]);
   });
 
   test("no foundry sentence is left without an entry, and every foundry entry is the first match of one", () => {
