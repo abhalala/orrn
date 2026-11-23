@@ -52,6 +52,7 @@ export function maintPlant(getEnv: () => TestEnv): (opts?: { modules?: string[] 
     await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });
     const dieId = await env.seedDie(companyId);
     let runN = 0;
+    let castN = 0;
 
     const reason = async (code: string) => {
       await callers.owner.press.reasons({ kind: "downtime" });
@@ -86,7 +87,9 @@ export function maintPlant(getEnv: () => TestEnv): (opts?: { modules?: string[] 
       },
       async melt(furnaceId: string, start: Date, end: Date, status: "locked" | "cancelled" = "locked") {
         const castId = crypto.randomUUID();
-        await env.db.insert(cast).values({ id: castId, companyId, number: `K${Math.floor(Math.random() * 1e6)}`, period: "2026-11", year: 2026, month: 11, seq: Math.floor(Math.random() * 1e6), alloy: "6063", openedAt: start } as never);
+        // A per-plant counter, as `run()` uses: two melts never draw the same cast number or seq.
+        castN += 1;
+        await env.db.insert(cast).values({ id: castId, companyId, number: `K${castN}`, period: "2026-11", year: 2026, month: 11, seq: castN, alloy: "6063", openedAt: start } as never);
         await env.db.insert(melt).values({ id: crypto.randomUUID(), companyId, castId, seq: 1, alloy: "6063", status, furnaceId, chargingStartAt: start, castingEndAt: end } as never);
       },
       async oven() {

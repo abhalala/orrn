@@ -108,6 +108,45 @@ describe("preventive plan due maths", () => {
   });
 });
 
+describe("plan due across a clock change (review round 3)", () => {
+  /** The London plant day of an instant (BST to GMT on Sun 25 Oct 2026 at 02:00 BST). */
+  const londonDay = (ms: number) => {
+    const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+    const [y, m, d] = p.split("-").map(Number);
+    return dayNumber({ year: y!, month: m!, day: d! });
+  };
+  test("a 1-day plan reset at 00:30 on the day the clock goes back is due the next plant day, not the same day", () => {
+    const base = Date.UTC(2026, 9, 24, 23, 30); // 25 Oct 2026 00:30 BST
+    const due = pmDue({ intervalDays: 1, intervalHours: null, baseAtMs: base, usageMinSinceBase: null, nowMs: base, dayOf: londonDay });
+    expect(due.daysLeft).toBe(1);
+    expect(londonDay(due.dueAtMs!)).toBe(londonDay(base) + 1);
+  });
+  test("IST (no clock change) keeps base plus whole days", () => {
+    const due = pmDue({ intervalDays: 30, intervalHours: null, baseAtMs: T0, usageMinSinceBase: null, nowMs: T0, dayOf: istDay });
+    expect(due.dueAtMs).toBe(T0 + 30 * DAY_MS);
+    expect(due.daysLeft).toBe(30);
+  });
+});
+
+describe("reliability counts overlapping breakdowns once (review round 3)", () => {
+  test("two breakdown work orders open together: down time is their union", () => {
+    const from = T0;
+    const to = T0 + 30 * DAY_MS;
+    const r = reliability(
+      [
+        { startMs: T0 + 10 * H, endMs: T0 + 14 * H },
+        { startMs: T0 + 12 * H, endMs: T0 + 16 * H },
+      ],
+      from,
+      to,
+    );
+    expect(r.failures).toBe(2);
+    expect(r.downtimeMin).toBe(6 * 60);
+    expect(r.mttrMin).toBe(4 * 60);
+    expect(r.mtbfMin).toBe(Math.round((30 * 24 * 60 - 6 * 60) / 2));
+  });
+});
+
 describe("spans and reliability", () => {
   test("span minutes are clipped to the window; an open span runs to its end", () => {
     expect(spanMinutesIn({ startMs: T0, endMs: T0 + 2 * H }, T0 + H, T0 + 10 * H)).toBe(60);

@@ -153,6 +153,7 @@ const REFUSALS: readonly [RegExp, MessageKey][] = [
   [/^Give a low limit, a high limit or both/, "maint.errors.limitInvalid"],
   [/^This asset already reads something by that name/, "maint.errors.kindTaken"],
   [/^That reading is switched off/, "maint.errors.kindOff"],
+  [/^This reading's unit or limits changed just now/, "maint.errors.kindChanged"],
   [/^That reading is inside its limits/, "maint.errors.inLimit"],
   [/^This asset is retired/, "maint.errors.retired"],
   [/^That module is not on for this plant/, "maint.errors.moduleOff"],

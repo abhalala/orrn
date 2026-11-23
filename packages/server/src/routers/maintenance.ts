@@ -55,6 +55,7 @@ import { company } from "@orrn/db/schema/tenant";
 
 import { actionProcedure, router } from "../index";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
+import { batchAbortUnlessOn, isBatchAbortOn } from "../lib/orders";
 import { auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { companyTimezone, zonedMidnightMs, zonedYmd } from "../lib/dayWindow";
@@ -66,7 +67,10 @@ import {
   loadAsset,
   loadLink,
   notFound,
+  dueOfPlan,
   plansDue,
+  planUsageMinutes,
+  plantDayOf,
   plantTimezone,
 } from "../lib/maintenance";
 import { assertModule } from "../lib/moduleGate";
@@ -77,11 +81,19 @@ import { insertWorkOrder, sparesFor, sparesRouter, workOrdersRouter } from "./ma
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optText = (max: number) => z.string().trim().max(max).nullish();
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day as YYYY-MM-DD");
+/** A real calendar day as YYYY-MM-DD (2026-02-30 is refused; 2028-02-29 is a day). */
+export function isCalendarDay(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+const day = z.string().refine(isCalendarDay, "Day as YYYY-MM-DD");
 const milli = z.number().int().min(-1_000_000_000).max(1_000_000_000);
 
 export const PLAN_NEEDS_INTERVAL = "A plan needs days, run hours or both";
-export const ASSET_HAS_HOURS_PLANS = "Plans on this asset run on run hours. Change them to days before you remove the link";
+export const ASSET_HAS_HOURS_PLANS = "Plans on this asset run on run hours. Change them to days before you change or remove the link";
 export const LIMIT_INVALID = "Give a low limit, a high limit or both, with the low below the high";
 export const READING_KIND_TAKEN = "This asset already reads something by that name";
 export const READING_KIND_OFF = "That reading is switched off";
@@ -90,6 +102,9 @@ export const ASSET_RETIRED = "This asset is retired";
 export const LINK_KIND_MISMATCH = "A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven";
 export const READING_UNIT_LOCKED = "This reading already has readings in its unit. Add a new reading kind for another unit";
 export const PLAN_CHANGED = "This plan changed since you opened it. Open it again.";
+export const READING_KIND_CHANGED = "This reading's unit or limits changed just now. Take the reading again";
+/** Rows the register list returns at most; past it the screen asks for a search. */
+export const ASSET_LIST_CAP = 500;
 
 type Ctx = { db: OrrnDb; companyId: string };
 type WriteCtx = Parameters<typeof auditInsertGuarded>[0] & { companyId: string; session: { user: { id: string } } };
@@ -164,12 +179,20 @@ function assertLinkKind(kind: string, link: { linkKind: MaintLinkKind | null }) 
 
 const assetsRouter = router({
   list: viewProcedure
-    .input(z.object({ kind: z.enum(maintAssetKinds).optional(), includeRetired: z.boolean().default(false) }).default({ includeRetired: false }))
+    .input(
+      z
+        .object({ kind: z.enum(maintAssetKinds).optional(), includeRetired: z.boolean().default(false), /** Code or name contains (any case). */ q: z.string().trim().max(80).optional() })
+        .default({ includeRetired: false }),
+    )
     .query(async ({ ctx, input }) => {
       await assertModule(ctx, "maintenance");
       const where: (SQL | undefined)[] = [eq(maintAsset.companyId, ctx.companyId)];
       if (input.kind) where.push(eq(maintAsset.kind, input.kind));
       if (!input.includeRetired) where.push(sql`${maintAsset.status} <> 'retired'`);
+      if (input.q) {
+        const like = `%${input.q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+        where.push(sql`(lower(${maintAsset.code}) like ${like} escape '\\' or lower(${maintAsset.name}) like ${like} escape '\\')`);
+      }
       const rows = await ctx.db
         .select({
           id: maintAsset.id,
@@ -187,7 +210,7 @@ const assetsRouter = router({
         .from(maintAsset)
         .where(and(...where))
         .orderBy(asc(maintAsset.criticality), sql`lower(${maintAsset.code})`)
-        .limit(500);
+        .limit(ASSET_LIST_CAP);
       return rows.map((r) => ({ ...r, openWorkOrders: Number(r.openWorkOrders) }));
     }),
 
@@ -211,7 +234,16 @@ const assetsRouter = router({
         .where(and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.assetId, row.id)))
         .orderBy(desc(maintWorkOrder.createdAt))
         .limit(100),
-      plansDue(ctx, nowMs, row.id),
+      Promise.all([
+        ctx.db.select().from(maintPlan).where(and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.assetId, row.id))).orderBy(asc(maintPlan.createdAt)).limit(100),
+        planUsageMinutes(ctx, nowMs, row.id),
+        plantTimezone(ctx),
+        ctx.db
+          .select({ planId: maintWorkOrder.planId, id: maintWorkOrder.id, number: maintWorkOrder.number })
+          .from(maintWorkOrder)
+          .where(and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.assetId, row.id), sql`${maintWorkOrder.planId} is not null`, sql`${maintWorkOrder.status} in ('open', 'in_progress', 'waiting_spares')`))
+          .limit(100),
+      ]),
       ctx.db
         .select()
         .from(maintReadingKind)
@@ -237,9 +269,12 @@ const assetsRouter = router({
         .limit(50),
       sparesFor(ctx, { assetId: row.id }),
     ]);
-    // Inactive plans are listed too (plansDue has only active ones), so a manager can switch one back on.
-    const allPlans = await ctx.db.select().from(maintPlan).where(and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.assetId, row.id))).orderBy(asc(maintPlan.createdAt)).limit(100);
-    const dueById = new Map(plans.map((p) => [p.planId, p]));
+    // Every plan, inactive ones too (a manager can switch one back on). Due figures come from the plan
+    // row returned here, so an interval edited between two reads never shows with the other's figures.
+    const [allPlans, usage, tz, liveWos] = plans;
+    const dayOf = plantDayOf(tz);
+    const liveByPlan = new Map(liveWos.map((w) => [w.planId!, w]));
+    const showDue = row.status !== "retired";
     return {
       asset: assetOut(row),
       link: await linkLabel(ctx, row),
@@ -253,9 +288,9 @@ const assetsRouter = router({
         baseAt: p.baseAt.getTime(),
         active: p.active,
         serverSeq: p.serverSeq,
-        due: dueById.get(p.id)?.due ?? null,
-        openWorkOrderId: dueById.get(p.id)?.openWorkOrderId ?? null,
-        openWorkOrderNumber: dueById.get(p.id)?.openWorkOrderNumber ?? null,
+        due: p.active && showDue ? dueOfPlan({ id: p.id, intervalDays: p.intervalDays, intervalHours: p.intervalHours, baseAtMs: p.baseAt.getTime() }, usage, nowMs, dayOf) : null,
+        openWorkOrderId: liveByPlan.get(p.id)?.id ?? null,
+        openWorkOrderNumber: liveByPlan.get(p.id)?.number ?? null,
       })),
       readingKinds: kinds.map((k) => ({ id: k.id, name: k.name, unit: k.unit, minMilli: k.minMilli, maxMilli: k.maxMilli, active: k.active })),
       readings: readings.map((r) => ({ ...r, readAt: r.readAt.getTime() })),
@@ -333,7 +368,13 @@ const assetsRouter = router({
     const link = normLink(input);
     if (link.linkKind) await loadLink(ctx, link.linkKind, link.linkId!);
     assertLinkKind(input.kind, link);
-    if (!link.linkKind && row.linkKind) {
+    // Run hours belong to the master the asset points at. Removing the link, or pointing it at another
+    // master, while an active plan runs on run hours is refused: the plan's count would either stop or
+    // take the new master's hours from before the move. Change those plans to days first. Checked here
+    // and again inside the batch, so a run-hours plan added meanwhile still refuses the change.
+    const linkChanges = row.linkKind !== link.linkKind || row.linkId !== link.linkId;
+    const noHoursPlan = sql`not exists (select 1 from maint_plan p where p.company_id = ${ctx.companyId} and p.asset_id = ${row.id} and p.active = 1 and p.interval_hours is not null)`;
+    if (linkChanges && row.linkKind) {
       const [hoursPlan] = await ctx.db
         .select({ id: maintPlan.id })
         .from(maintPlan)
@@ -346,6 +387,7 @@ const assetsRouter = router({
     let landed: { id: string }[];
     try {
       landed = await atomicBatchLast<{ id: string }>(ctx.db, [
+        ...(linkChanges && row.linkKind ? [batchAbortUnlessOn(ctx.db, maintPlan, noHoursPlan)] : []),
         ctx.db
           .update(maintAsset)
           .set({
@@ -373,6 +415,7 @@ const assetsRouter = router({
         ctx.db.select({ id: maintAsset.id }).from(maintAsset).where(where(seq)),
       ]);
     } catch (e) {
+      if (isBatchAbortOn(e, "maint_plan")) throw new TRPCError({ code: "BAD_REQUEST", message: ASSET_HAS_HOURS_PLANS });
       if (isUnique(e)) await explainAssetUnique(ctx, input.code, link.linkKind, link.linkId, row.id);
       throw e;
     }
@@ -382,10 +425,13 @@ const assetsRouter = router({
 
   /** One asset for each press, furnace and oven not yet in the register (code and name from the master). */
   addFromMasters: manageProcedure.mutation(async ({ ctx }) => {
+    // Masters already in the register are left out in SQL, before the limit, so a repeat adds the rest.
+    const notLinked = (kind: MaintLinkKind, idCol: SQL) =>
+      sql`not exists (select 1 from maint_asset x where x.company_id = ${ctx.companyId} and x.link_kind = ${kind} and x.link_id = ${idCol})`;
     const [presses, furnaces, ovens, existing] = await Promise.all([
-      ctx.db.select({ id: pressLine.id, code: pressLine.code, name: pressLine.name }).from(pressLine).where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.status, "active"))).limit(100),
-      ctx.db.select({ id: furnace.id, code: furnace.code, name: furnace.name }).from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"))).limit(100),
-      ctx.db.select({ id: ageingOven.id, code: ageingOven.code, name: ageingOven.name }).from(ageingOven).where(and(eq(ageingOven.companyId, ctx.companyId), sql`${ageingOven.status} <> 'out_of_service'`)).limit(100),
+      ctx.db.select({ id: pressLine.id, code: pressLine.code, name: pressLine.name }).from(pressLine).where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.status, "active"), notLinked("press", sql`${pressLine.id}`))).limit(100),
+      ctx.db.select({ id: furnace.id, code: furnace.code, name: furnace.name }).from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"), notLinked("furnace", sql`${furnace.id}`))).limit(100),
+      ctx.db.select({ id: ageingOven.id, code: ageingOven.code, name: ageingOven.name }).from(ageingOven).where(and(eq(ageingOven.companyId, ctx.companyId), sql`${ageingOven.status} <> 'out_of_service'`, notLinked("oven", sql`${ageingOven.id}`))).limit(100),
       ctx.db.select({ code: maintAsset.code, linkKind: maintAsset.linkKind, linkId: maintAsset.linkId }).from(maintAsset).where(eq(maintAsset.companyId, ctx.companyId)).limit(2000),
     ]);
     const linked = new Set(existing.map((a) => `${a.linkKind}:${a.linkId}`));
@@ -451,6 +497,26 @@ async function assertPlanFits(asset: MaintAssetRow, input: { intervalDays?: numb
   if (input.intervalHours != null && !asset.linkKind) throw new TRPCError({ code: "BAD_REQUEST", message: ASSET_NO_RUN_HOURS });
 }
 
+/**
+ * In-batch guard for a plan that runs on run hours: the asset still points at the master it pointed at
+ * when the plan was checked. An unlink or relink that commits first fails the plan write (no audit row).
+ */
+function hoursPlanLinkGuard(ctx: Ctx, asset: MaintAssetRow, input: { intervalHours?: number | null }) {
+  if (input.intervalHours == null) return [];
+  return [
+    batchAbortUnlessOn(
+      ctx.db,
+      maintAsset,
+      sql`exists (select 1 from maint_asset a where a.company_id = ${ctx.companyId} and a.id = ${asset.id} and a.link_kind = ${asset.linkKind} and a.link_id = ${asset.linkId})`,
+    ),
+  ];
+}
+
+function rethrowPlanAbort(e: unknown): never {
+  if (isBatchAbortOn(e, "maint_asset")) throw new TRPCError({ code: "BAD_REQUEST", message: ASSET_NO_RUN_HOURS });
+  throw e;
+}
+
 async function loadPlan(ctx: Ctx, planId: string) {
   const [row] = await ctx.db.select().from(maintPlan).where(and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.id, planId))).limit(1);
   if (!row) throw notFound();
@@ -479,6 +545,7 @@ const plansRouter = router({
       const planId = crypto.randomUUID();
       const seq = await nextCompanySeq(ctx, ctx.companyId);
       await atomicBatch(ctx.db, [
+        ...hoursPlanLinkGuard(ctx, asset, input),
         ctx.db.insert(maintPlan).values({
           id: planId,
           companyId: ctx.companyId,
@@ -496,7 +563,7 @@ const plansRouter = router({
           { action: "maint.plan.create", subjectType: "maint_asset", subjectId: asset.id, meta: { planId, code: asset.code, title: input.title, intervalDays: input.intervalDays ?? null, intervalHours: input.intervalHours ?? null } },
           { from: maintPlan, where: and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.id, planId)) },
         ),
-      ]);
+      ]).catch(rethrowPlanAbort);
       return { id: planId };
     }),
 
@@ -518,6 +585,8 @@ const plansRouter = router({
       const seq = await nextCompanySeq(ctx, ctx.companyId);
       const where = (s: number) => and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.id, plan.id), eq(maintPlan.serverSeq, s));
       const landed = await atomicBatchLast<{ id: string }>(ctx.db, [
+        // Only an active plan counts run hours; one switched off may keep its hours interval.
+        ...(input.active ? hoursPlanLinkGuard(ctx, asset, input) : []),
         ctx.db
           .update(maintPlan)
           .set({
@@ -542,7 +611,7 @@ const plansRouter = router({
           { from: maintPlan, where: where(seq) },
         ),
         ctx.db.select({ id: maintPlan.id }).from(maintPlan).where(where(seq)),
-      ]);
+      ]).catch(rethrowPlanAbort);
       if (landed.length === 0) throw new TRPCError({ code: "CONFLICT", message: PLAN_CHANGED });
       return { id: plan.id };
     }),
@@ -617,19 +686,29 @@ const readingsRouter = router({
       if (any) throw new TRPCError({ code: "BAD_REQUEST", message: READING_UNIT_LOCKED });
     }
     const where = and(eq(maintReadingKind.companyId, ctx.companyId), eq(maintReadingKind.id, kind.id));
+    const unitChanges = input.unit !== kind.unit;
     try {
       await atomicBatch(ctx.db, [
+        // A reading recorded since the check above still locks the unit (`record` guards the other side).
+        ...(unitChanges
+          ? [batchAbortUnlessOn(ctx.db, maintReadingKind, sql`not exists (select 1 from maint_reading r where r.company_id = ${ctx.companyId} and r.kind_id = ${kind.id})`)]
+          : []),
         ctx.db.update(maintReadingKind).set({ name: input.name, unit: input.unit, ...limit, active: input.active, updatedAt: now() }).where(where),
         auditInsertGuarded(ctx, { action: "maint.limit.update", subjectType: "maint_asset", subjectId: kind.assetId, meta: { name: input.name, unit: input.unit, active: input.active, ...limit } }, { from: maintReadingKind, where }),
       ]);
     } catch (e) {
+      if (isBatchAbortOn(e, "maint_reading_kind")) throw new TRPCError({ code: "BAD_REQUEST", message: READING_UNIT_LOCKED });
       if (isUnique(e)) throw new TRPCError({ code: "CONFLICT", message: READING_KIND_TAKEN });
       throw e;
     }
     return { id: kind.id };
   }),
 
-  /** A reading typed by hand. The server checks it against the kind's limits as they are now. */
+  /**
+   * A reading typed by hand. The server checks it against the kind's limits as they are now. The write
+   * lands only while the kind is still on with the unit and limits it was checked against: a kind
+   * switched off, re-limited or given another unit meanwhile refuses the reading (no audit row).
+   */
   record: workProcedure
     .input(z.object({ kindId: id, valueMilli: milli, note: optText(500) }))
     .mutation(async ({ ctx, input }) => {
@@ -638,7 +717,10 @@ const readingsRouter = router({
       const flag = readingFlag(input.valueMilli, kind);
       const readingId = crypto.randomUUID();
       const at = now();
+      const kindAsChecked = sql`exists (select 1 from maint_reading_kind k where k.company_id = ${ctx.companyId} and k.id = ${kind.id}
+        and k.active = 1 and k.unit = ${kind.unit} and k.min_milli is ${kind.minMilli} and k.max_milli is ${kind.maxMilli})`;
       await atomicBatch(ctx.db, [
+        batchAbortUnlessOn(ctx.db, maintReading, kindAsChecked),
         ctx.db.insert(maintReading).values({
           id: readingId,
           companyId: ctx.companyId,
@@ -658,7 +740,11 @@ const readingsRouter = router({
           { action: "maint.reading.record", subjectType: "maint_asset", subjectId: kind.assetId, meta: { readingId, name: kind.name, valueMilli: input.valueMilli, flag } },
           { from: maintReading, where: and(eq(maintReading.companyId, ctx.companyId), eq(maintReading.id, readingId)) },
         ),
-      ]);
+      ]).catch(async (e: unknown) => {
+        if (!isBatchAbortOn(e, "maint_reading")) throw e;
+        const nowKind = await loadKind(ctx, kind.id);
+        throw new TRPCError({ code: "BAD_REQUEST", message: nowKind.active ? READING_KIND_CHANGED : READING_KIND_OFF });
+      });
       return { id: readingId, flag };
     }),
 
@@ -786,7 +872,8 @@ const reportsRouter = router({
    * stopped, or a breakdown work order not yet done, is listed per asset under `stillOpen` with its age
    * and left out of every figure until it closes. A breakdown is counted (and its MTTR taken) in the
    * month it started; each month's downtime is clipped to the month. Months are the plant's own
-   * (company timezone). `truncated` is true when a source had more than REPORT_ROW_CAP rows in range.
+   * (company timezone). `truncated` is true when a source (the assets too) had more than REPORT_ROW_CAP
+   * rows in range. Labour and spares of a breakdown work order still open wait for it to close.
    */
   summary: viewProcedure.input(z.object({ from: month, to: month })).query(async ({ ctx, input }) => {
     await assertModule(ctx, "maintenance");
@@ -804,6 +891,10 @@ const reportsRouter = router({
     const endMs = Math.min(toMs, nowMs);
     const c = ctx.companyId;
     const cap = REPORT_ROW_CAP + 1;
+    // A breakdown work order still open (or made from a downtime entry not stopped yet) stays out of
+    // every figure, its labour and spares too, until it closes; other work orders count as they are.
+    const closedBreakdownOnly = sql`(w.kind <> 'breakdown' or (w.status = 'done' and (w.downtime_id is null or exists (
+      select 1 from press_downtime dd where dd.company_id = w.company_id and dd.id = w.downtime_id and dd.stopped_at is not null))))`;
 
     const [assets, downtimeEvents, woEvents, labour, spares, rate] = await Promise.all([
       ctx.db
@@ -811,7 +902,7 @@ const reportsRouter = router({
         .from(maintAsset)
         .where(eq(maintAsset.companyId, c))
         .orderBy(sql`lower(${maintAsset.code})`)
-        .limit(500),
+        .limit(cap),
       ctx.db.all<{ asset_id: string; started_at: number; stopped_at: number | null; wo_id: string | null; wo_number: string | null }>(sql`
         select a.id as asset_id, d.started_at, d.stopped_at, w.id as wo_id, w.number as wo_number
         from press_downtime d
@@ -832,7 +923,7 @@ const reportsRouter = router({
       ctx.db.all<{ asset_id: string; at: number; labour_min: number }>(sql`
         select w.asset_id, coalesce(w.finished_at, w.created_at) as at, w.labour_min
         from maint_work_order w
-        where w.company_id = ${c} and w.status <> 'cancelled' and w.labour_min > 0
+        where w.company_id = ${c} and w.status <> 'cancelled' and w.labour_min > 0 and ${closedBreakdownOnly}
           and coalesce(w.finished_at, w.created_at) >= ${fromMs} and coalesce(w.finished_at, w.created_at) < ${toMs}
         limit ${cap}`),
       ctx.db.all<{ asset_id: string; at: number }>(sql`
@@ -840,11 +931,11 @@ const reportsRouter = router({
         from maint_wo_spare s
         join maint_work_order w on w.id = s.work_order_id and w.company_id = s.company_id
         join store_txn t on t.id = s.store_txn_id and t.company_id = s.company_id and t.cancelled_at is null
-        where s.company_id = ${c} and t.created_at >= ${fromMs} and t.created_at < ${toMs}
+        where s.company_id = ${c} and ${closedBreakdownOnly} and t.created_at >= ${fromMs} and t.created_at < ${toMs}
         limit ${cap}`),
       labourRate(ctx),
     ]);
-    const truncated = [downtimeEvents, woEvents, labour, spares].some((rows) => rows.length > REPORT_ROW_CAP);
+    const truncated = [assets, downtimeEvents, woEvents, labour, spares].some((rows) => rows.length > REPORT_ROW_CAP);
     const keep = <T,>(rows: T[]) => rows.slice(0, REPORT_ROW_CAP);
 
     const events = new Map<string, BreakdownEvent[]>();
@@ -870,7 +961,7 @@ const reportsRouter = router({
     const sparesBy = new Map<string, number>();
     for (const s of keep(spares)) sparesBy.set(`${s.asset_id}|${monthOf(tz, Number(s.at))}`, (sparesBy.get(`${s.asset_id}|${monthOf(tz, Number(s.at))}`) ?? 0) + 1);
 
-    const rows = assets.map((a) => {
+    const rows = keep(assets).map((a) => {
       const ev = events.get(a.id) ?? [];
       const perMonth = months.map((m) => {
         const mFrom = monthStartMs(tz, m);

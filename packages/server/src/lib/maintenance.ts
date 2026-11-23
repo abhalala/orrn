@@ -221,7 +221,24 @@ export type PlanDueRow = {
   openWorkOrderNumber: string | null;
 };
 
-/** Every active plan (of one asset, or all), with its due figures, overdue first. */
+/** Due figures of one plan row, from the intervals and base on THAT row (never a second read of the plan). */
+export function dueOfPlan(
+  p: { id: string; intervalDays: number | null; intervalHours: number | null; baseAtMs: number },
+  usage: Map<string, number>,
+  nowMs: number,
+  dayOf: (ms: number) => number,
+): PmDue {
+  return pmDue({
+    intervalDays: p.intervalDays,
+    intervalHours: p.intervalHours,
+    baseAtMs: p.baseAtMs,
+    usageMinSinceBase: p.intervalHours != null ? (usage.get(p.id) ?? 0) : null,
+    nowMs,
+    dayOf,
+  });
+}
+
+/** Every active plan (of one asset, or all), with its due figures, overdue first. No row cap: an omitted plan could be the overdue one. */
 export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promise<PlanDueRow[]> {
   const [usage, tz] = await Promise.all([planUsageMinutes(ctx, nowMs, assetId), plantTimezone(ctx)]);
   const dayOf = plantDayOf(tz);
@@ -244,8 +261,7 @@ export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promi
     left join maint_work_order w on w.company_id = p.company_id and w.plan_id = p.id
       and w.status in ('open', 'in_progress', 'waiting_spares')
     where p.company_id = ${ctx.companyId} and p.active = 1 and a.status <> 'retired'
-      ${assetId ? sql`and p.asset_id = ${assetId}` : sql``}
-    limit 1000`);
+      ${assetId ? sql`and p.asset_id = ${assetId}` : sql``}`);
   return rows
     .map((r) => ({
       planId: r.id,
@@ -256,14 +272,7 @@ export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promi
       intervalDays: r.interval_days,
       intervalHours: r.interval_hours,
       baseAt: Number(r.base_at),
-      due: pmDue({
-        intervalDays: r.interval_days,
-        intervalHours: r.interval_hours,
-        baseAtMs: Number(r.base_at),
-        usageMinSinceBase: r.interval_hours != null ? (usage.get(r.id) ?? 0) : null,
-        nowMs,
-        dayOf,
-      }),
+      due: dueOfPlan({ id: r.id, intervalDays: r.interval_days, intervalHours: r.interval_hours, baseAtMs: Number(r.base_at) }, usage, nowMs, dayOf),
       openWorkOrderId: r.wo_id,
       openWorkOrderNumber: r.wo_number,
     }))

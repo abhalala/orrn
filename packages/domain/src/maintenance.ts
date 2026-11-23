@@ -79,6 +79,7 @@ export function priorityFromCriticality(criticality: MaintCriticality): MaintPri
 // ---------------------------------------------------------------------------
 
 export const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
 /** A plan is "due soon" this many days before its calendar date. */
 export const PM_SOON_DAYS = 7;
 /** A plan is "due soon" when this share of its run hours is left (10 %), at least 1 hour. */
@@ -141,8 +142,13 @@ export function pmDue(input: PmDueInput): PmDue {
 
   let days: { state: PmDueState; share: number; dueAtMs: number; daysLeft: number } | null = null;
   if (intervalDays != null) {
-    const dueAtMs = baseAtMs + intervalDays * DAY_MS;
-    const daysLeft = dayOf(dueAtMs) - dayOf(nowMs);
+    // Calendar days on the plant clock, not 24-hour steps: across a clock change the due day is still
+    // the base's plant day plus the interval. `dueAtMs` is moved by whole hours onto that day.
+    const dueDay = dayOf(baseAtMs) + intervalDays;
+    let dueAtMs = baseAtMs + intervalDays * DAY_MS;
+    for (let i = 0; i < 48 && dayOf(dueAtMs) < dueDay; i += 1) dueAtMs += HOUR_MS;
+    for (let i = 0; i < 48 && dayOf(dueAtMs) > dueDay; i += 1) dueAtMs -= HOUR_MS;
+    const daysLeft = dueDay - dayOf(nowMs);
     const state: PmDueState = daysLeft < 0 ? "overdue" : daysLeft <= PM_SOON_DAYS ? "soon" : "ok";
     days = { state, share: daysLeft / intervalDays, dueAtMs, daysLeft };
   }
@@ -248,7 +254,7 @@ export type BreakdownEvent = { startMs: number; endMs: number };
 export type Reliability = {
   /** Breakdowns that STARTED in the window (each one wholly in the month it started). */
   failures: number;
-  /** Whole minutes the asset was down inside the window, each breakdown clipped to the window. */
+  /** Whole minutes the asset was down inside the window, each breakdown clipped to the window, overlaps once. */
   downtimeMin: number;
   /** Mean time to repair: the FULL length of the breakdowns that started in the window, over their count. */
   mttrMin: number | null;
@@ -266,7 +272,8 @@ export function reliability(events: readonly BreakdownEvent[], fromMs: number, t
   const windowMin = Math.max(0, (toMs - fromMs) / 60_000);
   const started = events.filter((e) => e.startMs >= fromMs && e.startMs < toMs);
   const failures = started.length;
-  const down = events.reduce((s, e) => s + spanMinutesIn(e, fromMs, toMs), 0);
+  // Overlapping breakdowns (two work orders open together) are down time once: the union of the clipped spans.
+  const down = mergedMinutes(events.map((e) => ({ startMs: Math.max(e.startMs, fromMs), endMs: Math.min(e.endMs, toMs) })));
   const downtimeMin = Math.round(down);
   if (failures === 0) return { failures: 0, downtimeMin, mttrMin: null, mtbfMin: null };
   const repairMin = started.reduce((s, e) => s + Math.max(0, e.endMs - e.startMs) / 60_000, 0);

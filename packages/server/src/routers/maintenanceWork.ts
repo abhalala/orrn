@@ -50,6 +50,7 @@ import { atomicBatch, atomicBatchLast, type OrrnDb, type SqliteBatchItem } from 
 import { auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { docNumberInBatch, isDocNumberStale } from "../lib/docNumber";
+import { batchAbortUnlessOn, isBatchAbortOn } from "../lib/orders";
 import { assertMember, loadAsset, notFound } from "../lib/maintenance";
 import { assertModule } from "../lib/moduleGate";
 import { nextCompanySeq } from "../lib/sequence";
@@ -186,7 +187,7 @@ async function guardedWrite(
   row: MaintWorkOrderRow,
   serverSeq: number,
   set: Partial<typeof maintWorkOrder.$inferInsert>,
-  audit: { action: string; meta: Record<string, unknown> },
+  audit: { action: string; meta: Record<string, unknown>; /** Extra meta only when `when` holds at write time (after `after` ran). */ when?: { sql: SQL; meta: Record<string, unknown> } },
   after: (landedSql: SQL) => SqliteBatchItem[] = () => [],
 ) {
   const seq = await nextCompanySeq(ctx, ctx.companyId);
@@ -195,11 +196,26 @@ async function guardedWrite(
   const landed = await atomicBatchLast<{ id: string }>(ctx.db, [
     ctx.db.update(maintWorkOrder).set({ ...set, serverSeq: seq, updatedAt: now() }).where(where(serverSeq)),
     ...after(landedSql),
-    auditInsertGuarded(
-      ctx,
-      { action: audit.action, subjectType: "maint_work_order", subjectId: row.id, meta: { number: row.number, ...audit.meta } },
-      { from: maintWorkOrder, where: where(seq) },
-    ),
+    ...(audit.when
+      ? [
+          auditInsertGuarded(
+            ctx,
+            { action: audit.action, subjectType: "maint_work_order", subjectId: row.id, meta: { number: row.number, ...audit.meta, ...audit.when.meta } },
+            { from: maintWorkOrder, where: and(where(seq), audit.when.sql) },
+          ),
+          auditInsertGuarded(
+            ctx,
+            { action: audit.action, subjectType: "maint_work_order", subjectId: row.id, meta: { number: row.number, ...audit.meta } },
+            { from: maintWorkOrder, where: and(where(seq), sql`not (${audit.when.sql})`) },
+          ),
+        ]
+      : [
+          auditInsertGuarded(
+            ctx,
+            { action: audit.action, subjectType: "maint_work_order", subjectId: row.id, meta: { number: row.number, ...audit.meta } },
+            { from: maintWorkOrder, where: where(seq) },
+          ),
+        ]),
     ctx.db.select({ id: maintWorkOrder.id }).from(maintWorkOrder).where(where(seq)),
   ]);
   if (landed.length === 0) throw new TRPCError({ code: "CONFLICT", message: WO_CHANGED });
@@ -516,7 +532,17 @@ export const workOrdersRouter = router({
       if (changed.length === 0) return { id: row.id };
       // A done preventive work order that its plan last reset from: a new finish time moves the reset point.
       const movesPlan = row.status === "done" && row.kind === "preventive" && row.planId && set.finishedAt && set.finishedAt.getTime() !== row.finishedAt?.getTime();
-      await guardedWrite(ctx, row, input.serverSeq, set, { action: "maint.workorder.update", meta: { fields: changed, ...(movesPlan ? { planReset: true } : {}) } }, (landedSql) =>
+      // planReset is written only when the plan really moved: this work order is still its last one.
+      const planMoved = movesPlan
+        ? sql`exists (select 1 from maint_plan pp where pp.company_id = ${ctx.companyId} and pp.id = ${row.planId} and pp.last_work_order_id = ${row.id})`
+        : undefined;
+      await guardedWrite(
+        ctx,
+        row,
+        input.serverSeq,
+        set,
+        { action: "maint.workorder.update", meta: { fields: changed }, ...(planMoved ? { when: { sql: planMoved, meta: { planReset: true } } } : {}) },
+        (landedSql) =>
         movesPlan
           ? [
               ctx.db
@@ -561,6 +587,12 @@ export const workOrdersRouter = router({
         set.startedAt = row.startedAt ?? row.createdAt;
         set.finishedAt = row.finishedAt ?? at;
       }
+      if (input.to !== "cancelled") {
+        // The times the move would leave, defaults included, must still run start then finish.
+        const start = set.startedAt !== undefined ? set.startedAt : row.startedAt;
+        const finish = set.finishedAt !== undefined ? set.finishedAt : row.finishedAt;
+        if (start && finish && finish.getTime() < start.getTime()) throw new TRPCError({ code: "BAD_REQUEST", message: WO_FINISH_BEFORE_START });
+      }
       if (input.to === "cancelled") {
         if (!input.reason) throw new TRPCError({ code: "BAD_REQUEST", message: WO_NEEDS_REASON });
         set.cancelReason = input.reason;
@@ -600,6 +632,11 @@ export const workOrdersRouter = router({
 // Spares (row 66)
 // ---------------------------------------------------------------------------
 
+/** In-batch guard: the work order is still not cancelled when the spare write lands (a cancel may commit first). */
+function woNotCancelled(ctx: Ctx, woId: string): SQL {
+  return sql`exists (select 1 from maint_work_order w where w.company_id = ${ctx.companyId} and w.id = ${woId} and w.status <> 'cancelled')`;
+}
+
 async function loadMrs(ctx: Ctx, storeTxnId: string) {
   const [txn] = await ctx.db.select().from(storeTxn).where(and(eq(storeTxn.companyId, ctx.companyId), eq(storeTxn.id, storeTxnId))).limit(1);
   if (!txn) throw notFound();
@@ -638,11 +675,10 @@ export const sparesRouter = router({
           sql`not exists (select 1 from maint_wo_spare s where s.company_id = ${ctx.companyId} and s.store_txn_id = ${storeTxn.id})`,
         ),
       )
-      .orderBy(desc(storeTxn.createdAt))
+      // Issues made for this work order first IN SQL, so the limit never drops one of them.
+      .orderBy(sql`(${storeTxn.refId} = ${wo.id}) desc`, desc(storeTxn.createdAt))
       .limit(100);
-    return rows
-      .map((r) => ({ ...r, issuedAt: r.issuedAt.getTime(), forThis: r.refId === wo.id }))
-      .sort((a, b) => Number(b.forThis) - Number(a.forThis));
+    return rows.map((r) => ({ ...r, issuedAt: r.issuedAt.getTime(), forThis: r.refId === wo.id }));
   }),
 
   link: workProcedure.input(z.object({ workOrderId: id, storeTxnId: id })).mutation(async ({ ctx, input }) => {
@@ -664,6 +700,7 @@ export const sparesRouter = router({
     const linkId = crypto.randomUUID();
     try {
       await atomicBatch(ctx.db, [
+        batchAbortUnlessOn(ctx.db, maintWoSpare, woNotCancelled(ctx, wo.id)),
         ctx.db.insert(maintWoSpare).values({ id: linkId, companyId: ctx.companyId, workOrderId: wo.id, storeTxnId: txn.id, createdBy: ctx.session.user.id }),
         auditInsertGuarded(
           ctx,
@@ -672,6 +709,7 @@ export const sparesRouter = router({
         ),
       ]);
     } catch (e) {
+      if (isBatchAbortOn(e, "maint_wo_spare")) throw new TRPCError({ code: "BAD_REQUEST", message: WO_FINAL });
       if (/UNIQUE constraint failed: maint_wo_spare/.test(String((e as Error)?.message ?? e)) || /UNIQUE constraint failed: maint_wo_spare/.test(String((e as { cause?: Error })?.cause?.message ?? ""))) {
         throw new TRPCError({ code: "CONFLICT", message: SPARE_TAKEN });
       }
@@ -691,13 +729,17 @@ export const sparesRouter = router({
       .limit(1);
     if (!link) throw new TRPCError({ code: "BAD_REQUEST", message: SPARE_NOT_LINKED });
     await atomicBatch(ctx.db, [
+      batchAbortUnlessOn(ctx.db, maintWoSpare, woNotCancelled(ctx, wo.id)),
       auditInsertGuarded(
         ctx,
         { action: "maint.spare.unlink", subjectType: "maint_work_order", subjectId: wo.id, meta: { number: wo.number, storeTxnId: input.storeTxnId, mrs: link.mrs } },
         { from: maintWoSpare, where: and(eq(maintWoSpare.companyId, ctx.companyId), eq(maintWoSpare.id, link.id)) },
       ),
       ctx.db.delete(maintWoSpare).where(and(eq(maintWoSpare.companyId, ctx.companyId), eq(maintWoSpare.id, link.id))),
-    ]);
+    ]).catch((e: unknown) => {
+      if (isBatchAbortOn(e, "maint_wo_spare")) throw new TRPCError({ code: "BAD_REQUEST", message: WO_FINAL });
+      throw e;
+    });
     return { unlinked: true };
   }),
 });

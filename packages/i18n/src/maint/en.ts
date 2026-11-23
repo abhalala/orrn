@@ -124,6 +124,7 @@ export const maintEn = {
     liveMeta: "Breakdowns and plans in hand",
     flagged: "Readings out of limit",
     flaggedMeta: "Last 7 days, no work order yet",
+    loadFailed: "Could not load. Try again.",
   },
 
   /** The one-tap button on a press breakdown (press station). */
@@ -150,7 +151,7 @@ export const maintEn = {
     spareNotLinked: "That store issue is not on this work order.",
     noRunHours: "This asset has no run hours. Link it to a press, furnace or oven, or plan by days.",
     needsInterval: "A plan needs days, run hours or both.",
-    hoursPlans: "Plans on this asset run on run hours. Change them to days before you remove the link.",
+    hoursPlans: "Plans on this asset run on run hours. Change them to days before you change or remove the link.",
     codeTaken: "Another asset already has that code.",
     linkTaken: "Another asset already points at that press, furnace or oven.",
     linkMissing: "That press, furnace or oven is not in this plant.",
@@ -158,6 +159,7 @@ export const maintEn = {
     limitInvalid: "Give a low limit, a high limit or both, with the low below the high.",
     kindTaken: "This asset already reads something by that name.",
     kindOff: "That reading is switched off.",
+    kindChanged: "This reading's unit or limits changed just now. Take the reading again.",
     inLimit: "That reading is inside its limits.",
     retired: "This asset is retired.",
     timeFuture: "A start or finish time cannot be in the future.",

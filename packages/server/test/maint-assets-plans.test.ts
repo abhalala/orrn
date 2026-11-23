@@ -319,7 +319,7 @@ describe("preventive plans (#64)", () => {
     const { asset: row } = await p.manager.maint.assets.get({ id });
     expect(await errOf(p.manager.maint.assets.update({ id, serverSeq: row.serverSeq, ...asset({ code: "PRESS-1", kind: "press" }) }))).toEqual({
       code: "BAD_REQUEST",
-      message: "Plans on this asset run on run hours. Change them to days before you remove the link",
+      message: "Plans on this asset run on run hours. Change them to days before you change or remove the link",
     });
   });
 });
