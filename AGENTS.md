@@ -730,11 +730,26 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   cancel only with no live GRN that took goods in (the indent goes back to approved); close short by hand.
   `store.indents.fromReorder` holds "no live indent with this item" in the header INSERT's WHERE plus
   `abortBatchUnlessChanged`, so two clicks give one indent (the loser gets the live one back, `existing`).
+  "Live" is `indentCoversItemSql` (`lib/storeBuy.ts`), shared with `store.belowMinimum`: open or approved
+  with the item, or ordered while its PO is draft, issued or part received AND that PO has a line for the
+  item (an item the PO left out stays reorderable; a PO with no indent does not suppress reorder). The same
+  INSERT also holds the stock, unit and levels the quantity came from; on a lost write it re-reads (live
+  indent, then "not below its minimum") and tries once more, then CONFLICT. An indent decision reads its
+  outcome from the batch (`abortBatchUnlessChanged` right after the UPDATE), never from a later re-read.
+  `store.po.issue` holds "vendor still active" in its UPDATE. `items.update` holds the unit and any level
+  it validated from the row it read (CONFLICT "… changed; open it again" when they moved).
+- Lists page by `limit` + opaque `cursor` and return `{ items, nextCursor }`: `store.indents.list`,
+  `store.po.list` (newest first), `store.po.openLines` (oldest order first, cursor `poId/line`),
+  `store.valuation.pending`. The web shows "Show more" on the indents, orders and rate-pending lists and in
+  the GRN form's order-line picker; a picked line is "gone" only once every page is loaded.
 - GRN against PO: `store.receive` takes `poLineId`, `ratePaise` and `rejectedMilli`. The room check
   (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in the document INSERT's WHERE, so
   racing GRNs cannot overrun; `poStatusSync` runs in the same batch, and again on `store.cancel`. An order
-  a full delivery closed (`closed_by` null) still takes a top-up within the tolerance (`poTakesDeliveries`,
-  `poTakesDeliveriesSql`); one closed short by hand takes none. Tolerance:
+  a full delivery closed still takes a top-up within the tolerance (`poTakesDeliveries`,
+  `poTakesDeliveriesSql`); one closed short by hand takes none. "By hand" is `poClosedByHandSql`:
+  `close_note` set (only `store.po.close` writes it, always non-empty), or `closed_by` set; never
+  `closed_by` alone, because deleting the person nulls it. A GRN replay key reused with another
+  `poLineId` or `rejectedMilli` is CONFLICT; an exact resend replays even after the PO closed. Tolerance:
   `company.settings.storePoOverReceiptBp` (default 500 = 5 %, max 5000), written with `settingsPatchSql`.
   `qtyMilli` may be 0 when `rejectedMilli` > 0: a fully rejected delivery is recorded (vendor history) with
   no stock and no value, and does not count as goods in on the order.

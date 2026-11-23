@@ -74,3 +74,23 @@ describe("an order line that closed while the form was open", () => {
     expect(ids.idFor(sig)).toBe(first);
   });
 });
+
+describe("GRN when the order lookup failed (CodeRabbit round 4)", () => {
+  test("a GRN with no order is held until the person chooses it; a picked line or an unsure resend goes out", async () => {
+    const { grnHeldByLookup } = await import("./grn-model");
+    const draft = { poLineId: null, rate: "", rejected: "" };
+    expect(grnHeldByLookup(false, draft, "sig", null)).toBe(false);
+    expect(grnHeldByLookup(true, draft, "sig", null)).toBe(true);
+    expect(grnHeldByLookup(true, { ...draft, withoutPo: true }, "sig", null)).toBe(false);
+    expect(grnHeldByLookup(true, { ...draft, poLineId: "L1" }, "sig", null)).toBe(false);
+    // The first submit got no answer: the resend goes out unchanged, with the same id.
+    expect(grnHeldByLookup(true, draft, "sig", "sig")).toBe(false);
+    expect(grnHeldByLookup(true, draft, "sig2", "sig")).toBe(true);
+  });
+
+  test("a line missing from the pages loaded so far is not gone while more pages exist", () => {
+    expect(poLineGone({ items: [{ lineId: "L1" }], complete: false }, "L9")).toBe(false);
+    expect(poLineGone({ items: [{ lineId: "L1" }], complete: true }, "L9")).toBe(true);
+    expect(poLineGone({ items: [{ lineId: "L1" }] }, "L9")).toBe(true);
+  });
+});

@@ -8,10 +8,10 @@ import { NativeSelect } from "@orrn/ui/components/native-select";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Qty } from "@/features/store/balances-list";
@@ -26,7 +26,7 @@ import { IndentSheet } from "./indent-sheet";
 import { indentActions, indentTone, INDENT_STATUSES, knownStatus, type IndentStatus } from "./indent-model";
 import { useInvalidateBuy, type IndentRow } from "./use-buy";
 
-const LIMIT = 100;
+const LIMIT = 50;
 
 /** Indents (`/store/buy`, row 69): the list by status, raise, and one sheet to read and decide. */
 export function IndentsTab() {
@@ -37,8 +37,14 @@ export function IndentsTab() {
   const [openId, setOpenId] = useState<string | null>(null);
   const filterId = `indent-status-${useId().replace(/:/g, "")}`;
 
-  const list = useQuery(trpc.store.indents.list.queryOptions({ ...(status ? { status } : {}), limit: LIMIT }));
-  const rows = list.data?.items ?? [];
+  // The status is part of the query key, so changing it starts again from the first page.
+  const list = useInfiniteQuery(
+    trpc.store.indents.list.infiniteQueryOptions(
+      { ...(status ? { status } : {}), limit: LIMIT },
+      { getNextPageParam: (last) => last.nextCursor ?? undefined },
+    ),
+  );
+  const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
 
   const columns: ResponsiveListColumn<IndentRow>[] = [
     {
@@ -112,8 +118,12 @@ export function IndentsTab() {
               />
             }
           />
-          {rows.length >= LIMIT ? (
-            <p className="m-0 text-[14px] text-muted-foreground">{t("store2.indent.more", { count: String(LIMIT) })}</p>
+          {list.hasNextPage ? (
+            <div>
+              <Button variant="secondary" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+                {t("common.showMore")}
+              </Button>
+            </div>
           ) : null}
         </>
       )}
@@ -122,6 +132,10 @@ export function IndentsTab() {
       <IndentDetail id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
+}
+
+function decisionDone(kind: "approve" | "reject" | "cancel") {
+  return kind === "approve" ? "approved" : kind === "reject" ? "rejected" : "cancelled";
 }
 
 function StatusChip({ status }: { status: string }) {
@@ -143,16 +157,16 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
   const [text, setText] = useState("");
   const [needed, setNeeded] = useState(false);
 
-  const done = (key: "approved" | "rejected" | "cancelled", number: string) => async () => {
-    toast.success(t(`store2.indent.detail.${key}`, { number }));
-    await invalidate();
-    setAsk(null);
-    setText("");
-  };
+  // The indent on screen now: a decision that finishes after the person opened another indent must not
+  // clear that one's note or close it.
+  const shownId = useRef(id);
+  shownId.current = id;
+  // Busy until the lists have refetched, not only until the server answered.
+  const [settling, setSettling] = useState(false);
   const approve = useMutation(trpc.store.indents.approve.mutationOptions());
   const reject = useMutation(trpc.store.indents.reject.mutationOptions());
   const cancel = useMutation(trpc.store.indents.cancel.mutationOptions());
-  const busy = approve.isPending || reject.isPending || cancel.isPending;
+  const busy = approve.isPending || reject.isPending || cancel.isPending || settling;
   const error = approve.error ?? reject.error ?? cancel.error;
 
   useEffect(() => {
@@ -180,14 +194,22 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
       setNeeded(true);
       return;
     }
+    const startedOn = indent.id;
+    setSettling(true);
     try {
       if (kind === "approve") await approve.mutateAsync({ id: indent.id, ...(note ? { note } : {}) });
       else if (kind === "reject") await reject.mutateAsync({ id: indent.id, note });
       else await cancel.mutateAsync({ id: indent.id, reason: note });
-      await done(kind === "approve" ? "approved" : kind === "reject" ? "rejected" : "cancelled", indent.number)();
+      toast.success(t(`store2.indent.detail.${decisionDone(kind)}`, { number: indent.number }));
+      await invalidate();
+      if (shownId.current !== startedOn) return;
+      setAsk(null);
+      setText("");
       if (kind !== "approve") onClose();
     } catch {
       // Shown below.
+    } finally {
+      setSettling(false);
     }
   };
 

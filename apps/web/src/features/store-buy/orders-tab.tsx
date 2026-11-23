@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -19,7 +19,7 @@ import { rupees } from "./money";
 import { PO_STATUSES, poTone, type PoStatus } from "./po-model";
 import type { PoRow } from "./use-buy";
 
-const LIMIT = 200;
+const LIMIT = 50;
 
 type Filter = "all" | PoStatus;
 
@@ -28,14 +28,18 @@ export function OrdersTab() {
   const { t } = useT();
   const fmt = useFmt();
   const [filter, setFilter] = useState<Filter>("all");
-  const query = useQuery({
-    ...trpc.store.po.list.queryOptions({ ...(filter === "all" ? {} : { status: filter }), limit: LIMIT }),
+  // The filter is part of the query key, so changing it starts again from the first page.
+  const query = useInfiniteQuery({
+    ...trpc.store.po.list.infiniteQueryOptions(
+      { ...(filter === "all" ? {} : { status: filter }), limit: LIMIT },
+      { getNextPageParam: (last) => last.nextCursor ?? undefined },
+    ),
     meta: INLINE_ERROR_META,
   });
 
   if (showsQueryError(query)) return <StoreLoadError onRetry={() => void query.refetch()} />;
 
-  const rows = query.data?.items ?? [];
+  const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   const columns: ResponsiveListColumn<PoRow>[] = [
     { key: "number", header: t("store2.po.list.number"), cell: (r) => <span className="font-mono whitespace-nowrap">{r.number}</span> },
     { key: "vendor", header: t("store2.po.list.vendor"), cell: (r) => r.vendorName },
@@ -109,7 +113,13 @@ export function OrdersTab() {
           )
         }
       />
-      {rows.length >= LIMIT ? <p className="m-0 text-[13px] text-muted-foreground">{t("store2.po.list.capped", { count: LIMIT })}</p> : null}
+      {query.hasNextPage ? (
+        <div>
+          <Button variant="secondary" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+            {t("common.showMore")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
