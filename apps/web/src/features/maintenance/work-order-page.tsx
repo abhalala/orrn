@@ -19,7 +19,7 @@ import { FieldTextArea } from "./field-controls";
 import { hoursMinutes, isPriority, isWoKind, isWoStatus, maintErrorKey, PRIORITY_TONE, WO_STATUS_TONE, type WoStatus } from "./model";
 import { WoEditCard } from "./wo-edit-form";
 import { isConflict, useInvalidateWo } from "./wo-hooks";
-import { doneDraft } from "./wo-model";
+import { askAfterMoveError, openMoveAsk, type MoveAsk } from "./wo-model";
 import { MoveBar } from "./wo-parts";
 import { SparesCard } from "./wo-spares-card";
 
@@ -101,13 +101,14 @@ function WoBody({ wo, back }: { wo: Wo; back: { to: string; label: string } }) {
   const status = isWoStatus(wo.status) ? wo.status : "open";
   const notYet = t("maint.workOrders.detail.notYet");
   const none = t("maint.none");
-  const [ask, setAsk] = useState<"done" | "cancelled" | null>(null);
+  const [ask, setAsk] = useState<MoveAsk | null>(null);
   const invalidate = useInvalidateWo();
   const queryClient = useQueryClient();
 
   const move = useMutation({
-    mutationFn: (v: { to: Move; reason?: string; workDone?: string }) =>
-      trpcClient.maint.workOrders.move.mutate({ id: wo.id, serverSeq: wo.serverSeq, to: v.to, ...(v.reason ? { reason: v.reason } : {}), ...(v.workDone ? { workDone: v.workDone } : {}) }),
+    // The id and version travel with the request: a confirmation sends what it was opened against, never the row as refetched since.
+    mutationFn: (v: { id: string; serverSeq: number; to: Move; reason?: string; workDone?: string }) =>
+      trpcClient.maint.workOrders.move.mutate({ id: v.id, serverSeq: v.serverSeq, to: v.to, ...(v.reason ? { reason: v.reason } : {}), ...(v.workDone ? { workDone: v.workDone } : {}) }),
     onSuccess: async (_res, v) => {
       setAsk(null);
       await invalidate();
@@ -115,13 +116,15 @@ function WoBody({ wo, back }: { wo: Wo; back: { to: string; label: string } }) {
     },
     onError: (error) => {
       toast.error(t(maintErrorKey(error)));
+      // After a conflict the reviewed text belongs to an older order: close it so the operator reviews the refreshed one and opens it again.
+      setAsk((a) => askAfterMoveError(a, error));
       if (isConflict(error)) void queryClient.invalidateQueries({ queryKey: trpc.maint.workOrders.get.queryKey({ id: wo.id }) });
     },
   });
 
   const onMove = (to: Move) => {
-    if (to === "done" || to === "cancelled") setAsk(to);
-    else move.mutate({ to });
+    if (to === "done" || to === "cancelled") setAsk(openMoveAsk(wo, to));
+    else move.mutate({ id: wo.id, serverSeq: wo.serverSeq, to });
   };
 
   return (
@@ -203,19 +206,21 @@ function WoBody({ wo, back }: { wo: Wo; back: { to: string; label: string } }) {
         </Section>
       ) : null}
 
-      <Can do="maint.workorder">{status === "cancelled" ? null : <WoEditCard key={wo.serverSeq} wo={wo} />}</Can>
+      <Can do="maint.workorder">{status === "cancelled" ? null : <WoEditCard key={wo.id} wo={wo} />}</Can>
 
       <SparesCard workOrderId={wo.id} status={wo.status} spares={wo.spares} />
 
-      {ask === "done" ? (
+      {ask?.to === "done" ? (
         <DoneSheet
-          initial={doneDraft(wo.workDone)}
+          initial={ask.initial}
           busy={move.isPending}
           onClose={() => setAsk(null)}
-          onSubmit={(workDone) => move.mutate({ to: "done", workDone })}
+          onSubmit={(workDone) => move.mutate({ id: ask.id, serverSeq: ask.serverSeq, to: "done", workDone })}
         />
       ) : null}
-      {ask === "cancelled" ? <CancelSheet busy={move.isPending} onClose={() => setAsk(null)} onSubmit={(reason) => move.mutate({ to: "cancelled", reason })} /> : null}
+      {ask?.to === "cancelled" ? (
+        <CancelSheet busy={move.isPending} onClose={() => setAsk(null)} onSubmit={(reason) => move.mutate({ id: ask.id, serverSeq: ask.serverSeq, to: "cancelled", reason })} />
+      ) : null}
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { fromZonedInput, toZonedInput } from "@/features/orders/view";
 
+import { createRequestIds, type RequestIds } from "@/features/store/request-id";
+
 import type { WoStatus } from "./model";
 
 /**
@@ -72,7 +74,7 @@ export type WoChanges = {
   finishedAt?: number | null;
 };
 
-export type WoProblem = "title" | "labour" | "finishBeforeStart";
+export type WoProblem = "title" | "labour" | "finishBeforeStart" | "startBad" | "finishBad";
 
 export function formOf(wo: WoEditSource, timeZone: string): WoEditForm {
   return {
@@ -106,8 +108,17 @@ export function buildUpdate(wo: WoEditSource, form: WoEditForm, timeZone: string
   if (labour === "bad") return { ok: false, problem: "labour" };
   // A blank box leaves labour as it is: the server keeps minutes as a plain number, never empty.
   if (labour !== null && labour !== wo.labourMin) changes.labourMin = labour;
-  if (form.startedAt !== msToLocalInput(wo.startedAt, timeZone)) changes.startedAt = localInputToMs(form.startedAt, timeZone);
-  if (form.finishedAt !== msToLocalInput(wo.finishedAt, timeZone)) changes.finishedAt = localInputToMs(form.finishedAt, timeZone);
+  // Only an empty box clears a time. Text that cannot become a supported time is a field error, never a silent clear.
+  if (form.startedAt !== msToLocalInput(wo.startedAt, timeZone)) {
+    const ms = localInputToMs(form.startedAt, timeZone);
+    if (ms === null && form.startedAt.trim() !== "") return { ok: false, problem: "startBad" };
+    changes.startedAt = ms;
+  }
+  if (form.finishedAt !== msToLocalInput(wo.finishedAt, timeZone)) {
+    const ms = localInputToMs(form.finishedAt, timeZone);
+    if (ms === null && form.finishedAt.trim() !== "") return { ok: false, problem: "finishBad" };
+    changes.finishedAt = ms;
+  }
   const start = changes.startedAt !== undefined ? changes.startedAt : wo.startedAt;
   const finish = changes.finishedAt !== undefined ? changes.finishedAt : wo.finishedAt;
   if (start != null && finish != null && finish < start) return { ok: false, problem: "finishBeforeStart" };
@@ -127,4 +138,67 @@ export function orderedMoves(moves: readonly string[]): WoStatus[] {
 /** The text a Done move starts with: what was written already. */
 export function doneDraft(workDone: string | null | undefined): string {
   return workDone ?? "";
+}
+
+/** What a Done or Cancel confirmation was opened against: the order and version the operator saw. */
+export type MoveAsk = { to: "done" | "cancelled"; id: string; serverSeq: number; initial: string };
+
+export function openMoveAsk(wo: { id: string; serverSeq: number; workDone: string | null }, to: "done" | "cancelled"): MoveAsk {
+  return { to, id: wo.id, serverSeq: wo.serverSeq, initial: to === "done" ? doneDraft(wo.workDone) : "" };
+}
+
+/** After a failed move the confirmation stays open, except on a conflict: the reviewed text no longer matches the order. */
+export function askAfterMoveError(ask: MoveAsk | null, error: unknown): MoveAsk | null {
+  return (error as { data?: { code?: string } } | null)?.data?.code === "CONFLICT" ? null : ask;
+}
+
+const FORM_KEYS = ["title", "priority", "assignedTo", "cause", "workDone", "labour", "startedAt", "finishedAt"] as const;
+
+/** The fields the operator touched since the draft was seeded from `base`. */
+export function editedKeys(base: WoEditSource, form: WoEditForm, zone: string): (keyof WoEditForm)[] {
+  const seed = formOf(base, zone);
+  return FORM_KEYS.filter((k) => form[k] !== seed[k]);
+}
+
+/** Fields the operator edited that someone else also changed: where the refreshed order differs from the one the draft began on. */
+export function conflictingKeys(base: WoEditSource, next: WoEditSource, form: WoEditForm, zone: string): (keyof WoEditForm)[] {
+  const was = formOf(base, zone);
+  const now = formOf(next, zone);
+  return editedKeys(base, form, zone).filter((k) => now[k] !== was[k]);
+}
+
+/** The draft laid on the refreshed order: edited fields keep the operator's text, untouched fields take the new values. */
+export function rebaseForm(base: WoEditSource, next: WoEditSource, form: WoEditForm, zone: string): WoEditForm {
+  const edited = new Set(editedKeys(base, form, zone));
+  const now = formOf(next, zone);
+  const out = { ...now };
+  for (const k of FORM_KEYS) if (edited.has(k)) out[k] = form[k];
+  return out;
+}
+
+/**
+ * Attempts to issue from the store. The request id for the same payload never changes until an outcome is known, and an exact
+ * retry skips the local balance check: the store may already have issued the last unit and only the answer got lost.
+ */
+export function createIssueAttempts(ids: RequestIds = createRequestIds()) {
+  const sent = new Set<string>();
+  return {
+    /** The key for this payload and whether it was already sent (a retry). */
+    prepare(signature: string): { clientRequestId: string; retry: boolean } {
+      return { clientRequestId: ids.idFor(signature), retry: sent.has(signature) };
+    },
+    isRetry: (signature: string) => sent.has(signature),
+    markSent(signature: string) {
+      sent.add(signature);
+    },
+    /** The outcome is known (saved, or a replay that turned out cancelled): the next submission starts fresh. */
+    settle() {
+      sent.clear();
+      ids.reset();
+    },
+  };
+}
+
+export function issueSignature(itemId: string, qtyMilli: number, workOrderId: string, note: string): string {
+  return `${itemId}|${qtyMilli}|${workOrderId}|${note.trim()}`;
 }

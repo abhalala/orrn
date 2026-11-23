@@ -29,7 +29,20 @@ export type AssetFormState = {
 };
 
 export function emptyAssetForm(): AssetFormState {
-  return { code: "", name: "", kind: "press", link: "", make: "", serialNo: "", purchasedOn: "", warrantyUntil: "", location: "", criticality: "B", status: "running", note: "" };
+  return {
+    code: "",
+    name: "",
+    kind: "press",
+    link: "",
+    make: "",
+    serialNo: "",
+    purchasedOn: "",
+    warrantyUntil: "",
+    location: "",
+    criticality: "B",
+    status: "running",
+    note: "",
+  };
 }
 
 export function linkValue(kind: string | null | undefined, id: string | null | undefined): string {
@@ -72,12 +85,27 @@ export function formFromAsset(a: AssetLike): AssetFormState {
 const orNull = (s: string): string | null => (s.trim() === "" ? null : s.trim());
 const dayOrNull = (s: string): string | null => (DAY.test(s.trim()) ? s.trim() : null);
 
-export function splitLink(link: string): { linkKind: LinkKind | null; linkId: string | null } {
+export function splitLink(link: string): {
+  linkKind: LinkKind | null;
+  linkId: string | null;
+} {
   const at = link.indexOf(":");
   if (at < 0) return { linkKind: null, linkId: null };
   const kind = link.slice(0, at);
   const id = link.slice(at + 1);
   return isLinkKind(kind) && id ? { linkKind: kind, linkId: id } : { linkKind: null, linkId: null };
+}
+
+/** The master kind an asset kind can link to; other kinds link to nothing. */
+export function linkKindFor(kind: AssetKind): LinkKind | null {
+  return kind === "press" || kind === "furnace" || kind === "oven" ? kind : null;
+}
+
+/** True when a `kind:id` link is empty or fits the asset kind. */
+export function linkFitsKind(kind: AssetKind, link: string): boolean {
+  if (link === "") return true;
+  const { linkKind } = splitLink(link);
+  return linkKind !== null && linkKind === linkKindFor(kind);
 }
 
 export function assetFormValid(f: AssetFormState): boolean {
@@ -107,7 +135,10 @@ export type WarrantyState = { state: "under" | "ended"; day: string } | null;
 /** Warranty by comparing two company days: valid through its last day. */
 export function warrantyState(warrantyUntil: string | null | undefined, today: string): WarrantyState {
   if (!warrantyUntil || !DAY.test(warrantyUntil)) return null;
-  return { state: warrantyUntil >= today ? "under" : "ended", day: warrantyUntil };
+  return {
+    state: warrantyUntil >= today ? "under" : "ended",
+    day: warrantyUntil,
+  };
 }
 
 export type Words = { key: MessageKey; vars?: Record<string, string | number> };
@@ -120,14 +151,35 @@ export function planIntervalWords(days: number | null, hours: number | null): Wo
   return null;
 }
 
-export type PlanFormState = { title: string; steps: string; days: string; hours: string; active: boolean; startOn: string };
+export type PlanFormState = {
+  title: string;
+  steps: string;
+  days: string;
+  hours: string;
+  active: boolean;
+  startOn: string;
+};
 
 export function emptyPlanForm(): PlanFormState {
-  return { title: "", steps: "", days: "", hours: "", active: true, startOn: "" };
+  return {
+    title: "",
+    steps: "",
+    days: "",
+    hours: "",
+    active: true,
+    startOn: "",
+  };
 }
 
 export function formFromPlan(p: { title: string; steps: string | null; intervalDays: number | null; intervalHours: number | null; active: boolean }): PlanFormState {
-  return { title: p.title, steps: p.steps ?? "", days: p.intervalDays == null ? "" : String(p.intervalDays), hours: p.intervalHours == null ? "" : String(p.intervalHours), active: p.active, startOn: "" };
+  return {
+    title: p.title,
+    steps: p.steps ?? "",
+    days: p.intervalDays == null ? "" : String(p.intervalDays),
+    hours: p.intervalHours == null ? "" : String(p.intervalHours),
+    active: p.active,
+    startOn: "",
+  };
 }
 
 /** Whole number text, or null when empty or not a positive whole number. */
@@ -142,6 +194,8 @@ export function planProblem(f: PlanFormState, linked: boolean): PlanProblem {
   if (f.title.trim() === "") return "title";
   const days = wholeOrNull(f.days);
   const hours = linked ? wholeOrNull(f.hours) : null;
+  if (f.days.trim() !== "" && days == null) return "interval";
+  if (linked && f.hours.trim() !== "" && hours == null) return "interval";
   return days == null && hours == null ? "interval" : null;
 }
 
@@ -155,14 +209,35 @@ export function planPayload(f: PlanFormState, linked: boolean) {
   };
 }
 
-export type KindFormState = { name: string; unit: string; low: string; high: string; active: boolean };
+export type KindFormState = {
+  name: string;
+  unit: string;
+  low: string;
+  high: string;
+  active: boolean;
+};
 
 export function emptyKindForm(): KindFormState {
   return { name: "", unit: "", low: "", high: "", active: true };
 }
 
-export function formFromKind(k: { name: string; unit: string; minMilli: number | null; maxMilli: number | null; active: boolean }, milliText: (m: number | null) => string): KindFormState {
-  return { name: k.name, unit: k.unit, low: milliText(k.minMilli), high: milliText(k.maxMilli), active: k.active };
+export function formFromKind(
+  k: {
+    name: string;
+    unit: string;
+    minMilli: number | null;
+    maxMilli: number | null;
+    active: boolean;
+  },
+  milliText: (m: number | null) => string,
+): KindFormState {
+  return {
+    name: k.name,
+    unit: k.unit,
+    low: milliText(k.minMilli),
+    high: milliText(k.maxMilli),
+    active: k.active,
+  };
 }
 
 export type KindProblem = "name" | "limit" | null;
@@ -174,22 +249,47 @@ export function limitMilli(text: string): number | null | "bad" {
   return v == null ? "bad" : v;
 }
 
+/** The API bound of a limit, in thousandths of the plant's unit. */
+export const LIMIT_MILLI_MAX = 1_000_000_000;
+
+const limitBad = (text: string): boolean => {
+  const v = limitMilli(text);
+  return v === "bad" || (v !== null && Math.abs(v) > LIMIT_MILLI_MAX);
+};
+
 export function kindProblem(f: KindFormState): KindProblem {
   if (f.name.trim() === "" || f.unit.trim() === "") return "name";
-  return limitMilli(f.low) === "bad" || limitMilli(f.high) === "bad" ? "limit" : null;
+  return limitBad(f.low) || limitBad(f.high) ? "limit" : null;
 }
 
 export function kindPayload(f: KindFormState) {
   const low = limitMilli(f.low);
   const high = limitMilli(f.high);
-  return { name: f.name.trim(), unit: f.unit.trim(), minMilli: low === "bad" ? null : low, maxMilli: high === "bad" ? null : high };
+  return {
+    name: f.name.trim(),
+    unit: f.unit.trim(),
+    minMilli: low === "bad" ? null : low,
+    maxMilli: high === "bad" ? null : high,
+  };
 }
 
 /** The words for the limits of a reading kind. */
 export function limitWords(min: number | null, max: number | null, text: (m: number) => string, unit: string): Words | null {
-  if (min != null && max != null) return { key: "maint.assets.readings.limitsBoth", vars: { min: text(min), max: text(max), unit } };
-  if (min != null) return { key: "maint.assets.readings.limitMin", vars: { min: text(min), unit } };
-  if (max != null) return { key: "maint.assets.readings.limitMax", vars: { max: text(max), unit } };
+  if (min != null && max != null)
+    return {
+      key: "maint.assets.readings.limitsBoth",
+      vars: { min: text(min), max: text(max), unit },
+    };
+  if (min != null)
+    return {
+      key: "maint.assets.readings.limitMin",
+      vars: { min: text(min), unit },
+    };
+  if (max != null)
+    return {
+      key: "maint.assets.readings.limitMax",
+      vars: { max: text(max), unit },
+    };
   return null;
 }
 
@@ -239,8 +339,13 @@ export function hoursFromMinutes(min: number | null | undefined): string {
 
 /** Rupees typed as text to whole paise: "250" -> 25000, "99.5" -> 9950; null when empty or not money. */
 export function rupeesToPaise(text: string): number | null | "bad" {
-  const t = text.trim().replace(/,/g, "");
-  if (t === "") return null;
+  const typed = text.trim();
+  if (typed === "") return null;
+  const [group = "", ...rest] = typed.split(".");
+  if (rest.length > 1) return "bad";
+  // Commas only as Indian ("1,25,000") or western ("125,000") thousands groups.
+  if (group.includes(",") && !/^(\d{1,3}(,\d{3})+|\d{1,2}(,\d{2})*,\d{3})$/.test(group)) return "bad";
+  const t = [group.replace(/,/g, ""), ...rest].join(".");
   if (!/^\d{1,9}(\.\d{1,2})?$/.test(t)) return "bad";
   const [whole, frac = ""] = t.split(".");
   return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
@@ -250,6 +355,8 @@ export function rupeesToPaise(text: string): number | null | "bad" {
 export function paiseToRupeesText(paise: number | null | undefined): string {
   if (paise == null) return "";
   const whole = Math.floor(paise / 100);
-  const frac = String(paise % 100).padStart(2, "0").replace(/0+$/, "");
+  const frac = String(paise % 100)
+    .padStart(2, "0")
+    .replace(/0+$/, "");
   return frac ? `${whole}.${frac}` : String(whole);
 }

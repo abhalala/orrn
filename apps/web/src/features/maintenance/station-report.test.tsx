@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { I18nProvider } from "@orrn/i18n";
 
-const { BreakdownWorkOrderView } = await import("./station-breakdown");
+const { BreakdownWorkOrderView, reconcileMade } = await import("./station-breakdown");
 const { StillOpenList, openAge } = await import("./report-parts");
 
 const view = (known: Parameters<typeof BreakdownWorkOrderView>[0]["known"]) =>
@@ -48,5 +48,23 @@ describe("report: breakdowns still open", () => {
   test("age words", () => {
     expect(openAge(59)).toEqual({ key: "maint.reports.openFor", vars: { time: "0:59" } });
     expect(openAge(2 * 24 * 60)).toEqual({ key: "maint.reports.openForDays", vars: { n: 2 } });
+  });
+});
+
+describe("breakdown link after creating a work order here", () => {
+  const made = { id: "w9", number: "WO-9" };
+  test("shown until the list is read again", () => {
+    expect(reconcileMade(made, 1000, undefined, 500)).toBe(made);
+    expect(reconcileMade(made, 1000, { workOrderId: null }, 900)).toBe(made);
+  });
+  test("kept when the refreshed list links the same order", () => {
+    expect(reconcileMade(made, 1000, { workOrderId: "w9" }, 2000)).toBe(made);
+  });
+  test("dropped when the refreshed list no longer links it (cancelled elsewhere), so Make work order returns", () => {
+    expect(reconcileMade(made, 1000, { workOrderId: null }, 2000)).toBeNull();
+    expect(reconcileMade(made, 1000, { workOrderId: "w10" }, 2000)).toBeNull();
+    expect(reconcileMade(null, 1000, undefined, 2000)).toBeNull();
+    const html = view({ hasAssets: true, items: [{ id: "d1", workOrderId: null, workOrderNumber: null, assetId: "a1" }] });
+    expect(html).toContain("Make work order");
   });
 });

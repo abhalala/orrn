@@ -5,7 +5,7 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -22,7 +22,11 @@ import { defaultRange, paiseToRupeesText, rangeProblem, rupeesToPaise } from "./
 import { maintErrorKey } from "./model";
 import { MonthsTable, StillOpenList, TotalsTable } from "./report-parts";
 
-const PROBLEM_KEY = { bad: "maint.reports.rangeBad", order: "maint.reports.rangeOrder", long: "maint.reports.rangeLong" } as const;
+const PROBLEM_KEY = {
+  bad: "maint.reports.rangeBad",
+  order: "maint.reports.rangeOrder",
+  long: "maint.reports.rangeLong",
+} as const;
 
 /** `/maintenance/report`: breakdowns, downtime, repair time, labour and spares per asset over a range of months. */
 export function MaintReportPage() {
@@ -134,12 +138,18 @@ export function MaintReportPage() {
 function RateCard() {
   const { t } = useT();
   const queryClient = useQueryClient();
-  const q = useQuery({ ...trpc.maint.settings.get.queryOptions(), retry: false, meta: INLINE_ERROR_META });
+  const q = useQuery({
+    ...trpc.maint.settings.get.queryOptions(),
+    retry: false,
+    meta: INLINE_ERROR_META,
+  });
   const [text, setText] = useState("");
   const [tried, setTried] = useState(false);
   const loaded = q.data?.labourRatePaisePerHour;
+  /** True once the field was typed in after the last load or save; a refetch must not overwrite it. */
+  const edited = useRef(false);
   useEffect(() => {
-    if (q.data) setText(paiseToRupeesText(q.data.labourRatePaisePerHour));
+    if (q.data && !edited.current) setText(paiseToRupeesText(q.data.labourRatePaisePerHour));
   }, [q.data]);
   const save = useOnceMutation(
     trpc.maint.settings.set.mutationOptions({
@@ -147,7 +157,10 @@ function RateCard() {
         toast.success(t("maint.reports.rate.saved"));
         void queryClient.invalidateQueries(trpc.maint.pathFilter());
       },
-      onError: (e) => toast.error(t(maintErrorKey(e))),
+      onError: (e) => {
+        edited.current = true; // the draft was not saved: keep it
+        toast.error(t(maintErrorKey(e)));
+      },
     }),
   );
   const paise = rupeesToPaise(text);
@@ -156,22 +169,43 @@ function RateCard() {
     <section className="report-no-print flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:max-w-[28rem]" data-testid="labour-rate-card">
       <h2 className="m-0 font-display text-[19px] font-bold tracking-[-0.02em]">{t("maint.reports.rate.title")}</h2>
       <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("maint.reports.rate.hint")}</p>
-      <Field label={t("maint.reports.rate.label")} error={tried ? error : undefined}>
-        <TextInput inputMode="decimal" value={text} disabled={loaded === undefined} onChange={(e) => setText(e.currentTarget.value)} autoComplete="off" />
-      </Field>
-      <div>
-        <Button
-          loading={save.isPending}
-          disabled={loaded === undefined}
-          onClick={() => {
-            setTried(true);
-            if (error || paise === "bad") return;
-            save.mutate({ labourRatePaisePerHour: paise });
-          }}
-        >
-          {t("maint.reports.rate.save")}
-        </Button>
-      </div>
+      {q.isError && !q.data ? (
+        <div role="alert" className="flex flex-wrap items-center gap-2" data-testid="labour-rate-error">
+          <span className="text-[14px] font-medium text-destructive">{t("maint.reports.rate.loadFailed")}</span>
+          <Button variant="secondary" onClick={() => void q.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Field label={t("maint.reports.rate.label")} error={tried ? error : undefined}>
+            <TextInput
+              inputMode="decimal"
+              value={text}
+              disabled={loaded === undefined}
+              onChange={(e) => {
+                edited.current = true;
+                setText(e.currentTarget.value);
+              }}
+              autoComplete="off"
+            />
+          </Field>
+          <div>
+            <Button
+              loading={save.isPending}
+              disabled={loaded === undefined}
+              onClick={() => {
+                setTried(true);
+                if (error || paise === "bad") return;
+                edited.current = false; // edits made after this point are kept over the refetch
+                save.mutate({ labourRatePaisePerHour: paise });
+              }}
+            >
+              {t("maint.reports.rate.save")}
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

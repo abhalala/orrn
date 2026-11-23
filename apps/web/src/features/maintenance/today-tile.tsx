@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import { Button } from "@orrn/ui/components/button";
 import { UiLink } from "@orrn/ui/components/link";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { useQuery } from "@tanstack/react-query";
@@ -9,8 +10,19 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { dueLines, maintReady, type PlanDue } from "./model";
 
-export type MaintTodayCounts = { overdue: number; soon: number; liveWorkOrders: number; flaggedReadings: number };
-export type MaintTodayDueItem = { planId: string; title: string; assetId: string; assetCode: string; due: PlanDue };
+export type MaintTodayCounts = {
+  overdue: number;
+  soon: number;
+  liveWorkOrders: number;
+  flaggedReadings: number;
+};
+export type MaintTodayDueItem = {
+  planId: string;
+  title: string;
+  assetId: string;
+  assetCode: string;
+  due: PlanDue;
+};
 
 /** The plans that are overdue or due soon, nearest first (at most five, the server's `top`). */
 export function MaintTodayDue({ items }: { items: readonly MaintTodayDueItem[] }) {
@@ -24,7 +36,11 @@ export function MaintTodayDue({ items }: { items: readonly MaintTodayDueItem[] }
             {p.assetCode}
           </UiLink>
           <span>{p.title}</span>
-          <span className="text-[13px] text-muted-foreground">{dueLines(p.due).map((l) => t(l.key, l.vars)).join(", ")}</span>
+          <span className="text-[13px] text-muted-foreground">
+            {dueLines(p.due)
+              .map((l) => t(l.key, l.vars))
+              .join(", ")}
+          </span>
         </li>
       ))}
     </ul>
@@ -44,6 +60,22 @@ export function MaintTodayBlocks({ data }: { data: MaintTodayCounts }) {
   );
 }
 
+/** A failed request: a small error with a retry; presentational so tests render it without a server. */
+export function MaintTodayError({ onRetry }: { onRetry(): void }) {
+  const { t } = useT();
+  return (
+    <section aria-labelledby="today-maint" data-testid="today-maint-error" role="alert" className="flex min-w-0 flex-wrap items-center gap-3">
+      <h2 id="today-maint" className="m-0 text-[17px] font-semibold">
+        {t("maint.today.title")}
+      </h2>
+      <span className="text-[14px] text-muted-foreground">{t("maint.today.loadFailed")}</span>
+      <Button variant="secondary" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
+    </section>
+  );
+}
+
 /**
  * Today's maintenance tile for the people who raise or plan work (maint.workorder or maint.manage) when
  * the module is on. `<Can>` does not know modules, so the query is enabled only through `maintReady`.
@@ -52,8 +84,15 @@ export function TodayMaintTile() {
   const { t } = useT();
   const me = useMe();
   const ready = maintReady(me.data, ["maint.workorder", "maint.manage"]);
-  const today = useQuery({ ...trpc.maint.today.queryOptions(), enabled: ready, retry: false, meta: INLINE_ERROR_META });
-  if (!ready || !today.data) return null;
+  const today = useQuery({
+    ...trpc.maint.today.queryOptions(),
+    enabled: ready,
+    retry: false,
+    meta: INLINE_ERROR_META,
+  });
+  if (!ready) return null;
+  if (today.isError && !today.data) return <MaintTodayError onRetry={() => void today.refetch()} />;
+  if (!today.data) return null;
   return (
     <section aria-labelledby="today-maint" data-testid="today-maint" className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">

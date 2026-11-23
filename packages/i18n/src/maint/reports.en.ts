@@ -37,5 +37,6 @@ export const maintReportsEn = {
     saved: "Labour rate saved",
     needsNumber: "Type rupees, with at most 2 decimals.",
     tooBig: "That rate is too large.",
+    loadFailed: "Could not load the labour rate.",
   },
 };

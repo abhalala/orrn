@@ -10,6 +10,8 @@ export const maintAssetsHi = {
   empty: "अभी कोई एसेट नहीं है।",
   emptyHint: "एक एसेट जोड़ें, या अपने प्रेस, फर्नेस और ओवन एक साथ जोड़ें।",
   loadFailed: "एसेट नहीं खुले। फिर कोशिश करें।",
+  search: "कोड या नाम से खोजें",
+  capped: "पहले 500 एसेट दिख रहे हैं। बाकी के लिए कोड या नाम से खोजें।",
   cols: {
     code: "कोड",
     name: "नाम",
@@ -30,6 +32,9 @@ export const maintAssetsHi = {
     linkNone: "जुड़ा नहीं है",
     linkTaken: "पहले से एसेट {code} है",
     linkRetired: "बंद",
+    linkLoading: "प्रेस, फर्नेस और ओवन की सूची खुल रही है",
+    linkFailed: "जोड़ने की सूची नहीं खुली।",
+    linkWrongKind: "यह जोड़ किस्म से मेल नहीं खाता। मेल वाला चुनें या जुड़ा नहीं है।",
     make: "कंपनी",
     serialNo: "सीरियल नंबर",
     purchasedOn: "खरीदने की तारीख",

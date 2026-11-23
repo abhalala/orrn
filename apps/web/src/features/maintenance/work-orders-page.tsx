@@ -19,6 +19,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { FieldSelect } from "./field-controls";
 import { isPriority, isWoKind, isWoStatus, maintErrorKey, PRIORITY_TONE, WO_KINDS, WO_STATUS_TONE } from "./model";
+import { AssetLoadError } from "./wo-parts";
 import { WO_FILTERS, woFilterOf, type WoFilter, type WoSearch } from "./search";
 
 const STEP = 50;
@@ -239,6 +240,7 @@ function NewWorkOrderSheet({ initialAssetId, onClose }: { initialAssetId?: strin
               </option>
             ))}
           </FieldSelect>
+          {assets.isError && !assets.data ? <AssetLoadError error={assets.error} onRetry={() => void assets.refetch()} /> : null}
         </Field>
         <Field label={t("maint.workOrders.new.kind")}>
           <FieldSelect value={kind} onChange={(e) => setKind(e.target.value as (typeof WO_KINDS)[number])}>

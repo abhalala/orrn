@@ -11,7 +11,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { FieldSelect, FieldTextArea } from "./field-controls";
-import { assetFormValid, assetPayload, emptyAssetForm, formFromAsset, linkValue, type AssetFormState } from "./asset-model";
+import { assetFormValid, assetPayload, emptyAssetForm, formFromAsset, linkFitsKind, linkKindFor, linkValue, type AssetFormState } from "./asset-model";
 import { ASSET_KINDS, ASSET_STATUSES, CRITICALITIES, LINK_KINDS, maintErrorKey, type LinkKind } from "./model";
 
 export type LinkOption = {
@@ -29,12 +29,20 @@ export function AssetFields({
   onChange,
   options,
   ownLink,
+  optionsLoading = false,
+  optionsError = false,
+  onRetryOptions,
 }: {
   form: AssetFormState;
   onChange(patch: Partial<AssetFormState>): void;
   options: readonly LinkOption[] | undefined;
   /** The `kind:id` this asset already points at, so its own master is not shown as taken. */
   ownLink: string;
+  /** The link list is still loading. */
+  optionsLoading?: boolean;
+  /** The link list failed to load. */
+  optionsError?: boolean;
+  onRetryOptions?(): void;
 }) {
   const { t } = useT();
   const text = (key: keyof AssetFormState) => ({
@@ -58,11 +66,11 @@ export function AssetFields({
           ))}
         </FieldSelect>
       </Field>
-      <Field label={t("maint.assets.form.link")} hint={t("maint.assets.form.linkHint")}>
+      <Field label={t("maint.assets.form.link")} hint={t("maint.assets.form.linkHint")} error={!linkFitsKind(form.kind, form.link) ? t("maint.assets.form.linkWrongKind") : undefined}>
         <FieldSelect value={form.link} onChange={(e) => onChange({ link: e.currentTarget.value })}>
           <option value="">{t("maint.assets.form.linkNone")}</option>
           {LINK_KINDS.map((kind) => {
-            const group = (options ?? []).filter((o) => o.kind === kind);
+            const group = (options ?? []).filter((o) => (o.kind === linkKindFor(form.kind) && o.kind === kind) || (o.kind === kind && linkValue(o.kind, o.id) === form.link));
             if (group.length === 0) return null;
             return (
               <optgroup key={kind} label={t(`maint.link.${kind}`)}>
@@ -80,6 +88,19 @@ export function AssetFields({
             );
           })}
         </FieldSelect>
+        {optionsLoading ? (
+          <p className="m-0 mt-1 text-[13px] text-muted-foreground" role="status" data-testid="link-options-loading">
+            {t("maint.assets.form.linkLoading")}
+          </p>
+        ) : null}
+        {optionsError ? (
+          <div className="mt-1 flex flex-wrap items-center gap-2" role="alert" data-testid="link-options-error">
+            <span className="text-[13px] font-medium text-destructive">{t("maint.assets.form.linkFailed")}</span>
+            <Button variant="secondary" onClick={() => onRetryOptions?.()}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : null}
       </Field>
       <Field label={t("maint.assets.form.make")}>
         <TextInput {...text("make")} maxLength={120} />
@@ -99,7 +120,14 @@ export function AssetFields({
         <TextInput {...text("location")} maxLength={120} />
       </Field>
       <Field label={t("maint.assets.form.criticality")}>
-        <FieldSelect value={form.criticality} onChange={(e) => onChange({ criticality: e.currentTarget.value as AssetFormState["criticality"] })}>
+        <FieldSelect
+          value={form.criticality}
+          onChange={(e) =>
+            onChange({
+              criticality: e.currentTarget.value as AssetFormState["criticality"],
+            })
+          }
+        >
           {CRITICALITIES.map((c) => (
             <option key={c} value={c}>
               {`${t(`maint.criticality.${c}`)}: ${t(`maint.criticalityHint.${c}`)}`}
@@ -108,7 +136,14 @@ export function AssetFields({
         </FieldSelect>
       </Field>
       <Field label={t("maint.assets.form.status")}>
-        <FieldSelect value={form.status} onChange={(e) => onChange({ status: e.currentTarget.value as AssetFormState["status"] })}>
+        <FieldSelect
+          value={form.status}
+          onChange={(e) =>
+            onChange({
+              status: e.currentTarget.value as AssetFormState["status"],
+            })
+          }
+        >
           {ASSET_STATUSES.map((s) => (
             <option key={s} value={s}>
               {t(`maint.assetStatus.${s}`)}
@@ -123,7 +158,10 @@ export function AssetFields({
   );
 }
 
-type EditableAsset = Parameters<typeof formFromAsset>[0] & { id: string; serverSeq: number };
+type EditableAsset = Parameters<typeof formFromAsset>[0] & {
+  id: string;
+  serverSeq: number;
+};
 
 /** Add (no `asset`) or change (`asset`) sheet. Adds go to `maint.assets.create`, changes to `maint.assets.update` with `serverSeq`. */
 export function AssetSheet({ open, onOpenChange, asset, onSaved }: { open: boolean; onOpenChange(open: boolean): void; asset?: EditableAsset; onSaved?(id: string): void }) {
@@ -131,15 +169,23 @@ export function AssetSheet({ open, onOpenChange, asset, onSaved }: { open: boole
   const queryClient = useQueryClient();
   const [form, setForm] = useState<AssetFormState>(() => (asset ? formFromAsset(asset) : emptyAssetForm()));
   const [tried, setTried] = useState(false);
+  /** The asset id and revision the draft was taken from; a later refetch must not change what is submitted. */
+  const [base, setBase] = useState<{ id: string; serverSeq: number } | null>(() => (asset ? { id: asset.id, serverSeq: asset.serverSeq } : null));
   useEffect(() => {
     if (open) {
+      setBase(asset ? { id: asset.id, serverSeq: asset.serverSeq } : null);
       setForm(asset ? formFromAsset(asset) : emptyAssetForm());
       setTried(false);
     }
     // Reset only when the sheet opens, not on every refetch of the asset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const options = useQuery({ ...trpc.maint.assets.linkOptions.queryOptions(), enabled: open, retry: false, meta: INLINE_ERROR_META });
+  const options = useQuery({
+    ...trpc.maint.assets.linkOptions.queryOptions(),
+    enabled: open,
+    retry: false,
+    meta: INLINE_ERROR_META,
+  });
   const done = (id: string) => {
     void queryClient.invalidateQueries(trpc.maint.pathFilter());
     toast.success(t("maint.saved"));
@@ -147,13 +193,28 @@ export function AssetSheet({ open, onOpenChange, asset, onSaved }: { open: boole
     onSaved?.(id);
   };
   const onError = (e: unknown) => toast.error(t(maintErrorKey(e)));
-  const create = useOnceMutation(trpc.maint.assets.create.mutationOptions({ onSuccess: (r) => done(r.id), onError }));
-  const update = useOnceMutation(trpc.maint.assets.update.mutationOptions({ onSuccess: (r) => done(r.id), onError }));
+  const create = useOnceMutation(
+    trpc.maint.assets.create.mutationOptions({
+      onSuccess: (r) => done(r.id),
+      onError,
+    }),
+  );
+  const update = useOnceMutation(
+    trpc.maint.assets.update.mutationOptions({
+      onSuccess: (r) => done(r.id),
+      onError,
+    }),
+  );
   const busy = create.isPending || update.isPending;
   const submit = () => {
     setTried(true);
-    if (!assetFormValid(form)) return;
-    if (asset) update.mutate({ id: asset.id, serverSeq: asset.serverSeq, ...assetPayload(form) });
+    if (!assetFormValid(form) || !linkFitsKind(form.kind, form.link)) return;
+    if (base)
+      update.mutate({
+        id: base.id,
+        serverSeq: base.serverSeq,
+        ...assetPayload(form),
+      });
     else create.mutate(assetPayload(form));
   };
   return (
@@ -180,7 +241,15 @@ export function AssetSheet({ open, onOpenChange, asset, onSaved }: { open: boole
           {t("maint.assets.form.needsCodeName")}
         </p>
       ) : null}
-      <AssetFields form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} options={options.data} ownLink={asset ? linkValue(asset.linkKind, asset.linkId) : ""} />
+      <AssetFields
+        form={form}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        options={options.data}
+        optionsLoading={options.isPending && options.fetchStatus !== "idle"}
+        optionsError={options.isError && !options.data}
+        onRetryOptions={() => void options.refetch()}
+        ownLink={asset ? linkValue(asset.linkKind, asset.linkId) : ""}
+      />
     </Sheet>
   );
 }

@@ -13,6 +13,8 @@ import {
   hoursFromMinutes,
   kindPayload,
   kindProblem,
+  linkFitsKind,
+  linkKindFor,
   monthsBetween,
   paiseToRupeesText,
   planIntervalWords,
@@ -35,7 +37,13 @@ function render(node: React.ReactNode, locale: "en" | "hi" = "en") {
 
 describe("asset form payload", () => {
   test("empty text becomes null and the link splits into kind and id", () => {
-    const f = { ...emptyAssetForm(), code: " P1 ", name: "Press 1", link: "press:abc", warrantyUntil: "2027-03-01" };
+    const f = {
+      ...emptyAssetForm(),
+      code: " P1 ",
+      name: "Press 1",
+      link: "press:abc",
+      warrantyUntil: "2027-03-01",
+    };
     expect(assetPayload(f)).toEqual({
       code: "P1",
       name: "Press 1",
@@ -58,7 +66,10 @@ describe("asset form payload", () => {
 
 describe("warranty", () => {
   test("valid through its last day", () => {
-    expect(warrantyState("2026-11-22", "2026-11-22")).toEqual({ state: "under", day: "2026-11-22" });
+    expect(warrantyState("2026-11-22", "2026-11-22")).toEqual({
+      state: "under",
+      day: "2026-11-22",
+    });
     expect(warrantyState("2026-11-21", "2026-11-22")?.state).toBe("ended");
     expect(warrantyState(null, "2026-11-22")).toBeNull();
   });
@@ -81,10 +92,87 @@ describe("plans", () => {
   });
 });
 
+describe("plan interval problems", () => {
+  const f = { ...emptyPlanForm(), title: "Grease" };
+  test("a filled but bad interval is a problem; empty optional ones stay valid", () => {
+    expect(planProblem({ ...f, days: "30", hours: "" }, true)).toBeNull();
+    expect(planProblem({ ...f, days: "", hours: "500" }, true)).toBeNull();
+    expect(planProblem({ ...f, days: "abc", hours: "500" }, true)).toBe("interval");
+    expect(planProblem({ ...f, days: "0", hours: "500" }, true)).toBe("interval");
+    expect(planProblem({ ...f, days: "30", hours: "x" }, true)).toBe("interval");
+  });
+  test("hours on an unlinked asset are dropped, not judged", () => {
+    expect(planProblem({ ...f, days: "30", hours: "x" }, false)).toBeNull();
+  });
+});
+
+describe("asset link by kind", () => {
+  test("only presses, furnaces and ovens link, each to its own master kind", () => {
+    expect(linkKindFor("press")).toBe("press");
+    expect(linkKindFor("oven")).toBe("oven");
+    expect(linkKindFor("crane")).toBeNull();
+    expect(linkFitsKind("press", "")).toBe(true);
+    expect(linkFitsKind("press", "press:a")).toBe(true);
+    expect(linkFitsKind("furnace", "press:a")).toBe(false);
+    expect(linkFitsKind("crane", "oven:a")).toBe(false);
+  });
+  const options = [
+    {
+      kind: "press" as const,
+      id: "a",
+      code: "PR-1",
+      name: null,
+      retired: false,
+      asset: null,
+    },
+    {
+      kind: "furnace" as const,
+      id: "b",
+      code: "FU-1",
+      name: null,
+      retired: false,
+      asset: null,
+    },
+  ];
+  test("the form offers only masters of the chosen kind and shows a conflict", () => {
+    const press = render(<AssetFields form={emptyAssetForm()} onChange={() => {}} options={options} ownLink="" />);
+    expect(press).toContain("PR-1");
+    expect(press).not.toContain("FU-1");
+    const crane = render(<AssetFields form={{ ...emptyAssetForm(), kind: "crane" }} onChange={() => {}} options={options} ownLink="" />);
+    expect(crane).not.toContain("PR-1");
+    const clash = render(<AssetFields form={{ ...emptyAssetForm(), kind: "furnace", link: "press:a" }} onChange={() => {}} options={options} ownLink="press:a" />);
+    expect(clash).toContain("does not fit the kind");
+  });
+  test("loading and failed link lists show a state and a retry", () => {
+    expect(render(<AssetFields form={emptyAssetForm()} onChange={() => {}} options={undefined} ownLink="" optionsLoading />)).toContain("link-options-loading");
+    const failed = render(<AssetFields form={emptyAssetForm()} onChange={() => {}} options={undefined} ownLink="" optionsError onRetryOptions={() => {}} />);
+    expect(failed).toContain("Could not load the list to link.");
+    expect(failed).toContain("Try again");
+  });
+});
+
 describe("reading kinds", () => {
+  test("limits respect the API bound of 1,000,000 in the plant unit", () => {
+    const f = { ...emptyKindForm(), name: "Oil", unit: "bar" };
+    expect(kindProblem({ ...f, low: "-1000000", high: "1000000" })).toBeNull();
+    expect(kindProblem({ ...f, low: "", high: "1000000" })).toBeNull();
+    expect(kindProblem({ ...f, low: "1000000.001", high: "" })).toBe("limit");
+    expect(kindProblem({ ...f, low: "", high: "-1000000.001" })).toBe("limit");
+  });
   test("limits are typed as decimals and sent in thousandths", () => {
-    const f = { ...emptyKindForm(), name: "Oil", unit: "bar", low: "1.5", high: "" };
-    expect(kindPayload(f)).toEqual({ name: "Oil", unit: "bar", minMilli: 1500, maxMilli: null });
+    const f = {
+      ...emptyKindForm(),
+      name: "Oil",
+      unit: "bar",
+      low: "1.5",
+      high: "",
+    };
+    expect(kindPayload(f)).toEqual({
+      name: "Oil",
+      unit: "bar",
+      minMilli: 1500,
+      maxMilli: null,
+    });
     expect(kindProblem({ ...f, high: "x" })).toBe("limit");
     expect(kindProblem({ ...f, unit: "" })).toBe("name");
   });
@@ -92,8 +180,14 @@ describe("reading kinds", () => {
 
 describe("report range", () => {
   test("defaults to the last three months ending this month", () => {
-    expect(defaultRange("2026-11-22")).toEqual({ from: "2026-09", to: "2026-11" });
-    expect(defaultRange("2026-02-03")).toEqual({ from: "2025-12", to: "2026-02" });
+    expect(defaultRange("2026-11-22")).toEqual({
+      from: "2026-09",
+      to: "2026-11",
+    });
+    expect(defaultRange("2026-02-03")).toEqual({
+      from: "2025-12",
+      to: "2026-02",
+    });
     expect(addMonths("2026-01", -1)).toBe("2025-12");
   });
   test("lists months and refuses a wrong range", () => {
@@ -111,12 +205,33 @@ describe("report range", () => {
     expect(rupeesToPaise("99.5")).toBe(9950);
     expect(rupeesToPaise("")).toBeNull();
     expect(rupeesToPaise("1.234")).toBe("bad");
+    expect(rupeesToPaise("1,250")).toBe(125000);
+    expect(rupeesToPaise("1,25,000")).toBe(12500000);
+    expect(rupeesToPaise("12,500.50")).toBe(1250050);
+    for (const bad of ["12,50", ",", "1,,2", "1,2345", "1,250,", ",250", "1,25", "1.2.3"]) expect(rupeesToPaise(bad)).toBe("bad");
+    expect(rupeesToPaise("  ")).toBeNull();
     expect(paiseToRupeesText(9950)).toBe("99.5");
     expect(paiseToRupeesText(25000)).toBe("250");
   });
 });
 
-const plan = { id: "p1", title: "Grease the rollers", steps: null, intervalDays: 30, intervalHours: null, active: true, due: { state: "soon", basis: "days" as const, daysLeft: 4, hoursLeft: null, hoursRun: null }, openWorkOrderId: "w1", openWorkOrderNumber: "MWO/0001" };
+const plan = {
+  id: "p1",
+  title: "Grease the rollers",
+  steps: null,
+  intervalDays: 30,
+  intervalHours: null,
+  active: true,
+  due: {
+    state: "soon",
+    basis: "days" as const,
+    daysLeft: 4,
+    hoursLeft: null,
+    hoursRun: null,
+  },
+  openWorkOrderId: "w1",
+  openWorkOrderNumber: "MWO/0001",
+};
 
 describe("asset screens render", () => {
   test("a plan shows its interval, due chip, due words and open work order", () => {
@@ -143,8 +258,22 @@ describe("asset screens render", () => {
   });
   test("the form disables a press that already has an asset, but not this asset's own", () => {
     const options = [
-      { kind: "press" as const, id: "a", code: "PR-1", name: null, retired: false, asset: { id: "x", code: "AST-1" } },
-      { kind: "press" as const, id: "b", code: "PR-2", name: null, retired: false, asset: null },
+      {
+        kind: "press" as const,
+        id: "a",
+        code: "PR-1",
+        name: null,
+        retired: false,
+        asset: { id: "x", code: "AST-1" },
+      },
+      {
+        kind: "press" as const,
+        id: "b",
+        code: "PR-2",
+        name: null,
+        retired: false,
+        asset: null,
+      },
     ];
     const html = render(<AssetFields form={emptyAssetForm()} onChange={() => {}} options={options} ownLink="" />);
     expect(html).toMatch(/<option value="press:a" disabled="">PR-1 \(Already asset AST-1\)<\/option>/);
@@ -152,19 +281,71 @@ describe("asset screens render", () => {
     expect(own).not.toContain('value="press:a" disabled');
   });
   test("history and spares tables", () => {
-    const hist = render(<HistoryTable date={(at) => `at${at}`} rows={[{ id: "w1", number: "MWO/1", kind: "breakdown", status: "done", title: "Belt", createdAt: 5, finishedAt: 9, labourMin: 90 }]} />);
+    const hist = render(
+      <HistoryTable
+        date={(at) => `at${at}`}
+        rows={[
+          {
+            id: "w1",
+            number: "MWO/1",
+            kind: "breakdown",
+            status: "done",
+            title: "Belt",
+            createdAt: 5,
+            finishedAt: 9,
+            labourMin: 90,
+          },
+        ]}
+      />,
+    );
     expect(hist).toContain('href="/maintenance/work-orders/w1"');
     expect(hist).toContain("Breakdown");
     expect(hist).toContain("Done");
     expect(hist).toContain("1:30");
-    const spares = render(<SparesTable date={(at) => `at${at}`} qty={(m) => String(m / 1000)} rows={[{ linkId: "l", workOrderId: "w1", workOrderNumber: "MWO/1", number: "ISS/1", itemName: "Bearing", unit: "nos", qtyMilli: 2000, issuedAt: 1, cancelledAt: 3 }]} />);
+    const spares = render(
+      <SparesTable
+        date={(at) => `at${at}`}
+        qty={(m) => String(m / 1000)}
+        rows={[
+          {
+            linkId: "l",
+            workOrderId: "w1",
+            workOrderNumber: "MWO/1",
+            number: "ISS/1",
+            itemName: "Bearing",
+            unit: "nos",
+            qtyMilli: 2000,
+            issuedAt: 1,
+            cancelledAt: 3,
+          },
+        ]}
+      />,
+    );
     expect(spares).toContain("2 nos");
     expect(spares).toContain("Cancelled in the store");
   });
 });
 
-const figures = { failures: 2, downtimeMin: 150, mttrMin: 75, mtbfMin: 600, labourMin: 90, sparesEntries: 3, labourPaise: 45000 };
-const row = { asset: { id: "a1", code: "PR-1", name: "Press one", kind: "press", criticality: "A" }, months: [{ month: "2026-10", ...figures }], total: figures };
+const figures = {
+  failures: 2,
+  downtimeMin: 150,
+  mttrMin: 75,
+  mtbfMin: 600,
+  labourMin: 90,
+  sparesEntries: 3,
+  labourPaise: 45000,
+};
+const row = {
+  asset: {
+    id: "a1",
+    code: "PR-1",
+    name: "Press one",
+    kind: "press",
+    criticality: "A",
+  },
+  months: [{ month: "2026-10", ...figures }],
+  total: figures,
+};
 
 describe("report tables", () => {
   const money = (p: number) => `R${p / 100}`;

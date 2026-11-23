@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10324 screen strings in 55 groups, 45 guides with 866 strings.
+Counts: 10339 screen strings in 55 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -9232,7 +9232,7 @@ Please check, Lalubhai:
 | `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
 | `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
 
-### maint (400)
+### maint (415)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9320,6 +9320,7 @@ Please check, Lalubhai:
 | `today.liveMeta` | Breakdowns and plans in hand | हाथ में ब्रेकडाउन और प्लान |
 | `today.flagged` | Readings out of limit | सीमा से बाहर रीडिंग |
 | `today.flaggedMeta` | Last 7 days, no work order yet | पिछले 7 दिन, अभी वर्क ऑर्डर नहीं |
+| `today.loadFailed` | Could not load. Try again. | नहीं खुला। फिर कोशिश करें। |
 | `station.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएँ |
 | `station.workOrder` | Work order {number} | वर्क ऑर्डर {number} |
 | `station.offline` | Make the work order when the tablet is back online. | टैबलेट ऑनलाइन होने पर वर्क ऑर्डर बनाएँ। |
@@ -9339,7 +9340,7 @@ Please check, Lalubhai:
 | `errors.spareNotLinked` | That store issue is not on this work order. | वह स्टोर इशू इस वर्क ऑर्डर पर नहीं है। |
 | `errors.noRunHours` | This asset has no run hours. Link it to a press, furnace or oven, or plan by days. | इस एसेट के रन घंटे नहीं हैं। इसे प्रेस, फर्नेस या ओवन से जोड़ें, या दिनों से प्लान करें। |
 | `errors.needsInterval` | A plan needs days, run hours or both. | प्लान में दिन, रन घंटे या दोनों चाहिए। |
-| `errors.hoursPlans` | Plans on this asset run on run hours. Change them to days before you remove the link. | इस एसेट के प्लान रन घंटों पर हैं। जोड़ हटाने से पहले उन्हें दिनों पर करें। |
+| `errors.hoursPlans` | Plans on this asset run on run hours. Change them to days before you change or remove the link. | इस एसेट के प्लान रन घंटों पर हैं। जोड़ बदलने या हटाने से पहले उन्हें दिनों पर करें। |
 | `errors.codeTaken` | Another asset already has that code. | यह कोड पहले से दूसरे एसेट का है। |
 | `errors.linkTaken` | Another asset already points at that press, furnace or oven. | उस प्रेस, फर्नेस या ओवन से पहले से दूसरा एसेट जुड़ा है। |
 | `errors.linkMissing` | That press, furnace or oven is not in this plant. | वह प्रेस, फर्नेस या ओवन इस प्लांट में नहीं है। |
@@ -9347,6 +9348,7 @@ Please check, Lalubhai:
 | `errors.limitInvalid` | Give a low limit, a high limit or both, with the low below the high. | नीचे की सीमा, ऊपर की सीमा या दोनों दें, नीचे वाली ऊपर वाली से कम हो। |
 | `errors.kindTaken` | This asset already reads something by that name. | इस एसेट पर इस नाम की रीडिंग पहले से है। |
 | `errors.kindOff` | That reading is switched off. | वह रीडिंग बंद है। |
+| `errors.kindChanged` | This reading's unit or limits changed just now. Take the reading again. | इस रीडिंग की यूनिट या सीमा अभी बदली है। रीडिंग फिर से लें। |
 | `errors.inLimit` | That reading is inside its limits. | वह रीडिंग सीमा के अंदर है। |
 | `errors.retired` | This asset is retired. | यह एसेट हटाया जा चुका है। |
 | `errors.timeFuture` | A start or finish time cannot be in the future. | शुरू या खत्म होने का समय आगे का नहीं हो सकता। |
@@ -9444,6 +9446,12 @@ Please check, Lalubhai:
 | `workOrders.edit.finished` | Finished | पूरा हुआ |
 | `workOrders.edit.whatRequired` | Say what is wrong. | बताएं क्या खराबी है। |
 | `workOrders.edit.finishBeforeStart` | The finish time is before the start time. | पूरा होने का समय शुरू होने से पहले का है। |
+| `workOrders.edit.timeBad` | Write a date and time the system can keep, or clear the box. | ऐसी तारीख और समय लिखें जो सिस्टम में दर्ज हो सके, या खाना खाली कर दें। |
+| `workOrders.edit.changedTitle` | Someone else changed this work order. | यह वर्क ऑर्डर किसी और ने बदल दिया है। |
+| `workOrders.edit.changedBody` | Your changes are not saved yet. Look at the new work order, then choose how to go on. | आपके बदलाव अभी सेव नहीं हुए। नया वर्क ऑर्डर देखें, फिर आगे का रास्ता चुनें। |
+| `workOrders.edit.nowOn` | {field}, now: {value} | {field}, अब: {value} |
+| `workOrders.edit.keepMine` | Keep my changes on the new work order | मेरे बदलाव नए वर्क ऑर्डर पर रखें |
+| `workOrders.edit.dropMine` | Drop my changes | मेरे बदलाव छोड़ें |
 | `workOrders.edit.save` | Save changes | बदलाव सेव करें |
 | `workOrders.edit.saved` | Saved | सेव हो गया |
 | `workOrders.edit.nothing` | Nothing has changed yet. | अभी कुछ बदला नहीं है। |
@@ -9468,6 +9476,7 @@ Please check, Lalubhai:
 | `workOrders.spares.issueNoLocation` | The store has no place set up yet. | स्टोर की जगह अभी तय नहीं है। |
 | `workOrders.spares.issueRetry` | Could not load the store. Try again. | स्टोर नहीं खुल सका। फिर कोशिश करें। |
 | `workOrders.spares.issued` | Issued {number} | {number} इश्यू हुआ |
+| `workOrders.spares.issueCancelled` | Store issue {number} was cancelled, so nothing was issued. Issue again if you still need the part. | स्टोर इश्यू {number} रद्द हो चुका है, इसलिए कुछ इश्यू नहीं हुआ। पुर्जा चाहिए तो फिर से इश्यू करें। |
 | `workOrders.spares.issuedNotLinked` | Issue {number} was made. Someone on maintenance will add it to this work order. | इश्यू {number} हो गया। मेंटेनेंस का कोई साथी इसे इस वर्क ऑर्डर में जोड़ देगा। |
 | `workOrders.spares.addButton` | Add a store issue | स्टोर इश्यू जोड़ें |
 | `workOrders.spares.addTitle` | Add a store issue | स्टोर इश्यू जोड़ें |
@@ -9485,6 +9494,8 @@ Please check, Lalubhai:
 | `assets.empty` | No assets yet. | अभी कोई एसेट नहीं है। |
 | `assets.emptyHint` | Add an asset, or add your presses, furnaces and ovens in one go. | एक एसेट जोड़ें, या अपने प्रेस, फर्नेस और ओवन एक साथ जोड़ें। |
 | `assets.loadFailed` | Could not load the assets. Try again. | एसेट नहीं खुले। फिर कोशिश करें। |
+| `assets.search` | Search by code or name | कोड या नाम से खोजें |
+| `assets.capped` | Showing the first 500 assets. Search by code or name to find others. | पहले 500 एसेट दिख रहे हैं। बाकी के लिए कोड या नाम से खोजें। |
 | `assets.cols.code` | Code | कोड |
 | `assets.cols.name` | Name | नाम |
 | `assets.cols.kind` | Kind | किस्म |
@@ -9502,6 +9513,9 @@ Please check, Lalubhai:
 | `assets.form.linkNone` | Not linked | जुड़ा नहीं है |
 | `assets.form.linkTaken` | Already asset {code} | पहले से एसेट {code} है |
 | `assets.form.linkRetired` | retired | बंद |
+| `assets.form.linkLoading` | Loading presses, furnaces and ovens | प्रेस, फर्नेस और ओवन की सूची खुल रही है |
+| `assets.form.linkFailed` | Could not load the list to link. | जोड़ने की सूची नहीं खुली। |
+| `assets.form.linkWrongKind` | This link does not fit the kind. Choose a matching one or Not linked. | यह जोड़ किस्म से मेल नहीं खाता। मेल वाला चुनें या जुड़ा नहीं है। |
 | `assets.form.make` | Make | कंपनी |
 | `assets.form.serialNo` | Serial number | सीरियल नंबर |
 | `assets.form.purchasedOn` | Bought on | खरीदने की तारीख |
@@ -9636,6 +9650,7 @@ Please check, Lalubhai:
 | `reports.rate.saved` | Labour rate saved | मजदूरी का रेट सेव हो गया |
 | `reports.rate.needsNumber` | Type rupees, with at most 2 decimals. | रुपये लिखें, दशमलव के बाद ज्यादा से ज्यादा 2 अंक। |
 | `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
+| `reports.rate.loadFailed` | Could not load the labour rate. | मजदूरी का रेट नहीं खुला। |
 
 ### reasons (79)
 

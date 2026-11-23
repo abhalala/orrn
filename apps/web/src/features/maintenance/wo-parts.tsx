@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 
-import type { WoStatus } from "./model";
+import { maintErrorKey, type WoStatus } from "./model";
 import { orderedMoves } from "./wo-model";
 
 export type SpareRow = {
@@ -97,6 +97,19 @@ export function MoveBar({ moves, onMove, disabled }: { moves: readonly string[];
           {t(`maint.workOrders.moves.${to}`)}
         </Button>
       ))}
+    </div>
+  );
+}
+
+/** The machine list could not be read: the reason and a Retry, so the empty picker is never a silent dead end. */
+export function AssetLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { t } = useT();
+  return (
+    <div role="alert" data-testid="wo-assets-error" className="flex flex-wrap items-center gap-2">
+      <span className="text-[13px] text-destructive">{t(maintErrorKey(error))}</span>
+      <Button type="button" size="sm" variant="secondary" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
     </div>
   );
 }

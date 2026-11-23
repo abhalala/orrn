@@ -10,6 +10,8 @@ export const maintAssetsEn = {
   empty: "No assets yet.",
   emptyHint: "Add an asset, or add your presses, furnaces and ovens in one go.",
   loadFailed: "Could not load the assets. Try again.",
+  search: "Search by code or name",
+  capped: "Showing the first 500 assets. Search by code or name to find others.",
   cols: {
     code: "Code",
     name: "Name",
@@ -30,6 +32,9 @@ export const maintAssetsEn = {
     linkNone: "Not linked",
     linkTaken: "Already asset {code}",
     linkRetired: "retired",
+    linkLoading: "Loading presses, furnaces and ovens",
+    linkFailed: "Could not load the list to link.",
+    linkWrongKind: "This link does not fit the kind. Choose a matching one or Not linked.",
     make: "Make",
     serialNo: "Serial number",
     purchasedOn: "Bought on",

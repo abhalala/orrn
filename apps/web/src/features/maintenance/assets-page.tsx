@@ -2,6 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,14 +18,27 @@ import { ReportToggle } from "../reports/report-chrome";
 import { AssetSheet } from "./asset-form";
 import { ASSET_STATUS_TONE, isAssetKind, isAssetStatus, isCriticality, maintErrorKey } from "./model";
 
+/** The server returns at most this many assets for one list. */
+export const ASSET_LIST_CAP = 500;
+
 /** `/maintenance/assets`: the register of machines. */
 export function AssetsPage() {
   const { t } = useT();
   const queryClient = useQueryClient();
   const [retired, setRetired] = useState(false);
   const [adding, setAdding] = useState(false);
-  const list = useQuery({ ...trpc.maint.assets.list.queryOptions({ includeRetired: retired }), retry: false, meta: INLINE_ERROR_META });
+  const [search, setSearch] = useState("");
+  const q = search.trim().slice(0, 80);
+  const list = useQuery({
+    ...trpc.maint.assets.list.queryOptions({
+      includeRetired: retired,
+      ...(q ? { q } : {}),
+    }),
+    retry: false,
+    meta: INLINE_ERROR_META,
+  });
   const rows = list.data ?? [];
+  const capped = rows.length === ASSET_LIST_CAP;
   type Row = (typeof rows)[number];
 
   const fromMasters = useOnceMutation(
@@ -38,10 +52,23 @@ export function AssetsPage() {
   );
 
   const columns: ResponsiveListColumn<Row>[] = [
-    { key: "code", header: t("maint.assets.cols.code"), cell: (r) => <span className="font-mono font-semibold whitespace-nowrap">{r.code}</span> },
+    {
+      key: "code",
+      header: t("maint.assets.cols.code"),
+      cell: (r) => <span className="font-mono font-semibold whitespace-nowrap">{r.code}</span>,
+    },
     { key: "name", header: t("maint.assets.cols.name"), cell: (r) => r.name },
-    { key: "kind", header: t("maint.assets.cols.kind"), cell: (r) => (isAssetKind(r.kind) ? t(`maint.kind.${r.kind}`) : r.kind) },
-    { key: "crit", header: t("maint.assets.cols.criticality"), hideOnPhone: true, cell: (r) => (isCriticality(r.criticality) ? t(`maint.criticality.${r.criticality}`) : r.criticality) },
+    {
+      key: "kind",
+      header: t("maint.assets.cols.kind"),
+      cell: (r) => (isAssetKind(r.kind) ? t(`maint.kind.${r.kind}`) : r.kind),
+    },
+    {
+      key: "crit",
+      header: t("maint.assets.cols.criticality"),
+      hideOnPhone: true,
+      cell: (r) => (isCriticality(r.criticality) ? t(`maint.criticality.${r.criticality}`) : r.criticality),
+    },
     {
       key: "status",
       header: t("maint.assets.cols.status"),
@@ -55,8 +82,18 @@ export function AssetsPage() {
           r.status
         ),
     },
-    { key: "open", header: t("maint.assets.cols.openWorkOrders"), align: "end", cell: (r) => <span className="tabular-nums">{r.openWorkOrders}</span> },
-    { key: "location", header: t("maint.assets.cols.location"), hideOnPhone: true, cell: (r) => r.location ?? "" },
+    {
+      key: "open",
+      header: t("maint.assets.cols.openWorkOrders"),
+      align: "end",
+      cell: (r) => <span className="tabular-nums">{r.openWorkOrders}</span>,
+    },
+    {
+      key: "location",
+      header: t("maint.assets.cols.location"),
+      hideOnPhone: true,
+      cell: (r) => r.location ?? "",
+    },
   ];
 
   return (
@@ -75,6 +112,16 @@ export function AssetsPage() {
             </div>
           </Can>
         }
+      />
+      <TextInput
+        type="search"
+        aria-label={t("maint.assets.search")}
+        placeholder={t("maint.assets.search")}
+        value={search}
+        onChange={(e) => setSearch(e.currentTarget.value)}
+        maxLength={80}
+        autoComplete="off"
+        className="sm:max-w-[22rem]"
       />
       <ReportToggle id="assets-retired" checked={retired} onChange={setRetired} label={t("maint.assets.showRetired")} />
       {list.isError && !list.data ? (
@@ -99,6 +146,11 @@ export function AssetsPage() {
           empty={<EmptyState title={t("maint.assets.empty")} body={t("maint.assets.emptyHint")} />}
         />
       )}
+      {capped ? (
+        <p className="m-0 text-[14px] text-muted-foreground" data-testid="assets-capped">
+          {t("maint.assets.capped")}
+        </p>
+      ) : null}
       <Can do="maint.manage">
         <AssetSheet open={adding} onOpenChange={setAdding} />
       </Can>

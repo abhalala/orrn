@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { I18nProvider } from "@orrn/i18n";
 
-const { MaintTodayBlocks, MaintTodayDue } = await import("./today-tile");
+const { MaintTodayBlocks, MaintTodayDue, MaintTodayError } = await import("./today-tile");
 
 const data = { overdue: 2, soon: 1, liveWorkOrders: 3, flaggedReadings: 0 };
 
@@ -31,12 +31,49 @@ describe("maintenance Today tile", () => {
   test("the overdue plans list with their due words", () => {
     const html = renderToStaticMarkup(
       <I18nProvider locale="en">
-        <MaintTodayDue items={[{ planId: "p1", title: "Oil change", assetId: "a1", assetCode: "PRESS-1", due: { state: "overdue", basis: "hours", daysLeft: 3, hoursLeft: -12, hoursRun: 512 } }]} />
+        <MaintTodayDue
+          items={[
+            {
+              planId: "p1",
+              title: "Oil change",
+              assetId: "a1",
+              assetCode: "PRESS-1",
+              due: {
+                state: "overdue",
+                basis: "hours",
+                daysLeft: 3,
+                hoursLeft: -12,
+                hoursRun: 512,
+              },
+            },
+          ]}
+        />
       </I18nProvider>,
     );
     expect(html).toContain("/maintenance/assets/a1");
     expect(html).toContain("Oil change");
     expect(html).toContain("Over by 12 run hours, Due in 3 days");
-    expect(renderToStaticMarkup(<I18nProvider locale="en"><MaintTodayDue items={[]} /></I18nProvider>)).toBe("");
+    expect(
+      renderToStaticMarkup(
+        <I18nProvider locale="en">
+          <MaintTodayDue items={[]} />
+        </I18nProvider>,
+      ),
+    ).toBe("");
+  });
+  test("a failed request shows a section error with a retry, in both languages", () => {
+    const en = renderToStaticMarkup(
+      <I18nProvider locale="en">
+        <MaintTodayError onRetry={() => {}} />
+      </I18nProvider>,
+    );
+    expect(en).toContain("Could not load. Try again.");
+    expect(en).toContain("Try again");
+    const hi = renderToStaticMarkup(
+      <I18nProvider locale="hi">
+        <MaintTodayError onRetry={() => {}} />
+      </I18nProvider>,
+    );
+    expect(hi).toContain("नहीं खुला");
   });
 });

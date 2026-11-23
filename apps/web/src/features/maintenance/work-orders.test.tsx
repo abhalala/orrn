@@ -3,9 +3,27 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { I18nProvider } from "@orrn/i18n";
 
-import { buildUpdate, doneDraft, formOf, hasChanges, localInputToMs, msToLocalInput, orderedMoves, parseLabour, type WoEditSource } from "./wo-model";
+import { createRequestIds } from "@/features/store/request-id";
 
-const { MoveBar, SpareRows } = await import("./wo-parts");
+import {
+  askAfterMoveError,
+  buildUpdate,
+  conflictingKeys,
+  createIssueAttempts,
+  doneDraft,
+  formOf,
+  hasChanges,
+  issueSignature,
+  localInputToMs,
+  msToLocalInput,
+  openMoveAsk,
+  orderedMoves,
+  parseLabour,
+  rebaseForm,
+  type WoEditSource,
+} from "./wo-model";
+
+const { AssetLoadError, MoveBar, SpareRows } = await import("./wo-parts");
 
 const wo: WoEditSource = {
   title: "Press 2 oil leak",
@@ -155,5 +173,102 @@ describe("the move buttons", () => {
   });
   test("reads in Hindi", () => {
     expect(render("hi", ["done"])).toContain("पूरा करें");
+  });
+});
+
+describe("datetime that cannot be kept", () => {
+  test("a nonempty time before 1970 is a field error, not a clear", () => {
+    const withTime = { ...wo, startedAt: Date.UTC(2026, 10, 22, 8, 35), finishedAt: Date.UTC(2026, 10, 22, 9, 35) };
+    expect(localInputToMs("1969-12-31T12:00", IST)).toBeNull();
+    expect(buildUpdate(withTime, { ...formOf(withTime, IST), startedAt: "1969-12-31T12:00" }, IST)).toEqual({ ok: false, problem: "startBad" });
+    expect(buildUpdate(withTime, { ...formOf(withTime, IST), finishedAt: "tomorrow" }, IST)).toEqual({ ok: false, problem: "finishBad" });
+  });
+  test("only an empty box clears", () => {
+    const withTime = { ...wo, finishedAt: Date.UTC(2026, 10, 22, 9, 35) };
+    expect(buildUpdate(withTime, { ...formOf(withTime, IST), finishedAt: "" }, IST)).toEqual({ ok: true, changes: { finishedAt: null } });
+  });
+  test("the seed zone keeps an untouched time unchanged when the plant zone later differs", () => {
+    const withTime = { ...wo, startedAt: Date.UTC(2026, 10, 22, 8, 35) };
+    const form = formOf(withTime, IST);
+    const r = buildUpdate(withTime, form, IST);
+    expect(r.ok && hasChanges(r.changes)).toBe(false);
+    // Reading the same text in another zone would look like an edit: the card must keep using the seed zone.
+    const other = buildUpdate(withTime, form, "UTC");
+    expect(other.ok && hasChanges(other.changes)).toBe(true);
+  });
+});
+
+describe("the move confirmation", () => {
+  test("is opened against the order and version the operator saw", () => {
+    const ask = openMoveAsk({ id: "w1", serverSeq: 4, workDone: "changed seal" }, "done");
+    expect(ask).toEqual({ to: "done", id: "w1", serverSeq: 4, initial: "changed seal" });
+    // A refetch to version 5 changes nothing in the open confirmation.
+    expect(ask.serverSeq).toBe(4);
+    expect(openMoveAsk({ id: "w1", serverSeq: 4, workDone: "x" }, "cancelled").initial).toBe("");
+  });
+  test("a conflict closes it; other errors leave it open", () => {
+    const ask = openMoveAsk({ id: "w1", serverSeq: 4, workDone: null }, "done");
+    expect(askAfterMoveError(ask, { data: { code: "CONFLICT" } })).toBeNull();
+    expect(askAfterMoveError(ask, { data: { code: "BAD_REQUEST" } })).toBe(ask);
+  });
+});
+
+describe("the edit draft against a refreshed order", () => {
+  const base: WoEditSource = { ...wo, cause: "worn seal", labourMin: 30 };
+  const next: WoEditSource = { ...base, cause: "cracked housing", priority: "low" };
+  const draft = { ...formOf(base, IST), cause: "worn seal and hose", title: "Press 2 oil leak, again" };
+  test("names the fields both sides changed", () => {
+    expect(conflictingKeys(base, next, draft, IST)).toEqual(["cause"]);
+  });
+  test("keeps the operator's text, takes the new values elsewhere", () => {
+    const re = rebaseForm(base, next, draft, IST);
+    expect(re.cause).toBe("worn seal and hose");
+    expect(re.title).toBe("Press 2 oil leak, again");
+    expect(re.priority).toBe("low");
+    // Saving now sends only the operator's own edits, never the old priority over the other user's.
+    expect(buildUpdate(next, re, IST)).toEqual({ ok: true, changes: { title: "Press 2 oil leak, again", cause: "worn seal and hose" } });
+  });
+});
+
+describe("issue from the store: retry and request ids", () => {
+  const sig = issueSignature("i1", 1000, "w1", " note ");
+  test("an exact retry reuses the id and skips the balance check; a changed request gets a new id and the check", () => {
+    let n = 0;
+    const a = createIssueAttempts(createRequestIds(() => `id-${++n}`));
+    const first = a.prepare(sig);
+    expect(first.retry).toBe(false);
+    a.markSent(sig);
+    const again = a.prepare(sig);
+    expect(again).toEqual({ clientRequestId: first.clientRequestId, retry: true });
+    expect(a.isRetry(sig)).toBe(true);
+    const changed = issueSignature("i1", 2000, "w1", "note");
+    expect(a.isRetry(changed)).toBe(false);
+    expect(a.prepare(changed).clientRequestId).not.toBe(first.clientRequestId);
+  });
+  test("settling (saved, or a replay found cancelled) starts the next submission fresh", () => {
+    let n = 0;
+    const a = createIssueAttempts(createRequestIds(() => `id-${++n}`));
+    const first = a.prepare(sig).clientRequestId;
+    a.markSent(sig);
+    a.settle();
+    expect(a.isRetry(sig)).toBe(false);
+    expect(a.prepare(sig).clientRequestId).not.toBe(first);
+  });
+  test("note whitespace does not make a different request", () => {
+    expect(issueSignature("i1", 1000, "w1", " note ")).toBe(issueSignature("i1", 1000, "w1", "note"));
+  });
+});
+
+describe("the machine list failed to load", () => {
+  test("shows the reason and a Retry button, in both languages", () => {
+    for (const locale of ["en", "hi"] as const) {
+      const html = renderToStaticMarkup(
+        <I18nProvider locale={locale}>
+          <AssetLoadError error={new Error("boom")} onRetry={() => {}} />
+        </I18nProvider>,
+      );
+      expect(html).toContain("<button");
+      expect(html).toContain('role="alert"');
+    }
   });
 });

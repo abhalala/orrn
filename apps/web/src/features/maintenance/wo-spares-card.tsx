@@ -5,12 +5,12 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { StoreItemPicker } from "@/features/store/item-picker";
-import { useRequestIds } from "@/features/store/request-id";
+import { createRequestIds } from "@/features/store/request-id";
 import { storeErrorKey } from "@/features/store/store-errors";
 import { qtyProblemText, qtyText, unitShort } from "@/features/store/store-labels";
 import { formatQty, isShort, parseQtyMilli, type StoreUnit } from "@/features/store/store-qty";
@@ -22,6 +22,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { maintErrorKey } from "./model";
 import { useInvalidateWo } from "./wo-hooks";
+import { createIssueAttempts, issueSignature } from "./wo-model";
 import { SpareRows, type SpareRow } from "./wo-parts";
 
 type LinkedSpare = SpareRow & { itemName: string; unit: string; qtyMilli: number };
@@ -145,7 +146,9 @@ function IssueSheet({ workOrderId, onClose }: { workOrderId: string; onClose: ()
   const balances = useStoreBalances(true);
   const invalidateStore = useInvalidateStore();
   const invalidateWo = useInvalidateWo();
-  const ids = useRequestIds();
+  const attempts = useRef<ReturnType<typeof createIssueAttempts> | null>(null);
+  if (!attempts.current) attempts.current = createIssueAttempts(createRequestIds());
+  const issueAttempts = attempts.current;
   const [itemId, setItemId] = useState<string | null>(null);
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
@@ -156,9 +159,12 @@ function IssueSheet({ workOrderId, onClose }: { workOrderId: string; onClose: ()
   const item = items.find((i) => i.id === itemId) ?? null;
   const parsed = parseQtyMilli(qty, (item?.unit ?? null) as StoreUnit | null);
   const itemError = !item ? t("store.form.itemRequired") : undefined;
+  const signature = item && parsed.ok ? issueSignature(item.id, parsed.milli, workOrderId, note) : null;
+  // An exact retry of a request already sent skips the balance check: the store may have issued the last unit with the answer lost.
+  const retrying = signature !== null && issueAttempts.isRetry(signature);
   let qtyError: string | undefined;
   if (!parsed.ok) qtyError = qtyProblemText(t, parsed.problem);
-  else if (item && isShort(parsed.milli, item.balanceMilli))
+  else if (item && !retrying && isShort(parsed.milli, item.balanceMilli))
     qtyError = t("store.form.qty.short", { qty: formatQty(Math.max(0, item.balanceMilli), item.unit, fmt), unit: unitShort(t, item.unit, item.balanceMilli, fmt) });
 
   const submit = async (e: FormEvent) => {
@@ -167,18 +173,26 @@ function IssueSheet({ workOrderId, onClose }: { workOrderId: string; onClose: ()
     if (busy || !item || !parsed.ok || qtyError) return;
     setBusy(true);
     const trimmed = note.trim();
+    const sig = issueSignature(item.id, parsed.milli, workOrderId, trimmed);
+    // The same values send the same key until an outcome is known, so a retry after a lost answer never issues twice.
+    const { clientRequestId } = issueAttempts.prepare(sig);
+    issueAttempts.markSent(sig);
     try {
-      // The same values send the same key, so a retry after a lost answer never issues twice.
       const res = await trpcClient.store.issue.mutate({
         itemId: item.id,
         qtyMilli: parsed.milli,
         purpose: "maintenance",
         refId: workOrderId,
         note: trimmed || null,
-        clientRequestId: ids.idFor(`${item.id}|${parsed.milli}|${workOrderId}|${trimmed}`),
+        clientRequestId,
       });
-      ids.reset();
       void invalidateStore();
+      issueAttempts.settle();
+      if (res.cancelled) {
+        // A replay of an issue that was cancelled in the store: nothing was issued, so nothing is linked. The next try is a new request.
+        toast.error(t("maint.workOrders.spares.issueCancelled", { number: res.number }));
+        return;
+      }
       if (can(me, "maint.workorder")) {
         try {
           await trpcClient.maint.spares.link.mutate({ workOrderId, storeTxnId: res.id });
