@@ -449,25 +449,24 @@ async function subjectOf(ctx: Ctx, type: WeighSubject, subjectId: string) {
   return { number: d.code, vehicleNo: d.vehicleNo, createdAt: d.createdAt, weightG: await loadG(ctx, d.id), lot: null, dispatch: d };
 }
 
-/** Unused, real bridge tickets around a time, newest first; the truck's own first when it has a number. */
+/** Unused bridge tickets around a time, newest first: the truck's own (matched in SQL) and the rest. */
 async function candidateTickets(ctx: Ctx, aroundMs: number, vehicleNo: string | null, limit = 20) {
-  const rows = await ctx.db
+  const truck = (vehicleNo ?? "").replace(/[\s-]+/g, "").toUpperCase();
+  const base = and(
+    eq(deviceReading.companyId, ctx.companyId),
+    eq(deviceReading.kind, "weighbridge"),
+    gte(deviceReading.sampledAt, new Date(aroundMs - WEIGH_TICKET_WINDOW_MS)),
+    lte(deviceReading.sampledAt, new Date(aroundMs + WEIGH_TICKET_WINDOW_MS)),
+    sql`not exists (select 1 from ${deviceReadingUse} u where u.company_id = ${deviceReading.companyId} and u.reading_id = ${deviceReading.id} and u.voided_at is null)`,
+  );
+  const mine = truck ? await ctx.db.select().from(deviceReading).where(and(base, eq(deviceReading.vehicleNo, truck))).orderBy(desc(deviceReading.sampledAt)).limit(limit) : [];
+  const rest = await ctx.db
     .select()
     .from(deviceReading)
-    .where(
-      and(
-        eq(deviceReading.companyId, ctx.companyId),
-        eq(deviceReading.kind, "weighbridge"),
-        gte(deviceReading.sampledAt, new Date(aroundMs - WEIGH_TICKET_WINDOW_MS)),
-        lte(deviceReading.sampledAt, new Date(aroundMs + WEIGH_TICKET_WINDOW_MS)),
-        sql`not exists (select 1 from ${deviceReadingUse} u where u.company_id = ${deviceReading.companyId} and u.reading_id = ${deviceReading.id} and u.voided_at is null)`,
-      ),
-    )
+    .where(and(base, truck ? sql`coalesce(${deviceReading.vehicleNo}, '') <> ${truck}` : undefined))
     .orderBy(desc(deviceReading.sampledAt))
-    .limit(200);
-  const mine = rows.filter((r) => sameVehicle(r.vehicleNo, vehicleNo));
-  const rest = rows.filter((r) => !sameVehicle(r.vehicleNo, vehicleNo));
-  return { sameTruck: mine.slice(0, limit).map(readingSummary), others: rest.slice(0, limit).map(readingSummary) };
+    .limit(limit);
+  return { sameTruck: mine.map(readingSummary), others: rest.map(readingSummary) };
 }
 
 async function liveWeigh(ctx: Ctx, type: WeighSubject, subjectId: string) {
@@ -598,7 +597,7 @@ const weigh = router({
       const subject = await subjectOf(ctx, input.subjectType, input.subjectId);
       if (subject.dispatch && subject.dispatch.status === "cancelled") throw bad("This load is cancelled");
       const s = await plantSettings(ctx);
-      const cand = subject.vehicleNo ? (await candidateTickets(ctx, subject.createdAt.getTime(), subject.vehicleNo, 1)).sameTruck.filter((r) => !r.simulated)[0] : undefined;
+      const cand = subject.vehicleNo ? (await candidateTickets(ctx, subject.createdAt.getTime(), subject.vehicleNo)).sameTruck.find((r) => !r.simulated) : undefined;
       const check = cand?.netG != null ? weighMismatch(input.typedG, cand.netG, s) : null;
       const at = new Date();
       const useId = crypto.randomUUID();
