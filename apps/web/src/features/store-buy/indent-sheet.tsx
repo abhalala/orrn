@@ -10,6 +10,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 import { toast } from "sonner";
 
 import { qtyProblemText, unitShort } from "@/features/store/store-labels";
+import { StoreLoadError } from "@/features/store/store-ui";
 import type { StoreUnit } from "@/features/store/store-qty";
 import { useFmt } from "@/shared/lib/fmt";
 import { trpc } from "@/shared/utils/trpc";
@@ -42,6 +43,9 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
   const [lines, setLines] = useState<IndentDraftLine[]>([]);
   const [attempted, setAttempted] = useState(false);
   const create = useMutation(trpc.store.indents.create.mutationOptions());
+  // Held from the tap until the sheet closes: the refetch after a save must not open a second create.
+  const [sending, setSending] = useState(false);
+  const busy = sending || create.isPending;
 
   useEffect(() => {
     if (!open) return;
@@ -50,6 +54,7 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
     setReason("");
     setLines([blankLine(nextKey())]);
     setAttempted(false);
+    setSending(false);
     create.reset();
     // Only on open; the mutation is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,9 +67,10 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (create.isPending) return;
+    if (busy) return;
     setAttempted(true);
     if (!checked.ok) return;
+    setSending(true);
     try {
       const res = await create.mutateAsync(checked.input);
       toast.success(t("store2.indent.form.raised", { number: res.number }));
@@ -73,6 +79,8 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
       onRaised?.(res.id);
     } catch {
       // Shown inline below.
+    } finally {
+      setSending(false);
     }
   };
 
@@ -81,13 +89,13 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
       open={open}
       onOpenChange={onOpenChange}
       title={t("store2.indent.form.title")}
-      dismissible={!create.isPending}
+      dismissible={!busy}
       footer={
         <>
-          <Button variant="secondary" size="lg" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" size="lg" disabled={busy} onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button type="submit" form={formId} size="lg" loading={create.isPending}>
+          <Button type="submit" form={formId} size="lg" loading={busy}>
             {t("store2.indent.form.submit")}
           </Button>
         </>
@@ -100,7 +108,7 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
           error={problems?.department ? t("store2.indent.form.departmentRequired") : undefined}
           required
         >
-          <TextInput value={department} maxLength={100} autoComplete="off" onChangeText={setDepartment} />
+          <TextInput value={department} maxLength={60} autoComplete="off" onChangeText={setDepartment} />
         </Field>
         <Field
           label={t("store2.indent.form.neededBy")}
@@ -115,6 +123,7 @@ export function IndentSheet({ open, onOpenChange, onRaised }: { open: boolean; o
 
         <fieldset className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
           <legend className="mb-1 p-0 text-[14px] font-medium text-foreground">{t("store2.indent.form.items")}</legend>
+          {items.isError && !items.data ? <StoreLoadError onRetry={() => void items.refetch()} /> : null}
           {items.data && active.length === 0 ? (
             <p className="m-0 text-[14px] text-muted-foreground">{t("store2.indent.form.noActiveItems")}</p>
           ) : null}

@@ -58,13 +58,19 @@ export function toleranceText(bp: number): string {
 }
 
 /** One CSV field: quoted when it holds a comma, quote or line break; a leading = + - @ is made safe for spreadsheets. */
-export function csvCell(value: string | number): string {
+/** A number the app formatted itself (e.g. "-12.500"): written as is, so a spreadsheet reads it as a number. */
+export type CsvNumber = { readonly num: string };
+export type CsvValue = string | number | CsvNumber;
+
+export function csvCell(value: CsvValue): string {
+  if (typeof value === "object") return value.num;
   let s = String(value);
+  // Text from people (item names) that starts like a formula is neutralised; numbers never are.
   if (typeof value === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function csvText(rows: (string | number)[][]): string {
+export function csvText(rows: CsvValue[][]): string {
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 
@@ -84,18 +90,22 @@ type MonthRow = {
 };
 
 /** Plain decimals for a spreadsheet: quantity in the item's unit, money in rupees, both exact. */
-function dec(n: number): string {
+function dec(n: number): CsvNumber {
   const sign = n < 0 ? "-" : "";
   const a = Math.abs(n);
-  return `${sign}${Math.floor(a / 1000)}.${String(a % 1000).padStart(3, "0")}`;
+  return { num: `${sign}${Math.floor(a / 1000)}.${String(a % 1000).padStart(3, "0")}` };
 }
-function rs(paise: number): string {
+function rs(paise: number): CsvNumber {
   const sign = paise < 0 ? "-" : "";
   const a = Math.abs(paise);
-  return `${sign}${Math.floor(a / 100)}.${String(a % 100).padStart(2, "0")}`;
+  return { num: `${sign}${Math.floor(a / 100)}.${String(a % 100).padStart(2, "0")}` };
 }
 
-/** The month report as CSV text; `head` is the translated header row, `unitWord` the item's unit word. */
+/**
+ * The month report as CSV text; `head` is the translated header row, `unitWord` the item's unit word.
+ * Quantities are the store's own units (kg, litre, piece) as the server keeps them, so `unitWord` must
+ * name those units, not the plant's display unit.
+ */
 export function monthCsv(
   head: string[],
   rows: MonthRow[],
@@ -103,7 +113,7 @@ export function monthCsv(
   totalLabel: string,
   unitWord: (unit: string) => string,
 ): string {
-  const body: (string | number)[][] = rows.map((r) => [
+  const body: CsvValue[][] = rows.map((r) => [
     r.name,
     unitWord(r.unit),
     dec(r.openingMilli),

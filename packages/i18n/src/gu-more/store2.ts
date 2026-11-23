@@ -7,6 +7,6 @@ import type { DeepPartial } from "../gu";
  */
 export const guStore2 = {
   nav: {
-    storeBuying: "ખરીદ",
+    storeBuying: "સ્ટોર ખરીદ",
   },
 } satisfies DeepPartial<Messages>;

@@ -32,8 +32,8 @@ import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG } from "@/shared/lib/plant-input";
 import type { Fmt } from "@orrn/domain";
 import { useFmt } from "@/shared/lib/fmt";
-import { GrnBuyFields } from "@/features/store-buy/grn-fields";
-import { EMPTY_GRN_BUY, grnBuyInput, parseAcceptedMilli, type GrnBuyDraft } from "@/features/store-buy/grn-model";
+import { GrnBuyFields, useOpenPoLines } from "@/features/store-buy/grn-fields";
+import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, parseAcceptedMilli, poLineGone, type GrnBuyDraft } from "@/features/store-buy/grn-model";
 import { buyErrorText } from "@/features/store-buy/buy-errors";
 
 export type EntryMode = "receive" | "issue" | "exchange";
@@ -230,6 +230,9 @@ function EntryFormBody({
   const canRate = can(me, "store.rate");
   const buyParsed = grnBuyInput(buy, unit, canRate);
   const rejectedForQty = buyParsed.ok ? buyParsed.rejectedMilli : null;
+  // The same query the buying fields read: a picked order line that is no longer open blocks the submit.
+  const openLines = useOpenPoLines(mode === "receive" ? (item?.id ?? null) : null);
+  const lineGone = mode === "receive" && poLineGone(openLines.data, buy.poLineId);
 
   // What is wrong with each field right now (shown once touched or after a submit attempt).
   const problems = useMemo(() => {
@@ -352,6 +355,9 @@ function EntryFormBody({
       return;
     }
     if (mode === "receive" && !buyParsed.ok) return;
+    // A closed line blocks a new submit; a resend of a submit that got no answer goes out unchanged (same
+    // line, rate and id), because that first submit may be what used the line up.
+    if (grnHeldByGoneLine(lineGone, signature, unsure)) return;
     const note_ = note.trim() || null;
     inFlight.current = true;
     try {

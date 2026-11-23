@@ -89,13 +89,15 @@ export function PoFormPage({ id, indentId }: { id?: string; indentId?: string })
       setVendorName(po.data.vendor?.name);
       const drafts = draftsFromPo(po.data.lines);
       setLines(drafts.length > 0 ? drafts : [emptyLine("l1")]);
-      nextKey.current = drafts.length + 1;
+      // Above the fallback "l1" too, so the next added line never shares its key.
+      nextKey.current = Math.max(2, drafts.length + 1);
     } else if (!editing && indent.data && items.data) {
       hydrated.current = true;
       const active = new Set(items.data.items.filter((i) => i.active).map((i) => i.id));
       const drafts = draftsFromIndent(indent.data.lines.filter((l) => active.has(l.itemId)));
       if (drafts.length > 0) setLines(drafts);
-      nextKey.current = drafts.length + 1;
+      // With no active item on the indent the first "l1" line stays: keep the counter above it.
+      nextKey.current = Math.max(2, drafts.length + 1);
     }
   }, [editing, po.data, indent.data, items.data]);
 
@@ -105,7 +107,9 @@ export function PoFormPage({ id, indentId }: { id?: string; indentId?: string })
 
   const create = useMutation(trpc.store.po.create.mutationOptions());
   const update = useMutation(trpc.store.po.update.mutationOptions());
-  const busy = create.isPending || update.isPending;
+  // Held from the tap until the page moves on: the refetch after a save must not let a second create through.
+  const [sending, setSending] = useState(false);
+  const busy = sending || create.isPending || update.isPending;
   const error = create.error ?? update.error;
 
   const back = { to: "/store/buy?tab=orders", label: t("store2.po.form.back") };
@@ -185,6 +189,7 @@ export function PoFormPage({ id, indentId }: { id?: string; indentId?: string })
       return;
     }
     setProblems(null);
+    setSending(true);
     try {
       if (editing && id) {
         await update.mutateAsync({ id, ...built.input });
@@ -199,6 +204,8 @@ export function PoFormPage({ id, indentId }: { id?: string; indentId?: string })
       }
     } catch {
       // Shown under the boxes (error).
+    } finally {
+      setSending(false);
     }
   };
 

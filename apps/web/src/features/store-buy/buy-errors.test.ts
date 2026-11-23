@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createI18n, type MessageKey } from "@orrn/i18n";
+import { createI18n, type MessageKey, type Translate } from "@orrn/i18n";
 
 import { buyErrorText } from "./buy-errors";
 
@@ -40,6 +40,22 @@ describe("buyErrorText", () => {
         if (locale === "en") expect(text.startsWith(t(key, { po: "PO-12", line: "2", qty: "4.5", unit: "kg", number: "IND-4" }).slice(0, 6))).toBe(true);
       }
     }
+  });
+
+  test("each refusal picks its own key, with the numbers it carries", () => {
+    for (const [error, key] of CASES) {
+      const calls: { key: string; vars?: Record<string, unknown> }[] = [];
+      const record = ((k: string, vars?: Record<string, unknown>) => {
+        calls.push({ key: k, vars });
+        return k;
+      }) as unknown as Translate;
+      expect(buyErrorText(record, error)).toBe(key);
+      expect(calls.map((c) => c.key)).toEqual([key]);
+    }
+    const calls: { key: string; vars?: Record<string, unknown> }[] = [];
+    const record = ((k: string, vars?: Record<string, unknown>) => (calls.push({ key: k, vars }), k)) as unknown as Translate;
+    buyErrorText(record, server("BAD_REQUEST", "Over the order: PO-12 line 2 takes at most 4.5 more kg"));
+    expect(calls[0]).toEqual({ key: "store2.errors.overReceipt", vars: { po: "PO-12", line: "2", qty: "4.5", unit: "kg" } });
   });
 
   test("the over-order refusal keeps the numbers", () => {

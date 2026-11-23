@@ -41,3 +41,21 @@ export function parseAcceptedMilli(text: string, unit: StoreUnit | null, rejecte
   if (!r.ok && r.problem === "zero" && rejectedMilli !== null && rejectedMilli > 0) return { ok: true, milli: 0 };
   return r;
 }
+
+/**
+ * True when the draft names an order line the latest open lines no longer have (another delivery or a
+ * close used it up). The form keeps the line and blocks the submit: it never turns into a GRN with no
+ * order by itself. Only the person drops the order ("Receive without the order") or picks another line.
+ */
+export function poLineGone(data: { items: { lineId: string }[] } | undefined, poLineId: string | null): boolean {
+  return poLineId !== null && data !== undefined && !data.items.some((l) => l.lineId === poLineId);
+}
+
+/**
+ * Whether a GRN submit is held back by a gone order line. A resend of a submit that got no answer
+ * (`signature === unsure`) still goes out unchanged, with the same line, rate and request id: that first
+ * submit may be the delivery that used the line up, and the server replays it by its id.
+ */
+export function grnHeldByGoneLine(lineGone: boolean, signature: string | null, unsure: string | null): boolean {
+  return lineGone && (signature === null || signature !== unsure);
+}

@@ -58,6 +58,8 @@ export const store2En = {
     rejectedHint: "What you turned back. It does not go into the store.",
     accepted: "Accepted into the store",
     left: "Still to come on this line: {qty}",
+    lineGone: "This order line is no longer open (another delivery or a close used it up). Pick another line, or receive without the order.",
+    dropPo: "Receive without the order",
   },
   item: {
     levels: "Reorder levels",

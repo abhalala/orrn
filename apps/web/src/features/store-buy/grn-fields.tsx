@@ -1,8 +1,9 @@
 import { useT } from "@orrn/i18n";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
+import { Button } from "@orrn/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useId } from "react";
+import { useId } from "react";
 
 import { qtyProblemText, qtyText, unitShort } from "@/features/store/store-labels";
 import { formatQty, type StoreUnit } from "@/features/store/store-qty";
@@ -10,9 +11,18 @@ import { can, useMe } from "@/shared/lib/me";
 import { useFmt } from "@/shared/lib/fmt";
 import { trpc } from "@/shared/utils/trpc";
 
-import type { GrnBuyDraft, GrnBuyInput } from "./grn-model";
+import { poLineGone, type GrnBuyDraft, type GrnBuyInput } from "./grn-model";
 import { paiseToText, rupees } from "./money";
 import { StoreQtyBox } from "./qty-box";
+
+/** The open purchase order lines for an item (one query, shared by the form and these fields). */
+export function useOpenPoLines(itemId: string | null) {
+  const { data: me } = useMe();
+  return useQuery({
+    ...trpc.store.po.openLines.queryOptions({ itemId: itemId ?? undefined }),
+    enabled: itemId !== null && can(me, "store.txn"),
+  });
+}
 
 /**
  * The buying part of the GRN form (XE store row 71): which purchase order line the delivery is for (the
@@ -39,18 +49,10 @@ export function GrnBuyFields({
   const { data: me } = useMe();
   const canRate = can(me, "store.rate");
   const poId = `grn-po-${useId().replace(/:/g, "")}`;
-  const lines = useQuery({
-    ...trpc.store.po.openLines.queryOptions({ itemId: itemId ?? undefined }),
-    enabled: itemId !== null && can(me, "store.txn"),
-  });
+  const lines = useOpenPoLines(itemId);
   const open = lines.data?.items ?? [];
   const picked = open.find((l) => l.lineId === draft.poLineId) ?? null;
-
-  // A line from another item (or one that closed meanwhile) no longer applies.
-  useEffect(() => {
-    if (draft.poLineId && lines.data && !picked) onChange({ ...draft, poLineId: null, rate: "" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines.data, draft.poLineId, picked]);
+  const gone = poLineGone(lines.data, draft.poLineId);
 
   // The rate is always per kilogram (or per piece, litre...) on the server, whatever unit the plant shows weights in.
   const rateUnit = unit ? unitShort(t, unit, 1000) : "";
@@ -59,6 +61,14 @@ export function GrnBuyFields({
 
   return (
     <>
+      {gone ? (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink">
+          <p className="m-0">{t("store2.grn.lineGone")}</p>
+          <Button type="button" variant="secondary" onClick={() => onChange({ ...draft, poLineId: null, rate: "" })}>
+            {t("store2.grn.dropPo")}
+          </Button>
+        </div>
+      ) : null}
       {open.length > 0 ? (
         <Field
           label={t("store2.grn.poLine")}
@@ -72,7 +82,7 @@ export function GrnBuyFields({
               const lineId = e.currentTarget.value || null;
               const line = open.find((l) => l.lineId === lineId);
               // "No purchase order" drops the rate the order filled in; a rate typed by hand stays.
-              const keptRate = picked && draft.rate.trim() === paiseToText(picked.ratePaise) ? "" : draft.rate;
+              const keptRate = gone || (picked && draft.rate.trim() === paiseToText(picked.ratePaise)) ? "" : draft.rate;
               onChange({ ...draft, poLineId: lineId, rate: line ? paiseToText(line.ratePaise) : keptRate });
             }}
           >

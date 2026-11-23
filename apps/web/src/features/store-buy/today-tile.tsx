@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { qtyText } from "@/features/store/store-labels";
+import { StoreLoadError } from "@/features/store/store-ui";
 import { useInvalidateStore } from "@/features/store/use-store";
 import { useFmt } from "@/shared/lib/fmt";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
@@ -21,11 +22,26 @@ export function TodayStoreLowTile() {
   const invalidate = useInvalidateStore();
   const low = useQuery({ ...trpc.store.belowMinimum.queryOptions(), meta: INLINE_ERROR_META });
   const make = useMutation(trpc.store.indents.fromReorder.mutationOptions());
-  const [made, setMade] = useState<Record<string, { number: string; existing: boolean }>>({});
+  // What a click just got back, with when: kept only until a refetch after it says what is live now.
+  const [made, setMade] = useState<Record<string, { number: string; existing: boolean; at: number }>>({});
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const items = low.data?.items ?? [];
+  const title = (
+    <h2 id="today-store-low" className="m-0 text-[17px] font-semibold">
+      {t("store2.today.title")}
+    </h2>
+  );
+  // A failed check is not "nothing is low": say so, with Retry.
+  if (low.isError && !low.data) {
+    return (
+      <section aria-labelledby="today-store-low" data-testid="today-store-low" className="flex min-w-0 flex-col gap-3">
+        {title}
+        <StoreLoadError onRetry={() => void low.refetch()} />
+      </section>
+    );
+  }
   if (items.length === 0) return null;
 
   async function raise(itemId: string) {
@@ -33,7 +49,7 @@ export function TodayStoreLowTile() {
     setFailed(null);
     try {
       const res = await make.mutateAsync({ itemId });
-      setMade((m) => ({ ...m, [itemId]: { number: res.number, existing: res.existing } }));
+      setMade((m) => ({ ...m, [itemId]: { number: res.number, existing: res.existing, at: Date.now() } }));
       void invalidate();
     } catch {
       setFailed(itemId);
@@ -45,17 +61,17 @@ export function TodayStoreLowTile() {
   return (
     <section aria-labelledby="today-store-low" data-testid="today-store-low" className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="today-store-low" className="m-0 text-[17px] font-semibold">
-          {t("store2.today.title")}
-        </h2>
+        {title}
         <UiLink to="/store" className="text-[14px] font-semibold text-foreground underline underline-offset-4">
           {t("store2.today.open")}
         </UiLink>
       </div>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {items.slice(0, 8).map((i) => {
-          const done = made[i.itemId];
-          const number = done?.number ?? i.indent?.number ?? null;
+          const clicked = made[i.itemId];
+          // Once the list refetched after the click, the live indent decides (someone may have cancelled it).
+          const done = clicked && low.dataUpdatedAt <= clicked.at ? clicked : null;
+          const number = i.indent?.number ?? done?.number ?? null;
           return (
             <li key={i.itemId} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3">
               <div className="min-w-0">

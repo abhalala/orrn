@@ -220,7 +220,7 @@ export const hi = {
 
   nav: {
     qa: "गुणवत्ता",
-    storeBuying: "खरीद",
+    storeBuying: "स्टोर खरीद",
     ageing: "एजिंग",
     complaints: "शिकायतें",
     owner: "मालिक",

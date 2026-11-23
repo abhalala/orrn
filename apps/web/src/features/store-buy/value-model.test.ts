@@ -45,6 +45,13 @@ describe("csv", () => {
     const csv = monthCsv(["h"], [row], totals, "Total", (u) => u);
     expect(csv).toBe("h\r\nFlux,kg,1.500,123.45,0.000,0.00,0.250,1.00,0.00,1.250,122.45,0.000\r\nTotal,,,123.45,,0.00,,1.00,0.00,,122.45,\r\n");
   });
+  test("a GRN cancelled from an earlier month writes its negative in and value as numbers, not text", () => {
+    const row = { name: "-Flux", unit: "kg", openingMilli: 2000, openingPaise: 20000, inMilli: -500, inPaise: -5000, outMilli: 0, outPaise: 0, ratedPaise: 0, closingMilli: 1500, closingPaise: 15000, closingUnratedMilli: 0 };
+    const totals = { openingPaise: 20000, inPaise: -5000, outPaise: 0, ratedPaise: 0, closingPaise: 15000 };
+    const csv = monthCsv(["h"], [row], totals, "Total", (u) => u);
+    // The item name that starts like a formula is still neutralised; the minus signs are not.
+    expect(csv).toBe("h\r\n'-Flux,kg,2.000,200.00,-0.500,-50.00,0.000,0.00,0.00,1.500,150.00,0.000\r\nTotal,,,200.00,,-50.00,,0.00,0.00,,150.00,\r\n");
+  });
   test("old stock rated and the quantity still without a rate get their own columns", () => {
     const row = { name: "Flux", unit: "kg", openingMilli: 1000, openingPaise: 0, inMilli: 0, inPaise: 0, outMilli: 0, outPaise: 0, ratedPaise: 8450, closingMilli: 1000, closingPaise: 8450, closingUnratedMilli: 400 };
     const totals = { openingPaise: 0, inPaise: 0, outPaise: 0, ratedPaise: 8450, closingPaise: 8450 };

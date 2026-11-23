@@ -76,6 +76,7 @@ export function PoPrintScreen({ id }: { id: string }) {
     <>
       <style>{PRINT_CSS}</style>
       <PageHeader
+        className="po-no-print"
         title={t("store2.po.print.title")}
         back={back}
         actions={

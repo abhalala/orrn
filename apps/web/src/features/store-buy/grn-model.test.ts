@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { EMPTY_GRN_BUY, grnBuyInput, parseAcceptedMilli } from "./grn-model";
+import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, parseAcceptedMilli, poLineGone } from "./grn-model";
+import { createRequestIds } from "../store/request-id";
 
 describe("GRN buying fields", () => {
   test("all empty: a GRN without an order, as before", () => {
@@ -48,5 +49,28 @@ describe("accepted quantity", () => {
     expect(parseAcceptedMilli("abc", "kg", 2500)).toEqual({ ok: false, problem: "invalid" });
     expect(parseAcceptedMilli("1.5", "piece", 1000)).toEqual({ ok: false, problem: "whole" });
     expect(parseAcceptedMilli("3", "kg", 2500)).toEqual({ ok: true, milli: 3000 });
+  });
+});
+
+describe("an order line that closed while the form was open", () => {
+  const open = { items: [{ lineId: "l-2" }] };
+
+  test("is gone only once the open lines loaded and no longer have it", () => {
+    expect(poLineGone(open, "l-1")).toBe(true);
+    expect(poLineGone(open, "l-2")).toBe(false);
+    expect(poLineGone(undefined, "l-1")).toBe(false);
+    expect(poLineGone(open, null)).toBe(false);
+  });
+
+  test("holds a new submit back, but lets the resend of a submit with no answer go out with the same id", () => {
+    const sig = "receive|flux|25000||||l-1|92.35|";
+    expect(grnHeldByGoneLine(true, sig, null)).toBe(true);
+    expect(grnHeldByGoneLine(true, sig, "receive|flux|1000||||l-1|92.35|")).toBe(true);
+    expect(grnHeldByGoneLine(true, sig, sig)).toBe(false);
+    expect(grnHeldByGoneLine(false, sig, null)).toBe(false);
+    // The draft is never changed by the refresh, so the resend's signature, and with it the request id, stay.
+    const ids = createRequestIds(() => crypto.randomUUID());
+    const first = ids.idFor(sig);
+    expect(ids.idFor(sig)).toBe(first);
   });
 });

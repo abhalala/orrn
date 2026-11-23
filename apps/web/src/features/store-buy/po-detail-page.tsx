@@ -127,7 +127,8 @@ export function PoDetailPage({ id }: { id: string }) {
       key: "rate",
       header: t("store2.po.detail.rate"),
       align: "end",
-      cell: (l) => (l.ratePaise > 0 ? t("store2.money.perUnit", { rate: rupees(l.ratePaise), unit: unitShort(t, l.unit, 1000) }) : t("store2.money.noRate")),
+      // Every order line has a rate (0 allowed, e.g. a free sample): ₹0.00 is a rate, not a missing one.
+      cell: (l) => t("store2.money.perUnit", { rate: rupees(l.ratePaise), unit: unitShort(t, l.unit, 1000) }),
     },
     { key: "gst", header: t("store2.po.detail.gst"), align: "end", hideOnPhone: true, cell: (l) => `${bpText(l.gstBp)}%` },
     { key: "total", header: t("store2.po.detail.total"), align: "end", cell: (l) => rupees(l.totalPaise) },

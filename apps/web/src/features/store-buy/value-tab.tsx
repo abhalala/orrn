@@ -371,7 +371,7 @@ function MonthSection() {
     if (!q.data) return;
     const h = (k: keyof typeof headKeys) => t(`store2.value.csvHead.${k}`);
     const head = (Object.keys(headKeys) as (keyof typeof headKeys)[]).map(h);
-    const text = monthCsv(head, q.data.items, q.data.totals, t("store2.value.totals"), (u) => unitShort(t, u, 1000, fmt));
+    const text = monthCsv(head, q.data.items, q.data.totals, t("store2.value.totals"), (u) => unitShort(t, u, 1000));
     const url = URL.createObjectURL(new Blob(["﻿", text], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
