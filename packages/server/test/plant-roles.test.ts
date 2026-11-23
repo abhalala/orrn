@@ -118,6 +118,12 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
+  // XE parity lane JOBWORK.
+  "jobwork.send": ["supervisor", "manager", "office", "storekeeper"],
+  "jobwork.receive": ["supervisor", "manager", "office", "storekeeper"],
+  "jobwork.masters": ["admin", "manager", "office"],
+  "jobwork.cost": ["admin", "manager", "office", "accountant"],
+  "process.run": ["supervisor", "manager", "press", "operator"],
 };
 
 /** The pre-PL-1 permission matrix for the five original roles; must not move (except BACKLOG 51 below). */

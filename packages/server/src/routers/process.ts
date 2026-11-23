@@ -422,8 +422,9 @@ const receiveInput = z.object({
   rejectG: grams.default(0),
 });
 
-async function receiveStep(c: Ctx, input: z.infer<typeof receiveInput>) {
+async function receiveStep(c: Ctx, input: z.infer<typeof receiveInput>, kinds: readonly ProcessKind[]) {
   const step = await readStep(c, input.id);
+  if (!kinds.includes(step.kind)) throw jobworkRefusal("process_kind_mismatch");
   await assertModule(c, PROCESS_KIND_MODULE[step.kind]);
   if (!can_(c, isOutKind(step.kind) ? "jobwork.receive" : "process.run")) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
   if (step.status !== "open" && step.status !== "partial") throw jobworkRefusal("step_closed", { step: step.number });
@@ -777,6 +778,110 @@ async function receiveStep(c: Ctx, input: z.infer<typeof receiveInput>) {
   return { returnId, lossG: figures.lossG, lossBp: figures.lossBp, yieldBp: figures.yieldBp, ...money(c, { amountPaise: cost.amountPaise as number | null, costPerKgPaise: cost.costPerKgPaise }, ["amountPaise", "costPerKgPaise"]), newBundleIds };
 }
 
+const cancelInput = z.object({ id, reason: text(300).min(1, "Write why") });
+
+async function cancelStep(c: Ctx, input: z.infer<typeof cancelInput>, kinds: readonly ProcessKind[]) {
+  const step = await readStep(c, input.id);
+  if (!kinds.includes(step.kind)) throw jobworkRefusal("process_kind_mismatch");
+  await assertModule(c, PROCESS_KIND_MODULE[step.kind]);
+  const out = isOutKind(step.kind);
+  if (!can_(c, out ? "jobwork.send" : "process.run")) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+  if (step.status === "cancelled" || step.status === "done") throw jobworkRefusal("step_closed", { step: step.number });
+  if (step.status === "partial") throw jobworkRefusal("cancel_after_return", { step: step.number });
+  const inputs = await c.db.select().from(processInput).where(and(eq(processInput.companyId, c.companyId), eq(processInput.stepId, step.id)));
+  const ids = inputs.map((i) => i.bundleId);
+  const now = clockNow();
+  const userId = c.session.user.id;
+  const seq = await nextCompanySeq({ db: c.db }, c.companyId);
+  const posting: PostingCtx = { db: c.db, companyId: c.companyId, userId, seq, postedAt: now };
+  const statements: SqliteBatchItem[] = [];
+  if (out) {
+    const vendor = await readVendor(c, step.vendorId!);
+    const byFrom = new Map<string, string[]>();
+    for (const i of inputs) byFrom.set(i.fromLocationId ?? "", [...(byFrom.get(i.fromLocationId ?? "") ?? []), i.bundleId]);
+    for (const [from, bids] of byFrom) {
+      if (!from) throw jobworkRefusal("no_yard");
+      statements.push(...moveRows(posting, { voucherId: crypto.randomUUID(), bundleIds: bids, toLocationId: from, reason: `${step.number} cancelled`, onlyIf: and(eq(bundle.locationId, vendor.locationId), onStepSql(c.companyId, step.id)) }));
+    }
+  } else {
+    for (const part of chunk(ids, STEP_IN_CHUNK)) {
+      statements.push(c.db.update(bundle).set({ serverSeq: seq }).where(and(eq(bundle.companyId, c.companyId), inArray(bundle.id, part), onStepSql(c.companyId, step.id))));
+    }
+  }
+  statements.push(
+    ...allLandedAborts(c.db, c.companyId, ids, seq),
+    ...releaseHoldStatements(c.db, c.companyId, step.id, ids, userId, now),
+    c.db
+      .update(processStep)
+      .set({ status: "cancelled", cancelledAt: now, cancelReason: input.reason, serverSeq: seq })
+      .where(and(eq(processStep.companyId, c.companyId), eq(processStep.id, step.id), eq(processStep.status, "open"))),
+    abortBatchUnless(c.db, sql`changes() > 0`),
+    auditInsert(auditCtx(c), { action: "process.cancel", subjectType: "process_step", subjectId: step.id, meta: { number: step.number, reason: input.reason, bundles: ids.length } }),
+  );
+  try {
+    await atomicBatch(c.db, statements);
+  } catch (e) {
+    if (isBatchAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${step.number} changed meanwhile. Reload and try again.` });
+    throw e;
+  }
+  return { ok: true };
+}
+
+const startShape = {
+  ...openCommon,
+  ops: z.array(z.enum(fabricationOps)).max(fabricationOps.length).default([]),
+  batchNo: optText(40),
+  chemicals: z.array(z.object({ name: text(60).min(1), qty: text(30) })).max(20).default([]),
+  passes: z.number().int().min(0).max(100).nullable().optional(),
+  outSize: optText(80),
+};
+const startInput = z.object({ ...startShape, process: z.string().trim().min(1).max(20).optional() });
+
+/** Rows 54, 55 (in-house), 56: open an in-house step of `kind`. Draw and fabricate name their own process. */
+async function startStep(c: Ctx, kind: Exclude<ProcessKind, "jobwork">, input: z.infer<typeof startInput>) {
+  await assertModule(c, PROCESS_KIND_MODULE[kind]);
+  const process = kind === "finish" ? (input.process ?? "") : kind;
+  assertProcessFits(kind, process);
+  const bundleIds = await pickBundles(c, input);
+  return openStep(c, {
+    kind,
+    process,
+    bundleIds,
+    vendor: null,
+    fields: {
+      finishCode: input.finishCode || null,
+      ops: kind === "fabricate" ? input.ops : [],
+      batchNo: input.batchNo || null,
+      chemicals: input.chemicals,
+      passes: input.passes ?? null,
+      outSize: input.outSize || null,
+      ratePaisePerKg: input.ratePaisePerKg ?? null,
+      note: input.note || null,
+    },
+  });
+}
+
+/**
+ * The draw bench (row 54, module `drawbench`) and fabrication (row 56, module `fabrication`): the same
+ * engine behind their own routers, so the router-level module gate covers each. Reads (register, step)
+ * stay on `process.steps`.
+ */
+function kindRouter(kind: "draw" | "fabricate") {
+  return router({
+    start: actionProcedure("process.run")
+      .input(startInput)
+      .mutation(async ({ ctx, input }) => startStep(ctx as Ctx, kind, input)),
+    receive: actionProcedure("process.run")
+      .input(receiveInput)
+      .mutation(async ({ ctx, input }) => receiveStep(ctx as Ctx, input, [kind])),
+    cancel: actionProcedure("process.run")
+      .input(cancelInput)
+      .mutation(async ({ ctx, input }) => cancelStep(ctx as Ctx, input, [kind])),
+  });
+}
+export const drawbenchRouter = kindRouter("draw");
+export const fabricationRouter = kindRouter("fabricate");
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -818,96 +923,19 @@ const stepsRouter = router({
       });
     }),
 
-  /** Rows 54, 55 (in-house), 56: a step on the finishing line, the draw bench or fabrication. */
+  /** Row 55 (in-house): a step on the finishing line. The draw bench and fabrication have their own routers. */
   start: actionProcedure("process.run")
-    .input(
-      z.object({
-        ...openCommon,
-        kind: z.enum(["finish", "draw", "fabricate"]),
-        process: z.string().trim().min(1).max(20),
-        ops: z.array(z.enum(fabricationOps)).max(fabricationOps.length).default([]),
-        batchNo: optText(40),
-        chemicals: z.array(z.object({ name: text(60).min(1), qty: text(30) })).max(20).default([]),
-        passes: z.number().int().min(0).max(100).nullable().optional(),
-        outSize: optText(80),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const c = ctx as Ctx;
-      await assertModule(c, PROCESS_KIND_MODULE[input.kind]);
-      assertProcessFits(input.kind, input.process);
-      const bundleIds = await pickBundles(c, input);
-      return openStep(c, {
-        kind: input.kind,
-        process: input.process,
-        bundleIds,
-        vendor: null,
-        fields: {
-          finishCode: input.finishCode || null,
-          ops: input.kind === "fabricate" ? input.ops : [],
-          batchNo: input.batchNo || null,
-          chemicals: input.chemicals,
-          passes: input.passes ?? null,
-          outSize: input.outSize || null,
-          ratePaisePerKg: input.ratePaisePerKg ?? null,
-          note: input.note || null,
-        },
-      });
-    }),
+    .input(z.object({ ...startShape, kind: z.literal("finish").default("finish"), process: z.enum(finishProcesses) }))
+    .mutation(async ({ ctx, input }) => startStep(ctx as Ctx, "finish", input)),
 
   receive: anyActionProcedure("jobwork.receive", "process.run")
     .input(receiveInput)
-    .mutation(async ({ ctx, input }) => receiveStep(ctx as Ctx, input)),
+    .mutation(async ({ ctx, input }) => receiveStep(ctx as Ctx, input, ["jobwork", "finish"])),
 
   /** Before anything came back: the bundles go back where they came from, holds released. */
   cancel: anyActionProcedure("jobwork.send", "process.run")
-    .input(z.object({ id, reason: text(300).min(1, "Write why") }))
-    .mutation(async ({ ctx, input }) => {
-      const c = ctx as Ctx;
-      const step = await readStep(c, input.id);
-      await assertModule(c, PROCESS_KIND_MODULE[step.kind]);
-      const out = isOutKind(step.kind);
-      if (!can_(c, out ? "jobwork.send" : "process.run")) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
-      if (step.status === "cancelled" || step.status === "done") throw jobworkRefusal("step_closed", { step: step.number });
-      if (step.status === "partial") throw jobworkRefusal("cancel_after_return", { step: step.number });
-      const inputs = await c.db.select().from(processInput).where(and(eq(processInput.companyId, c.companyId), eq(processInput.stepId, step.id)));
-      const ids = inputs.map((i) => i.bundleId);
-      const now = clockNow();
-      const userId = c.session.user.id;
-      const seq = await nextCompanySeq({ db: c.db }, c.companyId);
-      const posting: PostingCtx = { db: c.db, companyId: c.companyId, userId, seq, postedAt: now };
-      const statements: SqliteBatchItem[] = [];
-      if (out) {
-        const vendor = await readVendor(c, step.vendorId!);
-        const byFrom = new Map<string, string[]>();
-        for (const i of inputs) byFrom.set(i.fromLocationId ?? "", [...(byFrom.get(i.fromLocationId ?? "") ?? []), i.bundleId]);
-        for (const [from, bids] of byFrom) {
-          if (!from) throw jobworkRefusal("no_yard");
-          statements.push(...moveRows(posting, { voucherId: crypto.randomUUID(), bundleIds: bids, toLocationId: from, reason: `${step.number} cancelled`, onlyIf: and(eq(bundle.locationId, vendor.locationId), onStepSql(c.companyId, step.id)) }));
-        }
-      } else {
-        for (const part of chunk(ids, STEP_IN_CHUNK)) {
-          statements.push(c.db.update(bundle).set({ serverSeq: seq }).where(and(eq(bundle.companyId, c.companyId), inArray(bundle.id, part), onStepSql(c.companyId, step.id))));
-        }
-      }
-      statements.push(
-        ...allLandedAborts(c.db, c.companyId, ids, seq),
-        ...releaseHoldStatements(c.db, c.companyId, step.id, ids, userId, now),
-        c.db
-          .update(processStep)
-          .set({ status: "cancelled", cancelledAt: now, cancelReason: input.reason, serverSeq: seq })
-          .where(and(eq(processStep.companyId, c.companyId), eq(processStep.id, step.id), eq(processStep.status, "open"))),
-        abortBatchUnless(c.db, sql`changes() > 0`),
-        auditInsert(auditCtx(c), { action: "process.cancel", subjectType: "process_step", subjectId: step.id, meta: { number: step.number, reason: input.reason, bundles: ids.length } }),
-      );
-      try {
-        await atomicBatch(c.db, statements);
-      } catch (e) {
-        if (isBatchAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${step.number} changed meanwhile. Reload and try again.` });
-        throw e;
-      }
-      return { ok: true };
-    }),
+    .input(cancelInput)
+    .mutation(async ({ ctx, input }) => cancelStep(ctx as Ctx, input, ["jobwork", "finish"])),
 
   /** The register (rows 33, 55): every step, newest first, filtered by kind, status and vendor. */
   list: companyProcedure

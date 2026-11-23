@@ -44,6 +44,11 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   toolRoom: "dies",
   // XE parity lane QA.
   qa: "qa",
+  // XE parity lane JOBWORK: one process-step engine behind three routers (job work and the finishing
+  // line, the draw bench, fabrication); each step mutation also calls assertModule for its step's kind.
+  process: "jobwork",
+  drawbench: "drawbench",
+  fabrication: "fabrication",
 };
 
 /**
@@ -54,9 +59,6 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
 export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "stock.move": "bundles",
   "stock.openingBalance": "bundles",
-  // XE JOBWORK: the `process` router serves three modules (jobwork, drawbench, fabrication), so each
-  // step mutation calls assertModule for its kind; the vendor master belongs to job-work.
-  "process.vendors.save": "jobwork",
 };
 
 /**

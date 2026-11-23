@@ -293,9 +293,9 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     const p = await plant();
     const [t1, t2] = await p.pack(p.dieA, [{ kg: 60, pcs: 10, mm: 6_000 }, { kg: 40, pcs: 10, mm: 6_000 }]);
     const b1 = await bundleBy(p, t1!);
-    await expect(p.as("office").process.steps.start({ kind: "draw", process: "draw", codes: [t1!] })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(p.as("press").process.steps.start({ kind: "draw", process: "anodise", codes: [t1!] })).rejects.toMatchObject({ message: "That process does not belong to this kind of step" });
-    const st = await p.as("press").process.steps.start({ kind: "draw", process: "draw", passes: 2, outSize: "25 x 1.2 tube", codes: [t1!, t2!] });
+    await expect(p.as("office").drawbench.start({ codes: [t1!] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.as("press").process.steps.start({ process: "machining", codes: [t1!] })).rejects.toMatchObject({ message: "That process does not belong to this kind of step" });
+    const st = await p.as("press").drawbench.start({ passes: 2, outSize: "25 x 1.2 tube", codes: [t1!, t2!] });
     expect(st.number).toBe("PS/2026-27/1");
     // In-house: the bundles stay in the yard but are on the step (not dispatchable, still plant stock).
     expect((await bundleBy(p, t1!)).locationId).toBe(p.yard);
@@ -303,7 +303,9 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     const { id: dispatchId } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await expect(p.as("packer").dispatch.scan({ id: dispatchId, serials: [t1!] })).rejects.toMatchObject({ message: `Bundle ${t1} is on process step PS/2026-27/1` });
 
-    const r = await p.as("press").process.steps.receive({
+    // The job-work receive does not take a draw-bench step.
+    await expect(p.as("office").process.steps.receive({ id: st.id, mode: "new", locationId: p.yard, outputs: [] })).rejects.toMatchObject({ message: "That process does not belong to this kind of step" });
+    const r = await p.as("press").drawbench.receive({
       id: st.id,
       mode: "new",
       locationId: p.yard,
@@ -343,9 +345,9 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     const p = await plant();
     const [t1] = await p.pack(p.dieA, [{ kg: 10 }]);
     await env.db.update(company).set({ modules: ["dies", "bundles", "dispatches", "customers", "orders", "jobwork"] }).where(eq(company.id, p.companyId));
-    await expect(p.as("press").process.steps.start({ kind: "draw", process: "draw", codes: [t1!] })).rejects.toMatchObject({ message: MODULE_OFF });
-    await expect(p.as("press").process.steps.start({ kind: "fabricate", process: "fabricate", ops: ["cut"], codes: [t1!] })).rejects.toMatchObject({ message: MODULE_OFF });
-    const fin = await p.as("press").process.steps.start({ kind: "finish", process: "anodise", batchNo: "AN-12", chemicals: [{ name: "Sulphuric acid", qty: "20 L" }], codes: [t1!] });
+    await expect(p.as("press").drawbench.start({ codes: [t1!] })).rejects.toMatchObject({ message: MODULE_OFF });
+    await expect(p.as("press").fabrication.start({ ops: ["cut"], codes: [t1!] })).rejects.toMatchObject({ message: MODULE_OFF });
+    const fin = await p.as("press").process.steps.start({ process: "anodise", batchNo: "AN-12", chemicals: [{ name: "Sulphuric acid", qty: "20 L" }], codes: [t1!] });
     expect(fin.number).toBe("PS/2026-27/1");
   });
 
@@ -354,14 +356,14 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     const p = await plant();
     const [f1, a1] = await p.pack(p.dieA, [{ kg: 30, pcs: 10 }, { kg: 20, pcs: 8 }]);
     const fb = await bundleBy(p, f1!);
-    const fab = await p.as("supervisor").process.steps.start({ kind: "fabricate", process: "fabricate", ops: ["cut", "punch"], codes: [f1!] });
-    const rf = await p.as("supervisor").process.steps.receive({ id: fab.id, mode: "same", minutes: 40, scrapG: kg(1), same: [{ bundleId: fb.id, weightG: kg(28), rejectPcs: 1, rejectG: kg(1) }] });
+    const fab = await p.as("supervisor").fabrication.start({ ops: ["cut", "punch"], codes: [f1!] });
+    const rf = await p.as("supervisor").fabrication.receive({ id: fab.id, mode: "same", minutes: 40, scrapG: kg(1), same: [{ bundleId: fb.id, weightG: kg(28), rejectPcs: 1, rejectG: kg(1) }] });
     expect(rf.lossG).toBe(0);
     expect(await bundleBy(p, f1!)).toMatchObject({ weightG: kg(28), quantity: 9, finish: null, locationId: p.yard });
     expect((await p.owner.process.steps.get({ id: fab.id })).step.ops).toEqual(["cut", "punch"]);
 
     const ab = await bundleBy(p, a1!);
-    const line = await p.as("press").process.steps.start({ kind: "finish", process: "powder_coat", finishCode: "RAL 7016", batchNo: "PC-7", chemicals: [{ name: "Powder RAL 7016", qty: "3 kg" }], codes: [a1!] });
+    const line = await p.as("press").process.steps.start({ process: "powder_coat", finishCode: "RAL 7016", batchNo: "PC-7", chemicals: [{ name: "Powder RAL 7016", qty: "3 kg" }], codes: [a1!] });
     await p.as("press").process.steps.receive({ id: line.id, mode: "same", minutes: 25, same: [{ bundleId: ab.id, weightG: kg(20.4) }] });
     expect(await bundleBy(p, a1!)).toMatchObject({ finish: "powder_coat", finishCode: "RAL 7016" });
     const got = await p.owner.process.steps.get({ id: line.id });
@@ -371,8 +373,8 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     // A process gain without a coat is refused.
     const [m1] = await p.pack(p.dieA, [{ kg: 10 }]);
     const mb = await bundleBy(p, m1!);
-    const fab2 = await p.as("supervisor").process.steps.start({ kind: "fabricate", process: "fabricate", ops: ["cnc"], codes: [m1!] });
-    await expect(p.as("supervisor").process.steps.receive({ id: fab2.id, mode: "same", same: [{ bundleId: mb.id, weightG: kg(10.2) }] })).rejects.toMatchObject({ message: "More came back than was sent; check the weights" });
+    const fab2 = await p.as("supervisor").fabrication.start({ ops: ["cnc"], codes: [m1!] });
+    await expect(p.as("supervisor").fabrication.receive({ id: fab2.id, mode: "same", same: [{ bundleId: mb.id, weightG: kg(10.2) }] })).rejects.toMatchObject({ message: "More came back than was sent; check the weights" });
     const ledgerRows = await env.db.select().from(stockLedger).where(and(eq(stockLedger.companyId, p.companyId), eq(stockLedger.itemRef, mb.id)));
     expect(ledgerRows).toHaveLength(1);
   });

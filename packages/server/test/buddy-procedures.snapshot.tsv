@@ -190,9 +190,15 @@ docs.files.commit	mutation	deny	reversible
 docs.files.url	query	deny	reversible
 docs.list	query	deny	reversible
 docs.update	mutation	deny	reversible
+drawbench.cancel	mutation	deny	irreversible
+drawbench.receive	mutation	deny	reversible
+drawbench.start	mutation	deny	reversible
 edge.enroll	mutation	deny	reversible
 edge.overview	query	deny	reversible
 edge.revoke	mutation	deny	irreversible
+fabrication.cancel	mutation	deny	irreversible
+fabrication.receive	mutation	deny	reversible
+fabrication.start	mutation	deny	reversible
 foundry.alloys.create	mutation	allow	reversible
 foundry.alloys.list	query	allow	reversible
 foundry.alloys.seedDefaults	mutation	allow	reversible

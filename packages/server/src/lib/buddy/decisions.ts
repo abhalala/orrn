@@ -84,6 +84,8 @@ export const BUDDY_DECISIONS = {
     // XE parity lane JOBWORK: reads (register, pending at vendors, challan snapshot, finish per line). No
     // process write is listed in `changes`, so the buddy cannot send, receive or cancel a step.
     process: allow,
+    drawbench: allow,
+    fabrication: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -211,6 +213,12 @@ export const BUDDY_DECISIONS = {
     "process.steps.start": deny("Puts bundles on an in-house process step (XE JOBWORK); not reviewed for the buddy."),
     "process.steps.receive": deny("Weighs a return and writes stock and loss (XE JOBWORK); not reviewed for the buddy."),
     "process.steps.cancel": deny("Brings bundles back from a step (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.start": deny("Puts bundles on the draw bench (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.receive": deny("Uses up bundles into drawn output and writes stock (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.cancel": deny("Brings bundles back from the draw bench (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.start": deny("Puts bundles on a fabrication job (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.receive": deny("Weighs fabricated output and writes stock (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.cancel": deny("Brings bundles back from a fabrication job (XE JOBWORK); not reviewed for the buddy."),
   } satisfies Record<string, BuddyDecision>,
 
   /**
