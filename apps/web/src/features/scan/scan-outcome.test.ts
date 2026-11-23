@@ -309,6 +309,9 @@ describe("XE parity lane QA: dispatch refuses a bundle on quality hold", () => {
       expect(scanErrorText(createI18n(lang).t, failure, "dispatch")).toContain("26J12");
     }
     expect(scanErrorText(createI18n("hi").t, failure, "dispatch")).not.toBe(r.message);
+  });
+});
+
 describe("XE JOBWORK: dispatch refuses a bundle at a job-work vendor or on a process step", () => {
   test("both server sentences map to jw.refusal words with the bundle and step, in en, hi and gu", () => {
     const vendor = JOBWORK_REFUSALS.bundle_at_vendor({ serial: "26J12", step: "JW/26-27/4" });
