@@ -161,7 +161,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 - Do **not** use `db.transaction()` on Cloudflare D1 — Drizzle emits SQL `BEGIN`, which D1 rejects.
 - Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/server/lib/atomic`) for writes that must succeed or fail together. `atomicBatchLast` returns the rows of the last statement (a SELECT).
-- `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable). The same holds for numbers from `nextDocNumber` / `allocateDocNumbers`.
+- `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable). The same holds for numbers from `nextDocNumber` / `allocateDocNumbers`. `docNumberInBatch` is the gap-free exception (work orders, `maint_wo`): it predicts the next number and returns a bump plus a guard to put in the document's own batch, so a failed batch takes no number; a stale prediction fails the batch (`isDocNumberStale`) and the caller reads again.
 - **At most 100 bound parameters per statement** (`D1_MAX_PARAMS` in `packages/db/src/chunk.ts`). `IN (...)` lists go through `mapInChunks` / `chunk` with `IN_LIST_CHUNK` (90); multi-row inserts use `rowsPerStatement(columnsPerRow)` or `pushChunkedInserts`. Never bind an id list into one statement; aggregate with GROUP BY instead. `packages/server/test/d1-limits.test.ts` exercises the limit.
 - Name every bound column of a multi-row INSERT explicitly. Drizzle binds a JS default (`time_unconfirmed`, `source`, ...) for a column a row leaves out, which silently breaks the chunk arithmetic (seen at 7 dies in `pressRunInserts`).
 - No transactions means every multi-row write needs a guard that makes a lost race fail the whole batch. The pattern: the guard lives in the statement's own WHERE (not only in a read before it), and the batch ends with an abort statement (`batchAbortUnless(...)`, or a module's own `dieRoomAbortUnless` / `foundryAbort` / `isStoreDrawAbort` / `isDieRoomAbort`) that violates a NOT NULL unless every statement landed. Catch the abort, re-read, and give the precise refusal (CONFLICT or BAD_REQUEST); `approval.decide` does the same through `explainApplyAbort`.
@@ -212,7 +212,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 ## Document numbers (doc series)
 
 - Plant document numbers (bundle, cast, PL, lot, MRS/GRN, SO, press run, D/C note, count) come
-  only from `nextDocNumber` / `allocateDocNumbers` (`packages/server/src/lib/docNumber.ts`), backed by
+  only from `nextDocNumber` / `allocateDocNumbers` / `docNumberInBatch` (`packages/server/src/lib/docNumber.ts`), backed by
   the `doc_series` counter per (company, doc_type, period). Never build a number client-side or
   with `nextCompanySeq` (that is the `serverSeq` sync cursor and the legacy `BG-` group code).
 - Periods are computed on the company wall clock (`settings.timezone`, default `Asia/Kolkata`):

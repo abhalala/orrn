@@ -208,6 +208,30 @@ describe("work orders (#65)", () => {
     expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
   });
 
+  test("two work orders racing for the same number: the late batch is refused whole and takes no number", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { docNumberInBatch, isDocNumberStale } = await import("../src/lib/docNumber");
+    const { atomicBatch } = await import("../src/lib/atomic");
+    const { docSeries } = await import("@orrn/db/schema");
+    const a = await docNumberInBatch(env.db, p.companyId, "maint_wo", NOON);
+    const b = await docNumberInBatch(env.db, p.companyId, "maint_wo", NOON);
+    expect([a.number, b.number]).toEqual(["WO-1", "WO-1"]);
+    await atomicBatch(env.db, a.statements as never);
+    let err: unknown = null;
+    try {
+      await atomicBatch(env.db, b.statements as never);
+    } catch (e) {
+      err = e;
+    }
+    expect(isDocNumberStale(err)).toBe(true);
+    const rows = await env.db.select({ value: docSeries.value }).from(docSeries).where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "maint_wo")));
+    expect(rows.map((r) => r.value)).toEqual([1]);
+    // The retry in insertWorkOrder reads again and takes WO-2.
+    const { id: cmp } = await compressor(p);
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
+  });
+
   test("times: none in the future; a done work order keeps them; a new finish moves its plan's reset point", async () => {
     setClock(NOON);
     const p = await plant();
