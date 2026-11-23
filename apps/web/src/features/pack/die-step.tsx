@@ -1,8 +1,8 @@
-import { lengthFromInput, type LengthUnit } from "@orrn/domain";
+import type { LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
 import { usePrefersReducedMotion } from "@orrn/ui/components/motion";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -15,17 +15,17 @@ import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
 import { dieListView, recentDieIds, type DieOption } from "./die-options";
-import { chooseYard, lengthToInput } from "./pack-math";
+import { LengthThreeBoxes } from "./length-three-boxes";
+import { lengthMmOf, lengthTyped, lengthTypedFromMm } from "./length-three";
+import { chooseYard } from "./pack-math";
 import { PackBar, formatRangeKg } from "./pack-ui";
 import type { PackDraft } from "./use-pack-draft";
 import { DEFAULT_SOURCE, preselectSource, type SourceChoice } from "./source-gate";
 import { SourceExtras, useSourceGate } from "./source-extras";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
-import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText, lengthIsMetres } from "@/shared/lib/fmt-text";
+import { countText } from "@/shared/lib/fmt-text";
 
 export type { DieOption };
 
@@ -482,10 +482,8 @@ function DefaultsForm({
 }) {
   const { t } = useT();
   const fmt = useFmt();
-  const initial = lengthToInput(draft.defaults.lengthMm, unit);
-  const [mm, setMm] = useState(initial.mm);
-  const [feet, setFeet] = useState(initial.feet);
-  const [inches, setInches] = useState(initial.inches);
+  // The cut length is typed in one of three boxes (feet, inch, mm); a default from the order line or draft is mm.
+  const [len, setLen] = useState(() => lengthTypedFromMm(draft.defaults.lengthMm));
   const [po, setPo] = useState(draft.defaults.po ?? "");
   const [lengthError, setLengthError] = useState<string | undefined>();
   // The yard tapped here; until then the draft's yard, else this device's last yard (chooseYard).
@@ -524,7 +522,6 @@ function DefaultsForm({
     setChoice((c) => preselectSource(c, linesData, copiesData));
   }, [draft.dieId, gate.copies.isPending, gate.lines.isPending, linesData, copiesData]);
   const yardRef = useRef<HTMLInputElement | null>(null);
-  const inchesRef = useRef<HTMLInputElement | null>(null);
   const yardId = chooseYard({
     current: pickedYard ?? draft.defaults.locationId,
     lastUsed: lastYard,
@@ -550,7 +547,7 @@ function DefaultsForm({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const lengthMm = lengthFromInput({ unit, mm, feet, inches });
+    const lengthMm = lengthMmOf(len);
     if (lengthMm === null) {
       setLengthError(t("pack.new.cutLengthRequired"));
       firstInputRef.current?.focus();
@@ -595,77 +592,28 @@ function DefaultsForm({
   return (
     <form noValidate onSubmit={submit} hidden={hidden} className="flex flex-col gap-4 [&[hidden]]:hidden">
       <div className="flex flex-col gap-4 rounded-card border border-border bg-card p-4 shadow-sm sm:p-5">
-        {unit === "inch" ? (
-          <fieldset aria-describedby={describedBy} className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
-            <legend id={legendId} className="mb-1.5 p-0 text-[14px] font-semibold leading-5">
-              {t("pack.new.cutLength")}
-            </legend>
-            <div className="grid grid-cols-2 gap-3 sm:max-w-[360px]">
-              <div className="flex min-w-0 flex-col gap-1">
-                <label htmlFor={`${legendId}-ft`} className="text-[13px] font-medium text-muted-foreground">
-                  {t("pack.new.cutLengthFeet")}
-                </label>
-                <NumberInput
-                  id={`${legendId}-ft`}
-                  ref={firstInputRef}
-                  value={feet}
-                  onValueChange={setFeet}
-                  suffix={t("units.ft")}
-                  enterKeyHint="next"
-                  onKeyDown={(e) => {
-                    // Enter moves on to Inches instead of saving the session at whole feet.
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    inchesRef.current?.focus();
-                  }}
-                  aria-invalid={lengthError ? true : undefined}
-                  aria-describedby={describedBy}
-                  className="h-14 text-[22px]"
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <label htmlFor={`${legendId}-in`} className="text-[13px] font-medium text-muted-foreground">
-                  {t("pack.new.cutLengthInches")}
-                </label>
-                <NumberInput
-                  id={`${legendId}-in`}
-                  ref={inchesRef}
-                  value={inches}
-                  onValueChange={setInches}
-                  suffix={t("units.inch")}
-                  enterKeyHint="go"
-                  aria-invalid={lengthError ? true : undefined}
-                  aria-describedby={describedBy}
-                  className="h-14 text-[22px]"
-                />
-              </div>
-            </div>
-            <p id={hintId} className="m-0 text-[13px] leading-5 text-muted-foreground">
-              {t("pack.new.cutLengthHintInch")}
+        <fieldset aria-describedby={describedBy} className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+          <legend id={legendId} className="mb-1.5 p-0 text-[14px] font-semibold leading-5">
+            {t("pack.new.cutLength")}
+          </legend>
+          <LengthThreeBoxes
+            value={len}
+            onChange={setLen}
+            idPrefix={`${legendId}-len`}
+            invalid={Boolean(lengthError)}
+            describedBy={describedBy}
+            firstRef={firstInputRef}
+          />
+          <p id={hintId} className="m-0 text-[13px] leading-5 text-muted-foreground">
+            {t("pack.new.cutLengthHintThree")}
+          </p>
+          {lengthError ? (
+            <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+              <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
+              {lengthError}
             </p>
-            {lengthError ? (
-              <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
-                <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
-                {lengthError}
-              </p>
-            ) : null}
-          </fieldset>
-        ) : (
-          <Field
-            label={t("pack.new.cutLengthMm")}
-            hint={t(lengthIsMetres(fmt) ? "pack.new.cutLengthHintMetres" : "pack.new.cutLengthHintMm")}
-            error={lengthError}
-            className="sm:max-w-[240px]"
-          >
-            <PlantInput spec={LENGTH_MM}
-              ref={firstInputRef}
-              value={mm}
-              onValueChange={setMm}
-              enterKeyHint="go"
-              className="h-14 text-[22px]"
-            />
-          </Field>
-        )}
+          ) : null}
+        </fieldset>
 
         {yards.loading || yards.failed || yards.yards.length > 0 ? (
           <YardPicker
@@ -711,11 +659,8 @@ function DefaultsForm({
             showErrors={showSourceErrors}
             onPickTrolley={(row) => {
               // The cut length of the trolley line, unless the packer already typed one.
-              if (!row || (mm.trim() !== "" || feet.trim() !== "" || inches.trim() !== "")) return;
-              const next = lengthToInput(row.cutLengthMm, unit);
-              setMm(next.mm);
-              setFeet(next.feet);
-              setInches(next.inches);
+              if (!row || lengthTyped(len)) return;
+              setLen(lengthTypedFromMm(row.cutLengthMm));
             }}
           />
         ) : null}
