@@ -309,6 +309,16 @@ export function amountPaise(g: number, paisePerKg: number): number {
   return roundDiv(g * paisePerKg, 1000);
 }
 
+/**
+ * The next page's offset for a list that takes `offset` up to `maxOffset`: null when nothing is left
+ * or when the next offset would be refused (`capped`: the list stops there and says so).
+ */
+export function nextPageOffset(offset: number, limit: number, more: boolean, maxOffset: number): { nextOffset: number | null; capped: boolean } {
+  if (!more) return { nextOffset: null, capped: false };
+  const next = offset + limit;
+  return next <= maxOffset ? { nextOffset: next, capped: false } : { nextOffset: null, capped: true };
+}
+
 // ---------------------------------------------------------------------------
 // Row 17: margin
 // ---------------------------------------------------------------------------

@@ -124,6 +124,7 @@ export type RunRow = {
   discardG: number;
   endsG: number;
   rejectG: number;
+  /** Trusted press minutes with their fraction (a 90 s run is 1.5); screens round for display. */
   minutes: number | null;
 };
 
@@ -167,7 +168,7 @@ async function loadRuns(db: OrrnDb, where: SQL, limit = MAX_COST_RUNS): Promise<
       discardG: Number(r.discard_g),
       endsG: Number(r.ends_g),
       rejectG: Number(r.reject_g),
-      minutes: r.minutes == null ? null : Math.round(Number(r.minutes)),
+      minutes: r.minutes == null ? null : Number(r.minutes),
     })),
   };
 }
@@ -290,13 +291,15 @@ export async function sectionSpeeds(db: OrrnDb, companyId: string, at: Date, day
   let min = 0;
   for (const r of rows) {
     const k = kgPerHour(Number(r.good_g), Number(r.minutes));
-    if (k != null) section.set(r.section_id, { kgPerHour: k, runs: Number(r.runs) });
+    // A speed that rounds to 0 kg/h is no speed: leave it out so the plant figure or the typed one applies.
+    if (k != null && k > 0) section.set(r.section_id, { kgPerHour: k, runs: Number(r.runs) });
     g += Number(r.good_g);
     min += Number(r.minutes);
   }
   const line = new Map<string, string>();
   for (const l of lines) if (!line.has(l.section_id)) line.set(l.section_id, l.press_line_id);
-  return { section, plant: kgPerHour(g, min), line };
+  const plant = kgPerHour(g, min);
+  return { section, plant: plant != null && plant > 0 ? plant : null, line };
 }
 
 // ---------------------------------------------------------------------------
@@ -392,13 +395,21 @@ export type CostRollup = {
   unknownG: number;
 };
 
-/** Good-weighted cost of a group of runs. */
+/**
+ * Good-weighted cost of a group of runs. A stage with no rate on a run's day counts as zero for that
+ * run (as in its total) once some run of the group has a figure for the stage, so runs across two rate
+ * versions add up to the total. A rate that is set but cannot be worked out stays unknown (skipped).
+ */
 export function rollup(runs: readonly CostedRun[]): CostRollup {
   const goodG = runs.reduce((s, r) => s + r.goodG, 0);
   const inputG = runs.reduce((s, r) => s + r.inputG, 0);
   const stages: Record<string, number | null> = {};
   for (const st of ["casting", "extrusion", "ageing", "finishing", "packing"]) {
-    stages[st] = weightedPerKg(runs.map((r) => ({ goodG: r.goodG, paisePerKg: r.cost.stages.find((s) => s.stage === st)?.paisePerKg ?? null })));
+    const lines = runs.map((r) => ({ goodG: r.goodG, line: r.cost.stages.find((s) => s.stage === st) }));
+    const anyKnown = lines.some((l) => l.line?.paisePerKg != null);
+    stages[st] = anyKnown
+      ? weightedPerKg(lines.map((l) => ({ goodG: l.goodG, paisePerKg: l.line?.note === "not_set" ? 0 : (l.line?.paisePerKg ?? null) })))
+      : null;
   }
   return {
     runs: runs.length,

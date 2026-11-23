@@ -12,6 +12,7 @@ import {
   masterBilletPaise,
   median,
   minutesFor,
+  nextPageOffset,
   pickCost,
   putRateVersion,
   ratesOn,
@@ -200,6 +201,15 @@ describe("row 16: cost per kg of a run", () => {
   test("weighted per kg skips unknowns", () => {
     expect(weightedPerKg([{ goodG: 1000, paisePerKg: 100 }, { goodG: 3000, paisePerKg: 200 }, { goodG: 5000, paisePerKg: null }])).toBe(175);
     expect(weightedPerKg([{ goodG: 0, paisePerKg: 100 }])).toBeNull();
+  });
+});
+
+describe("paging", () => {
+  test("never returns an offset the endpoint refuses", () => {
+    expect(nextPageOffset(0, 50, true, 5000)).toEqual({ nextOffset: 50, capped: false });
+    expect(nextPageOffset(4950, 50, true, 5000)).toEqual({ nextOffset: 5000, capped: false });
+    expect(nextPageOffset(5000, 50, true, 5000)).toEqual({ nextOffset: null, capped: true });
+    expect(nextPageOffset(5000, 50, false, 5000)).toEqual({ nextOffset: null, capped: false });
   });
 });
 
