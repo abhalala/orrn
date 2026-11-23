@@ -33,7 +33,7 @@ import { MASS_KG } from "@/shared/lib/plant-input";
 import type { Fmt } from "@orrn/domain";
 import { useFmt } from "@/shared/lib/fmt";
 import { GrnBuyFields, useOpenPoLines } from "@/features/store-buy/grn-fields";
-import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, parseAcceptedMilli, poLineGone, type GrnBuyDraft } from "@/features/store-buy/grn-model";
+import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, grnHeldByLookup, parseAcceptedMilli, poLineGone, type GrnBuyDraft } from "@/features/store-buy/grn-model";
 import { buyErrorText } from "@/features/store-buy/buy-errors";
 
 export type EntryMode = "receive" | "issue" | "exchange";
@@ -358,6 +358,8 @@ function EntryFormBody({
     // A closed line blocks a new submit; a resend of a submit that got no answer goes out unchanged (same
     // line, rate and id), because that first submit may be what used the line up.
     if (grnHeldByGoneLine(lineGone, signature, unsure)) return;
+    // The order lookup failed: a GRN with no order goes out only when the person chose it.
+    if (mode === "receive" && grnHeldByLookup(openLines.failed, buy, signature, unsure)) return;
     const note_ = note.trim() || null;
     inFlight.current = true;
     try {

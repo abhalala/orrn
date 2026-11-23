@@ -16,7 +16,7 @@
  * Every status change is one UPDATE guarded by the status it expects (write time), plus its audit row.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { rowsPerStatement, chunk } from "@orrn/db/chunk";
@@ -29,12 +29,13 @@ import { actionProcedure, anyActionProcedure, router } from "../index";
 import type { Context } from "../context";
 import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
+import { decodeListCursor, encodeListCursor, listCursorInput } from "../lib/dieRoom";
 import { can } from "../lib/permissions";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
 import { nextCompanySeq } from "../lib/sequence";
-import { assertStoreQty, loadStoreItem, MAX_STORE_QTY_MILLI, resolveStoreLocation, storeBalance } from "../lib/store";
-import { isPlantDay } from "../lib/storeBuy";
+import { assertStoreQty, loadStoreItem, MAX_STORE_QTY_MILLI, resolveStoreLocation, storeBalance, storeBalanceSql } from "../lib/store";
+import { indentCoversItemSql, isPlantDay } from "../lib/storeBuy";
 
 type Ctx = Pick<Context, "impersonation"> & {
   db: OrrnDb;
@@ -97,20 +98,6 @@ type NewIndent = {
   /** Write-time condition on the header INSERT; the whole batch fails (`isBatchAbort`) when it does not hold. */
   onlyIf?: SQL;
 };
-
-/**
- * EXISTS a live indent (open, approved, or ordered on an order not yet closed or cancelled) with the
- * item: Today's "make indent" returns it instead of raising a second one.
- */
-function liveIndentForItemSql(companyId: string, itemId: string): SQL {
-  return sql`exists (
-    select 1 from ${storeIndentLine} li
-    join ${storeIndent} ii on ii.id = li.indent_id and ii.company_id = li.company_id
-    left join ${storePo} ip on ip.id = ii.po_id and ip.company_id = ii.company_id
-    where li.company_id = ${companyId} and li.item_id = ${itemId}
-      and (ii.status in ('open', 'approved') or (ii.status = 'ordered' and ip.status in ('draft', 'issued', 'part_received')))
-  )`;
-}
 
 async function insertIndent(ctx: Ctx, input: NewIndent) {
   const userId = ctx.session.user.id;
@@ -208,25 +195,29 @@ async function decide(ctx: Ctx, id: string, action: Exclude<StoreIndentAction, "
   const at = clockNow();
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const mine = and(eq(storeIndent.id, id), eq(storeIndent.companyId, ctx.companyId), eq(storeIndent.serverSeq, seq));
-  await atomicBatch(ctx.db, [
-    ctx.db
-      .update(storeIndent)
-      .set({
-        status: to,
-        serverSeq: seq,
-        updatedAt: at,
-        ...(action === "cancel" ? {} : { decidedBy: userId, decidedAt: at }),
-        decisionNote: note,
-      })
-      .where(and(eq(storeIndent.id, id), eq(storeIndent.companyId, ctx.companyId), eq(storeIndent.status, indent.status))),
-    auditInsertGuarded(
-      auditCtx(ctx),
-      { action: `store.indent.${action}`, subjectType: "store_indent", subjectId: id, meta: { number: indent.number, from: indent.status, to, note } },
-      { from: storeIndent, where: mine },
-    ),
-  ]);
-  const [ok] = await ctx.db.select({ id: storeIndent.id }).from(storeIndent).where(mine).limit(1);
-  if (!ok) {
+  try {
+    await atomicBatch(ctx.db, [
+      ctx.db
+        .update(storeIndent)
+        .set({
+          status: to,
+          serverSeq: seq,
+          updatedAt: at,
+          ...(action === "cancel" ? {} : { decidedBy: userId, decidedAt: at }),
+          decisionNote: note,
+        })
+        .where(and(eq(storeIndent.id, id), eq(storeIndent.companyId, ctx.companyId), eq(storeIndent.status, indent.status))),
+      // The batch itself says whether the decision landed: a later change to the row (an order made
+      // from it right after) must not turn a committed decision into a refusal.
+      abortBatchUnlessChanged(ctx.db),
+      auditInsertGuarded(
+        auditCtx(ctx),
+        { action: `store.indent.${action}`, subjectType: "store_indent", subjectId: id, meta: { number: indent.number, from: indent.status, to, note } },
+        { from: storeIndent, where: mine },
+      ),
+    ]);
+  } catch (e) {
+    if (!isBatchAbort(e)) throw e;
     const now = await loadIndent(ctx, id);
     throw new TRPCError({ code: "BAD_REQUEST", message: `${now.number} is ${now.status}; it cannot be ${DECISION_WORDS[action]}` });
   }
@@ -234,14 +225,19 @@ async function decide(ctx: Ctx, id: string, action: Exclude<StoreIndentAction, "
 }
 
 export const storeIndentRouter = router({
-  /** Newest first; optional status filter. */
+  /** Newest first; optional status filter. Paged: pass `nextCursor` back as `cursor` (null on the last page). */
   list: reader
     .input(
       z
-        .object({ status: z.enum(storeIndentStatuses).optional(), limit: z.number().int().min(1).max(200).default(50) })
+        .object({
+          status: z.enum(storeIndentStatuses).optional(),
+          limit: z.number().int().min(1).max(200).default(50),
+          cursor: listCursorInput,
+        })
         .default({ limit: 50 }),
     )
     .query(async ({ ctx, input }) => {
+      const after = decodeListCursor(input.cursor);
       const rows = await ctx.db
         .select({
           id: storeIndent.id,
@@ -259,10 +255,23 @@ export const storeIndentRouter = router({
         })
         .from(storeIndent)
         .leftJoin(storePo, and(eq(storePo.id, storeIndent.poId), eq(storePo.companyId, storeIndent.companyId)))
-        .where(and(eq(storeIndent.companyId, ctx.companyId), input.status ? eq(storeIndent.status, input.status) : undefined))
-        .orderBy(desc(storeIndent.createdAt))
-        .limit(input.limit);
-      return { items: rows.map((r) => ({ ...r, lines: Number(r.lines) })) };
+        .where(
+          and(
+            eq(storeIndent.companyId, ctx.companyId),
+            input.status ? eq(storeIndent.status, input.status) : undefined,
+            after
+              ? or(lt(storeIndent.createdAt, new Date(after.at)), and(eq(storeIndent.createdAt, new Date(after.at)), lt(storeIndent.id, after.id)))
+              : undefined,
+          ),
+        )
+        .orderBy(desc(storeIndent.createdAt), desc(storeIndent.id))
+        .limit(input.limit + 1);
+      const page = rows.slice(0, input.limit);
+      const last = page[page.length - 1];
+      return {
+        items: page.map((r) => ({ ...r, lines: Number(r.lines) })),
+        nextCursor: rows.length > input.limit && last ? encodeListCursor(last.createdAt, last.id) : null,
+      };
     }),
 
   get: reader.input(z.object({ id: id64 })).query(async ({ ctx, input }) => {
@@ -312,54 +321,59 @@ export const storeIndentRouter = router({
   fromReorder: actionProcedure("store.txn")
     .input(z.object({ itemId: id64 }))
     .mutation(async ({ ctx, input }) => {
-      const item = await loadStoreItem(ctx.db, ctx.companyId, input.itemId);
-      const findLive = async () =>
+      const findLive = async (itemId: string) =>
         (
           await ctx.db
             .select({ id: storeIndent.id, number: storeIndent.number })
-            .from(storeIndentLine)
-            .innerJoin(storeIndent, and(eq(storeIndent.id, storeIndentLine.indentId), eq(storeIndent.companyId, storeIndentLine.companyId)))
-            .leftJoin(storePo, and(eq(storePo.id, storeIndent.poId), eq(storePo.companyId, storeIndent.companyId)))
-            .where(
-              and(
-                eq(storeIndentLine.companyId, ctx.companyId),
-                eq(storeIndentLine.itemId, item.id),
-                sql`(${storeIndent.status} in ('open', 'approved') or (${storeIndent.status} = 'ordered' and ${storePo.status} in ('draft', 'issued', 'part_received')))`,
-              ),
-            )
+            .from(storeIndent)
+            .where(and(eq(storeIndent.companyId, ctx.companyId), indentCoversItemSql(ctx.companyId, "store_indent", sql`${itemId}`)))
             .orderBy(asc(storeIndent.createdAt))
             .limit(1)
         )[0];
-      const live = await findLive();
-      if (live) return { id: live.id, number: live.number, existing: true as const };
-      const store = await resolveStoreLocation(ctx.db, ctx.companyId);
-      const balanceMilli = await storeBalance(ctx.db, ctx.companyId, item.id, store.id);
-      if (!belowMinimum(balanceMilli, item.minMilli)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is not below its minimum` });
-      }
-      const qtyMilli = reorderQtyMilli({
-        balanceMilli,
-        minMilli: item.minMilli,
-        reorderMilli: item.reorderMilli,
-        countable: (COUNTABLE_STORE_UNITS as readonly string[]).includes(item.unit),
-      });
-      assertStoreQty(item, [qtyMilli]);
-      try {
-        const made = await insertIndent(ctx, {
-          department: "Store",
-          neededBy: null,
-          reason: "Below minimum",
-          source: "reorder",
-          lines: [{ itemId: item.id, qtyMilli }],
-          // Two clicks (two tabs, two storekeepers) racing past the read above: only one indent lands.
-          onlyIf: sql`not ${liveIndentForItemSql(ctx.companyId, item.id)}`,
+      // Two tries: a GRN or a level change between the read and the write makes the first one stale.
+      for (let attempt = 0; ; attempt++) {
+        const item = await loadStoreItem(ctx.db, ctx.companyId, input.itemId);
+        if (!item.active) throw new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is retired` });
+        const live = await findLive(item.id);
+        if (live) return { id: live.id, number: live.number, existing: true as const };
+        const store = await resolveStoreLocation(ctx.db, ctx.companyId);
+        const balanceMilli = await storeBalance(ctx.db, ctx.companyId, item.id, store.id);
+        if (!belowMinimum(balanceMilli, item.minMilli)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is not below its minimum` });
+        }
+        const qtyMilli = reorderQtyMilli({
+          balanceMilli,
+          minMilli: item.minMilli,
+          reorderMilli: item.reorderMilli,
+          countable: (COUNTABLE_STORE_UNITS as readonly string[]).includes(item.unit),
         });
-        return { ...made, existing: false as const };
-      } catch (e) {
-        if (!isBatchAbort(e)) throw e;
-        const won = await findLive();
-        if (won) return { id: won.id, number: won.number, existing: true as const };
-        throw new TRPCError({ code: "CONFLICT", message: "The store changed; try again" });
+        assertStoreQty(item, [qtyMilli]);
+        try {
+          const made = await insertIndent(ctx, {
+            department: "Store",
+            neededBy: null,
+            reason: "Below minimum",
+            source: "reorder",
+            lines: [{ itemId: item.id, qtyMilli }],
+            // Write time: no live indent has the item (two clicks give one indent), and the stock, unit
+            // and levels the quantity came from are still what this request read.
+            onlyIf: and(
+              sql`not exists (select 1 from ${storeIndent} wi where ${indentCoversItemSql(ctx.companyId, "wi", sql`${item.id}`)})`,
+              sql`exists (
+                select 1 from ${storeItem} ri
+                where ri.id = ${item.id} and ri.company_id = ${ctx.companyId} and ri.active = 1 and ri.unit = ${item.unit}
+                  and ri.min_milli is ${item.minMilli} and ri.reorder_milli is ${item.reorderMilli}
+              )`,
+              sql`${storeBalanceSql(ctx.companyId, sql`${item.id}`, store.id)} = ${balanceMilli}`,
+            ),
+          });
+          return { ...made, existing: false as const };
+        } catch (e) {
+          if (!isBatchAbort(e)) throw e;
+          const won = await findLive(item.id);
+          if (won) return { id: won.id, number: won.number, existing: true as const };
+          if (attempt >= 1) throw new TRPCError({ code: "CONFLICT", message: "The store changed; try again" });
+        }
       }
     }),
 

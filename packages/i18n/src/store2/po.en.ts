@@ -15,7 +15,6 @@ export const store2PoEn = {
     empty: "No purchase orders yet",
     emptyBody: "A purchase order tells a vendor what to send, at what rate and by when.",
     emptyFiltered: "No purchase orders with this status.",
-    capped: "Showing the latest {count}. Pick a status to narrow the list.",
     loadFailed: "The purchase orders did not load.",
   },
   form: {

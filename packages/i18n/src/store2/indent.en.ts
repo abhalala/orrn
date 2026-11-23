@@ -16,7 +16,6 @@ export const store2IndentEn = {
     body: "An indent asks the store to buy what a department needs.",
     filtered: "No indents with this status.",
   },
-  more: "Showing the latest {count} indents. Pick a status to narrow the list.",
   form: {
     title: "Raise indent",
     department: "Department",

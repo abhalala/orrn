@@ -7,7 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import { storeTxn } from "@orrn/db/schema/store";
-import { storePo, storePoLine } from "@orrn/db/schema/storeBuy";
+import { storeIndentLine, storePo, storePoLine } from "@orrn/db/schema/storeBuy";
 import { company } from "@orrn/db/schema/tenant";
 import { readPoOverReceiptBp } from "@orrn/domain";
 
@@ -45,12 +45,40 @@ export function poHasLiveGrnSql(companyId: string, poIdSql: SQL): SQL {
 }
 
 /**
+ * The order (alias) was closed short by hand. `store.po.close` is the only writer of `close_note` and
+ * always sets it (a note is required), so the note is the close kind; `closed_by` is a person, and
+ * deleting that person sets it to null, so it alone cannot say how the order closed (CodeRabbit round 4).
+ */
+export function poClosedByHandSql(alias: string): SQL {
+  const a = sql.raw(alias);
+  return sql`(${a}.close_note is not null or ${a}.closed_by is not null)`;
+}
+
+/**
  * The order (alias) takes deliveries: issued, part received, or closed by a full delivery (not by hand),
  * so a late top-up within the tolerance still lands (`poTakesDeliveries` in @orrn/domain).
  */
 export function poTakesDeliveriesSql(alias: string): SQL {
   const a = sql.raw(alias);
-  return sql`(${a}.status in ('issued', 'part_received') or (${a}.status = 'closed' and ${a}.closed_by is null))`;
+  return sql`(${a}.status in ('issued', 'part_received') or (${a}.status = 'closed' and not ${poClosedByHandSql(alias)}))`;
+}
+
+/**
+ * The indent row `indentAlias` (in scope) covers the item `itemIdSql`: the item is on it, and the indent
+ * is open or approved, or ordered while its order is draft, issued or part received AND that order has a
+ * line for the item. An item the order left out is not on order, so it stays reorderable (CodeRabbit
+ * round 4). One predicate for `store.indents.fromReorder` (read and write time) and `store.belowMinimum`.
+ */
+export function indentCoversItemSql(companyId: string, indentAlias: string, itemIdSql: SQL): SQL {
+  const ci = sql.raw(indentAlias);
+  return sql`(${ci}.company_id = ${companyId}
+    and exists (select 1 from ${storeIndentLine} cl where cl.indent_id = ${ci}.id and cl.company_id = ${ci}.company_id and cl.item_id = ${itemIdSql})
+    and (${ci}.status in ('open', 'approved') or (${ci}.status = 'ordered' and exists (
+      select 1 from ${storePo} cp
+      join ${storePoLine} cpl on cpl.po_id = cp.id and cpl.company_id = cp.company_id
+      where cp.id = ${ci}.po_id and cp.company_id = ${ci}.company_id
+        and cp.status in ('draft', 'issued', 'part_received') and cpl.item_id = ${itemIdSql}
+    ))))`;
 }
 
 /**
@@ -80,7 +108,7 @@ export function poLineReceiveGuard(input: {
 /**
  * Bring an order's status in line with what its lines received (`poStatusFromReceipts`): issued, part
  * received or closed. Touches only an order that is issued, part received, or closed by a full delivery
- * (`closed_by` null); a short close by hand, a draft and a cancelled order keep their status. Put it
+ * (not `poClosedByHandSql`); a short close by hand, a draft and a cancelled order keep their status. Put it
  * after the GRN insert or the cancel mark in the same batch.
  */
 export function poStatusSync(db: OrrnDb, input: { companyId: string; poId: string; seq: number; at: Date }): SqliteBatchItem {
@@ -104,7 +132,7 @@ export function poStatusSync(db: OrrnDb, input: { companyId: string; poId: strin
       and(
         eq(storePo.id, input.poId),
         eq(storePo.companyId, companyId),
-        sql`(${storePo.status} in ('issued', 'part_received') or (${storePo.status} = 'closed' and ${storePo.closedBy} is null))`,
+        sql`(${storePo.status} in ('issued', 'part_received') or (${storePo.status} = 'closed' and not ${poClosedByHandSql("store_po")}))`,
       ),
     );
 }
@@ -130,7 +158,7 @@ export async function loadPoLineForReceipt(db: OrrnDb, companyId: string, poLine
       poId: storePo.id,
       poNumber: storePo.number,
       poStatus: storePo.status,
-      poClosedBy: storePo.closedBy,
+      poClosedByHand: sql<number>`(case when ${poClosedByHandSql("store_po")} then 1 else 0 end)`,
       line: storePoLine.line,
       itemId: storePoLine.itemId,
       orderedMilli: storePoLine.qtyMilli,
@@ -142,8 +170,7 @@ export async function loadPoLineForReceipt(db: OrrnDb, companyId: string, poLine
     .where(and(eq(storePoLine.id, poLineId), eq(storePoLine.companyId, companyId)))
     .limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Purchase order line not found" });
-  const { poClosedBy, ...rest } = row;
-  return { ...rest, poClosedByHand: poClosedBy !== null, receivedMilli: Number(row.receivedMilli) };
+  return { ...row, poClosedByHand: Number(row.poClosedByHand) === 1, receivedMilli: Number(row.receivedMilli) };
 }
 
 /** Plant day `YYYY-MM-DD`, checked as a real calendar date. */

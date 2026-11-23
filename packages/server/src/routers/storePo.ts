@@ -15,7 +15,7 @@
  * - The A4 print is rendered by the web from `get` (lazy); the Worker builds no PDF.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { chunk, rowsPerStatement } from "@orrn/db/chunk";
@@ -41,10 +41,11 @@ import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type S
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
+import { decodeListCursor, encodeListCursor, listCursorInput } from "../lib/dieRoom";
 import { letterhead } from "../lib/packingListSnapshot";
 import { nextCompanySeq } from "../lib/sequence";
 import { assertStoreQty, loadStoreItem, MAX_STORE_QTY_MILLI } from "../lib/store";
-import { isPlantDay, poHasLiveGrnSql, poLineReceivedSql, readPoTolerance } from "../lib/storeBuy";
+import { isPlantDay, poHasLiveGrnSql, poLineReceivedSql, poTakesDeliveriesSql, readPoTolerance } from "../lib/storeBuy";
 
 type Ctx = Pick<Context, "session" | "impersonation"> & { db: OrrnDb; companyId: string };
 
@@ -164,10 +165,12 @@ export const storePoRouter = router({
           status: z.enum(storePoStatuses).optional(),
           vendorId: id64.optional(),
           limit: z.number().int().min(1).max(200).default(50),
+          cursor: listCursorInput,
         })
         .default({ limit: 50 }),
     )
     .query(async ({ ctx, input }) => {
+      const after = decodeListCursor(input.cursor);
       const rows = await ctx.db
         .select({
           id: storePo.id,
@@ -189,11 +192,17 @@ export const storePoRouter = router({
             eq(storePo.companyId, ctx.companyId),
             input.status ? eq(storePo.status, input.status) : undefined,
             input.vendorId ? eq(storePo.vendorId, input.vendorId) : undefined,
+            after ? or(lt(storePo.createdAt, new Date(after.at)), and(eq(storePo.createdAt, new Date(after.at)), lt(storePo.id, after.id))) : undefined,
           ),
         )
-        .orderBy(desc(storePo.createdAt))
-        .limit(input.limit);
-      return { items: rows.map((r) => ({ ...r, lines: Number(r.lines), amountPaise: Number(r.amountPaise) })) };
+        .orderBy(desc(storePo.createdAt), desc(storePo.id))
+        .limit(input.limit + 1);
+      const page = rows.slice(0, input.limit);
+      const last = page[page.length - 1];
+      return {
+        items: page.map((r) => ({ ...r, lines: Number(r.lines), amountPaise: Number(r.amountPaise) })),
+        nextCursor: rows.length > input.limit && last ? encodeListCursor(last.createdAt, last.id) : null,
+      };
     }),
 
   /** The order with its lines, what each received, money, its GRNs, the vendor and the plant letterhead (for the print). */
@@ -270,17 +279,27 @@ export const storePoRouter = router({
 
   /**
    * Lines of issued and part received orders still to come, for the GRN form (optionally one item):
-   * ordered, received, and the most this line may still take under the tolerance.
+   * ordered, received, and the most this line may still take under the tolerance. Oldest order first,
+   * paged: pass `nextCursor` back as `cursor` (null on the last page).
    */
   openLines: anyActionProcedure("store.txn", "po.view", "po.manage")
-    .input(z.object({ itemId: id64.optional() }).default({}))
+    .input(
+      z
+        .object({ itemId: id64.optional(), limit: z.number().int().min(1).max(200).default(200), cursor: listCursorInput })
+        .default({ limit: 200 }),
+    )
     .query(async ({ ctx, input }) => {
       const bp = await readPoTolerance(ctx.db, ctx.companyId);
+      // Cursor: the order's created_at, then (order id, line number) as `poId/line`.
+      const after = decodeListCursor(input.cursor);
+      const afterKey = after ? /^(.+)\/(\d{1,4})$/.exec(after.id) : null;
+      if (after && !afterKey) throw new TRPCError({ code: "BAD_REQUEST", message: "This list page is out of date; reload the list" });
       const rows = await ctx.db
         .select({
           lineId: storePoLine.id,
           poId: storePo.id,
           poNumber: storePo.number,
+          poCreatedAt: storePo.createdAt,
           vendorName: vendor.name,
           line: storePoLine.line,
           itemId: storePoLine.itemId,
@@ -298,18 +317,30 @@ export const storePoRouter = router({
           and(
             eq(storePoLine.companyId, ctx.companyId),
             // An order a full delivery closed still offers its tolerance room for a late top-up.
-            sql`(${storePo.status} in ('issued', 'part_received') or (${storePo.status} = 'closed' and ${storePo.closedBy} is null))`,
+            poTakesDeliveriesSql("store_po"),
             input.itemId ? eq(storePoLine.itemId, input.itemId) : undefined,
             // Room left (ordered + tolerance - received > 0) before the limit: full lines never crowd out open ones.
             sql`${poLineReceivedSql(ctx.companyId, sql`${storePoLine.id}`)} < ${storePoLine.qtyMilli} + (${storePoLine.qtyMilli} * ${bp}) / 10000`,
+            after && afterKey
+              ? or(
+                  gt(storePo.createdAt, new Date(after.at)),
+                  and(
+                    eq(storePo.createdAt, new Date(after.at)),
+                    or(gt(storePo.id, afterKey[1]!), and(eq(storePo.id, afterKey[1]!), gt(storePoLine.line, Number(afterKey[2])))),
+                  ),
+                )
+              : undefined,
           ),
         )
-        .orderBy(asc(storePo.createdAt), asc(storePoLine.line))
-        .limit(200);
+        .orderBy(asc(storePo.createdAt), asc(storePo.id), asc(storePoLine.line))
+        .limit(input.limit + 1);
+      const page = rows.slice(0, input.limit);
+      const last = page[page.length - 1];
       return {
         overReceiptBp: bp,
-        items: rows
-          .map((r) => {
+        nextCursor: rows.length > input.limit && last ? encodeListCursor(last.poCreatedAt, `${last.poId}/${last.line}`) : null,
+        items: page
+          .map(({ poCreatedAt: _at, ...r }) => {
             const receivedMilli = Number(r.receivedMilli);
             return { ...r, receivedMilli, roomMilli: Math.max(0, maxReceivableMilli(r.orderedMilli, bp) - receivedMilli) };
           })
@@ -469,6 +500,8 @@ export const storePoRouter = router({
               eq(storePo.companyId, ctx.companyId),
               eq(storePo.status, "draft"),
               sql`exists (select 1 from ${storePoLine} l where l.po_id = ${storePo.id} and l.company_id = ${ctx.companyId})`,
+              // The vendor is still confirmed (not archived or merged since the draft was made), in the same statement.
+              sql`exists (select 1 from ${vendor} v where v.id = ${storePo.vendorId} and v.company_id = ${ctx.companyId} and v.status = 'active')`,
             ),
           ),
         abortBatchUnlessChanged(ctx.db),
@@ -479,7 +512,11 @@ export const storePoRouter = router({
         ),
       ]);
     } catch (e) {
-      if (isBatchAbort(e)) await refuseFromNow(ctx, po.id, "issued");
+      if (isBatchAbort(e)) {
+        const now = await loadPo(ctx, po.id);
+        if (now.status === "draft") await usableVendor(ctx, now.vendorId);
+        await refuseFromNow(ctx, po.id, "issued");
+      }
       throw e;
     }
     return { id: po.id, number: po.number, status: "issued" as const };

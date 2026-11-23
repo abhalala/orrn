@@ -60,6 +60,8 @@ export const store2En = {
     left: "Still to come on this line: {qty}",
     lineGone: "This order line is no longer open (another delivery or a close used it up). Pick another line, or receive without the order.",
     dropPo: "Receive without the order",
+    lookupFailed: "The open purchase orders for this item didn't load. Try again, or receive without the order.",
+    lookupFailedChosen: "The open purchase orders didn't load. This delivery will be saved without an order.",
   },
   item: {
     levels: "Reorder levels",

@@ -5,7 +5,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -236,11 +236,15 @@ function OpeningRate({ row }: { row: ValuationItem }) {
   );
 }
 
+const PENDING_STEP = 50;
+
 /** Deliveries taken in without a rate: the office sets each one's rate here. */
 function PendingSection() {
   const { t } = useT();
-  const q = useQuery(trpc.store.valuation.pending.queryOptions());
-  const rows = q.data?.items ?? [];
+  const q = useInfiniteQuery(
+    trpc.store.valuation.pending.infiniteQueryOptions({ limit: PENDING_STEP }, { getNextPageParam: (last) => last.nextCursor ?? undefined }),
+  );
+  const rows = q.data?.pages.flatMap((p) => p.items) ?? [];
 
   const columns: ResponsiveListColumn<PendingGrn>[] = [
     {
@@ -295,6 +299,13 @@ function PendingSection() {
           empty={<EmptyState title={t("store2.value.pending.empty")} />}
         />
       )}
+      {q.hasNextPage ? (
+        <div>
+          <Button variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
+            {t("common.showMore")}
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

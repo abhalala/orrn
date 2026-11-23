@@ -10509,6 +10509,8 @@ Please check, Lalubhai:
 | `grn.left` | Still to come on this line: {qty} | इस लाइन पर आना बाकी: {qty} |
 | `grn.lineGone` | This order line is no longer open (another delivery or a close used it up). Pick another line, or receive without the order. | यह ऑर्डर लाइन अब खुली नहीं है (किसी और माल या बंद करने से पूरी हो गई)। दूसरी लाइन चुनें, या बिना ऑर्डर के माल लें। |
 | `grn.dropPo` | Receive without the order | बिना ऑर्डर के माल लें |
+| `grn.lookupFailed` | The open purchase orders for this item didn't load. Try again, or receive without the order. | इस आइटम के खुले परचेज़ ऑर्डर लोड नहीं हुए। फिर से कोशिश करें, या बिना ऑर्डर के माल लें। |
+| `grn.lookupFailedChosen` | The open purchase orders didn't load. This delivery will be saved without an order. | खुले परचेज़ ऑर्डर लोड नहीं हुए। यह माल बिना ऑर्डर के दर्ज होगा। |
 | `item.levels` | Reorder levels | रीऑर्डर लेवल |
 | `item.min` | Minimum | न्यूनतम |
 | `item.minHint` | Below this, Today asks for an indent. | इससे कम होने पर टुडे इंडेंट मांगता है। |
@@ -10558,7 +10560,6 @@ Please check, Lalubhai:
 | `indent.empty.title` | No indents yet | अभी कोई इंडेंट नहीं |
 | `indent.empty.body` | An indent asks the store to buy what a department needs. | इंडेंट से स्टोर को बताया जाता है कि विभाग को क्या खरीदना है। |
 | `indent.empty.filtered` | No indents with this status. | इस स्थिति का कोई इंडेंट नहीं। |
-| `indent.more` | Showing the latest {count} indents. Pick a status to narrow the list. | ताज़ा {count} इंडेंट दिख रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
 | `indent.form.title` | Raise indent | इंडेंट बनाएँ |
 | `indent.form.department` | Department | विभाग |
 | `indent.form.departmentHint` | Who needs it, like Press or Maintenance. | किसे चाहिए, जैसे प्रेस या मेंटेनेंस। |
@@ -10622,7 +10623,6 @@ Please check, Lalubhai:
 | `po.list.empty` | No purchase orders yet | अभी कोई परचेज़ ऑर्डर नहीं |
 | `po.list.emptyBody` | A purchase order tells a vendor what to send, at what rate and by when. | परचेज़ ऑर्डर वेंडर को बताता है कि क्या भेजना है, किस रेट पर और कब तक। |
 | `po.list.emptyFiltered` | No purchase orders with this status. | इस स्थिति का कोई परचेज़ ऑर्डर नहीं। |
-| `po.list.capped` | Showing the latest {count}. Pick a status to narrow the list. | ताज़ा {count} दिखाए जा रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
 | `po.list.loadFailed` | The purchase orders did not load. | परचेज़ ऑर्डर नहीं खुले। |
 | `po.form.newTitle` | New purchase order | नया परचेज़ ऑर्डर |
 | `po.form.editTitle` | Change purchase order | परचेज़ ऑर्डर बदलें |
