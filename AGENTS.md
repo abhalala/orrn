@@ -1460,17 +1460,24 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - **Cancel** is approval `invoice_cancel` (owner, admin, manager; never the requester). Refused when a credit
   note or a live payment is against it, an e-way bill is active, or the IRN is older than 24 h (then issue a
   credit note; the invoice page says so, `cancel.irnWindowClosed`). Safe order (review S1): with no IRN and no
-  generate call ever sent (`irn_call_at` null) the applier cancels at once; otherwise the invoice goes to
+  call of unknown outcome (`irn_unknown_since` null) the applier cancels at once; otherwise the invoice goes to
   `cancel_pending` and keeps its packing lists and dispatch number. `settleCancel` (`lib/billing/einvoiceFlow.ts`;
   run right after the decision, by `einvoice.cancelIrn` and by the cron) cancels the IRN at the IRP, or, with
-  no IRN known, waits `IRN_CALL_SETTLE_MS` after the last call and looks the document up (only 2283 within 2 days
-  of the call means "none", since the IRP serves details for 2 days; a found IRN is kept, then cancelled). A
-  call the IRP itself refused clears `irn_call_at` (no IRN can exist), so such a document cancels at once. With no
-  answer it gives up 24 h after the approval. A cron row that throws is pushed back one retry step. Only then does the invoice become `cancelled`, and
+  no IRN known, waits `IRN_CALL_SETTLE_MS` after the newest call's own stamp (`irn_call_at`) and looks the
+  document up (only 2283 within 2 days of `irn_unknown_since` means "none"; a found IRN is kept, then
+  cancelled). `irn_unknown_since` is the oldest call whose outcome is unknown: an all-digit NIC refusal clears it
+  only when that call was the one unknown call, so a lost answer is never erased by a later refusal (fix round 2).
+  Past the 2-day lookup window the office records what the IRP portal shows (`einvoice.recordPortalCheck`, audit
+  `invoice.irn.portal_check`): "none" clears the marker, "found X" keeps the IRN and makes the document issued
+  (credit note). With no answer it gives up 24 h after the approval. Before any 24 h revert, and on an
+  "already cancelled" answer, it looks the IRN up: cancelled at the IRP finishes the cancel (also over a revert
+  that landed meanwhile). The 2283, 2-day, 9999 and "CNL" IRP facts are marked unverified in code. A cron row
+  that throws is pushed back one retry step. Only then does the invoice become `cancelled`, and
   `releaseCancelledStatements` frees the sources and clears the number from the dispatch and from EVERY packing
   list of those dispatches (a revision made after issue too). Past 24 h it goes back to `issued` (or
   `irn_pending`) with "issue a credit note instead". `cancel_pending` still counts as live for receivables, the
-  statement, Tally and the register; payments, credit notes and e-way bills are refused on it.
+  statement, Tally and the register; payments, credit notes and e-way bills are refused on it. A credit note in
+  `cancel_pending` still counts as credit everywhere (draft, issue guard, outstanding, invoice cancel).
 - **Dispatch link.** Issue writes the number to `dispatch.invoice_number/date` and the current PL header (the
   portal shows them). `dispatch.update` refuses a typed number on a dispatch with a live orrn invoice; every
   other dispatch keeps the Tally link (`invoice.link`). A dispatch that already carries a number (invoiced in
@@ -1490,8 +1497,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   "not set up": an invoice that needs an IRN stays `irn_pending` ("Draft, IRN pending") and is never final.
   IRN states `pending -> auto_retry -> generated | failed` (`lib/billing/einvoiceFlow.ts`); a 2150 duplicate is
   recovered by document and the signed JWT; SignedInvoice/QR/AckNo/AckDt are written once. Every generate call
-  stamps `irn_call_at` under a status guard before it leaves. "Try again" on a failed IRN (`einvoice.generate`,
-  review S7) first makes sure no IRN exists (no call ever left, or 2283 by document; a found one is kept), then
+  stamps `irn_call_at` with its own time (the cron passes run time + elapsed) under a status guard just before it
+  leaves. "Try again" on a failed IRN (`einvoice.generate`, review S7) first makes sure no IRN exists
+  (`irn_unknown_since` null, or 2283 by document; a found one is kept), then
   re-reads the plant and party GST facts into the snapshot with the same number, date, lines and totals (audit
   `invoice.irn.refresh`); a fix that changes the supply type or place of supply is refused (cancel and reissue). Cron `*/5 * * * *` (`scheduled()` branches on
   `controller.cron`): due IRNs only for plants with both modules named (filtered in SQL), at most 5 per plant and
