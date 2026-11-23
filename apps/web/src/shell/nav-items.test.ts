@@ -30,6 +30,7 @@ describe("visibleItems", () => {
       "press",
       "foundry",
       "ageing",
+      "qa",
       "reports",
       "purchase",
       "approvals",

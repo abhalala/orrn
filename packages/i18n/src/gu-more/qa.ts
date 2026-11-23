@@ -271,9 +271,9 @@ export const guQa = {
       removed: "કાઢ્યું",
       empty: "હજી કોઈ વિકલ્પ નથી.",
       short: "એલોય ઓછું",
-      shortBody: "{alloy}: {need} kg માટે બિલેટ {have} kg બાકી છે.",
+      shortBody: "{alloy}: {need} {massUnit} માટે બિલેટ {have} {massUnit} બાકી છે.",
       allowed: "તેના બદલે માન્ય",
-      onHand: "{kg} kg હાથમાં",
+      onHand: "{kg} {massUnit} હાથમાં",
       noneAllowed: "{alloy} માટે કોઈ વિકલ્પ માન્ય નથી.",
     },
     settings: {

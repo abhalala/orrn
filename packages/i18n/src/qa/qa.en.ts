@@ -11,6 +11,7 @@ export const qaEn = {
   loadFailed: "Couldn't load. Try again.",
   failed: "Could not save. Check the connection and try again.",
   saved: "Saved",
+  required: "Fill this in.",
   tabs: {
     waiting: "Waiting",
     holds: "On hold",
@@ -271,9 +272,9 @@ export const qaEn = {
     removed: "Removed",
     empty: "No substitutes yet.",
     short: "Alloy short",
-    shortBody: "{alloy}: {have} kg of billets for {need} kg left.",
+    shortBody: "{alloy}: {have} {massUnit} of billets for {need} {massUnit} left.",
     allowed: "Allowed instead",
-    onHand: "{kg} kg on hand",
+    onHand: "{kg} {massUnit} on hand",
     noneAllowed: "No substitute is allowed for {alloy}.",
   },
   settings: {

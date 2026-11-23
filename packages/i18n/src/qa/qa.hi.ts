@@ -8,6 +8,7 @@ export const qaHi: typeof qaEn = {
   loadFailed: "लोड नहीं हो सका। फिर कोशिश करें।",
   failed: "सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें।",
   saved: "सेव हुआ",
+  required: "इसे भरें।",
   tabs: {
     waiting: "इंतज़ार में",
     holds: "होल्ड पर",
@@ -268,9 +269,9 @@ export const qaHi: typeof qaEn = {
     removed: "हटाया गया",
     empty: "अभी कोई विकल्प नहीं।",
     short: "अलॉय कम",
-    shortBody: "{alloy}: {need} kg के लिए बिलेट {have} kg बचे हैं।",
+    shortBody: "{alloy}: {need} {massUnit} के लिए बिलेट {have} {massUnit} बचे हैं।",
     allowed: "इसके बदले मान्य",
-    onHand: "{kg} kg हाथ में",
+    onHand: "{kg} {massUnit} हाथ में",
     noneAllowed: "{alloy} के लिए कोई विकल्प मान्य नहीं।",
   },
   settings: {

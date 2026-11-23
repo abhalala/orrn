@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/shared/lib/fmt-text";
+import { OrderLineAlloy } from "@/features/qa/flags";
 import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -405,6 +406,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
                 {/* FP-AG-15: the line's pieces on the ageing side, beneath the Aged cell. */}
                 <OrderLineAged salesOrderId={order.id} lineId={line.lineId} />
+                {/* XE parity lane QA (row 37): the alloy is short, with the substitutes allowed. Nothing otherwise. */}
+                <OrderLineAlloy lineId={line.lineId} />
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,
