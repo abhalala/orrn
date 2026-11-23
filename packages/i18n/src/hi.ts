@@ -15,6 +15,7 @@ import { ingestHi } from "./ingest/hi";
 import { admHi } from "./adm/hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
+import { costHi } from "./cost/hi";
 import { regHi } from "./reg/hi";
 import { store2Hi } from "./store2/hi";
 import { maintHi } from "./maint/hi";
@@ -303,6 +304,7 @@ export const hi = {
     audit: "ऑडिट लॉग",
     pricing: "भाव",
     billing: "बिलिंग",
+    costing: "लागत",
     adminReleases: "ऐप बिल्ड",
     adminBackups: "बैकअप",
     adminSupport: "सपोर्ट",
@@ -3800,6 +3802,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस और भुगतान",
         einvoice: "ई-इनवॉइस और ई-वे बिल",
         maintenance: "मेंटेनेंस",
+        costing: "लागत",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3818,6 +3821,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद",
         einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
         maintenance: "एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग",
+        costing: "प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद)",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6521,6 +6525,7 @@ export const hi = {
   fdy2: fdy2Hi,
 
   reg: regHi,
+  cost: costHi,
   qa: qaHi,
   store2: store2Hi,
   maint: maintHi,
@@ -6704,6 +6709,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस",
         einvoice: "ई-इनवॉइस",
         maintenance: "मेंटेनेंस",
+        costing: "लागत",
       },
     },
     letterhead: {
@@ -6988,6 +6994,7 @@ export const hi = {
       ageing__oven__update: "ओवन बदला",
       ageing__override__request: "एजिंग रिलीज़ की मंज़ूरी मांगी",
       price__settings__update: "दाम की सेटिंग बदली",
+      cost__settings__update: "लागत की सेटिंग बदली",
       price__rate__propose: "रेट बदलाव की मंज़ूरी मांगी",
       price__rate__activate: "रेट बदलाव मंज़ूर हुआ",
       price__rate__reject: "रेट बदलाव नामंज़ूर हुआ",

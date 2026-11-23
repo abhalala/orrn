@@ -175,6 +175,9 @@ export const PLANT_ACTIONS = [
   "foundry.billets", // cut logs into billets, issue billets to a press floor
   "foundry.reject", // log and billet reject registers
   "foundry.plan", // casting plan: accept, edit, drop, open a cast from a line
+  // XE parity lane COST (module `costing`, opt-in). Rates and margins also take `order.price`.
+  "cost.view", // cost per kg, capacity, forecast, dies due, the outlook page
+  "cost.manage", // costing settings: stage rates, low-margin line, press hours, die fallbacks
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -366,6 +369,10 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "foundry.billets": ["foundry", "supervisor"],
   "foundry.reject": ["foundry", "supervisor"],
   "foundry.plan": ["supervisor", "office", "manager"],
+  // XE parity lane COST: the people who run the plant's numbers read cost; the accountant reads it too.
+  // Margins (rate minus cost) also need `order.price`, so admin sees cost but never a margin.
+  "cost.view": ["admin", "manager", "accountant"],
+  "cost.manage": ["admin", "manager"],
   "support.request": [
     "admin",
     "manager",
