@@ -146,7 +146,7 @@ const GATE_TEXT: Record<CloseGateError, string> = {
   late_entry_unapproved: "This late entry is waiting for approval",
   downtime_open: "Stop the open downtime first",
   trial_result_missing: "Say whether the die trial passed or failed",
-  billets_not_homogenized: "These logs of a 6xxx cast have not been homogenized; homogenize them before pressing",
+  billets_not_homogenized: "Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first",
 };
 
 function gateError(errors: CloseGateError[]): never {

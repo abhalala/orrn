@@ -221,7 +221,7 @@ describe("should-fix 3: a short press floor and a melt cancel after cuts", () =>
     expect(preview.gates).toEqual([]);
     expect(preview.floorShort).toEqual([{ castId: r.castId, castNumber: "OL-1", floorCode: "FLOOR-P1", needG: kg(310.4), haveG: 0 }]);
     const out = await p.as("supervisor").press.runs.close({ id: run.runId });
-    expect(out.floorShort).toEqual(preview.floorShort);
+    expect("floorShort" in out ? out.floorShort : null).toEqual(preview.floorShort);
     expect(await pressRows(p, r.castId)).toEqual([[floorId, -kg(310.4)]]);
     expect(await placeKg(p, floorId)).toBe(-kg(310.4));
   });
