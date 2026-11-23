@@ -160,6 +160,8 @@ export type FloorSettings = {
    * truck, each with its own packing list under the same vehicle.
    */
   packingList: { kgPerPiece: boolean; scope: PackingListScope };
+  /** XE FOUNDRY (#41, default off): 6xxx logs are cut into billets only after a released homogenizing batch. */
+  foundry: { requireHomogenizing: boolean };
 };
 
 export const PACKING_LIST_SCOPES = ["one_so", "one_customer", "per_truck"] as const;
@@ -192,6 +194,7 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   castSeriesStart: null,
   orderLeadDays: ORDER_LEAD_DAYS_DEFAULT,
   packingList: { kgPerPiece: false, scope: "one_customer" },
+  foundry: { requireHomogenizing: false },
 };
 
 // ---------------------------------------------------------------------------
@@ -324,6 +327,7 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
         ? (obj(s.packingList).scope as PackingListScope)
         : d.packingList.scope,
     },
+    foundry: { requireHomogenizing: bool(obj(s.foundry).requireHomogenizing, d.foundry.requireHomogenizing) },
   };
 }
 

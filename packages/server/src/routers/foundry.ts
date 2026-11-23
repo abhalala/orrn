@@ -130,6 +130,7 @@ import {
   type LotForMelt,
 } from "../lib/foundryKit";
 import { assertLotsInspected, isQaAbort, lotsInspectedGuardStatements } from "../lib/qa";
+import { foundryDepthRouter } from "./foundryDepth";
 import { foundryMastersRouter } from "./foundryMasters";
 import { MELT_GATE_TEXT, meltStepperProcedures } from "./foundryMelt";
 import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
@@ -1158,7 +1159,7 @@ type CastCloseAnswer = {
 
 /** The close check for a count (Q59-A): tail = ledger on hand − counted. */
 function countedClose(co: CastCloseout, counted: { kgG: number }) {
-  return castCloseCheck({ producedG: co.producedG, onHandG: co.billetsOnHandG, creditedG: co.creditedG, countedG: counted.kgG });
+  return castCloseCheck({ producedG: co.producedG, onHandG: co.billetsOnHandG, creditedG: co.creditedG + co.foundryOutG, countedG: counted.kgG });
 }
 
 /** The closer's tail reason: an active `cast_tail` reason code of the company; `other` (or a code that asks) needs the note. */
@@ -2111,4 +2112,6 @@ export const foundryRouter = router({
   stock: foundryStockRouter,
   /** W2-FD-S: furnace readings (typed; FOUNDRY_SIMULATOR seam). */
   readings: foundryReadingsRouter,
+  /** XE FOUNDRY: homogenizing, bought-in logs, billet cutting and issue, reject registers. */
+  ...foundryDepthRouter,
 });

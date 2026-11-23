@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
 import { bundle, bundleGroup, packReject } from "@orrn/db/schema/inventory";
+import { pressLine } from "@orrn/db/schema/press";
 import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem } from "@orrn/db/schema/store";
 
@@ -68,6 +69,22 @@ function isLocationCodeConflict(e: unknown): boolean {
   return false;
 }
 
+/**
+ * XE FOUNDRY (#50): a `press_floor` location names the press line it serves; no other kind carries one.
+ * Returns the id to store (null for other kinds), or refuses.
+ */
+async function floorPressLine(ctx: { db: OrrnDb; companyId: string }, kind: string, pressLineId: string | null | undefined): Promise<string | null> {
+  if (kind !== "press_floor") return null;
+  if (!pressLineId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the press this floor serves" });
+  const [line] = await ctx.db
+    .select({ id: pressLine.id })
+    .from(pressLine)
+    .where(and(eq(pressLine.id, pressLineId), eq(pressLine.companyId, ctx.companyId)))
+    .limit(1);
+  if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Press line not found" });
+  return line.id;
+}
+
 const locationsRouter = router({
   list: companyProcedure
     .input(z.object({ includeInactive: z.boolean().default(false) }).default({ includeInactive: false }))
@@ -87,9 +104,12 @@ const locationsRouter = router({
         name: z.string().trim().min(1, "Name is required").max(100),
         kind: z.enum(locationKinds),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
+        /** XE FOUNDRY (#50): the press a `press_floor` location serves. */
+        pressLineId: z.string().min(1).max(64).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const pressLineId = await floorPressLine(ctx, input.kind, input.pressLineId);
       const [dupe] = await ctx.db
         .select({ id: location.id })
         .from(location)
@@ -109,6 +129,7 @@ const locationsRouter = router({
             name: input.name,
             kind: input.kind,
             sortOrder: input.sortOrder ?? 0,
+            pressLineId,
             createdBy: ctx.session.user.id,
           }),
           auditInsert(auditCtx(ctx), {
@@ -136,6 +157,7 @@ const locationsRouter = router({
         kind: z.enum(locationKinds).optional(),
         active: z.boolean().optional(),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
+        pressLineId: z.string().min(1).max(64).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -143,6 +165,11 @@ const locationsRouter = router({
         where: and(eq(location.id, input.id), eq(location.companyId, ctx.companyId)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+      const nextKind = input.kind ?? existing.kind;
+      const floorLine =
+        input.kind !== undefined || input.pressLineId !== undefined
+          ? await floorPressLine(ctx, nextKind, input.pressLineId === undefined ? existing.pressLineId : input.pressLineId)
+          : undefined;
 
       if (input.code && input.code !== existing.code) {
         const [dupe] = await ctx.db
@@ -159,6 +186,7 @@ const locationsRouter = router({
         ...(input.kind !== undefined ? { kind: input.kind } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+        ...(floorLine !== undefined ? { pressLineId: floorLine } : {}),
       };
       // A retired or re-typed location must be empty. The check is part of the UPDATE itself, so a
       // move or pack that lands after our read cannot slip a bundle in underneath it.

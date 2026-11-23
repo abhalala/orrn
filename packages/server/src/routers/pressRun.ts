@@ -74,6 +74,7 @@ import { applyTrialVerdictOnReturn } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
+import { pressDrawLocation } from "../lib/foundryDepth";
 import { can, type CompanyRole } from "../lib/permissions";
 import {
   billetUsableSql,
@@ -1442,6 +1443,8 @@ export const pressRunRouter = router({
       const { errors, figures, byCast, children } = await evaluateClose(ctx as Ctx, run, input);
       if (errors.length > 0) gateError(errors);
       const billetStore = await resolveBilletStore(ctx.db, ctx.companyId);
+      // XE FOUNDRY (#50): billets come off the run's press floor when the plant keeps one for this line.
+      const drawFrom = await pressDrawLocation(ctx.db, ctx.companyId, run.pressLineId ?? null, billetStore.id);
       const scrapG = (run.discardG ?? 0) + (run.endsG ?? 0) + figures.rejectG;
       const plantScrap = scrapG > 0 ? await resolvePlantScrap(ctx.db, ctx.companyId) : null;
       const callerId = ctx.session.user.id;
@@ -1504,7 +1507,7 @@ export const pressRunRouter = router({
         userId: callerId,
         at,
         firstLine,
-        billetStoreId: billetStore.id,
+        billetStoreId: drawFrom,
         plantScrapLocationId: plantScrap?.id ?? null,
         streams,
         billets: charges,

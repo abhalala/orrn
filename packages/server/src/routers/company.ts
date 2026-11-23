@@ -202,6 +202,8 @@ export const companyRouter = router({
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
         /** W3-AG-S: ageing switches (manualLoad, split, requireForPack, requireAgeing, requireAgeingSince). */
         ageing: ageingSettingsInput.optional(),
+        /** XE FOUNDRY (#41): 6xxx logs are cut only after a released homogenizing batch (default off). */
+        foundry: z.object({ requireHomogenizing: z.boolean() }).optional(),
         /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
         orderLeadDays: z.number().int().min(0).max(120).optional(),
         /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
@@ -349,6 +351,9 @@ export const companyRouter = router({
       if (input.requireCastOnBundle !== undefined) patch.requireCastOnBundle = input.requireCastOnBundle;
       if (input.dieRoom !== undefined) {
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
+      }
+      if (input.foundry !== undefined) {
+        patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), requireHomogenizing: input.foundry.requireHomogenizing };
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
       if (input.morningSummary !== undefined) {
