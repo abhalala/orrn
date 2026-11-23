@@ -3,9 +3,15 @@ import { parseQtyMilli, type QtyProblem, type QtyResult, type StoreUnit } from "
 import { ratePaiseFromText } from "./money";
 
 /** What the GRN form adds for buying (XE store rows 71 and 73): the order line, the rate and what was turned back. */
-export type GrnBuyDraft = { poLineId: string | null; rate: string; rejected: string };
+export type GrnBuyDraft = {
+  poLineId: string | null;
+  rate: string;
+  rejected: string;
+  /** The person chose "receive without the order" while the order lookup could not load. */
+  withoutPo?: boolean;
+};
 
-export const EMPTY_GRN_BUY: GrnBuyDraft = { poLineId: null, rate: "", rejected: "" };
+export const EMPTY_GRN_BUY: GrnBuyDraft = { poLineId: null, rate: "", rejected: "", withoutPo: false };
 
 export type GrnBuyInput =
   | { ok: true; poLineId: string | null; ratePaise: number | null; rejectedMilli: number | null }
@@ -47,8 +53,20 @@ export function parseAcceptedMilli(text: string, unit: StoreUnit | null, rejecte
  * close used it up). The form keeps the line and blocks the submit: it never turns into a GRN with no
  * order by itself. Only the person drops the order ("Receive without the order") or picks another line.
  */
-export function poLineGone(data: { items: { lineId: string }[] } | undefined, poLineId: string | null): boolean {
-  return poLineId !== null && data !== undefined && !data.items.some((l) => l.lineId === poLineId);
+export function poLineGone(data: { items: { lineId: string }[]; complete?: boolean } | undefined, poLineId: string | null): boolean {
+  // Lines come in pages: a line missing from the pages loaded so far may be on a later one.
+  return poLineId !== null && data !== undefined && data.complete !== false && !data.items.some((l) => l.lineId === poLineId);
+}
+
+/**
+ * Whether a GRN submit is held back because the order lookup failed: the form cannot show the open
+ * order lines, so a GRN with no order must be the person's explicit choice ("Receive without the
+ * order"), never what an empty picker looks like. A picked line, or a resend of a submit that got no
+ * answer, still goes out.
+ */
+export function grnHeldByLookup(lookupFailed: boolean, draft: GrnBuyDraft, signature: string | null, unsure: string | null): boolean {
+  if (!lookupFailed || draft.poLineId !== null || draft.withoutPo === true) return false;
+  return signature === null || signature !== unsure;
 }
 
 /**

@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Button } from "@orrn/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useId } from "react";
 
 import { qtyProblemText, qtyText, unitShort } from "@/features/store/store-labels";
@@ -15,13 +15,32 @@ import { poLineGone, type GrnBuyDraft, type GrnBuyInput } from "./grn-model";
 import { paiseToText, rupees } from "./money";
 import { StoreQtyBox } from "./qty-box";
 
-/** The open purchase order lines for an item (one query, shared by the form and these fields). */
+/**
+ * The open purchase order lines for an item (one query, shared by the form and these fields), in pages.
+ * `data` is every line loaded so far, with `complete` false while more pages exist; `failed` is a lookup
+ * that could not load and has nothing cached.
+ */
 export function useOpenPoLines(itemId: string | null) {
   const { data: me } = useMe();
-  return useQuery({
-    ...trpc.store.po.openLines.queryOptions({ itemId: itemId ?? undefined }),
+  const q = useInfiniteQuery({
+    ...trpc.store.po.openLines.infiniteQueryOptions(
+      { itemId: itemId ?? undefined },
+      { getNextPageParam: (last) => last.nextCursor ?? undefined },
+    ),
     enabled: itemId !== null && can(me, "store.txn"),
+    // A failed lookup shows Retry at once: while retries back off, an empty picker would look like "no open order".
+    retry: false,
   });
+  const data = q.data ? { items: q.data.pages.flatMap((p) => p.items), complete: !q.hasNextPage } : undefined;
+  return {
+    data,
+    failed: q.isError && !q.data,
+    retrying: q.isFetching,
+    refetch: () => void q.refetch(),
+    hasMore: q.hasNextPage,
+    loadingMore: q.isFetchingNextPage,
+    loadMore: () => void q.fetchNextPage(),
+  };
 }
 
 /**
@@ -69,6 +88,21 @@ export function GrnBuyFields({
           </Button>
         </div>
       ) : null}
+      {lines.failed ? (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink">
+          <p className="m-0">{draft.withoutPo ? t("store2.grn.lookupFailedChosen") : t("store2.grn.lookupFailed")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" loading={lines.retrying} onClick={lines.refetch}>
+              {t("common.retry")}
+            </Button>
+            {!draft.withoutPo ? (
+              <Button type="button" variant="secondary" onClick={() => onChange({ ...draft, withoutPo: true })}>
+                {t("store2.grn.dropPo")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {open.length > 0 ? (
         <Field
           label={t("store2.grn.poLine")}
@@ -99,6 +133,11 @@ export function GrnBuyFields({
               </option>
             ))}
           </NativeSelect>
+          {lines.hasMore ? (
+            <Button type="button" variant="secondary" size="sm" className="mt-2 self-start" disabled={lines.loadingMore} onClick={lines.loadMore}>
+              {t("common.showMore")}
+            </Button>
+          ) : null}
         </Field>
       ) : null}
 
