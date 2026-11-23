@@ -170,6 +170,16 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ### Worker performance rules
 
+- **Worker startup (Cloudflare `[10021] Script startup exceeded CPU time limit`).** Everything the Worker
+  entry imports statically evaluates at isolate startup, and that CPU is capped. Register every new
+  top-level router lazily in `packages/server/src/routers/index.ts`:
+  `key: lazy(() => import("./file").then((m) => m.fileRouter)),`. Never import a router module,
+  `@orrn/auth` (the root), better-auth or `@anthropic-ai/sdk` statically from the entry path
+  (`apps/server/src/*.ts`, `context.ts`, `packages/server/src/index.ts`, eager `lib/**`); use
+  `const { x } = await import("...")` inside the handler. Code that enumerates
+  `appRouter._def.procedures` calls `await loadAllRouters()` first; `createCaller` and the fetch adapter
+  load what they call. A module-load side effect in a router (a registration) only runs when that router
+  loads, so register it where it is read. Guard: `packages/server/test/router-lazy.test.ts`.
 - Minimize Worker CPU and wall time.
 - Paginate all lists, sync pulls, platform admin views, and audit views.
 - Avoid full-table scans and N+1 query patterns.
@@ -572,7 +582,8 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Reopen blockers: `lib/press/reopenBlockers.ts` `registerReopenBlocker((db, companyId, runId) =>
   Promise<string | null>)`; `press.runs.reopen` calls `reopenBlockers` and refuses with CONFLICT and
   the first reason. The ageing lane registers its check there (a non-void `ageing_row` pointing at
-  the run); register at module load of the ageing router so every worker has it. Late entry checks the copy with
+  the run); it is registered at module load of both the ageing router and `routers/pressRun.ts` (routers
+  load lazily, so a module-load registration must live in the router that reads it). Late entry checks the copy with
   `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
   The late-entry sheet's queued-run path names the copy when the run has none issued (BACKLOG 50):
   a searchable picker of the run's die only, `available` copies (+ `on_trial` for a die trial run).
