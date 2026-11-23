@@ -281,7 +281,7 @@ edgeV1Routes.get("/api/edge/v1/snapshots/:snapshotId/chunks/:sequence", async (c
 // XE DEVICES (row 95): plant devices behind an edge node. Bodies are read bounded before any auth, and the
 // handlers load on first call (`await import`), so nothing of the device code evaluates at Worker start.
 // Paths equal DEVICE_READINGS_PATH / DEVICE_HEARTBEAT_PATH / DEVICE_CONFIG_PATH in @orrn/edge-runtime/devices
-// (packages/server/test/devices-edge.test.ts pins them).
+// (packages/server/test/xe-devices.test.ts pins them).
 for (const [path, handler] of [
   ["/api/edge/v1/devices/readings", "handleDeviceReadings"],
   ["/api/edge/v1/devices/heartbeat", "handleDeviceHeartbeat"],

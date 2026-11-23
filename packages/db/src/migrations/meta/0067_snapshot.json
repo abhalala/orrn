@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c4878999-f734-4685-b150-0f5551fd42c1",
+  "id": "53497237-4ddc-4286-958f-e46a80ba81a9",
   "prevId": "170054ef-6bd0-4d55-aa31-2080f0b18921",
   "tables": {
     "die_copy_extra": {
@@ -9105,6 +9105,16 @@
             "dedupe_key"
           ],
           "isUnique": true
+        },
+        "device_reading_device_ticket_unique": {
+          "name": "device_reading_device_ticket_unique",
+          "columns": [
+            "company_id",
+            "device_id",
+            "ticket_no"
+          ],
+          "isUnique": true,
+          "where": "\"device_reading\".\"kind\" = 'weighbridge' AND \"device_reading\".\"device_id\" IS NOT NULL"
         },
         "device_reading_company_kind_at_idx": {
           "name": "device_reading_company_kind_at_idx",

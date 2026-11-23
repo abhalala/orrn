@@ -30,6 +30,7 @@ import {
   deviceClock,
   deviceHealth,
   deviceMaySend,
+  dimensionInputError,
   dimensionVerdict,
   isModuleOn,
   mechanicalVerdict,
@@ -49,6 +50,8 @@ import { isQaUnique } from "./qa";
 import { ageingHardnessX10, loadSubject, temperFor } from "./qaSubject";
 
 export const DEVICE_TOKEN_PREFIX = "odv_";
+/** Lab readings captured into QA checks within one request; the rest wait in the lab inbox. */
+export const CAPTURE_PER_CALL = 25;
 export const DEVICE_ID_HEADER = "X-ORRN-Device";
 export const DEVICE_TOKEN_HEADER = "X-ORRN-Device-Token";
 
@@ -114,8 +117,9 @@ export async function authenticateDevice(
 // Ingest
 // ---------------------------------------------------------------------------
 
-export function pushDedupeKey(device: Pick<PlantDeviceRow, "id" | "tokenVersion">, epoch: string, seq: number): string {
-  return `push:${device.id}:${device.tokenVersion}:${epoch}:${seq}`;
+/** Not the token version: a rotation mid-replay must not let the same readings land twice (epoch separates restarts). */
+export function pushDedupeKey(device: Pick<PlantDeviceRow, "id">, epoch: string, seq: number): string {
+  return `push:${device.id}:${epoch}:${seq}`;
 }
 
 type NewReading = typeof deviceReading.$inferInsert;
@@ -185,7 +189,8 @@ export async function ingestDeviceReadings(db: OrrnDb, device: PlantDeviceRow, r
   }
   const seqById = new Map(rows.map((r) => [r.id, r.seq!]));
   const maxSeq = req.readings.reduce((m, r) => Math.max(m, r.seq), -1);
-  const statements: SqliteBatchItem[] = rows.map((r) => db.insert(deviceReading).values(r).onConflictDoNothing({ target: [deviceReading.companyId, deviceReading.dedupeKey] }));
+  // No conflict target: the dedupe key and the one-ticket-per-device index both make a repeat a no-op.
+  const statements: SqliteBatchItem[] = rows.map((r) => db.insert(deviceReading).values(r).onConflictDoNothing());
   statements.push(deviceSeenUpdate(db, device, { nowMs, epoch: req.epoch, seq: maxSeq >= 0 ? maxSeq : null, skewMs: Number.isFinite(sentAtMs) ? nowMs - sentAtMs : skewMs }));
   await atomicBatch(db, statements);
   const landed = rows.length
@@ -200,7 +205,8 @@ export async function ingestDeviceReadings(db: OrrnDb, device: PlantDeviceRow, r
   for (const r of rows) (landed.has(r.id) ? accepted : duplicate).push(seqById.get(r.id)!);
 
   let captured = 0;
-  const lab = rows.filter((r) => landed.has(r.id) && r.kind !== "weighbridge" && !r.simulated);
+  // At most CAPTURE_PER_CALL captures per request (each is ~10 queries); the rest wait in the lab inbox.
+  const lab = rows.filter((r) => landed.has(r.id) && r.kind !== "weighbridge" && !r.simulated).slice(0, CAPTURE_PER_CALL);
   if (lab.length > 0 && (await devicesOn(db, device.companyId)).qa) {
     for (const r of lab) {
       const out = await captureLabReading(db, { companyId: device.companyId, readingId: r.id, actorId: null });
@@ -276,7 +282,7 @@ export async function subjectForSampleCode(db: OrrnDb, companyId: string, code: 
 
 export type CaptureOutcome =
   | { checkId: string; result: QaResult; subjectType: LabSubjectType; subjectId: string; number: string }
-  | { code: "not_found" | "not_lab" | "simulated" | "no_match" | "no_nominal" | "already_used" };
+  | { code: "not_found" | "not_lab" | "simulated" | "no_match" | "no_nominal" | "bad_dimensions" | "already_used" };
 
 async function planDimensions(db: OrrnDb, companyId: string, dieId: string | null, dieInstanceId: string | null): Promise<QaPlanDimension[]> {
   if (!dieId) return [];
@@ -301,7 +307,7 @@ export async function captureLabReading(
   const target = o.subject ?? (await subjectForSampleCode(db, o.companyId, reading.sampleCode ?? ""));
   if (!target) return { code: "no_match" };
   const subject = await loadSubject(db, o.companyId, target.type, target.id);
-  const device = reading.deviceId ? await db.select({ code: plantDevice.code, label: plantDevice.label }).from(plantDevice).where(eq(plantDevice.id, reading.deviceId)).get() : undefined;
+  const device = reading.deviceId ? await db.select({ code: plantDevice.code, label: plantDevice.label }).from(plantDevice).where(and(eq(plantDevice.id, reading.deviceId), eq(plantDevice.companyId, o.companyId))).get() : undefined;
   const source = { source: "device", readingId: reading.id, deviceId: reading.deviceId, deviceCode: device?.code ?? null, sampleCode: reading.sampleCode, sampledAt: reading.sampledAt.getTime() };
 
   let kind: "dimension" | "mechanical";
@@ -314,6 +320,8 @@ export async function captureLabReading(
     const points = ((reading.valuesJson as { points?: unknown }).points ?? []) as Parameters<typeof withPlanNominals>[0];
     const { complete, unknown } = withPlanNominals(points, await planDimensions(db, o.companyId, subject.dieId, subject.dieInstanceId));
     if (complete.length === 0) return { code: "no_nominal" };
+    // QA's own limits on a dimension check (count, range, nominal 0, duplicate names).
+    if (dimensionInputError(complete)) return { code: "bad_dimensions" };
     const v = dimensionVerdict(complete);
     result = v.result;
     values = { dimensions: v.rows, ...source, ...(unknown.length ? { notCompared: unknown } : {}) };
@@ -373,7 +381,18 @@ export async function captureLabReading(
         action: "plant_device.capture",
         subjectType: "qa_check",
         subjectId: checkId,
-        meta: { readingId: reading.id, deviceId: reading.deviceId, kind, subjectType: target.type, subjectId: target.id, number: subject.number, result, auto: o.actorId == null },
+        meta: {
+          readingId: reading.id,
+          deviceId: reading.deviceId,
+          kind,
+          subjectType: target.type,
+          subjectId: target.id,
+          number: subject.number,
+          result,
+          auto: o.actorId == null,
+          ...(flags.flagged?.length ? { flagged: flags.flagged } : {}),
+          ...(flags.low?.length ? { low: flags.low } : {}),
+        },
       }),
     ]);
   } catch (e) {

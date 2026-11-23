@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { wrapSecret } from "@orrn/crypto";
-import { auditLog, company, deviceReading, deviceReadingUse, plantDevice, pressRun, purchaseLot, qaCheck, qaPlan, spoolDeployment } from "@orrn/db/schema";
+import { auditLog, company, dispatch as dispatchTable, deviceReading, deviceReadingUse, plantDevice, pressRun, purchaseLot, qaCheck, qaPlan, spoolDeployment } from "@orrn/db/schema";
 import {
   DEVICE_CONFIG_PATH,
   DEVICE_HEARTBEAT_PATH,
@@ -29,6 +29,7 @@ import {
   type DeviceReadingWire,
 } from "@orrn/edge-runtime/devices";
 
+import { hashDeviceToken } from "../src/lib/devices";
 import { clearEdgeV1ReplayCache } from "../src/lib/edge-v1";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { signSpoolRequest } from "../src/lib/spool-crypto";
@@ -230,7 +231,7 @@ describe("row 95: enrolment, tokens, health", () => {
     expect((await env.db.select().from(deviceReading).where(eq(deviceReading.deviceId, e.id))).length).toBe(4);
 
     // A device clock 10 minutes fast: corrected, marked unconfirmed, not refused. An old buffered reading is kept.
-    const fast = await call(DEVICE_READINGS_PATH, node, { sentAt: iso(now + 600_000), epoch: "e2", readings: [weighReading(1, { atMs: now + 590_000 }), weighReading(2, { atMs: now - 6 * 3600_000 }), weighReading(3, { grossG: 10, tareG: 20 })] }, dev, now + 200);
+    const fast = await call(DEVICE_READINGS_PATH, node, { sentAt: iso(now + 600_000), epoch: "e2", readings: [weighReading(1, { ticketNo: "F-1", atMs: now + 590_000 }), weighReading(2, { ticketNo: "F-2", atMs: now - 6 * 3600_000 }), weighReading(3, { ticketNo: "F-3", grossG: 10, tareG: 20 })] }, dev, now + 200);
     expect(fast.body).toMatchObject({ accepted: [1, 2], rejected: [{ seq: 3, code: "tare_above_gross" }] });
     const skewed = (await env.db.select().from(deviceReading).where(and(eq(deviceReading.deviceId, e.id), eq(deviceReading.epoch, "e2"), eq(deviceReading.seq, 1))))[0]!;
     expect(skewed.timeUnconfirmed).toBe(true);
@@ -254,6 +255,27 @@ describe("row 95: enrolment, tokens, health", () => {
     expect(JSON.stringify(cfg.body)).not.toContain(e.token);
     expect(JSON.stringify(cfg.body)).not.toContain("tokenHash");
     clearEdgeV1ReplayCache();
+  });
+
+  test("a rotation mid-replay stores nothing twice; a pushed and an imported copy of one ticket are one row; racing rotations", async () => {
+    const { companyId } = await env.seedCompany({ modules: ["devices"] });
+    const admin = env.caller({ role: "admin", companyId });
+    const node = await edgeNode(companyId);
+    const e = await admin.devices.enrol({ code: "WB-1", label: "Gate bridge", kind: "weighbridge", protocol: "file", deploymentId: node.id });
+    const body = { sentAt: iso(Date.now()), epoch: "e1", readings: [weighReading(0, { ticketNo: "77", atMs: Date.now() - 60_000 })] };
+    expect((await call(DEVICE_READINGS_PATH, node, body, { id: e.id, token: e.token })).body).toMatchObject({ accepted: [0] });
+    const r = await admin.devices.rotateToken({ id: e.id });
+    expect((await call(DEVICE_READINGS_PATH, node, { ...body, sentAt: iso(Date.now()) }, { id: e.id, token: r.token })).body).toMatchObject({ accepted: [], duplicate: [0] });
+    const imp = await admin.devices.import.weighbridge({ unit: "t", deviceId: e.id, csv: `ticket,vehicle,gross,tare,time\n77,GJ05AB1234,18.4,7.2,2026-11-22T10:00:00+05:30\n` });
+    expect(imp).toMatchObject({ added: 0, duplicate: 1 });
+    expect((await env.db.select().from(deviceReading).where(eq(deviceReading.deviceId, e.id))).length).toBe(1);
+
+    const [a, b] = await Promise.allSettled([admin.devices.rotateToken({ id: e.id }), admin.devices.rotateToken({ id: e.id })]);
+    const ok = [a, b].filter((x) => x.status === "fulfilled") as PromiseFulfilledResult<{ token: string }>[];
+    const stored = (await env.db.select().from(plantDevice).where(eq(plantDevice.id, e.id)))[0]!;
+    // Every token handed out is the one stored; a loser gets CONFLICT, never a dead token.
+    for (const f of ok) expect(await hashDeviceToken(f.value.token)).toBe(stored.tokenHash!);
+    expect(ok.length).toBeGreaterThanOrEqual(1);
   });
 
   test("health tile counts devices and the collectors on main, sim labelled", async () => {
@@ -340,9 +362,11 @@ async function purchasePlant() {
   const items = (await manager.purchase.scrapItems.list()).items;
   const v = await manager.vendor.create({ name: "Shree Ganesh Metals" });
   const itemId = items.find((i) => i.name === "IMP BELLING")!.id;
+  const bridge = await env.caller({ role: "admin", companyId }).devices.enrol({ code: "WB-1", label: "Gate bridge", kind: "weighbridge", protocol: "file" });
+  const importTickets = (csv: string, unit: "kg" | "t" = "t") => manager.devices.import.weighbridge({ unit, csv, deviceId: bridge.id });
   const lot = (vehicleNo: string | null, over: Record<string, unknown> = {}) =>
     storekeeper.purchase.lots.create({ vendorId: v.id, itemId, grade: "A", partyKgG: 11_200 * KG, fcKgG: null, ratePaise: 18_500, billBook: "main", vehicleNo: vehicleNo ?? undefined, ...(over as object) } as never);
-  return { companyId, owner, manager, storekeeper, lot };
+  return { companyId, owner, manager, storekeeper, lot, bridge, importTickets };
 }
 
 const csvTickets = (rows: string[]) => `Ticket No,Vehicle No,Gross,Tare,Date Time\n${rows.join("\n")}\n`;
@@ -356,10 +380,12 @@ describe("row 48: weighbridge", () => {
   test("import a ticket file (tonnes), take a ticket as the FC kanta weight, one ticket per truck", async () => {
     const p = await purchasePlant();
     const t = nowPlant();
-    const imp = await p.storekeeper.devices.import.weighbridge({ unit: "t", csv: csvTickets([`T-101,GJ 05 AB 1234,18.400,7.200,${t}`, `T-102,MH12XY0001,9.000,3.000,${t}`, `T-103,,1,2,${t}`]) });
+    // The gate desk cannot make the tickets it is checked against.
+    await expect(p.storekeeper.devices.import.weighbridge({ unit: "t", csv: csvTickets([`T-9,GJ01,2,1,${t}`]), deviceId: p.bridge.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const imp = await p.importTickets(csvTickets([`T-101,GJ 05 AB 1234,18.400,7.200,${t}`, `T-102,MH12XY0001,9.000,3.000,${t}`, `T-103,,1,2,${t}`]));
     expect(imp).toMatchObject({ added: 2, duplicate: 0, errors: [{ line: 4, code: "tare_above_gross" }] });
     // The same file again adds nothing.
-    expect(await p.storekeeper.devices.import.weighbridge({ unit: "t", csv: csvTickets([`T-101,GJ 05 AB 1234,18.400,7.200,${t}`]) })).toMatchObject({ added: 0, duplicate: 1 });
+    expect(await p.importTickets(csvTickets([`T-101,GJ 05 AB 1234,18.400,7.200,${t}`]))).toMatchObject({ added: 0, duplicate: 1 });
 
     const lot = await p.lot("GJ05AB1234");
     const view = await p.storekeeper.devices.weigh.forSubject({ subjectType: "purchase_lot", subjectId: lot.id });
@@ -392,7 +418,7 @@ describe("row 48: weighbridge", () => {
   test("typed fallback: a reason, compared with the truck's ticket, flagged beyond the tolerance", async () => {
     const p = await purchasePlant();
     const t = nowPlant();
-    await p.storekeeper.devices.import.weighbridge({ unit: "kg", csv: csvTickets([`55,GJ06CD0001,18400,7200,${t}`]) });
+    await p.importTickets(csvTickets([`55,GJ06CD0001,18400,7200,${t}`]), "kg");
     const lot = await p.lot("GJ06CD0001");
     await expect(p.storekeeper.devices.weigh.typeWeight({ subjectType: "purchase_lot", subjectId: lot.id, typedG: 11_000 * KG, reason: "" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const typed = await p.storekeeper.devices.weigh.typeWeight({ subjectType: "purchase_lot", subjectId: lot.id, typedG: 11_000 * KG, reason: "Bridge display blank" });
@@ -414,7 +440,7 @@ describe("row 48: weighbridge", () => {
     const p = await purchasePlant();
     const other = await purchasePlant();
     const t = nowPlant();
-    await p.storekeeper.devices.import.weighbridge({ unit: "t", csv: csvTickets([`T-1,GJ01AA0001,18.400,7.200,${t}`]) });
+    await p.importTickets(csvTickets([`T-1,GJ01AA0001,18.400,7.200,${t}`, `T-2,,9.000,1.000,${t}`, `T-3,GJ01AA0001,9.000,1.000,2026-01-01 10:00`]));
     const lot = await p.lot("GJ01AA0001");
     const tk = (await p.storekeeper.devices.weigh.forSubject({ subjectType: "purchase_lot", subjectId: lot.id })).tickets.sameTruck[0]!;
 
@@ -425,6 +451,15 @@ describe("row 48: weighbridge", () => {
     }
     // dispatch.complete alone does not weigh a scrap lot.
     await expect(env.caller({ role: "supervisor", companyId: p.companyId }).devices.weigh.useTicket({ subjectType: "purchase_lot", subjectId: lot.id, readingId: tk.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // No truck on the ticket, or a ticket from another day: refused.
+    const all = await p.manager.devices.readings.list({ kind: "weighbridge" });
+    const noTruck = all.items.find((x) => x.ticketNo === "T-2")!;
+    const old = all.items.find((x) => x.ticketNo === "T-3")!;
+    await expect(p.storekeeper.devices.weigh.useTicket({ subjectType: "purchase_lot", subjectId: lot.id, readingId: noTruck.id })).rejects.toMatchObject({ message: "Ticket T-2 names no truck" });
+    await expect(p.storekeeper.devices.weigh.useTicket({ subjectType: "purchase_lot", subjectId: lot.id, readingId: old.id })).rejects.toMatchObject({ message: expect.stringContaining("is not from the day of") });
+    // A dispatch-only desk cannot read a scrap lot's weigh.
+    await expect(env.caller({ role: "packer", companyId: p.companyId }).devices.weigh.forSubject({ subjectType: "purchase_lot", subjectId: lot.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const sim = (await env.db.select({ id: deviceReading.id }).from(deviceReading).where(eq(deviceReading.id, tk.id)))[0]!;
     await env.db.update(deviceReading).set({ simulated: true }).where(eq(deviceReading.id, sim.id));
@@ -448,7 +483,8 @@ describe("row 48: weighbridge", () => {
     await env.plantStock(p.companyId, ids);
     const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB7777", customerId: p.customerId });
     await p.as("packer").dispatch.scan({ id, serials: [s1!, s2!] });
-    await p.as("office").devices.import.weighbridge({ unit: "kg", csv: csvTickets([`900,GJ05AB7777,9100,8000,${nowPlant()}`]) });
+    const bridge = await p.as("admin").devices.enrol({ code: "WB-1", label: "Gate bridge", kind: "weighbridge", protocol: "file" });
+    await p.as("manager").devices.import.weighbridge({ unit: "kg", csv: csvTickets([`900,GJ05AB7777,9100,8000,${nowPlant()}`]), deviceId: bridge.id });
     const office = p.as("office");
     const view = await office.devices.weigh.forSubject({ subjectType: "dispatch", subjectId: id });
     expect(view.subject.weightG).toBe(1000 * KG);
@@ -459,6 +495,9 @@ describe("row 48: weighbridge", () => {
     const after = await office.devices.weigh.forSubject({ subjectType: "dispatch", subjectId: id });
     expect(after.load).toMatchObject({ diffG: -100 * KG, flagged: true });
     expect(after.ticket?.ticketNo).toBe("900");
+    // A load that has left keeps its truck weight.
+    await env.db.update(dispatchTable).set({ status: "completed" }).where(eq(dispatchTable.id, id));
+    await expect(office.devices.weigh.typeWeight({ subjectType: "dispatch", subjectId: id, typedG: 9_000 * KG, reason: "Reweighed later" })).rejects.toMatchObject({ message: "This load has left; its truck weight is kept as it was" });
   });
 });
 
@@ -552,5 +591,8 @@ describe("rows 40 and 94: lab auto-capture", () => {
     expect(out).toMatchObject({ added: 2, captured: 1, waiting: 1, errors: [] });
     const again = await p.as("supervisor").devices.import.lab({ kind: "dimension", csv: `sample,dimension,measured_mm,nominal_mm,minus_mm,plus_mm,time\n${run.number},Width,40.05,40,0.2,0.2,2026-11-22 09:00\n` });
     expect(again).toMatchObject({ added: 0, duplicate: 1, captured: 0 });
+    // A scan QA would refuse by hand (the same dimension twice) never becomes a check; it waits.
+    const bad = await p.as("supervisor").devices.import.lab({ kind: "dimension", csv: `sample,dimension,measured_mm,nominal_mm,minus_mm,plus_mm,time\n${run.number},Width,40.05,40,0.2,0.2,2026-11-22 09:30\n${run.number},width,40.10,40,0.2,0.2,2026-11-22 09:30\n` });
+    expect(bad).toMatchObject({ added: 1, captured: 0, waiting: 1, errors: [] });
   });
 });

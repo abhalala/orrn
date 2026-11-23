@@ -13,7 +13,7 @@
  *
  * Replay: each reading carries `seq`, rising per device within one `epoch`. The edge starts a new epoch
  * whenever it loses its buffer (reinstall, new disk), so a sequence that restarts at 0 is never mistaken
- * for a replay. The server keeps (device, token version, epoch, seq) unique and answers a repeat as
+ * for a replay. The server keeps (device, epoch, seq) unique and answers a repeat as
  * `duplicate` without writing.
  *
  * Adapters: the edge reads a device over Modbus TCP or OPC UA through a typed map. The decoders below are

@@ -45,7 +45,7 @@ signs every call after that with its node secret (`X-ORRN-Node-ID` and `Authoriz
 |---|---|
 | Printing labels already queued | The edge agent holds leased jobs and prints them; results replay through `/events`. Print exactly once: the spool keeps `job_key` unique. |
 | Reading stock, orders and dies on the edge's own page | From the last complete snapshot sections. They are as old as the last manifest (10 minutes before the cut at best). |
-| Weighbridge tickets, scanner and tensile results | The edge agent keeps reading devices from its cached device config and buffers readings with a rising `seq` per device. On reconnect it replays them; orrn stores each (device, token version, epoch, seq) once and answers a repeat as `duplicate`. A reinstalled edge starts a new epoch, so its seq 0 is a new reading, not a replay. |
+| Weighbridge tickets, scanner and tensile results | The edge agent keeps reading devices from its cached device config and buffers readings with a rising `seq` per device. On reconnect it replays them; orrn stores each (device, epoch, seq) once and answers a repeat as `duplicate`. A reinstalled edge starts a new epoch, so its seq 0 is a new reading, not a replay. |
 | Press frames, spectro files, oven readings | The collectors buffer and replay on (node, seq) or the file's SHA-256, as before. |
 
 | Does not work | Why |

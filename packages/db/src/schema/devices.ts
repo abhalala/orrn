@@ -17,7 +17,8 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  *   routes. `simulated` devices are the edge simulator, labelled sim everywhere.
  * - `device_reading`: append-only. Every ticket, scan and tensile test as it arrived (push from the edge or
  *   a CSV import); never updated, never deleted by code. `dedupe_key` is unique per plant: a push is
- *   (device, token version, epoch, seq), a file row is (kind, device, ticket no / sample + time).
+ *   (device, epoch, seq), a file row is (kind, device, ticket no / sample + time); a weighbridge ticket is also
+ *   unique per (device, ticket no), so a pushed and an imported copy of one ticket are one row.
  * - `device_reading_use`: what a reading became, or a typed weight with its reason. A weighbridge ticket on
  *   a scrap lot or a dispatch, a lab reading turned into a quality check, a lab reading set aside. Voiding
  *   stamps `voided_*` (a wrong pick is corrected by a new row); one live use per reading and one live
@@ -107,6 +108,10 @@ export const deviceReading = sqliteTable(
   },
   (table) => [
     uniqueIndex("device_reading_company_dedupe_unique").on(table.companyId, table.dedupeKey),
+    // One physical ticket per bridge, whether it was pushed or imported.
+    uniqueIndex("device_reading_device_ticket_unique")
+      .on(table.companyId, table.deviceId, table.ticketNo)
+      .where(sql`${table.kind} = 'weighbridge' AND ${table.deviceId} IS NOT NULL`),
     index("device_reading_company_kind_at_idx").on(table.companyId, table.kind, table.sampledAt),
     index("device_reading_company_vehicle_idx").on(table.companyId, table.vehicleNo, table.sampledAt),
     index("device_reading_company_sample_idx").on(table.companyId, table.sampleCode),

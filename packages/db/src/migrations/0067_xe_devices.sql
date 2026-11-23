@@ -26,6 +26,7 @@ CREATE TABLE `device_reading` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `device_reading_company_dedupe_unique` ON `device_reading` (`company_id`,`dedupe_key`);--> statement-breakpoint
+CREATE UNIQUE INDEX `device_reading_device_ticket_unique` ON `device_reading` (`company_id`,`device_id`,`ticket_no`) WHERE "device_reading"."kind" = 'weighbridge' AND "device_reading"."device_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `device_reading_company_kind_at_idx` ON `device_reading` (`company_id`,`kind`,`sampled_at`);--> statement-breakpoint
 CREATE INDEX `device_reading_company_vehicle_idx` ON `device_reading` (`company_id`,`vehicle_no`,`sampled_at`);--> statement-breakpoint
 CREATE INDEX `device_reading_company_sample_idx` ON `device_reading` (`company_id`,`sample_code`);--> statement-breakpoint

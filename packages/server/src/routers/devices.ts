@@ -196,7 +196,8 @@ const deviceAdmin = {
         ),
       ]);
       const now = await ownDevice(ctx, d.id);
-      if (now.tokenVersion !== version) throw new TRPCError({ code: "CONFLICT", message: "The device changed while saving; open it again" });
+      // Compare the hash, not the version: two rotations racing both compute the same version.
+      if (now.tokenHash !== tok.hash) throw new TRPCError({ code: "CONFLICT", message: "The device changed while saving; open it again" });
       return { id: d.id, token: tok.token, tokenHint: tok.hint, tokenVersion: version };
     }),
 
@@ -294,16 +295,19 @@ async function importDevice(ctx: Ctx, deviceId: string | undefined, kinds: reado
   if (!deviceId) return null;
   const d = await ownDevice(ctx, deviceId);
   if (!kinds.includes(d.kind)) throw bad(`Device ${d.code} does not send these readings`);
+  if (d.revokedAt) throw bad(`Device ${d.code} is revoked`);
   return d;
 }
 
 const imports = router({
   /**
-   * A weighbridge PC's ticket export. The file's unit is picked by the person (kg or tonnes), never guessed.
-   * A ticket already held (same device and ticket number) is skipped, so importing a file twice adds nothing.
+   * A weighbridge PC's ticket export, for one enrolled weighbridge. The file's unit is picked by the person (kg
+   * or tonnes), never guessed. `device.manage` only: the gate desk that types lot weights must not also be able
+   * to make the tickets they are checked against. A ticket already held for that bridge (pushed or imported) is
+   * skipped, so importing a file twice adds nothing.
    */
-  weighbridge: anyActionProcedure("device.manage", "purchase.receipt")
-    .input(z.object({ csv: csvText, unit: z.enum(["kg", "t"]), deviceId: id.optional() }))
+  weighbridge: actionProcedure("device.manage")
+    .input(z.object({ csv: csvText, unit: z.enum(["kg", "t"]), deviceId: id }))
     .mutation(async ({ ctx, input }) => {
       await assertModule(ctx, "devices");
       const d = await importDevice(ctx, input.deviceId, ["weighbridge"]);
@@ -314,7 +318,7 @@ const imports = router({
         deviceId: d?.id ?? null,
         kind: "weighbridge" as const,
         source: "file" as const,
-        dedupeKey: `file:weighbridge:${d?.id ?? "-"}:${r.ticketNo}`,
+        dedupeKey: `file:weighbridge:${d!.id}:${r.ticketNo}`,
         simulated: false,
         sampledAt: new Date(r.atMs),
         ticketNo: r.ticketNo,
@@ -364,8 +368,8 @@ const imports = router({
         await atomicBatch(ctx.db, [auditInsert(audit(ctx), { action: "plant_device.import", subjectType: "device_reading", meta: { kind: input.kind, added, deviceId: d?.id ?? null } })]);
         if (qaOn) {
           const landed = await landedIds(ctx, values.map((v) => v.id));
-          for (const v of values) {
-            if (!landed.has(v.id)) continue;
+          const { CAPTURE_PER_CALL } = await import("../lib/devices");
+          for (const v of values.filter((x) => landed.has(x.id)).slice(0, CAPTURE_PER_CALL)) {
             const out = await captureLabReading(ctx.db, { companyId: ctx.companyId, readingId: v.id, actorId: ctx.session.user.id, auditCtx: audit(ctx) });
             if ("checkId" in out) captured += 1;
           }
@@ -399,7 +403,7 @@ async function insertReadings(ctx: Ctx, values: (typeof deviceReading.$inferInse
   for (let i = 0; i < values.length; i += 50) {
     await atomicBatch(
       ctx.db,
-      values.slice(i, i + 50).map((v) => ctx.db.insert(deviceReading).values(v).onConflictDoNothing({ target: [deviceReading.companyId, deviceReading.dedupeKey] })),
+      values.slice(i, i + 50).map((v) => ctx.db.insert(deviceReading).values(v).onConflictDoNothing()),
     );
   }
   return (await landedIds(ctx, values.map((v) => v.id))).size;
@@ -526,6 +530,13 @@ async function ticketOf(ctx: Ctx, readingId: string) {
   return r;
 }
 
+/** A load is weighed while it is built or reserved; a completed or cancelled load keeps its weigh. */
+function assertLoadOpen(d: { status: string } | null) {
+  if (!d) return;
+  if (d.status === "cancelled") throw bad("This load is cancelled");
+  if (d.status === "completed") throw bad("This load has left; its truck weight is kept as it was");
+}
+
 const subjectInput = z.object({ subjectType: z.enum(["purchase_lot", "dispatch"]), subjectId: id });
 
 async function assertWeighAccess(ctx: Ctx & { role: string }, type: WeighSubject) {
@@ -535,12 +546,22 @@ async function assertWeighAccess(ctx: Ctx & { role: string }, type: WeighSubject
   await assertModule(ctx, type === "purchase_lot" ? "purchase" : "dispatches");
 }
 
+/** Reading a weigh: the subject's own desk (or device.view), and the subject's module. */
+async function assertWeighRead(ctx: Ctx & { role: string }, type: WeighSubject) {
+  const { can } = await import("../lib/permissions");
+  const me = { company: { role: ctx.role as never }, isPlatformAdmin: false, platformRole: null };
+  const desk = type === "purchase_lot" ? "purchase.receipt" : "dispatch.complete";
+  if (!can(me, desk) && !can(me, "device.view")) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+  await assertModule(ctx, type === "purchase_lot" ? "purchase" : "dispatches");
+}
+
 const weigh = router({
   /** What the bridge says about a lot or a load: its live weigh, the kanta check now, and tickets to pick. */
   forSubject: anyActionProcedure("purchase.receipt", "dispatch.complete", "device.view")
     .input(subjectInput)
     .query(async ({ ctx, input }) => {
       await assertModule(ctx, "devices");
+      await assertWeighRead(ctx, input.subjectType);
       const s = await plantSettings(ctx);
       const subject = await subjectOf(ctx, input.subjectType, input.subjectId);
       const use = await liveWeigh(ctx, input.subjectType, input.subjectId);
@@ -571,7 +592,9 @@ const weigh = router({
       const subject = await subjectOf(ctx, input.subjectType, input.subjectId);
       const t = await ticketOf(ctx, input.readingId);
       if (subject.vehicleNo && t.vehicleNo && !sameVehicle(subject.vehicleNo, t.vehicleNo)) throw bad(`Ticket ${t.ticketNo} is for truck ${t.vehicleNo}, not ${subject.vehicleNo}`);
-      if (subject.dispatch && subject.dispatch.status === "cancelled") throw bad("This load is cancelled");
+      assertLoadOpen(subject.dispatch);
+      if (Math.abs(t.sampledAt.getTime() - subject.createdAt.getTime()) > WEIGH_TICKET_WINDOW_MS) throw bad(`Ticket ${t.ticketNo} is not from the day of ${subject.number}`);
+      if (subject.vehicleNo && !t.vehicleNo) throw bad(`Ticket ${t.ticketNo} names no truck`);
       const s = await plantSettings(ctx);
       const at = new Date();
       const useId = crypto.randomUUID();
@@ -595,7 +618,7 @@ const weigh = router({
     .mutation(async ({ ctx, input }) => {
       await assertWeighAccess(ctx, input.subjectType);
       const subject = await subjectOf(ctx, input.subjectType, input.subjectId);
-      if (subject.dispatch && subject.dispatch.status === "cancelled") throw bad("This load is cancelled");
+      assertLoadOpen(subject.dispatch);
       const s = await plantSettings(ctx);
       const cand = subject.vehicleNo ? (await candidateTickets(ctx, subject.createdAt.getTime(), subject.vehicleNo)).sameTruck.find((r) => !r.simulated) : undefined;
       const check = cand?.netG != null ? weighMismatch(input.typedG, cand.netG, s) : null;
