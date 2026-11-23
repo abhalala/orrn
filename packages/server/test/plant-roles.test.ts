@@ -128,6 +128,13 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "invoice.issue": ["office", "manager", "accountant"],
   "invoice.cancel": ["office", "manager", "accountant"],
   "payment.record": ["office", "accountant", "manager"],
+  // XE store (rows 69 to 73).
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
+  "store.rate": ["office", "manager", "admin", "accountant"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

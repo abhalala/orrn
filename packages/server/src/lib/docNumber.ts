@@ -41,6 +41,8 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
   works_order: "WO",
   // XE-BILL: payments received.
   payment: "PAY",
+  indent: "IND",
+  store_po: "PO",
 };
 
 /**

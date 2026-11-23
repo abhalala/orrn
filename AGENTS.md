@@ -712,6 +712,69 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
   so the screen offers "open the melt" instead of Cancel.
 
+## Store buying: indents, purchase orders, GRN against PO, valuation (XE store rows 69 to 73)
+
+- Migration `0061_xe_store`. Tables `store_indent` / `store_indent_line` / `store_po` / `store_po_line`
+  / `store_opening_rate` in `packages/db/src/schema/storeBuy.ts`; `store_item.min_milli` / `reorder_milli`;
+  `store_txn` gains `rate_paise` (nullable), `value_paise` and `rated_milli` (not null, default 0),
+  `rate_pending` (boolean, default false), `po_line_id`, `rejected_milli`.
+  Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
+- Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
+  `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
+  (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
+- Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
+  admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
+  (office, manager, admin, accountant), `store.rate` (office, manager, admin, accountant: the rate is
+  settled by the bill, not at the gate). Indent: open -> approved | rejected (note required) ->
+  ordered (a PO made from it) | cancelled. PO: draft (editable) -> issued -> part_received -> closed;
+  cancel only with no live GRN that took goods in (the indent goes back to approved); close short by hand.
+  `store.indents.fromReorder` holds "no live indent with this item" in the header INSERT's WHERE plus
+  `abortBatchUnlessChanged`, so two clicks give one indent (the loser gets the live one back, `existing`).
+- GRN against PO: `store.receive` takes `poLineId`, `ratePaise` and `rejectedMilli`. The room check
+  (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in the document INSERT's WHERE, so
+  racing GRNs cannot overrun; `poStatusSync` runs in the same batch, and again on `store.cancel`. An order
+  a full delivery closed (`closed_by` null) still takes a top-up within the tolerance (`poTakesDeliveries`,
+  `poTakesDeliveriesSql`); one closed short by hand takes none. Tolerance:
+  `company.settings.storePoOverReceiptBp` (default 500 = 5 %, max 5000), written with `settingsPatchSql`.
+  `qtyMilli` may be 0 when `rejectedMilli` > 0: a fully rejected delivery is recorded (vendor history) with
+  no stock and no value, and does not count as goods in on the order.
+- Rates: against a PO line the line's rate holds; a different rate, or any rate on a GRN with no PO,
+  needs `store.rate` (FORBIDDEN otherwise; the audit keeps `ratePaise` and `poRatePaise`). With no rate the
+  GRN is `rate_pending`: valued at the item's average when it lands (the average does not move), or unrated
+  at 0 when nothing rated is held. `store.valuation.setGrnRate` (store.rate) sets it later, only while no
+  live MRS of the item was written after the GRN (`storeOutSinceSql`, in the UPDATE's WHERE too).
+- Valuation (weighted average, `lib/storeValue.ts`): every `store_txn.value_paise` and `rated_milli` is
+  frozen at write. The average is held value over RATED held quantity, so stock with no rate never pulls it
+  down. MRS: takes rated stock first, valued at value x part / rated, computed in SQL inside
+  `storeTxnInsert` (`issueTakeSql`); the issue that takes all rated stock takes all the value. Old GRNs from
+  before 0061 are unrated (shown as "rate not set"); `store.valuation.setOpeningRate` (store.rate) inserts a
+  `store_opening_rate` row that rates the unrated quantity held at that moment (computed in the INSERT) and
+  closes any pending GRN it covered. Held qty/value/rated sum live txns plus opening rates; nothing is
+  clamped and the month report adds up (opening + in - out + rated = closing).
+- Cancel keeps values exact: `storeCancelRows` also requires, group-wide, that no live MRS of the item was
+  written after a group GRN that carries a rate or a value (commit order by `rowid`: `created_at` and
+  `server_seq` are read before the batch), and that the unrated quantity held stays >= 0 (an opening rate
+  already rated it). An unrated GRN (every GRN from before 0062, a pending one with no average to borrow)
+  holds no money, so it still cancels after later issues. Refusal, read time and after a lost write
+  (`diagnoseStoreCancel`): "Stock from this delivery has already been issued. Record a return to the vendor
+  instead." A GRN that accepted 0 is never blocked. The rowid order survives a backup restore because
+  `exportCompanyPayload` reads every table `order by rowid` and the restore inserts in payload order.
+- Exchange: value follows units (`exchangeInTake` = `issueTake` over the old leg): the new leg carries the
+  old leg's money on as many units as came back; with fewer in than out the rest is spent, so the average
+  does not move.
+- GRN rate from someone without `store.rate`: `ratePaise: null` is the same as omitted (pending with no PO,
+  the order's rate against a PO line); any other rate that differs from the PO line is FORBIDDEN.
+- MAINT and others read an issue's value with `storeIssueValuePaise(db, companyId, storeTxnId)` (a number;
+  0 for a non-MRS, cancelled, missing or other plant's entry). Issues take rated stock first, so an issue
+  bigger than the rated stock is only partly valued (the unrated part counts at 0). Pass `{ detail: true }`
+  as a 4th argument for `{ valuePaise, qtyMilli, ratedMilli, fullyRated }`; show a spares cost as complete
+  only when `fullyRated`. Rates are always per store unit (per kg, never converted to the plant's weight
+  unit).
+- Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
+  rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
+  line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`
+  (store.txn, store module on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+
 ## Foundry (casts, melts, spectro, close-out)
 
 **Foundry web (W2-FD-W):** `/casts` (list, trace box), `/casts/new`, `/casts/$id` (tail panel, melts, trace tab, cost card for purchase readers, close and cancel), `/casts/$id/melt/$meltId` (the stepper; `$meltId` is a draft, a locked melt as a read-only sheet with the correction request, or `new`), `/casts/$id/certificate` (staff copy), `/casts/inbox`, `/foundry/stock`, `/masters/furnaces`, `/masters/alloys`, `/reports/foundry-yield`, the Today Foundry tile and the Foundry nav entry. A chemical that is not in the store is typed with one of the store's units (`CHEMICAL_UNITS` in `melt-form.ts`, equal to `storeUnits`; the server refuses g, l, ml and pcs; BACKLOG 78). Rules the tests hold: `@orrn/i18n/refusal-foundry` is imported in `features/foundry/errors.ts` (every foundry screen reaches it through `foundryError` / `ErrorLine`; never show `error.message`) and in `features/approvals/review-sheet.tsx` (the approvals sheet shows foundry refusals without loading a foundry screen); any other module that shows a foundry refusal imports it the same way, the lock gates come from the server's `melts.preview` of the SAVED draft (a spectro result or a save refreshes it) and are said through `GATE_KEY`, every figure stored (burn, yield, verdict, tail) is the server's (`melt-form.ts` only previews while typing and never sends one), selects inside a `Field` use `FieldSelect` (a bare `NativeSelect` has no accessible name), search parsers live in the no-import `features/foundry/search.ts`, and `foundry.*` is a lazy dictionary (the floor parts carry gu: `GU_FLOOR_NAMESPACES`; the certificate, masters and yield report read English in gu). `@orrn/domain` declares `sideEffects: false` so its foundry maths used by lazy screens does not enter the `/` closure. The `/preview/foundry*` URLs redirect to the real screens; the fixture components are gone.

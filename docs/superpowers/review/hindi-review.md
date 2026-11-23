@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
+Counts: 11095 screen strings in 57 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,11 +191,12 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (94)
+### nav (95)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `qa` | Quality | गुणवत्ता |
+| `storeBuying` | Buying | स्टोर खरीद |
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
@@ -1761,7 +1762,7 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `bundleNumbers.saved` | Bundle numbers changed | Bundle नंबर बदले गए |
 | `bundleNumbers.change` | Number bundles by | Bundle नंबर इस तरह दें |
 
-### store (189)
+### store (191)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1874,6 +1875,8 @@ Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 | `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
 | `errors.unitLocked` | The unit can't change because this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
 | `errors.cancelDrawn` | You can't cancel this entry because some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.cancelIssued` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.cancelRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
 | `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
 | `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
 | `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
@@ -8558,7 +8561,7 @@ Please check, Lalubhai:
 | `floor.makers.noMaker` | No maker | मेकर नहीं |
 | `floor.makers.empty` | No copy has a cost yet | अभी किसी कॉपी की लागत दर्ज नहीं |
 
-### buddy (398)
+### buddy (402)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8738,6 +8741,7 @@ Please check, Lalubhai:
 | `field.metric` | Reading | रीडिंग |
 | `field.mime` | File type | फ़ाइल की किस्म |
 | `field.min` | Lowest | सबसे कम |
+| `field.minMilli` | Minimum stock (thousandths) | कम से कम स्टॉक (हज़ारवें भाग में) |
 | `field.newRows` | New lines | नई लाइनें |
 | `field.nitridedAt` | Nitrided on | नाइट्राइडिंग की तारीख |
 | `field.occurredAt` | When it happened | कब हुआ |
@@ -8756,6 +8760,7 @@ Please check, Lalubhai:
 | `field.phone` | Phone | फ़ोन |
 | `field.photoUrls` | Photos | फ़ोटो |
 | `field.poNumber` | PO number | PO नंबर |
+| `field.poLineId` | Purchase order line | परचेज़ ऑर्डर की लाइन |
 | `field.preferLineIds` | Order lines to fill first | पहले भरने वाली ऑर्डर लाइनें |
 | `field.pressLineId` | Press | प्रेस |
 | `field.pressPlanDieId` | Die on the press plan | प्रेस प्लान का Die |
@@ -8780,8 +8785,10 @@ Please check, Lalubhai:
 | `field.recipeId` | Recipe | रेसिपी |
 | `field.refId` | Reference | संदर्भ (check) |
 | `field.rejects` | Rejects | रिजेक्ट |
+| `field.rejectedMilli` | Quantity rejected (thousandths) | रिजेक्ट मात्रा (हज़ारवें भाग में) |
 | `field.reliefOperatorId` | Relief operator | रिलीफ ऑपरेटर |
 | `field.remove` | Remove | हटाएं |
+| `field.reorderMilli` | Reorder level (thousandths) | दोबारा मंगाने का स्तर (हज़ारवें भाग में) |
 | `field.requiresNote` | Needs a note | नोट चाहिए |
 | `field.returns` | Returns | वापसी (check) |
 | `field.runId` | Press run | प्रेस रन |
@@ -9625,6 +9632,377 @@ Please check, Lalubhai:
 | `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
 | `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
 
+### store2 (366)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `buy.title` | Buying | खरीद |
+| `buy.subtitle` | Indents, purchase orders and what the store is worth | इंडेंट, परचेज़ ऑर्डर और स्टोर का मूल्य |
+| `buy.tabs.indents` | Indents | इंडेंट |
+| `buy.tabs.orders` | Purchase orders | परचेज़ ऑर्डर |
+| `buy.tabs.value` | Store value | स्टोर का मूल्य |
+| `buy.noAccess` | Buying is for department heads, the office, the store and managers. | खरीद विभाग प्रमुखों, ऑफिस, स्टोर और मैनेजरों के लिए है। |
+| `buy.openStore` | Store | स्टोर |
+| `status.indent.open` | Waiting | इंतज़ार में |
+| `status.indent.approved` | Approved | मंज़ूर |
+| `status.indent.rejected` | Rejected | नामंज़ूर |
+| `status.indent.ordered` | Ordered | ऑर्डर हुआ |
+| `status.indent.cancelled` | Cancelled | रद्द |
+| `status.po.draft` | Draft | ड्राफ्ट |
+| `status.po.issued` | Sent | भेजा गया |
+| `status.po.part_received` | Part received | कुछ माल आया |
+| `status.po.closed` | Closed | बंद |
+| `status.po.cancelled` | Cancelled | रद्द |
+| `money.noRate` | No rate | रेट नहीं |
+| `money.perUnit` | {rate} per {unit} | {rate} प्रति {unit} |
+| `money.ratePending` | Rate pending | रेट बाकी |
+| `grn.entryPo` | Purchase order | परचेज़ ऑर्डर |
+| `grn.entryRate` | Rate | रेट |
+| `grn.entryValue` | Value | मूल्य |
+| `grn.poLine` | Against a purchase order | परचेज़ ऑर्डर के सामने |
+| `grn.noPo` | No purchase order | कोई परचेज़ ऑर्डर नहीं |
+| `grn.poLineOption` | {po} line {line}, {vendor}: {left} {unit} still to come | {po} लाइन {line}, {vendor}: {left} {unit} आना बाकी |
+| `grn.poLineHint` | Pick the order line this delivery is for. The rate comes from the order. | यह माल ऑर्डर की जिस लाइन का है वह चुनें। रेट ऑर्डर से आता है। |
+| `grn.noOpenLines` | No open purchase order has this item. | किसी खुले परचेज़ ऑर्डर में यह आइटम नहीं है। |
+| `grn.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `grn.rateHint` | Rupees, from the vendor's bill. Leave empty if you do not know it yet. | रुपये में, वेंडर के बिल से। पता न हो तो खाली छोड़ें। |
+| `grn.rateFromPo` | From the order: {rate} | ऑर्डर से: {rate} |
+| `grn.rateByOffice` | The office sets the rate. Until then this delivery counts at the average rate. | रेट ऑफ़िस तय करता है। तब तक यह माल औसत रेट पर गिना जाएगा। |
+| `grn.rateInvalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में डालें, जैसे 84.50 |
+| `grn.rejected` | Rejected at inspection | जांच में लौटाया |
+| `grn.rejectedHint` | What you turned back. It does not go into the store. | जो आपने वापस किया। यह स्टोर में नहीं जाता। |
+| `grn.accepted` | Accepted into the store | स्टोर में लिया |
+| `grn.left` | Still to come on this line: {qty} | इस लाइन पर आना बाकी: {qty} |
+| `grn.lineGone` | This order line is no longer open (another delivery or a close used it up). Pick another line, or receive without the order. | यह ऑर्डर लाइन अब खुली नहीं है (किसी और माल या बंद करने से पूरी हो गई)। दूसरी लाइन चुनें, या बिना ऑर्डर के माल लें। |
+| `grn.dropPo` | Receive without the order | बिना ऑर्डर के माल लें |
+| `item.levels` | Reorder levels | रीऑर्डर लेवल |
+| `item.min` | Minimum | न्यूनतम |
+| `item.minHint` | Below this, Today asks for an indent. | इससे कम होने पर टुडे इंडेंट मांगता है। |
+| `item.reorder` | Reorder quantity | रीऑर्डर मात्रा |
+| `item.reorderHint` | How much one indent asks for. Empty means enough to reach the minimum. | एक इंडेंट कितना मांगे। खाली हो तो न्यूनतम तक पहुंचने जितना। |
+| `item.none` | Not set | तय नहीं |
+| `item.showLevels` | Minimum {min}, reorder {reorder} | न्यूनतम {min}, रीऑर्डर {reorder} |
+| `today.title` | Store items running low | स्टोर में कम पड़ते आइटम |
+| `today.open` | Open the store | स्टोर खोलें |
+| `today.have` | {have} left, minimum {min} | {have} बचा, न्यूनतम {min} |
+| `today.makeIndent` | Make indent | इंडेंट बनाएं |
+| `today.making` | Making indent | इंडेंट बन रहा है |
+| `today.made` | Indent {number} made | इंडेंट {number} बना |
+| `today.already` | Indent {number} is already raised | इंडेंट {number} पहले से बना है |
+| `today.openIndent` | Open {number} | {number} खोलें |
+| `today.failed` | The indent was not made. Try again. | इंडेंट नहीं बना। फिर से कोशिश करें। |
+| `errors.overReceipt` | {po} line {line} can take only {qty} {unit} more. Check the delivery, or ask the office to raise the order. | {po} लाइन {line} पर अब सिर्फ {qty} {unit} और आ सकता है। माल जांचें, या ऑफिस से ऑर्डर बढ़वाएं। |
+| `errors.poWrongItem` | That order line is for another item. | ऑर्डर की वह लाइन किसी और आइटम की है। |
+| `errors.poNotOpen` | {po} is not open for deliveries. | {po} पर अब माल नहीं लिया जा सकता। |
+| `errors.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्या जांचें। |
+| `errors.notFound` | Not found. It may have been removed, or it belongs to another plant. | नहीं मिला। शायद हटा दिया गया, या यह किसी और प्लांट का है। |
+| `errors.vendorNotConfirmed` | This vendor is not confirmed yet. Ask a manager to confirm it in Masters. | यह वेंडर अभी पक्का नहीं है। मैनेजर से मास्टर्स में पक्का करवाएं। |
+| `errors.wrongStatus` | {number} has moved on. Open it again to see where it stands. | {number} आगे बढ़ चुका है। फिर से खोलकर देखें। |
+| `errors.indentNotApproved` | Only an approved indent can become a purchase order. | सिर्फ मंज़ूर इंडेंट ही परचेज़ ऑर्डर बन सकता है। |
+| `errors.indentChanged` | The indent changed meanwhile. Open it again. | इस बीच इंडेंट बदल गया। फिर से खोलें। |
+| `errors.poHasGoods` | {po} already has goods in. Close it short instead of cancelling. | {po} पर माल आ चुका है। रद्द करने की जगह बाकी छोड़कर बंद करें। |
+| `errors.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `errors.tooManyLines` | At most 40 items on one document. | एक कागज़ पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `errors.sameItemTwice` | The same item is on it twice. Put it on one line. | एक ही आइटम दो बार है। उसे एक लाइन में रखें। |
+| `errors.notBelow` | This item is not below its minimum any more. | यह आइटम अब न्यूनतम से कम नहीं है। |
+| `errors.forbidden` | You do not have permission to do that. | आपको यह करने की अनुमति नहीं है। |
+| `errors.rateOfficeOnlyPo` | Only the office can change the order's rate. Leave the rate as the order has it. | ऑर्डर का रेट सिर्फ़ ऑफ़िस बदल सकता है। रेट वैसा ही रहने दें जैसा ऑर्डर में है। |
+| `errors.rateOfficeOnly` | Only the office can set a rate. Leave it empty and the office will set it. | रेट सिर्फ़ ऑफ़िस तय कर सकता है। इसे खाली छोड़ें, ऑफ़िस तय कर देगा। |
+| `errors.allRated` | All of this item in the store already has a rate. | स्टोर में इस आइटम के सारे माल का रेट पहले से तय है। |
+| `errors.issuedSince` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.openingRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.unknown` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `indent.show` | Show | दिखाएँ |
+| `indent.all` | All | सभी |
+| `indent.raise` | Raise indent | इंडेंट बनाएँ |
+| `indent.columns.number` | Indent | इंडेंट |
+| `indent.columns.department` | Department | विभाग |
+| `indent.columns.neededBy` | Needed by | कब तक चाहिए |
+| `indent.columns.items` | Items | आइटम |
+| `indent.columns.status` | Status | स्थिति |
+| `indent.notSet` | Not set | तय नहीं |
+| `indent.empty.title` | No indents yet | अभी कोई इंडेंट नहीं |
+| `indent.empty.body` | An indent asks the store to buy what a department needs. | इंडेंट से स्टोर को बताया जाता है कि विभाग को क्या खरीदना है। |
+| `indent.empty.filtered` | No indents with this status. | इस स्थिति का कोई इंडेंट नहीं। |
+| `indent.more` | Showing the latest {count} indents. Pick a status to narrow the list. | ताज़ा {count} इंडेंट दिख रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `indent.form.title` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.department` | Department | विभाग |
+| `indent.form.departmentHint` | Who needs it, like Press or Maintenance. | किसे चाहिए, जैसे प्रेस या मेंटेनेंस। |
+| `indent.form.departmentRequired` | Enter the department. | विभाग लिखें। |
+| `indent.form.neededBy` | Needed by | कब तक चाहिए |
+| `indent.form.neededByHint` | Optional. The day the store should have it. | ज़रूरी नहीं। स्टोर में किस दिन तक माल चाहिए। |
+| `indent.form.neededByInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `indent.form.reason` | Reason | कारण |
+| `indent.form.reasonHint` | Optional. Why it is needed. | ज़रूरी नहीं। क्यों चाहिए। |
+| `indent.form.items` | Items | आइटम |
+| `indent.form.item` | Item {n} | आइटम {n} |
+| `indent.form.itemPlaceholder` | Pick an item | आइटम चुनें |
+| `indent.form.qty` | Quantity | मात्रा |
+| `indent.form.addItem` | Add item | आइटम जोड़ें |
+| `indent.form.removeItem` | Remove item {n} | आइटम {n} हटाएँ |
+| `indent.form.noItems` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `indent.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `indent.form.twice` | This item is on the indent already. Put it on one line. | यह आइटम इंडेंट में पहले से है। इसे एक ही लाइन में रखें। |
+| `indent.form.tooMany` | At most 40 items on one indent. | एक इंडेंट में ज़्यादा से ज़्यादा 40 आइटम। |
+| `indent.form.noActiveItems` | The store has no items yet. Add items in the store first. | स्टोर में अभी कोई आइटम नहीं है। पहले स्टोर में आइटम जोड़ें। |
+| `indent.form.submit` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.raised` | Indent {number} raised | इंडेंट {number} बन गया |
+| `indent.detail.title` | Indent {number} | इंडेंट {number} |
+| `indent.detail.raisedOn` | Raised {date} | बनाया {date} |
+| `indent.detail.department` | Department | विभाग |
+| `indent.detail.neededBy` | Needed by | कब तक चाहिए |
+| `indent.detail.reason` | Reason | कारण |
+| `indent.detail.noReason` | No reason given | कारण नहीं लिखा |
+| `indent.detail.items` | Items | आइटम |
+| `indent.detail.order` | Purchase order | परचेज़ ऑर्डर |
+| `indent.detail.openOrder` | Open {number} | {number} खोलें |
+| `indent.detail.makeOrder` | Make purchase order | PO बनाएँ |
+| `indent.detail.makeOrderHint` | This indent is approved. Make the purchase order to buy it. | यह इंडेंट मंज़ूर है। खरीदने के लिए PO बनाएँ। |
+| `indent.detail.loadFailed` | This indent did not load. | यह इंडेंट नहीं खुला। |
+| `indent.detail.approve` | Approve | मंज़ूर करें |
+| `indent.detail.reject` | Reject | नामंज़ूर करें |
+| `indent.detail.cancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.approved` | Indent {number} approved | इंडेंट {number} मंज़ूर हुआ |
+| `indent.detail.rejected` | Indent {number} rejected | इंडेंट {number} नामंज़ूर हुआ |
+| `indent.detail.cancelled` | Indent {number} cancelled | इंडेंट {number} रद्द हुआ |
+| `indent.detail.noteLabel` | Note | नोट |
+| `indent.detail.noteHint` | Optional. The person who raised it sees this. | ज़रूरी नहीं। इंडेंट बनाने वाले को यह दिखेगा। |
+| `indent.detail.rejectReason` | Why are you rejecting it? | नामंज़ूर क्यों कर रहे हैं? |
+| `indent.detail.rejectRequired` | Say why, so the department knows. | कारण लिखें, ताकि विभाग को पता चले। |
+| `indent.detail.confirmReject` | Reject indent | इंडेंट नामंज़ूर करें |
+| `indent.detail.cancelReason` | Why are you cancelling it? | रद्द क्यों कर रहे हैं? |
+| `indent.detail.cancelRequired` | Say why. | कारण लिखें। |
+| `indent.detail.confirmCancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.back` | Keep it | रहने दें |
+| `po.list.label` | Purchase orders | परचेज़ ऑर्डर |
+| `po.list.filter` | Show | दिखाएं |
+| `po.list.all` | All | सभी |
+| `po.list.new` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.list.number` | Number | नंबर |
+| `po.list.vendor` | Vendor | वेंडर |
+| `po.list.delivery` | Delivery by | डिलीवरी तक |
+| `po.list.items` | Items | आइटम |
+| `po.list.amount` | Amount | रकम |
+| `po.list.status` | Status | स्थिति |
+| `po.list.noDate` | Not given | तय नहीं |
+| `po.list.empty` | No purchase orders yet | अभी कोई परचेज़ ऑर्डर नहीं |
+| `po.list.emptyBody` | A purchase order tells a vendor what to send, at what rate and by when. | परचेज़ ऑर्डर वेंडर को बताता है कि क्या भेजना है, किस रेट पर और कब तक। |
+| `po.list.emptyFiltered` | No purchase orders with this status. | इस स्थिति का कोई परचेज़ ऑर्डर नहीं। |
+| `po.list.capped` | Showing the latest {count}. Pick a status to narrow the list. | ताज़ा {count} दिखाए जा रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `po.list.loadFailed` | The purchase orders did not load. | परचेज़ ऑर्डर नहीं खुले। |
+| `po.form.newTitle` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.form.editTitle` | Change purchase order | परचेज़ ऑर्डर बदलें |
+| `po.form.subtitle` | Pick the vendor, add the items and send it from the next page. | वेंडर चुनें, आइटम जोड़ें और अगले पन्ने से भेजें। |
+| `po.form.fromIndent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.form.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.form.vendor` | Vendor | वेंडर |
+| `po.form.vendorPlaceholder` | Search a vendor | वेंडर खोजें |
+| `po.form.vendorHint` | Only confirmed vendors are listed. | सिर्फ़ पक्के किए गए वेंडर दिखते हैं। |
+| `po.form.vendorRequired` | Pick a vendor. | वेंडर चुनें। |
+| `po.form.delivery` | Delivery by | डिलीवरी तक |
+| `po.form.deliveryHint` | The day the vendor should deliver. Leave empty if there is none. | वह दिन जब तक वेंडर माल दे। न हो तो खाली छोड़ें। |
+| `po.form.deliveryInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `po.form.terms` | Terms | शर्तें |
+| `po.form.termsHint` | Payment, freight and anything else the vendor must know. It prints on the order. | पेमेंट, भाड़ा और वेंडर को जो भी जानना ज़रूरी है। यह ऑर्डर पर छपता है। |
+| `po.form.note` | Note for the office | ऑफिस के लिए नोट |
+| `po.form.noteHint` | Kept with the order. It does not print. | ऑर्डर के साथ रखा जाता है। यह छपता नहीं। |
+| `po.form.lines` | Items | आइटम |
+| `po.form.line` | Item {n} | आइटम {n} |
+| `po.form.item` | Item | आइटम |
+| `po.form.itemPlaceholder` | Search an item | आइटम खोजें |
+| `po.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `po.form.qty` | Quantity | मात्रा |
+| `po.form.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `po.form.rateNoUnit` | Rate | रेट |
+| `po.form.rateHint` | Rupees, like 84.50 | रुपये में, जैसे 84.50 |
+| `po.form.rateInvalid` | Enter the rate in rupees, like 84.50. | रेट रुपये में डालें, जैसे 84.50। |
+| `po.form.gst` | GST | GST |
+| `po.form.gstInvalid` | Enter GST from 0 to 28. | GST 0 से 28 के बीच डालें। |
+| `po.form.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्याएं जांचें। |
+| `po.form.sameItem` | This item is on another line. Put it on one line. | यह आइटम दूसरी लाइन पर भी है। इसे एक ही लाइन पर रखें। |
+| `po.form.lineTotal` | Line total {total} | लाइन का कुल {total} |
+| `po.form.addLine` | Add an item | आइटम जोड़ें |
+| `po.form.removeLine` | Remove item {n} | आइटम {n} हटाएं |
+| `po.form.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `po.form.tooManyLines` | At most 40 items on one order. | एक ऑर्डर पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `po.form.amount` | Amount | रकम |
+| `po.form.gstTotal` | GST | GST |
+| `po.form.total` | Total | कुल |
+| `po.form.save` | Save order | ऑर्डर सेव करें |
+| `po.form.saved` | {number} saved | {number} सेव हुआ |
+| `po.form.notDraft` | {number} is not a draft any more, so it cannot be changed. | {number} अब ड्राफ्ट नहीं है, इसलिए बदला नहीं जा सकता। |
+| `po.form.openOrder` | Open {number} | {number} खोलें |
+| `po.form.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.form.noAccess` | Making purchase orders is for the office and managers. | परचेज़ ऑर्डर बनाना ऑफिस और मैनेजरों के लिए है। |
+| `po.form.indentNotUsable` | This indent is not approved any more, so it cannot become an order. | यह इंडेंट अब मंज़ूर नहीं है, इसलिए ऑर्डर नहीं बन सकता। |
+| `po.form.fixErrors` | Fix the marked boxes and save again. | निशान वाले खाने ठीक करके फिर सेव करें। |
+| `po.detail.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.detail.title` | Purchase order {number} | परचेज़ ऑर्डर {number} |
+| `po.detail.subtitle` | {vendor} | {vendor} |
+| `po.detail.vendor` | Vendor | वेंडर |
+| `po.detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.detail.delivery` | Delivery by | डिलीवरी तक |
+| `po.detail.terms` | Terms | शर्तें |
+| `po.detail.note` | Note | नोट |
+| `po.detail.indent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.detail.createdAt` | Made | बना |
+| `po.detail.sentAt` | Sent | भेजा |
+| `po.detail.closeNote` | Closed short: {note} | कम माल पर बंद: {note} |
+| `po.detail.cancelReason` | Cancelled: {reason} | रद्द: {reason} |
+| `po.detail.lines` | Items | आइटम |
+| `po.detail.item` | Item | आइटम |
+| `po.detail.ordered` | Ordered | ऑर्डर |
+| `po.detail.received` | Received | आया |
+| `po.detail.rate` | Rate | रेट |
+| `po.detail.gst` | GST | GST |
+| `po.detail.total` | Total | कुल |
+| `po.detail.totalsAmount` | Amount | रकम |
+| `po.detail.totalsGst` | GST | GST |
+| `po.detail.totalsTotal` | Total | कुल |
+| `po.detail.grns` | GRNs against this order | इस ऑर्डर के GRN |
+| `po.detail.grnNumber` | GRN | GRN |
+| `po.detail.grnQty` | Accepted | लिया गया |
+| `po.detail.grnRejected` | Rejected | लौटाया |
+| `po.detail.grnStatus` | Status | स्थिति |
+| `po.detail.grnCancelled` | Cancelled | रद्द |
+| `po.detail.grnLive` | Counted | गिना गया |
+| `po.detail.noGrns` | No goods have come against this order yet. | इस ऑर्डर पर अभी कोई माल नहीं आया। |
+| `po.detail.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.detail.noAccess` | Purchase orders are for the office, the store and managers. | परचेज़ ऑर्डर ऑफिस, स्टोर और मैनेजरों के लिए हैं। |
+| `po.detail.notFound` | This purchase order was not found. | यह परचेज़ ऑर्डर नहीं मिला। |
+| `po.detail.noRate` | No rate | रेट नहीं |
+| `po.action.edit` | Change | बदलें |
+| `po.action.send` | Send | भेजें |
+| `po.action.closeShort` | Close short | कम माल पर बंद करें |
+| `po.action.cancel` | Cancel order | ऑर्डर रद्द करें |
+| `po.action.print` | Print | प्रिंट |
+| `po.send.title` | Send {number}? | {number} भेजें? |
+| `po.send.body` | After it is sent, the lines can no longer be changed. The store can then receive goods against it. | भेजने के बाद लाइनें बदली नहीं जा सकतीं। फिर स्टोर इस पर माल ले सकता है। |
+| `po.send.confirm` | Send order | ऑर्डर भेजें |
+| `po.send.done` | {number} sent | {number} भेजा गया |
+| `po.close.title` | Close {number} short? | {number} कम माल पर बंद करें? |
+| `po.close.body` | The goods still to come will not be expected. This cannot be undone. | जो माल आना बाकी है उसकी उम्मीद नहीं रहेगी। यह वापस नहीं होगा। |
+| `po.close.note` | Why is it closed short? | कम माल पर क्यों बंद कर रहे हैं? |
+| `po.close.noteHint` | For example, the vendor cannot supply the rest. | जैसे, वेंडर बाकी माल नहीं दे सकता। |
+| `po.close.noteRequired` | Say why it is closed short. | बताएं कि कम माल पर क्यों बंद हुआ। |
+| `po.close.confirm` | Close short | कम माल पर बंद करें |
+| `po.close.keep` | Keep it open | खुला रहने दें |
+| `po.close.done` | {number} closed | {number} बंद हुआ |
+| `po.cancel.title` | Cancel {number}? | {number} रद्द करें? |
+| `po.cancel.body` | The vendor should be told. An indent this order was made from becomes approved again. | वेंडर को बता दें। जिस इंडेंट से यह ऑर्डर बना था वह फिर मंज़ूर हो जाएगा। |
+| `po.cancel.reason` | Why is it cancelled? | क्यों रद्द कर रहे हैं? |
+| `po.cancel.reasonHint` | Kept with the order. | ऑर्डर के साथ रखा जाता है। |
+| `po.cancel.reasonRequired` | Say why it is cancelled. | बताएं कि क्यों रद्द हुआ। |
+| `po.cancel.confirm` | Cancel order | ऑर्डर रद्द करें |
+| `po.cancel.keep` | Keep the order | ऑर्डर रहने दें |
+| `po.cancel.done` | {number} cancelled | {number} रद्द हुआ |
+| `po.print.title` | Purchase order | परचेज़ ऑर्डर |
+| `po.print.back` | Back to the order | ऑर्डर पर वापस |
+| `po.print.number` | Order no. | ऑर्डर नं. |
+| `po.print.date` | Date | तारीख |
+| `po.print.delivery` | Delivery by | डिलीवरी तक |
+| `po.print.to` | To | प्रति |
+| `po.print.from` | From | से |
+| `po.print.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.print.phone` | Phone {phone} | फ़ोन {phone} |
+| `po.print.sl` | No. | नं. |
+| `po.print.item` | Item | आइटम |
+| `po.print.qty` | Quantity | मात्रा |
+| `po.print.unit` | Unit | इकाई |
+| `po.print.rate` | Rate | रेट |
+| `po.print.gst` | GST | GST |
+| `po.print.amount` | Amount | रकम |
+| `po.print.totalsAmount` | Amount | रकम |
+| `po.print.totalsGst` | GST | GST |
+| `po.print.totalsTotal` | Total | कुल |
+| `po.print.terms` | Terms | शर्तें |
+| `po.print.forPlant` | For {plant} | {plant} के लिए |
+| `po.print.signature` | Authorised signatory | अधिकृत हस्ताक्षर |
+| `po.print.draftMark` | Draft, not sent | ड्राफ्ट, भेजा नहीं गया |
+| `po.print.cancelledMark` | Cancelled | रद्द |
+| `po.print.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.print.footer` | Printed {date} | छपा {date} |
+| `value.nowTitle` | Store value now | स्टोर का मूल्य अभी |
+| `value.nowTotal` | Total value | कुल मूल्य |
+| `value.nowHint` | Stock with no rate is left out of the value until it gets a rate. A delivery waiting for its rate counts at the average rate. | बिना रेट का माल रेट मिलने तक मूल्य में नहीं गिना जाता। रेट की राह देखता माल औसत रेट पर गिना जाता है। |
+| `value.columns.item` | Item | आइटम |
+| `value.columns.held` | In the store | स्टोर में |
+| `value.columns.rate` | Average rate | औसत रेट |
+| `value.columns.value` | Value | मूल्य |
+| `value.noRate` | No rate | रेट नहीं |
+| `value.unrated` | Rate not set: {qty} | रेट तय नहीं: {qty} |
+| `value.unratedShort` | Rate not set | रेट तय नहीं |
+| `value.ratePending` | Rate pending | रेट बाकी |
+| `value.pending.title` | Deliveries waiting for a rate | रेट की राह देखता माल |
+| `value.pending.hint` | Taken in without a rate. Each counts at the average rate until its own rate is set. | बिना रेट के लिया गया। अपना रेट तय होने तक हर एक औसत रेट पर गिना जाता है। |
+| `value.pending.empty` | No delivery is waiting for a rate. | किसी माल का रेट बाकी नहीं है। |
+| `value.pending.columns.delivery` | Delivery | माल आया |
+| `value.pending.columns.item` | Item | आइटम |
+| `value.pending.columns.qty` | Quantity | मात्रा |
+| `value.pending.columns.value` | Counted at | इस भाव पर गिना |
+| `value.pending.columns.rate` | Rate | रेट |
+| `value.pending.rateLabel` | Rate per {unit} | रेट प्रति {unit} |
+| `value.pending.set` | Set rate | रेट डालें |
+| `value.pending.saved` | Rate saved | रेट सहेज लिया गया |
+| `value.pending.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.pending.locked` | Stock went out after this delivery, so its rate can no longer change. | इस माल के बाद स्टोर से माल निकल चुका है, इसलिए इसका रेट अब बदल नहीं सकता। |
+| `value.opening.open` | Opening rate | शुरुआती रेट |
+| `value.opening.title` | Opening rate for {name} | {name} का शुरुआती रेट |
+| `value.opening.hint` | Give a rate to stock that came in before rates were kept. | जो माल रेट रखना शुरू होने से पहले आया था, उसे रेट दें। |
+| `value.opening.label` | Rate per {unit} | रेट प्रति {unit} |
+| `value.opening.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.opening.save` | Save opening rate | शुरुआती रेट सहेजें |
+| `value.opening.saved` | Opening rate saved | शुरुआती रेट सहेज लिया गया |
+| `value.opening.close` | Close | बंद करें |
+| `value.nowEmpty` | The store holds nothing yet. | स्टोर में अभी कुछ नहीं है। |
+| `value.loadFailed` | The store value did not load. | स्टोर का मूल्य नहीं खुला। |
+| `value.monthTitle` | Month end report | महीने के अंत की रिपोर्ट |
+| `value.month` | Month | महीना |
+| `value.monthName.m1` | January | जनवरी |
+| `value.monthName.m2` | February | फ़रवरी |
+| `value.monthName.m3` | March | मार्च |
+| `value.monthName.m4` | April | अप्रैल |
+| `value.monthName.m5` | May | मई |
+| `value.monthName.m6` | June | जून |
+| `value.monthName.m7` | July | जुलाई |
+| `value.monthName.m8` | August | अगस्त |
+| `value.monthName.m9` | September | सितंबर |
+| `value.monthName.m10` | October | अक्टूबर |
+| `value.monthName.m11` | November | नवंबर |
+| `value.monthName.m12` | December | दिसंबर |
+| `value.monthYear` | {month} {year} | {month} {year} |
+| `value.monthColumns.item` | Item | आइटम |
+| `value.monthColumns.opening` | Opening | शुरुआत |
+| `value.monthColumns.received` | Received | आया |
+| `value.monthColumns.issued` | Issued | निकला |
+| `value.monthColumns.closing` | Closing | अंत |
+| `value.monthColumns.rated` | Old stock rated | पुराने माल का रेट |
+| `value.monthColumns.qty` | Quantity | मात्रा |
+| `value.monthColumns.value` | Value | मूल्य |
+| `value.totals` | Total | कुल |
+| `value.monthEmpty` | Nothing moved in the store up to this month. | इस महीने तक स्टोर में कोई हलचल नहीं हुई। |
+| `value.download` | Download CSV | CSV डाउनलोड करें |
+| `value.csvHead.item` | Item | आइटम |
+| `value.csvHead.unit` | Unit | इकाई |
+| `value.csvHead.openingQty` | Opening quantity | शुरुआत की मात्रा |
+| `value.csvHead.openingValue` | Opening value | शुरुआत का मूल्य |
+| `value.csvHead.receivedQty` | Received quantity | आई मात्रा |
+| `value.csvHead.receivedValue` | Received value | आया मूल्य |
+| `value.csvHead.issuedQty` | Issued quantity | निकली मात्रा |
+| `value.csvHead.issuedValue` | Issued value | निकला मूल्य |
+| `value.csvHead.closingQty` | Closing quantity | अंत की मात्रा |
+| `value.csvHead.closingValue` | Closing value | अंत का मूल्य |
+| `value.csvHead.ratedValue` | Old stock rated value | पुराने माल के रेट का मूल्य |
+| `value.csvHead.closingUnratedQty` | Closing quantity, rate not set | अंत की मात्रा, रेट तय नहीं |
+| `value.csvFile` | store-value-{month}.csv | store-value-{month}.csv |
+| `value.allowance.title` | Over-delivery allowance | ज़्यादा माल की छूट |
+| `value.allowance.body` | How much more than the ordered quantity a purchase order line may take in, as a percent of the line. | PO की लाइन पर ऑर्डर से कितना ज़्यादा माल आ सकता है, लाइन के प्रतिशत में। |
+| `value.allowance.label` | Allowance percent | छूट का प्रतिशत |
+| `value.allowance.hint` | From 0 to 50. Zero means a line takes exactly what was ordered. | 0 से 50 तक। शून्य का मतलब लाइन पर ठीक उतना ही माल जितना मँगाया। |
+| `value.allowance.invalid` | Enter a percent from 0 to 50, like 5. | 0 से 50 के बीच प्रतिशत लिखें, जैसे 5। |
+| `value.allowance.save` | Save allowance | छूट सहेजें |
+| `value.allowance.saved` | Allowance saved | छूट सहेज ली गई |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -9893,7 +10271,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (430)
+### audit (444)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9968,6 +10346,8 @@ Please check, Lalubhai:
 | `subjectTypes.invoice` | Invoice | इनवॉइस |
 | `subjectTypes.payment` | Payment | भुगतान |
 | `subjectTypes.gst_hsn` | HSN code | HSN कोड |
+| `subjectTypes.store_indent` | Indent | इंडेंट |
+| `subjectTypes.store_po` | Purchase order | परचेज़ ऑर्डर |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -10292,6 +10672,18 @@ Please check, Lalubhai:
 | `actions.store__exchange` | Store items exchanged | स्टोर आइटम बदले |
 | `actions.store__issue` | Store items issued | स्टोर से सामान दिया |
 | `actions.store__receive` | Store items received | स्टोर में सामान आया |
+| `actions.store__indent__create` | Indent raised | इंडेंट बना |
+| `actions.store__indent__approve` | Indent approved | इंडेंट मंज़ूर |
+| `actions.store__indent__reject` | Indent rejected | इंडेंट नामंज़ूर |
+| `actions.store__indent__cancel` | Indent cancelled | इंडेंट रद्द |
+| `actions.store__po__create` | Purchase order made | परचेज़ ऑर्डर बना |
+| `actions.store__po__update` | Purchase order changed | परचेज़ ऑर्डर बदला |
+| `actions.store__po__issue` | Purchase order sent | परचेज़ ऑर्डर भेजा |
+| `actions.store__po__close` | Purchase order closed short | परचेज़ ऑर्डर बाकी छोड़कर बंद |
+| `actions.store__po__cancel` | Purchase order cancelled | परचेज़ ऑर्डर रद्द |
+| `actions.store__settings__update` | Over-delivery allowance changed | ज़्यादा माल की छूट बदली |
+| `actions.store__rate__set` | Pending delivery rate set | रुके हुए माल का रेट डाला |
+| `actions.store__rate__opening` | Opening rate given to old stock | पुराने स्टॉक का शुरुआती रेट डाला |
 | `actions.store_item__create` | Store item added | स्टोर आइटम जोड़ा |
 | `actions.store_item__update` | Store item changed | स्टोर आइटम बदला |
 | `actions.support_request__close` | Help request closed | मदद की रिक्वेस्ट बंद की |

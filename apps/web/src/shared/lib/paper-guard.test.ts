@@ -22,6 +22,7 @@ export const PAPERS: { file: string; what: string }[] = [
   { file: "features/pricing/docs/quote-print.ts", what: "the printed quote" },
   { file: "features/pricing/docs/proforma-print.ts", what: "the printed proforma invoice" },
   { file: "features/pricing/docs/works-order-page.tsx", what: "the works order" },
+  { file: "features/store-buy/po-print.tsx", what: "the store purchase order" },
 ];
 
 const PLANT_STYLE = [/\buseFmt\s*\(/, /\buseLengthUnit\s*\(/, /\buseCompanyWhen\s*\(/, /\buseTenantFmt\s*\(/];

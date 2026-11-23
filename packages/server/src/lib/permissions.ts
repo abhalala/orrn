@@ -156,6 +156,13 @@ export const PLANT_ACTIONS = [
   "invoice.issue", // draft and issue invoices and credit notes, generate IRN and e-way bill
   "invoice.cancel", // ask to cancel an issued invoice (approval invoice_cancel)
   "payment.record", // record and void payments received
+  // XE store (rows 69 to 73): indents, store purchase orders and the store's value.
+  "indent.raise", // ask the store to buy items (a department's indent)
+  "indent.approve", // approve or reject an indent
+  "po.view", // read store purchase orders (rates included)
+  "po.manage", // make, change, issue, close and cancel store purchase orders
+  "store.value", // the store's value: average rates and the month-end stock value
+  "store.rate", // set valuation rates: a GRN rate other than the order's, a pending GRN rate, an item's opening rate
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -325,6 +332,15 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "invoice.issue": ["office", "manager", "accountant"],
   "invoice.cancel": ["office", "manager", "accountant"],
   "payment.record": ["office", "accountant", "manager"],
+  // XE store: any department head may ask; a manager decides; the office buys; the storekeeper sees
+  // the orders it receives against; money reports go to the office, accounts and management.
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
+  // The rate is settled by the bill in the office, not at the gate: the storekeeper does not set it.
+  "store.rate": ["office", "manager", "admin", "accountant"],
   "support.request": [
     "admin",
     "manager",

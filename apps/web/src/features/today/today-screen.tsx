@@ -10,10 +10,12 @@ import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
 import { TodayFoundryTile } from "@/features/foundry/today-tile";
+import { TodayStoreLowTile } from "@/features/store-buy/today-tile";
 import { TodayAgeingTile } from "@/features/ageing/today-tile";
 import { TodayQaTile } from "@/features/qa/flags";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { TodayOldStockTile } from "@/features/reports/today-old-stock";
+import { moduleOn } from "@/shell/nav-items";
 import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, refreshFailed, showsQueryError } from "@/shared/lib/query-errors";
@@ -197,6 +199,11 @@ export function TodayScreen() {
       <Can do="cast.enter">
         <TodayFoundryTile />
       </Can>
+      {moduleOn(me, "store") ? (
+        <Can do="store.txn">
+          <TodayStoreLowTile />
+        </Can>
+      ) : null}
       <TodayTiles tiles={data.tiles} startIndex={3} />
       {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}
       <TodayToolingTile short={data.toolingShort} />

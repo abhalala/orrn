@@ -35,6 +35,9 @@ export const docTypes = [
   "invoice",
   "credit_note",
   "payment",
+  // XE store (rows 69, 70): store indents IND- and store purchase orders PO- (per FY).
+  "indent",
+  "store_po",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 
