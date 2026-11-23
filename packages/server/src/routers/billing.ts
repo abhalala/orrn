@@ -34,7 +34,7 @@ import {
 } from "@orrn/domain";
 
 import { router } from "../index";
-import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { billingProcedure } from "../lib/billing/gate";
 import { buyerParty, sellerParty, type InvoiceSnapshot } from "../lib/billing/snapshot";
@@ -239,7 +239,11 @@ const hsnRouter = router({
         ctx.db.delete(gstSectionHsn).where(and(eq(gstSectionHsn.companyId, ctx.companyId), inArray(gstSectionHsn.dieId, input.dieIds))),
       ];
       if (input.hsnId) {
-        statements.push(ctx.db.insert(gstSectionHsn).values(input.dieIds.map((dieId) => ({ id: crypto.randomUUID(), companyId: ctx.companyId, dieId, hsnId: input.hsnId! }))));
+        pushChunkedInserts(
+          statements,
+          (rows) => ctx.db.insert(gstSectionHsn).values(rows),
+          [...new Set(input.dieIds)].map((dieId) => ({ id: crypto.randomUUID(), companyId: ctx.companyId, dieId, hsnId: input.hsnId! })),
+        );
       }
       statements.push(auditInsert(ctx, { action: "billing.hsn.assign", subjectType: "gst_hsn", subjectId: input.hsnId, meta: { sections: input.dieIds.length } }));
       await atomicBatch(ctx.db, statements);
@@ -577,7 +581,7 @@ const paymentsRouter = router({
           mode: payment.mode,
           reference: payment.reference,
           status: payment.status,
-          allocatedPaise: sql<number>`coalesce((select sum(pa.amount_paise) from payment_allocation pa where pa.payment_id = ${payment.id}), 0)`,
+          allocatedPaise: sql<number>`coalesce((select sum(pa.amount_paise) from payment_allocation pa where pa.payment_id = ${payment}.${sql.identifier("id")}), 0)`,
         })
         .from(payment)
         .innerJoin(customer, and(eq(customer.id, payment.customerId), eq(customer.companyId, payment.companyId)))
@@ -700,13 +704,15 @@ const exportRouter = router({
         .from(payment)
         .where(and(eq(payment.companyId, ctx.companyId), eq(payment.status, "active"), gte(payment.receivedOn, from), lte(payment.receivedOn, to)))
         .orderBy(asc(payment.receivedOn), asc(payment.seq));
-      const allocs = pays.length
-        ? await ctx.db
+      const allocs = await mapInChunks(
+        pays.map((p) => p.id),
+        (ids) =>
+          ctx.db
             .select({ paymentId: paymentAllocation.paymentId, amountPaise: paymentAllocation.amountPaise, number: invoice.number })
             .from(paymentAllocation)
             .innerJoin(invoice, and(eq(invoice.id, paymentAllocation.invoiceId), eq(invoice.companyId, paymentAllocation.companyId)))
-            .where(and(eq(paymentAllocation.companyId, ctx.companyId), inArray(paymentAllocation.paymentId, pays.map((p) => p.id).slice(0, 90))))
-        : [];
+            .where(and(eq(paymentAllocation.companyId, ctx.companyId), inArray(paymentAllocation.paymentId, ids))),
+      );
       const names = await customerNames(ctx.db, ctx.companyId, [...docs.map((d) => d.customerId), ...pays.map((p) => p.customerId)]);
       const vouchers: TallyVoucher[] = [
         ...docs.map((d): TallyVoucher => {

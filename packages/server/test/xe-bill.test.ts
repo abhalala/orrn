@@ -388,3 +388,104 @@ describe("e-invoice (row 15)", () => {
     expect((await env.db.select().from(dispatch).where(eq(dispatch.companyId, p.companyId))).length).toBeGreaterThan(0);
   }, SLOW);
 });
+
+describe("procedure coverage (review round)", () => {
+  test("hsn.assign over 25 sections (chunked insert), back to default, and another plant's section is not found", async () => {
+    const p = await billingPlant();
+    const tag = crypto.randomUUID().slice(0, 6);
+    const dieIds: string[] = [];
+    for (let i = 0; i < 30; i += 1) dieIds.push(await env.seedDie(p.companyId, { series: "Bulk", sectionCode: `B${tag}${i}`, name: null }));
+    const h7608 = (await p.owner.billing.hsn.list()).find((h) => h.code === "7608")!;
+    await p.as("admin").billing.hsn.assign({ dieIds, hsnId: h7608.id });
+    expect((await p.owner.billing.hsn.list()).find((h) => h.code === "7608")!.sections).toBe(30);
+    await p.as("admin").billing.hsn.assign({ dieIds, hsnId: null });
+    expect((await p.owner.billing.hsn.list()).find((h) => h.code === "7608")!.sections).toBe(0);
+    const q = await billingPlant();
+    await expect(q.as("admin").billing.hsn.assign({ dieIds: [dieIds[0]!], hsnId: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(p.as("packer").billing.hsn.assign({ dieIds, hsnId: null })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  }, SLOW);
+
+  test("discard frees the packing list; an issued invoice cannot be discarded", async () => {
+    const p = await billingPlant();
+    const { plId } = await completedPl(p, [10]);
+    const { id } = await p.as("office").billing.invoices.createDraft({ packingListIds: [plId] });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).not.toContain(plId);
+    const q = await billingPlant();
+    await expect(q.as("office").billing.invoices.discard({ id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await p.as("office").billing.invoices.discard({ id });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).toContain(plId);
+    const inv = await issued(p, [plId]);
+    await expect(p.as("office").billing.invoices.discard({ id: inv.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }, SLOW);
+
+  test("two issues at once get consecutive numbers, never the same", async () => {
+    const p = await billingPlant();
+    const a = await completedPl(p, [10]);
+    const b = await completedPl(p, [12]);
+    const da = await p.as("office").billing.invoices.createDraft({ packingListIds: [a.plId] });
+    const db = await p.as("manager").billing.invoices.createDraft({ packingListIds: [b.plId] });
+    const out = await Promise.all([p.as("office").billing.invoices.issue({ id: da.id }), p.as("manager").billing.invoices.issue({ id: db.id })]);
+    expect(out.map((o) => o.number).sort()).toEqual(["INV/26-27/1", "INV/26-27/2"]);
+  }, SLOW);
+
+  test("payments.list and receivables.openInvoices; tenancy and permission", async () => {
+    const p = await billingPlant();
+    const inv = await issued(p, [(await completedPl(p, [10])).plId]);
+    const total = (await p.owner.billing.invoices.get({ id: inv.id })).snapshot.totals.totalPaise;
+    await p.as("accountant").billing.payments.record({ customerId: p.customerId, receivedOn: "2026-10-04", amountPaise: 600_00, mode: "cheque", reference: "CHQ 1", allocations: [{ invoiceId: inv.id, amountPaise: 500_00 }] });
+    const list = await p.as("accountant").billing.payments.list({ limit: 10 });
+    expect(list[0]).toMatchObject({ amountPaise: 600_00, allocatedPaise: 500_00, mode: "cheque", status: "active" });
+    expect(await p.as("office").billing.receivables.openInvoices({ customerId: p.customerId })).toEqual([
+      { id: inv.id, number: "INV/26-27/1", invoiceDate: "2026-10-03", totalPaise: total, duePaise: total - 500_00 },
+    ]);
+    const out = (await p.owner.billing.receivables.outstanding({ asOf: "2026-10-10" })).rows.find((r) => r.customerId === p.customerId)!;
+    expect(out).toMatchObject({ onAccountPaise: 100_00, balancePaise: total - 600_00 });
+    const q = await billingPlant();
+    expect(await q.owner.billing.receivables.openInvoices({ customerId: p.customerId })).toEqual([]);
+    expect(await q.owner.billing.payments.list({ limit: 10 })).toEqual([]);
+    await expect(p.as("packer").billing.payments.list({ limit: 10 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  }, SLOW);
+
+  test("a payment recorded after the cancel request: the approval is refused with the reason, nothing changes", async () => {
+    const p = await billingPlant();
+    const inv = await issued(p, [(await completedPl(p, [10])).plId]);
+    const { approvalId } = await p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong rate" });
+    await p.as("accountant").billing.payments.record({ customerId: p.customerId, receivedOn: "2026-10-04", amountPaise: 100_00, mode: "cash", allocations: [{ invoiceId: inv.id, amountPaise: 100_00 }] });
+    await expect(p.as("manager").approval.decide({ id: approvalId, decision: "approved" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "A payment is recorded against this invoice: void the payment first. Reject this request.",
+    });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ status: "issued", number: "INV/26-27/1" });
+    expect((await env.db.select().from(approval).where(eq(approval.id, approvalId)))[0]).toMatchObject({ status: "pending" });
+  }, SLOW);
+
+  test("einvoice.status, cancelIrn after an approved cancel, the cron cancel branch, and e-way bill cancel", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => new Date());
+    lib.setAdapter(fake);
+    const a = await issued(p, [(await completedPl(p, [300])).plId]);
+    const st = await p.as("office").einvoice.status({ id: a.id });
+    expect(st).toMatchObject({ needsIrn: true, irnStatus: "generated", canCancelIrn: true, ewbStatus: "none", ewbNeeded: true });
+    const q = await billingPlant(["billing", "einvoice"]);
+    await expect(q.owner.einvoice.status({ id: a.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    await p.as("office").einvoice.ewbGenerate({ id: a.id, distanceKm: 120, vehicleNo: "GJ05AB1234" });
+    await expect(p.as("packer").einvoice.ewbCancel({ id: a.id, remark: "Wrong vehicle" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await p.as("office").einvoice.ewbCancel({ id: a.id, remark: "Wrong vehicle" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ ewbStatus: "cancelled" });
+
+    await expect(p.as("office").einvoice.cancelIrn({ id: a.id, remark: "Wrong rate" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const ap = await p.as("office").billing.invoices.requestCancel({ id: a.id, reason: "Wrong rate" });
+    await p.as("manager").approval.decide({ id: ap.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "generated" });
+    await p.as("office").einvoice.cancelIrn({ id: a.id, remark: "Wrong rate" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ irnStatus: "cancelled" });
+
+    const b = await issued(p, [(await completedPl(p, [200])).plId]);
+    const bp = await p.as("office").billing.invoices.requestCancel({ id: b.id, reason: "Duplicate" });
+    await p.as("manager").approval.decide({ id: bp.approvalId, decision: "approved" });
+    await lib.runIrnCron(env.db, fake, Date.now());
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, b.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "cancelled" });
+    expect(fake.script.calls.filter((c) => c.op === "cancel")).toHaveLength(2);
+  }, SLOW);
+});

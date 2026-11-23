@@ -533,8 +533,8 @@ export async function receivableInvoices(db: OrrnDb, companyId: string, customer
       number: invoice.number,
       invoiceDate: invoice.invoiceDate,
       totalPaise: invoice.totalPaise,
-      paidPaise: sql<number>`${paidSql(companyId, sql`${invoice.id}`)}`,
-      creditedPaise: sql<number>`${creditedSql(companyId, sql`${invoice.id}`)}`,
+      paidPaise: sql<number>`${paidSql(companyId, sql`${invoice}.${sql.identifier("id")}`)}`,
+      creditedPaise: sql<number>`${creditedSql(companyId, sql`${invoice}.${sql.identifier("id")}`)}`,
     })
     .from(invoice)
     .where(and(eq(invoice.companyId, companyId), eq(invoice.kind, "invoice"), eq(invoice.status, "issued"), customerId ? eq(invoice.customerId, customerId) : undefined));
@@ -546,7 +546,7 @@ export async function onAccountByCustomer(db: OrrnDb, companyId: string, custome
   const rows = await db
     .select({
       customerId: payment.customerId,
-      n: sql<number>`sum(${payment.amountPaise} - coalesce((select sum(pa.amount_paise) from payment_allocation pa where pa.payment_id = ${payment.id}), 0))`,
+      n: sql<number>`sum(${payment.amountPaise} - coalesce((select sum(pa.amount_paise) from payment_allocation pa where pa.payment_id = ${payment}.${sql.identifier("id")}), 0))`,
     })
     .from(payment)
     .where(and(eq(payment.companyId, companyId), eq(payment.status, "active"), customerId ? eq(payment.customerId, customerId) : undefined))
