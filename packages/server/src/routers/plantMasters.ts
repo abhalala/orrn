@@ -15,6 +15,7 @@
  * rows check that module themselves (`assertModule`).
  */
 import { TRPCError } from "@trpc/server";
+import { batchAbortUnlessOn, isBatchAbortOn } from "../lib/orders";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -54,7 +55,7 @@ import { settingsPatchSql } from "../lib/companySettings";
 import { docPeriod } from "../lib/docNumber";
 import { DEFAULT_TIMEZONE, isValidTimezone } from "../lib/dayWindow";
 import { assertModule } from "../lib/moduleGate";
-import { APPROVER_ROLES, canAny, type Action, type CompanyRole } from "../lib/permissions";
+import { APPROVER_ROLES, approvalRuleRoles, canAny, type Action, type CompanyRole } from "../lib/permissions";
 import { now as clockNow } from "../lib/clock";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -390,8 +391,13 @@ export const plantMastersRouter = router({
             .update(plantBankAccount)
             .set({ isDefault: true, serverSeq: seq })
             .where(and(eq(plantBankAccount.id, row.id), eq(plantBankAccount.companyId, ctx.companyId), eq(plantBankAccount.active, true))),
+          // Review ADM S2: if the account was retired meanwhile, nothing lands (the old default stays).
+          batchAbortUnlessOn(ctx.db, plantBankAccount, sql`exists (select 1 from ${plantBankAccount} where ${plantBankAccount.id} = ${row.id} and ${plantBankAccount.companyId} = ${ctx.companyId} and ${plantBankAccount.isDefault} = 1)`),
           auditInsert(ctx, { action: "bank_account.default", subjectType: "bank_account", subjectId: row.id }),
-        ]);
+        ]).catch((e) => {
+          if (isBatchAbortOn(e, "plant_bank_account")) bad("This account was retired meanwhile; bring it back first");
+          throw e;
+        });
         return { id: row.id };
       }),
 
@@ -509,10 +515,12 @@ export const plantMastersRouter = router({
   approvalRules: router({
     /** Every approval kind with its built-in approvers, the plant's rule (if any) and the figure a limit reads. */
     get: companyProcedure.query(async ({ ctx }) => {
-      const rules = readApprovalRules((await settingsOf(ctx.db, ctx.companyId)).approvalRules, companyRoles);
+      const rules = readApprovalRules((await settingsOf(ctx.db, ctx.companyId)).approvalRules, approvalRuleRoles);
       return approvalKinds.map((k) => ({
         kind: k,
         builtIn: [...APPROVER_ROLES[k]],
+        /** The roles a rule for this kind may name (review ADM B1). */
+        pickable: [...approvalRuleRoles(k)],
         rule: rules[k] ?? null,
         measure: APPROVAL_MEASURES[k]?.unit ?? null,
       }));
@@ -523,10 +531,10 @@ export const plantMastersRouter = router({
       .input(z.object({ kind: z.enum(approvalKinds), rule: ruleInput.nullable() }))
       .mutation(async ({ ctx, input }) => {
         if (input.rule) {
-          const err = checkApprovalRule(input.kind, { roles: input.rule.roles, above: input.rule.above ?? null }, companyRoles);
+          const err = checkApprovalRule(input.kind, { roles: input.rule.roles, above: input.rule.above ?? null }, approvalRuleRoles);
           if (err) bad(RULE_REFUSALS[err]!);
         }
-        const before = readApprovalRules((await settingsOf(ctx.db, ctx.companyId)).approvalRules, companyRoles)[input.kind] ?? null;
+        const before = readApprovalRules((await settingsOf(ctx.db, ctx.companyId)).approvalRules, approvalRuleRoles)[input.kind] ?? null;
         const value = input.rule ? { roles: input.rule.roles, above: input.rule.above ?? null } : null;
         await atomicBatch(ctx.db, [
           ctx.db
@@ -621,8 +629,13 @@ export const plantMastersRouter = router({
             .update(dispatch)
             .set({ packingModeId: input.packingModeId })
             .where(and(eq(dispatch.id, row.id), eq(dispatch.companyId, ctx.companyId), ne(dispatch.status, "cancelled"))),
+          // Review ADM S2: a dispatch cancelled meanwhile changes nothing and writes no audit row.
+          batchAbortUnlessOn(ctx.db, dispatch, sql`exists (select 1 from ${dispatch} where ${dispatch.id} = ${row.id} and ${dispatch.companyId} = ${ctx.companyId} and ${dispatch.status} <> 'cancelled')`),
           auditInsert(ctx, { action: "dispatch.packing_mode", subjectType: "dispatch", subjectId: row.id, meta: { from: row.packingModeId, to: input.packingModeId } }),
-        ]);
+        ]).catch((e) => {
+          if (isBatchAbortOn(e, "dispatch")) bad("This dispatch is cancelled");
+          throw e;
+        });
         return { id: row.id };
       }),
   }),

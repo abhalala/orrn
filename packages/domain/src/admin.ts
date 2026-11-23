@@ -181,7 +181,11 @@ function withOwner(roles: readonly string[]): string[] {
 export type ApprovalRuleError = "roles_empty" | "role_unknown" | "threshold_not_offered" | "threshold_range" | "above_roles_empty";
 
 /** Check one rule against the plant's role list and the kind's measure. */
-export function checkApprovalRule(kind: string, rule: ApprovalRule, knownRoles: readonly string[]): ApprovalRuleError | null {
+/** The roles a rule may name: one list for every kind, or a list per kind (review ADM B1). */
+export type RuleRoles = readonly string[] | ((kind: string) => readonly string[]);
+
+export function checkApprovalRule(kind: string, rule: ApprovalRule, allowed: RuleRoles): ApprovalRuleError | null {
+  const knownRoles = typeof allowed === "function" ? allowed(kind) : allowed;
   if (!Array.isArray(rule.roles) || rule.roles.length === 0) return "roles_empty";
   if (rule.roles.some((r) => !knownRoles.includes(r))) return "role_unknown";
   if (rule.above) {
@@ -195,7 +199,7 @@ export function checkApprovalRule(kind: string, rule: ApprovalRule, knownRoles: 
 }
 
 /** The plant's rules as stored, keeping only valid ones; the owner is put back in every list. */
-export function readApprovalRules(raw: unknown, knownRoles: readonly string[]): ApprovalRules {
+export function readApprovalRules(raw: unknown, knownRoles: RuleRoles): ApprovalRules {
   if (!raw || typeof raw !== "object") return {};
   const out: ApprovalRules = {};
   for (const [kind, value] of Object.entries(raw as Record<string, unknown>)) {

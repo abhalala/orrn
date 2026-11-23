@@ -196,7 +196,9 @@ describe("mode of packing and insurance on the packing list", () => {
       expect(snap2.header.transitInsurance).toBeNull();
 
       // The print and the sheet carry them.
-      const docs = (await import("../../documents/src/packing-list/index")) as unknown as { buildPackingListHtml(pl: unknown, code: string): string };
+      // @orrn/documents is a client package: load it by a path variable so this package's type check skips it.
+      const docsPath = "../../documents/src/packing-list/index";
+      const docs = (await import(docsPath)) as unknown as { buildPackingListHtml(pl: unknown, code: string): string };
       expect(docs.buildPackingListHtml(snap1, "PL")).toContain("Packing Poly wrap");
       expect(docs.buildPackingListHtml(snap1, "PL")).toContain("Transit insurance OMP/2026/77, New India Assurance");
     },

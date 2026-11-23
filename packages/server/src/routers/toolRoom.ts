@@ -13,6 +13,7 @@
  * - `sections.setCategory` (#57): a section's die category (`profileKind` stays as it is).
  */
 import { TRPCError } from "@trpc/server";
+import { batchAbortUnlessOn, isBatchAbortOn } from "../lib/orders";
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -209,8 +210,13 @@ export const toolRoomRouter = router({
             .update(toolingItem)
             .set({ size: input.size, location: input.location, makerName: input.makerName, notes: input.notes, status, serverSeq: seq })
             .where(and(eq(toolingItem.id, row.id), eq(toolingItem.companyId, ctx.companyId), eq(toolingItem.status, row.status))),
+          // Review ADM S2: if an inspection moved the piece meanwhile, nothing lands and the caller hears so.
+          batchAbortUnlessOn(ctx.db, toolingItem, sql`exists (select 1 from ${toolingItem} where ${toolingItem.id} = ${row.id} and ${toolingItem.companyId} = ${ctx.companyId} and ${toolingItem.serverSeq} = ${seq})`),
           auditInsert(ctx, { action: "tooling.update", subjectType: "tooling_item", subjectId: row.id, meta: { code: row.code, from: row.status, to: status } }),
-        ]);
+        ]).catch((e) => {
+          if (isBatchAbortOn(e, "tooling_item")) throw new TRPCError({ code: "CONFLICT", message: `${row.code} changed meanwhile; open it again` });
+          throw e;
+        });
         return { id: row.id, status };
       }),
   }),

@@ -12,7 +12,7 @@ import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
-import { canAny, type Action } from "../lib/permissions";
+import { canAny, PURCHASE_READ_ACTIONS } from "../lib/permissions";
 import { kindsRoleMayDecide, loadApprovalRules, mayDecide } from "../lib/approverRules";
 import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
@@ -21,8 +21,6 @@ const requester = alias(user, "approval_requester");
 /** Review finding 3: who wrote the request's note when it is not the requester (meta.noteById). */
 const noteAuthor = alias(user, "approval_note_author");
 
-/** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */
-const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
 /** dc_note meta keys anyone may see (no weights or money: rate = amount ÷ kg). */
 const DC_NOTE_PUBLIC_META = ["number", "lotId", "lotNumber", "type", "reason"] as const;
 const decider = alias(user, "approval_decider");

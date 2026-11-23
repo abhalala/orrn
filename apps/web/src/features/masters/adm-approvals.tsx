@@ -81,7 +81,7 @@ export function ApprovalRulesPanel() {
   );
 }
 
-function RoleChecks({ idPrefix, label, roles, onChange }: { idPrefix: string; label: string; roles: string[]; onChange(next: string[]): void }) {
+function RoleChecks({ idPrefix, label, roles, pickable, onChange }: { idPrefix: string; label: string; roles: string[]; pickable: readonly string[]; onChange(next: string[]): void }) {
   const { t } = useT();
   return (
     <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
@@ -90,7 +90,7 @@ function RoleChecks({ idPrefix, label, roles, onChange }: { idPrefix: string; la
         <input type="checkbox" checked disabled className="size-5 accent-[var(--color-foreground)]" />
         <span>{t("adm.masters.rules.approvals.ownerAlways")}</span>
       </label>
-      {pickableRoles(COMPANY_ROLES).map((role) => (
+      {pickableRoles(COMPANY_ROLES.filter((r) => pickable.includes(r))).map((role) => (
         <label key={role} htmlFor={`${idPrefix}-${role}`} className="flex min-h-11 items-center gap-3 text-[15px]">
           <input
             id={`${idPrefix}-${role}`}
@@ -171,7 +171,7 @@ function RuleSheet({ row, kindName, onOpenChange }: { row: ApprovalRuleRow | nul
       editors="approvalRule.manage"
       retire={shown?.rule ? { active: true, hint: t("adm.masters.rules.approvals.resetHint"), retireLabel: t("adm.masters.rules.approvals.reset"), onToggle: () => void save(null) } : undefined}
     >
-      <RoleChecks idPrefix={`${uid}-roles`} label={t("adm.masters.rules.approvals.who")} roles={draft.roles} onChange={(roles) => setDraft((d) => ({ ...d, roles }))} />
+      <RoleChecks idPrefix={`${uid}-roles`} label={t("adm.masters.rules.approvals.who")} roles={draft.roles} pickable={shown?.pickable ?? []} onChange={(roles) => setDraft((d) => ({ ...d, roles }))} />
       {shown?.measure ? (
         <div className="flex flex-col gap-4 border-t border-border pt-4">
           <label className="flex min-h-11 items-center gap-3 text-[15px]">
@@ -213,7 +213,7 @@ function RuleSheet({ row, kindName, onOpenChange }: { row: ApprovalRuleRow | nul
                 />
               )}
               {limitError && shown.measure !== "bp" ? <p className="m-0 text-[14px] text-tone-red-ink">{limitError}</p> : null}
-              <RoleChecks idPrefix={`${uid}-above`} label={t("adm.masters.rules.approvals.whoAbove")} roles={above.roles} onChange={(roles) => setDraft((d) => (d.above ? { ...d, above: { ...d.above, roles } } : d))} />
+              <RoleChecks idPrefix={`${uid}-above`} label={t("adm.masters.rules.approvals.whoAbove")} roles={above.roles} pickable={shown?.pickable ?? []} onChange={(roles) => setDraft((d) => (d.above ? { ...d, above: { ...d.above, roles } } : d))} />
             </>
           ) : null}
         </div>

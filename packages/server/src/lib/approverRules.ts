@@ -6,21 +6,21 @@
  * here: `approval.decide` (both the early refusal and the per-request one), `approval.list`
  * (`canDecide` per row), the Today approvals tile and the die owner override close.
  */
-import { companyRoles, type CompanyRole } from "@orrn/db/schema/tenant";
+import { type CompanyRole } from "@orrn/db/schema/tenant";
 import { company } from "@orrn/db/schema/tenant";
 import { approvalKinds, type ApprovalKind } from "@orrn/db/schema/approval";
 import { approverRolesFor, possibleApproverRoles, readApprovalRules, type ApprovalRules } from "@orrn/domain";
 import { eq } from "drizzle-orm";
 
 import type { OrrnDb } from "./atomic";
-import { APPROVER_ROLES } from "./permissions";
+import { APPROVER_ROLES, approvalRuleRoles } from "./permissions";
 
 export type { ApprovalRules };
 
 /** The plant's approver rules (valid ones only; an invalid stored rule means the built-in approvers). */
 export async function loadApprovalRules(db: OrrnDb, companyId: string): Promise<ApprovalRules> {
   const [row] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
-  return readApprovalRules(row?.settings?.approvalRules, companyRoles);
+  return readApprovalRules(row?.settings?.approvalRules, approvalRuleRoles);
 }
 
 /** Built-in approvers of a kind (an unknown kind, appended by a later lane before it registers, has none). */

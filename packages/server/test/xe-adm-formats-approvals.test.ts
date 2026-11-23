@@ -172,4 +172,22 @@ describe("approver rules (#78)", () => {
     const reqA = await request(a.companyId, "dc_note", a.users.storekeeper.id);
     await expect(b.as("manager").approval.decide({ id: reqA, decision: "rejected" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
+
+  test("review B1: a rule names only roles that may approve, and for a D/C note only roles that see its figures", async () => {
+    const a = await plant();
+    for (const role of ["viewer", "packer", "operator", "press"] as CompanyRole[]) {
+      await expect(a.admin.masters.approvalRules.set({ kind: "dc_note", rule: { roles: [role] } })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Choose roles from the list" });
+      await expect(a.admin.masters.approvalRules.set({ kind: "cast_close", rule: { roles: [role] } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(a.admin.masters.approvalRules.set({ kind: "dispatch_overdraw", rule: { roles: ["manager"], above: { value: 200, roles: [role] } } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
+    const dc = (await a.admin.masters.approvalRules.get()).find((r) => r.kind === "dc_note")!;
+    expect(dc.pickable).not.toContain("viewer");
+    expect(dc.pickable).not.toContain("packer");
+    expect(dc.pickable).toContain("manager");
+    // A stored rule that breaks the list (written before this check) falls back to the built-in approvers.
+    const { company } = await import("@orrn/db/schema/tenant");
+    const { eq, sql } = await import("drizzle-orm");
+    await env.db.update(company).set({ settings: sql`json_set(coalesce(settings, '{}'), '$.approvalRules', json('{"dc_note":{"roles":["packer"]}}'))` }).where(eq(company.id, a.companyId));
+    expect((await a.admin.masters.approvalRules.get()).find((r) => r.kind === "dc_note")!.rule).toBeNull();
+  });
 });

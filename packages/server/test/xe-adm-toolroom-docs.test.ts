@@ -71,6 +71,18 @@ describe("receive inspection (#59) and die issue", () => {
     expect(row!.status).toBe("available");
   });
 
+  test("review S1: a late press entry refuses a copy that failed its receive inspection", async () => {
+    const p = await plant();
+    const copy = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const { assertLateEntryCopy } = await import("../src/lib/press");
+    await expect(assertLateEntryCopy(env.db, p.companyId, { copyId: copy.id, run: null })).resolves.toMatchObject({ id: copy.id });
+    await p.dieRoom.toolRoom.inspections.record({ subjectType: "die_copy", subjectId: copy.id, result: "fail", notes: "Bearing chipped" });
+    await expect(assertLateEntryCopy(env.db, p.companyId, { copyId: copy.id, run: null })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: `${copy.code} failed its receive inspection; it cannot be issued until it passes`,
+    });
+  });
+
   test("permission and tenancy", async () => {
     const a = await plant();
     const b = await plant();
