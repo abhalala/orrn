@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9203 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -8272,7 +8272,7 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
-### qa (270)
+### qa (276)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8309,6 +8309,7 @@ Please check, Lalubhai:
 | `stage.dispatch` | Dispatch | डिस्पैच |
 | `result.pass` | Pass | पास |
 | `result.fail` | Fail | फ़ेल |
+| `result.unchecked` | Not checked | जाँच नहीं हुई |
 | `state.waiting` | Waiting | इंतज़ार में |
 | `state.failed` | Failed | फ़ेल हुआ |
 | `state.passed` | Passed | पास हुआ |
@@ -8357,6 +8358,8 @@ Please check, Lalubhai:
 | `checks.detail` | Detail | ब्योरा |
 | `checks.flagged` | Out of tolerance: {names} | टॉलरेंस से बाहर: {names} |
 | `checks.low` | Below the minimum: {names} | न्यूनतम से कम: {names} |
+| `checks.unchecked` | Not compared (other hardness scale or no limits): {names} | मिलान नहीं किया (दूसरा हार्डनेस स्केल या कोई सीमा नहीं): {names} |
+| `checks.noLimits` | No temper limits to check against | जाँचने के लिए टेम्पर की कोई सीमा नहीं |
 | `checks.more` | Show older | पुराने दिखाएँ |
 | `run.find` | Find a press run | प्रेस रन खोजें |
 | `run.findHint` | The run number, such as PR-12 | रन नंबर, जैसे PR-12 |
@@ -8406,6 +8409,7 @@ Please check, Lalubhai:
 | `sheet.mech.hardness` | Hardness | हार्डनेस |
 | `sheet.mech.temper` | Temper | टेम्पर |
 | `sheet.mech.temperPlan` | From the quality plan | गुणवत्ता प्लान से |
+| `sheet.mech.scaleTemper` | Same as the temper | टेम्पर जैसा |
 | `sheet.readings.title` | Readings | रीडिंग |
 | `sheet.readings.name` | What | क्या |
 | `sheet.readings.value` | Seen | देखा गया |
@@ -8481,6 +8485,7 @@ Please check, Lalubhai:
 | `plans.limits` | Limits | सीमाएँ |
 | `plans.empty` | No quality plans yet. | अभी कोई गुणवत्ता प्लान नहीं। |
 | `plans.sectionNotFound` | No section with that code. | इस कोड का कोई सेक्शन नहीं। |
+| `plans.sectionPick` | Pick the section | सेक्शन चुनें |
 | `stations.add` | Add point | बिंदु जोड़ें |
 | `stations.edit` | Edit | बदलें |
 | `stations.editTitle` | Edit point {code} | बिंदु {code} बदलें |
@@ -8540,6 +8545,7 @@ Please check, Lalubhai:
 | `refusal.temperTaken` | Temper {code} is already in the list | टेम्पर {code} सूची में पहले से है |
 | `refusal.temperYield` | The yield minimum cannot be above the tensile minimum | न्यूनतम यील्ड, न्यूनतम टेन्साइल से ऊपर नहीं हो सकती |
 | `refusal.planLimits` | A lower limit is above its upper limit | एक निचली सीमा अपनी ऊपरी सीमा से ऊपर है |
+| `refusal.planSavedMeanwhile` | Someone saved this quality plan just now; open it again and save | यह गुणवत्ता प्लान अभी किसी और ने सेव किया; फिर से खोलें और सेव करें |
 | `refusal.substituteSame` | An alloy cannot be its own substitute | कोई अलॉय अपना ही विकल्प नहीं हो सकता |
 | `refusal.substituteTaken` | {alloy} is already a substitute here | {alloy} यहाँ पहले से विकल्प है |
 | `refusal.instrumentTaken` | Instrument {code} is already in the list | उपकरण {code} सूची में पहले से है |

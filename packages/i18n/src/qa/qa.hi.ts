@@ -44,6 +44,7 @@ export const qaHi: typeof qaEn = {
   result: {
     pass: "पास",
     fail: "फ़ेल",
+    unchecked: "जाँच नहीं हुई",
   },
   state: {
     waiting: "इंतज़ार में",
@@ -100,6 +101,8 @@ export const qaHi: typeof qaEn = {
     detail: "ब्योरा",
     flagged: "टॉलरेंस से बाहर: {names}",
     low: "न्यूनतम से कम: {names}",
+    unchecked: "मिलान नहीं किया (दूसरा हार्डनेस स्केल या कोई सीमा नहीं): {names}",
+    noLimits: "जाँचने के लिए टेम्पर की कोई सीमा नहीं",
     more: "पुराने दिखाएँ",
   },
   run: {
@@ -156,6 +159,7 @@ export const qaHi: typeof qaEn = {
       hardness: "हार्डनेस",
       temper: "टेम्पर",
       temperPlan: "गुणवत्ता प्लान से",
+      scaleTemper: "टेम्पर जैसा",
     },
     readings: {
       title: "रीडिंग",
@@ -246,6 +250,7 @@ export const qaHi: typeof qaEn = {
     limits: "सीमाएँ",
     empty: "अभी कोई गुणवत्ता प्लान नहीं।",
     sectionNotFound: "इस कोड का कोई सेक्शन नहीं।",
+    sectionPick: "सेक्शन चुनें",
   },
   stations: {
     add: "बिंदु जोड़ें",
@@ -315,6 +320,7 @@ export const qaHi: typeof qaEn = {
     temperTaken: "टेम्पर {code} सूची में पहले से है",
     temperYield: "न्यूनतम यील्ड, न्यूनतम टेन्साइल से ऊपर नहीं हो सकती",
     planLimits: "एक निचली सीमा अपनी ऊपरी सीमा से ऊपर है",
+    planSavedMeanwhile: "यह गुणवत्ता प्लान अभी किसी और ने सेव किया; फिर से खोलें और सेव करें",
     substituteSame: "कोई अलॉय अपना ही विकल्प नहीं हो सकता",
     substituteTaken: "{alloy} यहाँ पहले से विकल्प है",
     instrumentTaken: "उपकरण {code} सूची में पहले से है",

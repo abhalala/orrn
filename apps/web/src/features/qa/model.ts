@@ -85,15 +85,15 @@ export function kindTakesResult(kind: QaCheckKind): boolean {
   return kind !== "dimension" && kind !== "mechanical";
 }
 
-export const resultTone = (result: string): "green" | "red" => (result === "pass" ? "green" : "red");
+export const resultTone = (result: string): "green" | "red" | "neutral" => (result === "pass" ? "green" : result === "unchecked" ? "neutral" : "red");
 
 export function calibrationTone(state: CalibrationState): "green" | "amber" | "red" | "neutral" {
   return state === "ok" ? "green" : state === "due_soon" ? "amber" : state === "overdue" ? "red" : "neutral";
 }
 
 /** Flag names of a check row (`flags.flagged` for dimensions, `flags.low` for mechanical tests). */
-export function flagNames(flags: unknown): { flagged: string[]; low: string[] } {
-  const f = (flags ?? {}) as { flagged?: unknown; low?: unknown };
+export function flagNames(flags: unknown): { flagged: string[]; low: string[]; unchecked: string[] } {
+  const f = (flags ?? {}) as { flagged?: unknown; low?: unknown; unchecked?: unknown };
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  return { flagged: list(f.flagged), low: list(f.low) };
+  return { flagged: list(f.flagged), low: list(f.low), unchecked: list(f.unchecked) };
 }

@@ -50,8 +50,9 @@ describe("quality screens: reading what people type (XE parity lane QA)", () => 
   });
 
   test("flags of a check row", () => {
-    expect(flagNames({ flagged: ["Wall"], low: ["yield"] })).toEqual({ flagged: ["Wall"], low: ["yield"] });
-    expect(flagNames(null)).toEqual({ flagged: [], low: [] });
+    expect(flagNames({ flagged: ["Wall"], low: ["yield"] })).toEqual({ flagged: ["Wall"], low: ["yield"], unchecked: [] });
+    expect(flagNames({ unchecked: ["hardness"] })).toEqual({ flagged: [], low: [], unchecked: ["hardness"] });
+    expect(flagNames(null)).toEqual({ flagged: [], low: [], unchecked: [] });
   });
 });
 
@@ -62,6 +63,10 @@ describe("quality screens: what a row says", () => {
   test("a check row lists flagged dimensions, low values by name, readings and the standard", () => {
     expect(checkDetail(say, { flags: { flagged: ["Wall", "Width"] }, values: {}, standard: null, operatorName: null, note: null })).toBe("Out of tolerance: Wall, Width");
     expect(checkDetail(say, { flags: { low: ["tensile", "yield"] }, values: {}, standard: null, operatorName: null, note: null })).toBe("Below the minimum: Tensile, Yield");
+    // Review S2/S3: hardness on another scale, and a test with no temper limits.
+    expect(checkDetail(say, { flags: { unchecked: ["hardness"] }, values: { tensileMpa: 90, limits: null }, standard: null, operatorName: null, note: null })).toBe(
+      "Not compared (other hardness scale or no limits): Hardness; No temper limits to check against",
+    );
     expect(checkDetail(say, { flags: {}, values: { readings: [{ name: "Exit", value: "520" }] }, standard: "ASTM B594", operatorName: "Ravi", note: null })).toBe("Exit: 520; Standard: ASTM B594; Operator: Ravi");
   });
 

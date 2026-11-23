@@ -261,12 +261,18 @@ const plans = router({
         .where(and(eq(qaPlan.companyId, ctx.companyId), eq(qaPlan.dieId, section.id), copyId ? eq(qaPlan.dieInstanceId, copyId) : isNull(qaPlan.dieInstanceId)))
         .limit(1);
       const planId = had?.id ?? crypto.randomUUID();
-      await atomicBatch(ctx.db, [
-        had
-          ? ctx.db.update(qaPlan).set(values).where(and(eq(qaPlan.companyId, ctx.companyId), eq(qaPlan.id, had.id)))
-          : ctx.db.insert(qaPlan).values({ id: planId, companyId: ctx.companyId, dieId: section.id, dieInstanceId: copyId, ...values }),
-        audit(ctx, "qa.plan.save", "die", section.id, { planId, section: section.code, copyId, ...limits, dimensions: input.dimensions.length }),
-      ]);
+      try {
+        await atomicBatch(ctx.db, [
+          had
+            ? ctx.db.update(qaPlan).set(values).where(and(eq(qaPlan.companyId, ctx.companyId), eq(qaPlan.id, had.id)))
+            : ctx.db.insert(qaPlan).values({ id: planId, companyId: ctx.companyId, dieId: section.id, dieInstanceId: copyId, ...values }),
+          audit(ctx, "qa.plan.save", "die", section.id, { planId, section: section.code, copyId, ...limits, dimensions: input.dimensions.length }),
+        ]);
+      } catch (e) {
+        // Review N1: two first saves of one section at once; the other landed first.
+        if (isQaUnique(e, "qa_plan")) throw qaRefusal("plan_saved_meanwhile");
+        throw e;
+      }
       return { id: planId };
     }),
 });

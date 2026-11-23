@@ -33,6 +33,7 @@ export const QA_REFUSALS: readonly RefusalEntry[] = [
   { id: "qaTemperTaken", key: qa("temperTaken"), re: new RegExp(`^Temper ${S} is already in the list$`), vars: (m) => ({ code: m[1]! }) },
   { id: "qaTemperYield", key: qa("temperYield"), re: /^The yield minimum cannot be above the tensile minimum$/ },
   { id: "qaPlanLimits", key: qa("planLimits"), re: /^A lower limit is above its upper limit$/ },
+  { id: "qaPlanSavedMeanwhile", key: qa("planSavedMeanwhile"), re: /^Someone saved this quality plan just now; open it again and save$/ },
   { id: "qaStationTaken", key: "ageing.refusal.codeTaken" as MessageKey, re: new RegExp(`^The code ${S} is already used$`), vars: (m) => ({ code: m[1]! }) },
   { id: "qaStationCode", key: "ageing.refusal.codeInvalid" as MessageKey, re: /^Use letters, digits and dashes for the code, at most 16$/ },
   { id: "qaSubstituteSame", key: qa("substituteSame"), re: /^An alloy cannot be its own substitute$/ },

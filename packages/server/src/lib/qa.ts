@@ -5,7 +5,7 @@
  * module is off for the plant, so a plant that did not buy quality sees no change. Reads only; the
  * refusal sentences are in `lib/qaRefusals.ts`.
  */
-import { and, desc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, isNotNull, isNull, ne, sql, type SQL } from "drizzle-orm";
 
 import { ageingRow } from "@orrn/db/schema/ageing";
 import { bundle } from "@orrn/db/schema/inventory";
@@ -14,7 +14,7 @@ import { qaCheck, qaHold } from "@orrn/db/schema/qa";
 import { company } from "@orrn/db/schema/tenant";
 import { firstPieceRefusal, isModuleOn, lotChargeRefusal, readQaSettings, type QaCheckKind, type QaResult, type QaSettings, type QaSubjectType } from "@orrn/domain";
 
-import { mapInChunks, type OrrnDb } from "./atomic";
+import { chunk, IN_LIST_CHUNK, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { companyTimezone, zonedYmd } from "./dayWindow";
 import { qaRefusal } from "./qaRefusals";
 
@@ -82,14 +82,51 @@ export async function assertNoQaHold(db: OrrnDb, companyId: string, bundleIds: r
 }
 
 /**
+ * A batch statement that fails the whole batch unless `landed` holds: it inserts an all-NULL row into
+ * `qa_hold` (NOT NULL on id). Catch with `isQaAbort`. Same pattern as `batchAbortUnless`.
+ */
+export function qaAbortUnless(db: OrrnDb, landed: SQL): SqliteBatchItem {
+  const nulls = Object.fromEntries(Object.entries(getTableColumns(qaHold)).map(([key, column]) => [key, sql`null`.as(column.name)]));
+  const from = db.select({ one: sql`1` }).from(company).limit(1).as("qa_abort_src");
+  return db.insert(qaHold).select(db.select(nulls).from(from).where(sql`not (${landed})`) as never);
+}
+
+export function isQaAbort(e: unknown): boolean {
+  for (let cur: unknown = e, depth = 0; cur && depth < 6; depth += 1) {
+    if ((cur instanceof Error ? cur.message : String(cur)).includes("NOT NULL constraint failed: qa_hold.id")) return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/**
+ * Row 29, write time (review B1): none of these bundles has an open quality hold when the dispatch
+ * write runs. A hold placed between the read and the write fails the batch whole (`isQaAbort`);
+ * the caller reads again and refuses by name (`assertNoQaHold`). Empty with `qa` off.
+ */
+export async function qaHoldGuardStatements(db: OrrnDb, companyId: string, bundleIds: readonly string[]): Promise<SqliteBatchItem[]> {
+  if (bundleIds.length === 0) return [];
+  if (!(await readQaPlant(db, companyId)).on) return [];
+  return chunk([...new Set(bundleIds)], IN_LIST_CHUNK - 5).map((ids) =>
+    qaAbortUnless(
+      db,
+      sql`not exists (select 1 from qa_hold h where h.company_id = ${companyId} and h.released_at is null
+        and h.bundle_id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}))`,
+    ),
+  );
+}
+
+/**
  * The run a pack draws from, for the first-piece gate: the trolley row's run when the pack draws from
  * one, else the newest started run of the die copy (the run on the press, or the last one that ran).
- * Null when none can be named (no copy, or a copy that never ran under orrn).
+ * Review B2: a pack that names no copy gates on the section's newest started run (its copy came from
+ * its die issue, so that run is the newest of its copy too). Null only when the section never ran
+ * under orrn.
  */
 export async function packRun(
   db: OrrnDb,
   companyId: string,
-  o: { dieInstanceId: string | null; ageingRowId: string | null },
+  o: { sectionId: string; dieInstanceId: string | null; ageingRowId: string | null },
 ): Promise<{ id: string; number: string; startedAt: Date } | null> {
   if (o.ageingRowId) {
     const [r] = await db
@@ -100,18 +137,24 @@ export async function packRun(
       .limit(1);
     if (r?.startedAt) return { id: r.id, number: r.number, startedAt: r.startedAt };
   }
-  if (!o.dieInstanceId) return null;
   const [r] = await db
     .select({ id: pressRun.id, number: pressRun.number, startedAt: pressRun.startedAt })
     .from(pressRun)
-    .where(and(eq(pressRun.companyId, companyId), eq(pressRun.dieInstanceId, o.dieInstanceId), isNotNull(pressRun.startedAt), ne(pressRun.status, "voided")))
+    .where(
+      and(
+        eq(pressRun.companyId, companyId),
+        o.dieInstanceId ? eq(pressRun.dieInstanceId, o.dieInstanceId) : eq(pressRun.sectionId, o.sectionId),
+        isNotNull(pressRun.startedAt),
+        ne(pressRun.status, "voided"),
+      ),
+    )
     .orderBy(desc(pressRun.startedAt))
     .limit(1);
   return r?.startedAt ? { id: r.id, number: r.number, startedAt: r.startedAt } : null;
 }
 
 /** Row 24: pack waits until the run's first piece passed, when the plant setting is on. No-op with `qa` off. */
-export async function assertFirstPiece(db: OrrnDb, companyId: string, o: { dieInstanceId: string | null; ageingRowId: string | null }): Promise<void> {
+export async function assertFirstPiece(db: OrrnDb, companyId: string, o: { sectionId: string; dieInstanceId: string | null; ageingRowId: string | null }): Promise<void> {
   const plant = await readQaPlant(db, companyId);
   if (!plant.on || !plant.settings.firstPieceBlocksPack) return;
   const run = await packRun(db, companyId, o);
@@ -147,4 +190,29 @@ export function isQaUnique(e: unknown, table: string): boolean {
     cur = (cur as { cause?: unknown }).cause;
   }
   return false;
+}
+
+/**
+ * Row 22, write time (review N4): every gated lot's newest incoming check is still a pass when the melt
+ * write runs. A fail recorded between the read and the write fails the batch whole (`isQaAbort`); the
+ * caller reads again (`assertLotsInspected`) and refuses by name. Empty when the gate is off.
+ */
+export async function lotsInspectedGuardStatements(db: OrrnDb, companyId: string, lots: readonly { id: string; lotDate: string }[]): Promise<SqliteBatchItem[]> {
+  if (lots.length === 0) return [];
+  const plant = await readQaPlant(db, companyId);
+  if (!plant.on || !plant.settings.requireLotInspection) return [];
+  const since = plant.settings.lotInspectionSince;
+  const gated = [...new Set(lots.filter((l) => !since || l.lotDate >= since).map((l) => l.id))];
+  return chunk(gated, 30).map((ids) =>
+    qaAbortUnless(
+      db,
+      sql.join(
+        ids.map(
+          (lotId) =>
+            sql`coalesce((select c.result from qa_check c where c.company_id = ${companyId} and c.kind = 'incoming' and c.subject_type = 'purchase_lot' and c.subject_id = ${lotId} order by c.checked_at desc, c.id desc limit 1), '') = 'pass'`,
+        ),
+        sql` and `,
+      ),
+    ),
+  );
 }

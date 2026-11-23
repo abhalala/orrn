@@ -26,10 +26,14 @@ type Say = (key: string, vars?: Record<string, string | number>) => string;
 /** What a check row says beside its result: flagged dimensions, low test values, readings, the standard. */
 export function checkDetail(say: Say, row: Pick<QaCheckRow, "flags" | "values" | "standard" | "operatorName" | "note">): string {
   const parts: string[] = [];
-  const { flagged, low } = flagNames(row.flags);
+  const { flagged, low, unchecked } = flagNames(row.flags);
+  const propNames = (list: string[]) => list.map((n) => say(`qa.sheet.mech.${n}`).replace(/ \(.*\)$/, "")).join(", ");
   if (flagged.length) parts.push(say("qa.checks.flagged", { names: flagged.join(", ") }));
-  if (low.length) parts.push(say("qa.checks.low", { names: low.map((n) => say(`qa.sheet.mech.${n}`).replace(/ \(.*\)$/, "")).join(", ") }));
-  const values = (row.values ?? {}) as { readings?: { name: string; value: string }[] };
+  if (low.length) parts.push(say("qa.checks.low", { names: propNames(low) }));
+  if (unchecked.length) parts.push(say("qa.checks.unchecked", { names: propNames(unchecked) }));
+  const values = (row.values ?? {}) as { readings?: { name: string; value: string }[]; limits?: unknown; tensileMpa?: unknown };
+  // Review S3: a mechanical test with no temper says so (its result reads "Not checked").
+  if ("tensileMpa" in values && values.limits === null) parts.push(say("qa.checks.noLimits"));
   if (Array.isArray(values.readings) && values.readings.length) parts.push(values.readings.map((r) => `${r.name}: ${r.value}`).join(", "));
   if (row.standard) parts.push(`${say("qa.sheet.standard")}: ${row.standard}`);
   if (row.operatorName) parts.push(`${say("qa.sheet.operator")}: ${row.operatorName}`);

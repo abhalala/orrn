@@ -38,7 +38,11 @@ export function kindAllowsSubject(kind: QaCheckKind, subject: QaSubjectType): bo
 export const QA_STAGES = ["incoming", "press", "ageing", "pack", "dispatch"] as const;
 export type QaStage = (typeof QA_STAGES)[number];
 
-export const QA_RESULTS = ["pass", "fail"] as const;
+/**
+ * `unchecked` (review S2/S3): a mechanical test recorded with nothing to check it against (no temper, or
+ * only a hardness on another scale than the temper's). It never passes and never gates.
+ */
+export const QA_RESULTS = ["pass", "fail", "unchecked"] as const;
 export type QaResult = (typeof QA_RESULTS)[number];
 
 // ---------------------------------------------------------------------------
@@ -242,8 +246,16 @@ export type MechanicalProperty = "tensile" | "yield" | "elongation" | "hardness"
 /**
  * Pass when every value that has a minimum meets it. A property with a minimum and no value is `missing`
  * (the check fails until it is entered); a value with no minimum is recorded and never fails.
+ * Review S3: with no limits at all (no temper) the result is `unchecked`, never `pass`.
+ * Review S2: `hardnessOtherScale` (the hardness was read on another scale than the temper's) leaves
+ * hardness `unchecked`: compared neither way. When no property with a minimum was compared, or the
+ * temper's hardness minimum went uncompared, the result is `unchecked` (a low or missing value still fails).
  */
-export function mechanicalVerdict(values: MechanicalValues, limits: TemperLimits | null): { result: QaResult; low: MechanicalProperty[]; missing: MechanicalProperty[] } {
+export function mechanicalVerdict(
+  values: MechanicalValues,
+  limits: TemperLimits | null,
+  o: { hardnessOtherScale?: boolean } = {},
+): { result: QaResult; low: MechanicalProperty[]; missing: MechanicalProperty[]; unchecked: MechanicalProperty[] } {
   const pairs: [MechanicalProperty, number | null, number | null][] = [
     ["tensile", values.tensileMpa, limits?.tensileMinMpa ?? null],
     ["yield", values.yieldMpa, limits?.yieldMinMpa ?? null],
@@ -252,13 +264,23 @@ export function mechanicalVerdict(values: MechanicalValues, limits: TemperLimits
   ];
   const low: MechanicalProperty[] = [];
   const missing: MechanicalProperty[] = [];
+  const unchecked: MechanicalProperty[] = [];
+  let compared = 0;
   for (const [name, value, min] of pairs) {
+    if (name === "hardness" && o.hardnessOtherScale && value != null) {
+      unchecked.push(name);
+      continue;
+    }
     if (min == null) continue;
+    compared += 1;
     if (value == null) missing.push(name);
     else if (value < min) low.push(name);
   }
   const anyValue = pairs.some(([, v]) => v != null);
-  return { result: anyValue && low.length === 0 && missing.length === 0 ? "pass" : "fail", low, missing };
+  if (!anyValue) return { result: "fail", low, missing, unchecked };
+  if (low.length > 0 || missing.length > 0) return { result: "fail", low, missing, unchecked };
+  const minSkipped = unchecked.includes("hardness") && limits?.hardnessMinX10 != null;
+  return { result: compared > 0 && !minSkipped ? "pass" : "unchecked", low, missing, unchecked };
 }
 
 /** A temper code: letter T, O, F or H then digits and letters (T6, T651, H14, O). At most 8. */
@@ -391,6 +413,7 @@ export const QA_REFUSAL_CODES = [
   "temper_yield",
   "plan_limits",
   "plan_copy_section",
+  "plan_saved_meanwhile",
   "station_taken",
   "station_code",
   "substitute_same",

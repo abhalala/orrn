@@ -20,7 +20,7 @@ import { bundle } from "@orrn/db/schema/inventory";
 import { pressRun } from "@orrn/db/schema/press";
 import { pressRunCollector } from "@orrn/db/schema/collector";
 import { purchaseLot } from "@orrn/db/schema/purchase";
-import { qaCheck, qaHold, qaInstrument, qaPlace, qaPlan, qaStation, qaTemper, qaCheckKinds, qaStages, qaSubjectTypes, type QaCheckFlags } from "@orrn/db/schema/qa";
+import { qaCheck, qaHold, qaInstrument, qaPlace, qaPlan, qaStation, qaTemper, qaCheckKinds, qaHardnessMethods, qaResults, qaStages, qaSubjectTypes, type QaCheckFlags, type QaHardnessMethod } from "@orrn/db/schema/qa";
 import { storeTxn } from "@orrn/db/schema/store";
 import { company } from "@orrn/db/schema/tenant";
 import {
@@ -45,6 +45,7 @@ import {
 import { actionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch, mapInChunks } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { settingsPatchSql } from "../lib/companySettings";
 import { now as clockNow } from "../lib/clock";
 import { companyDay, isQaUnique, latestResults, openHolds, readQaPlant } from "../lib/qa";
 import { qaRefusal } from "../lib/qaRefusals";
@@ -82,6 +83,8 @@ const recordInput = z.object({
       yieldMpa: optInt(2000),
       elongationX10: optInt(1000),
       hardnessX10: optInt(2000),
+      /** Review S2: the scale the typed hardness was read on; omitted = the temper's own scale. */
+      hardnessMethod: z.enum(qaHardnessMethods).optional(),
     })
     .optional(),
   readings: z.array(readingInput).max(20).optional(),
@@ -146,7 +149,7 @@ async function loadSubject(db: Parameters<typeof readQaPlant>[0], companyId: str
 }
 
 /** The temper limits a mechanical check reads: the one picked, else the section's quality plan temper. */
-async function temperFor(db: Parameters<typeof readQaPlant>[0], companyId: string, temperId: string | undefined, s: Subject): Promise<{ id: string; limits: TemperLimits } | null> {
+async function temperFor(db: Parameters<typeof readQaPlant>[0], companyId: string, temperId: string | undefined, s: Subject): Promise<{ id: string; limits: TemperLimits; hardnessMethod: QaHardnessMethod } | null> {
   let tid = temperId ?? null;
   if (!tid && s.dieId) {
     const plans = await db
@@ -159,17 +162,30 @@ async function temperFor(db: Parameters<typeof readQaPlant>[0], companyId: strin
   if (!tid) return null;
   const [t] = await db.select().from(qaTemper).where(and(eq(qaTemper.companyId, companyId), eq(qaTemper.id, tid))).limit(1);
   if (!t) throw qaRefusal("subject_not_found");
-  return { id: t.id, limits: { hardnessMinX10: t.hardnessMinX10, tensileMinMpa: t.tensileMinMpa, yieldMinMpa: t.yieldMinMpa, elongationMinX10: t.elongationMinX10 } };
+  return { id: t.id, hardnessMethod: t.hardnessMethod, limits: { hardnessMinX10: t.hardnessMinX10, tensileMinMpa: t.tensileMinMpa, yieldMinMpa: t.yieldMinMpa, elongationMinX10: t.elongationMinX10 } };
 }
 
-/** Row 26: hardness already exists at ageing. The lowest deciding sample of the batch, when none was typed. */
-async function ageingHardnessX10(db: Parameters<typeof readQaPlant>[0], companyId: string, batchId: string | null): Promise<number | null> {
+/**
+ * Row 26: hardness already exists at ageing. The lowest deciding sample of the batch, when none was typed.
+ * Review S2: only samples on one scale are compared: the temper's scale when there is a temper (another
+ * scale's lowest comes back with its scale, so the check can say it was not compared), else the one scale
+ * the batch was read on (two scales and no temper: none).
+ */
+async function ageingHardnessX10(
+  db: Parameters<typeof readQaPlant>[0],
+  companyId: string,
+  batchId: string | null,
+  want: QaHardnessMethod | null,
+): Promise<{ x10: number; method: QaHardnessMethod } | null> {
   if (!batchId) return null;
-  const [h] = await db
-    .select({ min: sql<number | null>`min(${ageingHardness.readingX10})` })
+  const rows = await db
+    .select({ method: ageingHardness.method, min: sql<number | null>`min(${ageingHardness.readingX10})` })
     .from(ageingHardness)
-    .where(and(eq(ageingHardness.companyId, companyId), eq(ageingHardness.batchId, batchId), sql`${ageingHardness.pass} is not null`));
-  return h?.min == null ? null : Number(h.min);
+    .where(and(eq(ageingHardness.companyId, companyId), eq(ageingHardness.batchId, batchId), sql`${ageingHardness.pass} is not null`))
+    .groupBy(ageingHardness.method);
+  const found = rows.filter((r) => r.min != null).map((r) => ({ x10: Number(r.min), method: r.method as QaHardnessMethod }));
+  if (want) return found.find((r) => r.method === want) ?? found[0] ?? null;
+  return found.length === 1 ? found[0]! : null;
 }
 
 async function assertOwnRow(db: Parameters<typeof readQaPlant>[0], companyId: string, table: typeof qaStation | typeof qaInstrument, rowId: string | undefined) {
@@ -213,15 +229,18 @@ const checksRouter = router({
       } else if (input.kind === "mechanical") {
         const m = input.mechanical ?? {};
         const typed = { tensileMpa: m.tensileMpa ?? null, yieldMpa: m.yieldMpa ?? null, elongationX10: m.elongationX10 ?? null, hardnessX10: m.hardnessX10 ?? null };
-        const fromAgeing = typed.hardnessX10 == null ? await ageingHardnessX10(ctx.db, ctx.companyId, subject.ageingBatchId) : null;
-        const mech = { ...typed, hardnessX10: typed.hardnessX10 ?? fromAgeing };
-        if (Object.values(mech).every((x) => x == null)) throw qaRefusal("mechanical_none");
         const temper = await temperFor(ctx.db, ctx.companyId, input.temperId, subject);
         temperId = temper?.id ?? null;
-        const v = mechanicalVerdict(mech, temper?.limits ?? null);
+        const fromAgeing = typed.hardnessX10 == null ? await ageingHardnessX10(ctx.db, ctx.companyId, subject.ageingBatchId, temper?.hardnessMethod ?? null) : null;
+        const mech = { ...typed, hardnessX10: typed.hardnessX10 ?? fromAgeing?.x10 ?? null };
+        if (Object.values(mech).every((x) => x == null)) throw qaRefusal("mechanical_none");
+        // Review S2: the scale the hardness was read on; compared only with a temper minimum on the same scale.
+        const hardnessMethod = mech.hardnessX10 == null ? null : (fromAgeing?.method ?? m.hardnessMethod ?? temper?.hardnessMethod ?? null);
+        const hardnessOtherScale = Boolean(temper && hardnessMethod && hardnessMethod !== temper.hardnessMethod);
+        const v = mechanicalVerdict(mech, temper?.limits ?? null, { hardnessOtherScale });
         result = v.result;
-        values = { ...mech, hardnessFromAgeing: fromAgeing != null, limits: temper?.limits ?? null };
-        flags = { low: v.low, missing: v.missing };
+        values = { ...mech, hardnessMethod, hardnessFromAgeing: fromAgeing != null, limits: temper?.limits ?? null, limitsMethod: temper?.hardnessMethod ?? null };
+        flags = { low: v.low, missing: v.missing, unchecked: v.unchecked };
       } else {
         if (!input.result) throw qaRefusal("result_needed");
         result = input.result;
@@ -279,7 +298,7 @@ const checksRouter = router({
         pressRunId: id.optional(),
         bundleId: id.optional(),
         stage: z.enum(qaStages).optional(),
-        result: z.enum(["pass", "fail"]).optional(),
+        result: z.enum(qaResults).optional(),
       }).default({ limit: 50 }),
     )
     .query(async ({ ctx, input }) => {
@@ -342,12 +361,18 @@ const holdsRouter = router({
     .input(holdInput.refine((v) => Boolean(v.bundleId || v.serial), { message: "Pick a bundle", path: ["bundleId"] }))
     .mutation(async ({ ctx, input }) => {
       const [b] = await ctx.db
-        .select({ id: bundle.id, serial: bundle.serial, status: bundle.status })
+        .select({
+          id: bundle.id,
+          serial: bundle.serial,
+          status: bundle.status,
+          // Review B1: on any open dispatch (a draft too), like the sales hold: take it off first.
+          onDispatch: sql<number>`exists (select 1 from dispatch_item qdi join dispatch qd on qd.id = qdi.dispatch_id and qd.company_id = qdi.company_id where qdi.company_id = ${ctx.companyId} and qdi.bundle_id = "bundle"."id" and qd.deleted_at is null and qd.status in ('draft', 'reserved'))`,
+        })
         .from(bundle)
         .where(and(eq(bundle.companyId, ctx.companyId), input.bundleId ? eq(bundle.id, input.bundleId) : eq(bundle.serial, input.serial!.toUpperCase())))
         .limit(1);
       if (!b) throw qaRefusal("subject_not_found");
-      if (b.status === "reserved") throw qaRefusal("bundle_on_load", { serial: b.serial });
+      if (b.status === "reserved" || Number(b.onDispatch)) throw qaRefusal("bundle_on_load", { serial: b.serial });
       if (b.status !== "available") throw qaRefusal("bundle_not_in_stock", { serial: b.serial });
       if (input.checkId) {
         const [c] = await ctx.db.select({ id: qaCheck.id }).from(qaCheck).where(and(eq(qaCheck.companyId, ctx.companyId), eq(qaCheck.id, input.checkId))).limit(1);
@@ -638,9 +663,9 @@ export const qaRouter = router({
         const plant = await readQaPlant(ctx.db, ctx.companyId);
         const today = companyDay(plant.timezone, clockNow().getTime());
         const next = applyQaSettingsEdit(plant.settings, input, today);
-        const settings = { ...plant.raw, qa: next };
         await atomicBatch(ctx.db, [
-          ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),
+          // Review S1: only `qa` is written, on the row as it stands (never a copy read earlier).
+          ctx.db.update(company).set({ settings: settingsPatchSql({ qa: next }) }).where(eq(company.id, ctx.companyId)),
           auditInsert(
             { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
             { action: "qa.settings.update", subjectType: "company", subjectId: ctx.companyId, meta: { before: plant.settings, after: next } },

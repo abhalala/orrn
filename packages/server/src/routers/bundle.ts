@@ -629,7 +629,7 @@ export const bundleRouter = router({
       }
 
       // XE QA (row 24): with the plant setting on, packing waits for the run's first piece to pass.
-      await assertFirstPiece(ctx.db, ctx.companyId, { dieInstanceId: chosenCopyId, ageingRowId: input.ageingRowId ?? null });
+      await assertFirstPiece(ctx.db, ctx.companyId, { sectionId: input.dieId, dieInstanceId: chosenCopyId, ageingRowId: input.ageingRowId ?? null });
 
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {

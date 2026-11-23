@@ -124,13 +124,26 @@ describe("row 25: dimensions", () => {
 describe("rows 26 and 35: mechanical against the temper", () => {
   const t6 = { hardnessMinX10: 800, tensileMinMpa: 205, yieldMinMpa: 170, elongationMinX10: 80 };
   test("pass, low and missing", () => {
-    expect(mechanicalVerdict({ tensileMpa: 215, yieldMpa: 180, elongationX10: 95, hardnessX10: 820 }, t6)).toEqual({ result: "pass", low: [], missing: [] });
+    expect(mechanicalVerdict({ tensileMpa: 215, yieldMpa: 180, elongationX10: 95, hardnessX10: 820 }, t6)).toEqual({ result: "pass", low: [], missing: [], unchecked: [] });
     expect(mechanicalVerdict({ tensileMpa: 200, yieldMpa: 180, elongationX10: 95, hardnessX10: 820 }, t6)).toMatchObject({ result: "fail", low: ["tensile"] });
     expect(mechanicalVerdict({ tensileMpa: 215, yieldMpa: null, elongationX10: 95, hardnessX10: 820 }, t6)).toMatchObject({ result: "fail", missing: ["yield"] });
   });
-  test("no temper: recorded values pass; nothing typed fails", () => {
-    expect(mechanicalVerdict({ tensileMpa: 1, yieldMpa: null, elongationX10: null, hardnessX10: null }, null).result).toBe("pass");
+  test("review S3: no temper records values as not checked, never pass; nothing typed fails", () => {
+    expect(mechanicalVerdict({ tensileMpa: 1, yieldMpa: null, elongationX10: null, hardnessX10: null }, null).result).toBe("unchecked");
     expect(mechanicalVerdict({ tensileMpa: null, yieldMpa: null, elongationX10: null, hardnessX10: null }, null).result).toBe("fail");
+  });
+  test("review S2: hardness on another scale is not checked, never pass or fail", () => {
+    const hbOnly = { hardnessMinX10: 600, tensileMinMpa: null, yieldMinMpa: null, elongationMinX10: null };
+    // Webster 12.0 against an HB minimum of 60.0: not "low".
+    expect(mechanicalVerdict({ tensileMpa: null, yieldMpa: null, elongationX10: null, hardnessX10: 120 }, hbOnly, { hardnessOtherScale: true })).toEqual({ result: "unchecked", low: [], missing: [], unchecked: ["hardness"] });
+    // A soft batch on the other scale does not pass either.
+    expect(mechanicalVerdict({ tensileMpa: null, yieldMpa: null, elongationX10: null, hardnessX10: 9999 }, hbOnly, { hardnessOtherScale: true }).result).toBe("unchecked");
+    // The other values still decide.
+    expect(mechanicalVerdict({ tensileMpa: 200, yieldMpa: 180, elongationX10: 95, hardnessX10: 120 }, t6, { hardnessOtherScale: true })).toMatchObject({ result: "fail", low: ["tensile"], unchecked: ["hardness"] });
+    // The temper's hardness minimum went uncompared: not a pass, even with the rest good.
+    expect(mechanicalVerdict({ tensileMpa: 215, yieldMpa: 180, elongationX10: 95, hardnessX10: 120 }, t6, { hardnessOtherScale: true })).toMatchObject({ result: "unchecked", unchecked: ["hardness"] });
+    // No hardness minimum on the temper: the other values decide.
+    expect(mechanicalVerdict({ tensileMpa: 215, yieldMpa: 180, elongationX10: 95, hardnessX10: 120 }, { ...t6, hardnessMinX10: null }, { hardnessOtherScale: true })).toMatchObject({ result: "pass", unchecked: ["hardness"] });
   });
   test("temper codes and limits", () => {
     expect(["T6", "T5", "T651", "O", "H14"].every(isTemperCode)).toBe(true);

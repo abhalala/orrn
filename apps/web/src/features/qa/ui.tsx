@@ -26,7 +26,7 @@ export function ResultChip({ result }: { result: string }) {
   const { t } = useT();
   return (
     <Chip tone={resultTone(result)} truncate={false} data-result={result}>
-      {result === "pass" ? t("qa.result.pass") : t("qa.result.fail")}
+      {result === "pass" ? t("qa.result.pass") : result === "unchecked" ? t("qa.result.unchecked") : t("qa.result.fail")}
     </Chip>
   );
 }

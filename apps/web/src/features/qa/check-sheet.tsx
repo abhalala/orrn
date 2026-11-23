@@ -45,6 +45,7 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
   const [stationId, setStationId] = useState("");
   const [instrumentId, setInstrumentId] = useState("");
   const [temperId, setTemperId] = useState("");
+  const [hardnessMethod, setHardnessMethod] = useState<"" | "webster" | "hb">("");
   const [dims, setDims] = useState<DimensionDraft[]>([emptyDimension()]);
   const [mech, setMech] = useState({ tensile: "", yield: "", elongation: "", hardness: "" });
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -66,6 +67,7 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
     setStationId(preset?.stationId ?? "");
     setInstrumentId("");
     setTemperId("");
+    setHardnessMethod("");
     setDims([emptyDimension()]);
     setMech({ tensile: "", yield: "", elongation: "", hardness: "" });
     setReadings([]);
@@ -88,7 +90,7 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
   const record = useMutation(
     trpc.qa.checks.record.mutationOptions({
       onSuccess: async (r) => {
-        toast.success(`${t("qa.sheet.recorded")}: ${r.result === "pass" ? t("qa.result.pass") : t("qa.result.fail")}`);
+        toast.success(`${t("qa.sheet.recorded")}: ${r.result === "pass" ? t("qa.result.pass") : r.result === "unchecked" ? t("qa.result.unchecked") : t("qa.result.fail")}`);
         await invalidate();
         onOpenChange(false);
       },
@@ -142,7 +144,7 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
       ...(instrumentId ? { instrumentId } : {}),
       ...(kind === "mechanical" && temperId ? { temperId } : {}),
       ...(kind === "dimension" && dimRows ? { dimensions: dimRows } : {}),
-      ...(kind === "mechanical" ? { mechanical: { tensileMpa: m.tensile.value, yieldMpa: m.yield.value, elongationX10: m.elongation.value, hardnessX10: m.hardness.value } } : {}),
+      ...(kind === "mechanical" ? { mechanical: { tensileMpa: m.tensile.value, yieldMpa: m.yield.value, elongationX10: m.elongation.value, hardnessX10: m.hardness.value, ...(hardnessMethod && m.hardness.value != null ? { hardnessMethod } : {}) } } : {}),
       ...((kind === "first_piece" || kind === "in_process") && cleanReadings.length ? { readings: cleanReadings } : {}),
       ...(kind === "ultrasonic" && standard.trim() ? { standard: standard.trim() } : {}),
       ...(operator.trim() ? { operatorName: operator.trim() } : {}),
@@ -252,6 +254,14 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
             </Field>
             <Field label={t("qa.sheet.mech.hardness")} error={tried && m.hardness.bad ? t("qa.sheet.dims.bad") : undefined}>
               <NumberInput value={mech.hardness} onValueChange={(v) => setMech((s) => ({ ...s, hardness: v }))} data-testid="qa-mech-hardness" />
+            </Field>
+            {/* Review S2: hardness is compared only on the temper's own scale. */}
+            <Field label={t("qa.tempers.method")}>
+              <QaSelect value={hardnessMethod} onChange={(e) => setHardnessMethod(e.currentTarget.value as "" | "webster" | "hb")} data-testid="qa-mech-hardness-method">
+                <option value="">{t("qa.sheet.mech.scaleTemper")}</option>
+                <option value="webster">{t("qa.tempers.methods.webster")}</option>
+                <option value="hb">{t("qa.tempers.methods.hb")}</option>
+              </QaSelect>
             </Field>
           </div>
           <Field label={t("qa.sheet.mech.temper")}>

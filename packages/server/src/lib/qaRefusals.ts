@@ -36,6 +36,7 @@ export const QA_REFUSALS: Record<QaRefusalCode, (v: V) => { code: Code; message:
   temper_yield: () => ({ code: "BAD_REQUEST", message: "The yield minimum cannot be above the tensile minimum" }),
   plan_limits: () => ({ code: "BAD_REQUEST", message: "A lower limit is above its upper limit" }),
   plan_copy_section: () => ({ code: "BAD_REQUEST", message: "This die copy belongs to another section" }),
+  plan_saved_meanwhile: () => ({ code: "CONFLICT", message: "Someone saved this quality plan just now; open it again and save" }),
   station_taken: (v) => ({ code: "CONFLICT", message: `The code ${s(v, "code")} is already used` }),
   station_code: () => ({ code: "BAD_REQUEST", message: "Use letters, digits and dashes for the code, at most 16" }),
   substitute_same: () => ({ code: "BAD_REQUEST", message: "An alloy cannot be its own substitute" }),

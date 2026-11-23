@@ -6,12 +6,15 @@
  * calibration and the certificate purge rule (38). Every procedure: another plant gets "Not found",
  * the permission refusal, the module gate, the happy path.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { and, eq } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
+import { and, eq, sql } from "drizzle-orm";
 
-import { auditLog, bundle, company, location, pressRunCollector, qaCheck, qaInstrument, stockLedger } from "@orrn/db/schema";
+import { auditLog, bundle, company, location, pressRunCollector, qaCheck, qaHold, qaInstrument, qaPlan, stockLedger } from "@orrn/db/schema";
 
+import { readUploadTicket, ticketKey } from "../src/lib/dieFiles";
 import { purgeOrphanDieFiles } from "../src/lib/dieFilesPurge";
+import * as qaLib from "../src/lib/qa";
+import { workersEnv } from "./env-mock";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
@@ -333,6 +336,26 @@ describe("rows 22, 23, 36: incoming inspection, clearance, inspection points", (
     expect(register.items[1]!.station).toBe("MIR-1");
   });
 
+  test("review N4: a fail recorded between the lock's read and its write stops the lock", async () => {
+    const p = await foundryPlant({ qa: { requireLotInspection: true, lotInspectionSince: "2026-09-01" } });
+    const lot = await p.lot(8_000);
+    const foundry = p.as("foundry");
+    await foundry.qa.checks.record({ kind: "incoming", subjectType: "purchase_lot", subjectId: lot.id, result: "pass" });
+    const c = await foundry.foundry.casts.open({ alloy: "6063" });
+    const d = await foundry.foundry.melts.save(draft(c.id, lot.id));
+    const real = qaLib.assertLotsInspected;
+    const spy = spyOn(qaLib, "assertLotsInspected").mockImplementationOnce(async (...args) => {
+      await real(...args);
+      // Someone fails the lot right after the lock read it as passed.
+      await env.db.insert(qaCheck).values({ id: crypto.randomUUID(), companyId: p.companyId, kind: "incoming", subjectType: "purchase_lot", subjectId: lot.id, lotId: lot.id, subjectNumber: lot.number, result: "fail", checkedAt: new Date(Date.now() + 1_000) });
+    });
+    try {
+      await expect(foundry.foundry.melts.lock({ meltId: d.id })).rejects.toMatchObject({ message: `${lot.number} failed inspection` });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test("off for a plant that existed before (no qa key), and lots received before the switch day are exempt", async () => {
     const before = await foundryPlant({});
     const lot = await before.lot(8_000);
@@ -465,5 +488,187 @@ describe("settings and the module gate", () => {
     // Reads stay open, like every module.
     expect((await p.as("viewer").qa.settings.get()).moduleOn).toBe(false);
     expect(bundle).toBeDefined();
+  });
+});
+
+describe("review fix round 1", () => {
+  const bundleOf = async (companyId: string, serial: string) => (await env.db.query.bundle.findFirst({ where: (b, o) => o.and(o.eq(b.companyId, companyId), o.eq(b.serial, serial)) }))!;
+  const statusOf = async (id: string) => (await env.db.query.bundle.findFirst({ where: (b, o) => o.eq(b.id, id) }))!.status;
+  const holdNow = (companyId: string, bundleId: string) => env.db.insert(qaHold).values({ id: crypto.randomUUID(), companyId, bundleId, reason: "cracks" });
+
+  test("B1: a bundle on a draft dispatch is refused a hold, like the sales hold", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [s1] = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b1 = await bundleOf(p.companyId, s1!);
+    await env.plantStock(p.companyId, [b1.id]);
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
+    expect((await p.as("packer").dispatch.scan({ id, serials: [s1!] })).added).toEqual([s1!]);
+    expect(await statusOf(b1.id)).toBe("available");
+    await expect(p.as("supervisor").qa.holds.hold({ bundleId: b1.id, reason: "cracks" })).rejects.toMatchObject({ message: `Bundle ${s1} is held on a load; take it off the load first` });
+  });
+
+  test("B1: a hold that reaches a draft anyway stops reserve; one placed after reserve stops complete", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [s1] = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b1 = await bundleOf(p.companyId, s1!);
+    await env.plantStock(p.companyId, [b1.id]);
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
+    await p.as("packer").dispatch.scan({ id, serials: [s1!] });
+    await holdNow(p.companyId, b1.id);
+    await expect(p.owner.dispatch.reserve({ id })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
+    await expect(p.owner.dispatch.complete({ id })).rejects.toThrow();
+    expect(await statusOf(b1.id)).toBe("available");
+
+    await env.db.update(qaHold).set({ releasedAt: new Date(), releaseNote: "ok" }).where(eq(qaHold.bundleId, b1.id));
+    await p.owner.dispatch.reserve({ id });
+    await holdNow(p.companyId, b1.id);
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
+    expect(await statusOf(b1.id)).toBe("reserved");
+  });
+
+  test("B1: the office add by id refuses a held bundle", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [s1] = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b1 = await bundleOf(p.companyId, s1!);
+    await env.plantStock(p.companyId, [b1.id]);
+    await p.as("supervisor").qa.holds.hold({ bundleId: b1.id, reason: "cracks" });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
+    await expect(p.owner.dispatch.addBundle({ id, bundleId: b1.id })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
+  });
+
+  test("B1: a hold placed between the read and the write stops reserve and complete (write-time guard)", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [s1] = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b1 = await bundleOf(p.companyId, s1!);
+    await env.plantStock(p.companyId, [b1.id]);
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
+    await p.as("packer").dispatch.scan({ id, serials: [s1!] });
+    const real = qaLib.assertNoQaHold;
+    const holdAfterRead = () =>
+      spyOn(qaLib, "assertNoQaHold").mockImplementationOnce(async (...args) => {
+        await real(...args);
+        await holdNow(p.companyId, b1.id);
+      });
+
+    let spy = holdAfterRead();
+    try {
+      await expect(p.owner.dispatch.reserve({ id })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await statusOf(b1.id)).toBe("available");
+    await env.db.update(qaHold).set({ releasedAt: new Date(), releaseNote: "ok" }).where(eq(qaHold.bundleId, b1.id));
+
+    await p.owner.dispatch.reserve({ id });
+    spy = holdAfterRead();
+    try {
+      await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ message: `Bundle ${s1} is on quality hold` });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await statusOf(b1.id)).toBe("reserved");
+    expect((await env.db.query.dispatch.findFirst({ where: (d, o) => o.eq(d.id, id) }))!.status).toBe("reserved");
+  });
+
+  test("B1: with the module off, holds left behind do not stop a dispatch", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [s1] = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b1 = await bundleOf(p.companyId, s1!);
+    await env.plantStock(p.companyId, [b1.id]);
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
+    await p.as("packer").dispatch.scan({ id, serials: [s1!] });
+    await holdNow(p.companyId, b1.id);
+    await env.db.update(company).set({ modules: ["dies", "bundles", "dispatches", "customers", "orders"] }).where(eq(company.id, p.companyId));
+    await p.owner.dispatch.reserve({ id });
+    expect(await statusOf(b1.id)).toBe("reserved");
+  });
+
+  test("B2: a pack that names no die copy is gated on the section's running run", async () => {
+    const pp = await pressPlant();
+    const [y] = await env.db.select({ id: location.id }).from(location).where(and(eq(location.companyId, pp.companyId), eq(location.code, "Y1")));
+    const r = await pp.queuedRun();
+    await pp.issue(r.runId, r.copyId);
+    await pp.as("press").press.runs.start({ id: r.runId });
+    await pp.as("manager").qa.settings.update({ firstPieceBlocksPack: true });
+    const runNo = (await pp.owner.qa.run({ runId: r.runId })).run.number;
+    const rows = [{ quantity: 10, weightG: kg(12), lengthMm: 3_658, poNumber: null }];
+    await expect(pp.owner.bundle.createReceipt({ dieId: r.sectionId, unit: "pcs", locationId: y!.id, rows })).rejects.toMatchObject({ message: `The first piece of ${runNo} is not checked yet` });
+    await pp.as("press").qa.checks.record({ kind: "first_piece", subjectType: "press_run", subjectId: r.runId, result: "pass" });
+    await pp.owner.bundle.createReceipt({ dieId: r.sectionId, unit: "pcs", locationId: y!.id, rows });
+  });
+
+  test("S1: the quality save writes only its own key; a key saved meanwhile stays", async () => {
+    const p = await plant();
+    const real = qaLib.readQaPlant;
+    const spy = spyOn(qaLib, "readQaPlant").mockImplementationOnce(async (...args) => {
+      const plantNow = await real(...args);
+      // An admin turns on secure sign-in right after the quality save read the settings.
+      await env.db.update(company).set({ settings: sql`json_set(coalesce(${company.settings}, '{}'), '$.requireStrongSignIn', json('true'))` }).where(eq(company.id, p.companyId));
+      return plantNow;
+    });
+    try {
+      await p.as("manager").qa.settings.update({ firstPieceBlocksPack: true });
+    } finally {
+      spy.mockRestore();
+    }
+    const [row] = await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, p.companyId));
+    const settings = row!.settings as { requireStrongSignIn?: boolean; qa?: { firstPieceBlocksPack?: boolean } };
+    expect(settings.requireStrongSignIn).toBe(true);
+    expect(settings.qa?.firstPieceBlocksPack).toBe(true);
+  });
+
+  test("S2 and S3: hardness on another scale is not compared; no temper records not checked, never pass", async () => {
+    const pp = await pressPlant();
+    const r = await pp.queuedRun();
+    const press = pp.as("press");
+    const hb = await pp.as("manager").qa.tempers.save({ code: "T6", alloy: "6063", hardnessMethod: "hb", hardnessMinX10: 600 });
+    const other = await press.qa.checks.record({ kind: "mechanical", subjectType: "press_run", subjectId: r.runId, temperId: hb.id, mechanical: { hardnessX10: 120, hardnessMethod: "webster" } });
+    expect(other).toMatchObject({ result: "unchecked", flags: { low: [], missing: [], unchecked: ["hardness"] } });
+    const same = await press.qa.checks.record({ kind: "mechanical", subjectType: "press_run", subjectId: r.runId, temperId: hb.id, mechanical: { hardnessX10: 120, hardnessMethod: "hb" } });
+    expect(same).toMatchObject({ result: "fail", flags: { low: ["hardness"] } });
+    // No method typed: read on the temper's own scale.
+    expect((await press.qa.checks.record({ kind: "mechanical", subjectType: "press_run", subjectId: r.runId, temperId: hb.id, mechanical: { hardnessX10: 700 } })).result).toBe("pass");
+
+    // S3: no temper picked and no plan on the section.
+    const none = await press.qa.checks.record({ kind: "mechanical", subjectType: "press_run", subjectId: r.runId, mechanical: { tensileMpa: 90 } });
+    expect(none.result).toBe("unchecked");
+    expect((await pp.owner.qa.checks.list({ kind: "mechanical", result: "unchecked", limit: 50 })).items.map((x) => x.id).sort()).toEqual([other.id, none.id].sort());
+  });
+
+  test("N1: two first saves of one section's plan at once: one lands, the other is a clear CONFLICT", async () => {
+    const pp = await pressPlant();
+    const r = await pp.queuedRun();
+    const mgr = pp.as("manager");
+    const out = await Promise.allSettled([mgr.qa.plans.save({ dieId: r.sectionId, everyBundles: 5 }), mgr.qa.plans.save({ dieId: r.sectionId, everyBundles: 6 })]);
+    const rejected = out.filter((o): o is PromiseRejectedResult => o.status === "rejected");
+    expect(out.filter((o) => o.status === "fulfilled").length).toBeGreaterThanOrEqual(1);
+    for (const f of rejected) expect(f.reason).toMatchObject({ code: "CONFLICT", message: "Someone saved this quality plan just now; open it again and save" });
+    expect(await env.db.select({ id: qaPlan.id }).from(qaPlan).where(eq(qaPlan.dieId, r.sectionId))).toHaveLength(1);
+  });
+
+  test("N5: a certificate upload sent to the die-file commit is refused and its object kept", async () => {
+    const p = await plant();
+    const objects = new Map<string, number>();
+    const fake = {
+      head: async (key: string) => (objects.has(key) ? { key, size: objects.get(key)! } : null),
+      delete: async (key: string) => void objects.delete(key),
+    };
+    workersEnv.DIE_FILES = fake;
+    try {
+      const inst = await p.as("manager").qa.instruments.save({ code: "HW-9", name: "Hardness tester" });
+      const begun = await p.owner.qa.instruments.beginCertificate({ id: inst.id, name: "cert.pdf", size: 4, mime: "application/pdf" });
+      const key = ticketKey((await readUploadTicket(begun.uploadId))!);
+      objects.set(key, 4);
+      await p.owner.qa.instruments.commitCertificate({ id: inst.id, uploadId: begun.uploadId });
+      await expect(p.owner.dieInstance.files.commit({ uploadId: begun.uploadId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(objects.has(key)).toBe(true);
+    } finally {
+      delete workersEnv.DIE_FILES;
+    }
   });
 });

@@ -442,6 +442,8 @@ function PlanSheet({ editing, onClose }: { editing: Editing<QaPlanRow>; onClose(
           {matches.length > 1 ? (
             <Field label={t("qa.plans.section")}>
               <QaSelect value={chosen?.id ?? ""} onChange={(e) => setDieId(e.currentTarget.value)} data-testid="qa-plan-section-pick">
+                {/* Review N2: no exact match yet shows a blank pick, never the first die as if chosen. */}
+                {chosen ? null : <option value="">{t("qa.plans.sectionPick")}</option>}
                 {matches.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.series} {m.sectionCode}

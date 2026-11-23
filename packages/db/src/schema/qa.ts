@@ -28,8 +28,9 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 export const qaCheckKinds = ["incoming", "first_piece", "in_process", "clearance", "dimension", "mechanical", "ultrasonic"] as const;
 export const qaSubjectTypes = ["press_run", "bundle", "purchase_lot", "store_grn", "cast", "ageing_batch"] as const;
 export const qaStages = ["incoming", "press", "ageing", "pack", "dispatch"] as const;
-export const qaResults = ["pass", "fail"] as const;
+export const qaResults = ["pass", "fail", "unchecked"] as const;
 export const qaHardnessMethods = ["webster", "hb"] as const;
+export type QaHardnessMethod = (typeof qaHardnessMethods)[number];
 
 /** Temper master (row 35): T4, T5, T6 ... with the minimums a mechanical check reads. */
 export const qaTemper = sqliteTable(
@@ -171,7 +172,7 @@ export const qaInstrument = sqliteTable(
 );
 
 /** Out-of-tolerance and below-minimum flags the server stored with a check. */
-export type QaCheckFlags = { flagged?: string[]; low?: string[]; missing?: string[] };
+export type QaCheckFlags = { flagged?: string[]; low?: string[]; missing?: string[]; unchecked?: string[] };
 
 /** One checkpoint result (rows 22 to 27, 39). */
 export const qaCheck = sqliteTable(

@@ -46,6 +46,7 @@ export const guQa = {
     result: {
       pass: "પાસ",
       fail: "ફેલ",
+      unchecked: "તપાસ નથી થઈ",
     },
     state: {
       waiting: "રાહ જુએ છે",
@@ -102,6 +103,8 @@ export const guQa = {
       detail: "વિગત",
       flagged: "ટોલરન્સ બહાર: {names}",
       low: "લઘુતમથી ઓછું: {names}",
+      unchecked: "સરખામણી નથી થઈ (બીજો હાર્ડનેસ સ્કેલ અથવા કોઈ મર્યાદા નથી): {names}",
+      noLimits: "તપાસવા માટે ટેમ્પરની કોઈ મર્યાદા નથી",
       more: "જૂના બતાવો",
     },
     run: {
@@ -158,6 +161,7 @@ export const guQa = {
         hardness: "હાર્ડનેસ",
         temper: "ટેમ્પર",
         temperPlan: "ગુણવત્તા પ્લાનમાંથી",
+        scaleTemper: "ટેમ્પર જેવું",
       },
       readings: {
         title: "રીડિંગ",
@@ -248,6 +252,7 @@ export const guQa = {
       limits: "મર્યાદાઓ",
       empty: "હજી કોઈ ગુણવત્તા પ્લાન નથી.",
       sectionNotFound: "આ કોડનો કોઈ સેક્શન નથી.",
+      sectionPick: "સેક્શન પસંદ કરો",
     },
     stations: {
       add: "બિંદુ ઉમેરો",
@@ -317,6 +322,7 @@ export const guQa = {
       temperTaken: "ટેમ્પર {code} યાદીમાં પહેલેથી છે",
       temperYield: "લઘુતમ યીલ્ડ, લઘુતમ ટેન્સાઇલથી ઉપર ન હોઈ શકે",
       planLimits: "એક નીચલી મર્યાદા તેની ઉપલી મર્યાદાથી ઉપર છે",
+      planSavedMeanwhile: "આ ગુણવત્તા પ્લાન હમણાં બીજા કોઈએ સેવ કર્યો; ફરી ખોલો અને સેવ કરો",
       substituteSame: "કોઈ એલોય પોતાનો જ વિકલ્પ ન હોઈ શકે",
       substituteTaken: "{alloy} અહીં પહેલેથી વિકલ્પ છે",
       instrumentTaken: "સાધન {code} યાદીમાં પહેલેથી છે",

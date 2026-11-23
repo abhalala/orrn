@@ -47,6 +47,7 @@ export const qaEn = {
   result: {
     pass: "Pass",
     fail: "Fail",
+    unchecked: "Not checked",
   },
   state: {
     waiting: "Waiting",
@@ -103,6 +104,8 @@ export const qaEn = {
     detail: "Detail",
     flagged: "Out of tolerance: {names}",
     low: "Below the minimum: {names}",
+    unchecked: "Not compared (other hardness scale or no limits): {names}",
+    noLimits: "No temper limits to check against",
     more: "Show older",
   },
   run: {
@@ -159,6 +162,7 @@ export const qaEn = {
       hardness: "Hardness",
       temper: "Temper",
       temperPlan: "From the quality plan",
+      scaleTemper: "Same as the temper",
     },
     readings: {
       title: "Readings",
@@ -249,6 +253,7 @@ export const qaEn = {
     limits: "Limits",
     empty: "No quality plans yet.",
     sectionNotFound: "No section with that code.",
+    sectionPick: "Pick the section",
   },
   stations: {
     add: "Add point",
@@ -318,6 +323,7 @@ export const qaEn = {
     temperTaken: "Temper {code} is already in the list",
     temperYield: "The yield minimum cannot be above the tensile minimum",
     planLimits: "A lower limit is above its upper limit",
+    planSavedMeanwhile: "Someone saved this quality plan just now; open it again and save",
     substituteSame: "An alloy cannot be its own substitute",
     substituteTaken: "{alloy} is already a substitute here",
     instrumentTaken: "Instrument {code} is already in the list",
