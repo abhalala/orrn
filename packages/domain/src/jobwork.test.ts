@@ -94,3 +94,15 @@ describe("order line finish requirement", () => {
     expect(bundleFinishState({ lineFinish: "anodise", bundleFinish: null, atVendor: false, inProcess: false })).toBe("pending");
   });
 });
+
+describe("loss shares", () => {
+  test("add up exactly, by weight, gains too", async () => {
+    const { shareLoss } = await import("./jobwork");
+    expect(shareLoss([1000, 2000, 3000], 600)).toEqual([100, 200, 300]);
+    const s = shareLoss([333, 333, 334], 100);
+    expect(s.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(shareLoss([1000, 1000], -3)).toEqual([-2, -1]);
+    expect(shareLoss([], 5)).toEqual([]);
+    expect(shareLoss([0, 0], 5)).toEqual([5, 0]);
+  });
+});

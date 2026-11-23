@@ -29,6 +29,7 @@ import { pressRouter } from "./press";
 import { ageingRouter } from "./ageing";
 import { reasonCodeRouter } from "./reasonCode";
 import { vendorRouter } from "./vendor";
+import { processRouter } from "./process";
 import { auditRouter } from "./audit";
 import { backupRouter } from "./backup";
 import { deviceRouter, releaseRouter } from "./release";
@@ -100,5 +101,7 @@ export const appRouter = router({
   docs: plantDocsRouter,
   // XE parity lane QA.
   qa: qaRouter,
+  // XE parity lane JOBWORK: job work, in-house finishing, draw bench, fabrication.
+  process: processRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -146,7 +146,7 @@ function lineByRowNumber(offset: number, step = 1, minus = 0): SQL<number> {
  */
 export function packRows(
   ctx: PostingCtx,
-  voucher: { type: "pack" | "opening"; id: string },
+  voucher: { type: "pack" | "opening" | "process_out"; id: string },
   bundles: readonly { id: string; weightG: number; locationId: string | null }[],
 ): SqliteBatchItem[] {
   const out: SqliteBatchItem[] = [];
