@@ -41,8 +41,9 @@ import { packingList } from "@orrn/db/schema/packing";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../atomic";
 import { companyModules } from "../moduleGate";
 import { nextCompanySeq } from "../sequence";
+import { loadPartyGst, loadPlantGst } from "./facts";
 import type { IrnData, IrpAdapter } from "./irp";
-import { einvoiceModel, type InvoiceSnapshot } from "./snapshot";
+import { einvoiceModel, plantForSnapshot, supplyFor, type InvoiceSnapshot } from "./snapshot";
 
 type Outcome = "generated" | "auto_retry" | "failed" | "skipped";
 
@@ -161,6 +162,62 @@ export async function generateIrn(db: OrrnDb, companyId: string, invoiceId: stri
     event(db, companyId, invoiceId, "irn.generate", retry ? "auto_retry" : "failed", at, res.code, res.message),
   ]);
   return retry ? "auto_retry" : "failed";
+}
+
+export type RefreshResult =
+  | { ok: true; recovered: true }
+  | { ok: true; recovered: false; changed: string[] }
+  | { ok: false; message: string };
+
+/**
+ * Review S7, "fix the details, then try again": before a failed IRN is tried again, re-read the plant's and
+ * the party's GST facts (letterhead, billing settings, customer GST card) into the frozen snapshot. Number,
+ * date, lines and totals stay: the IRP accepts the same document number again because no IRN was made for it.
+ *
+ * It must be KNOWN that no IRN exists: either no call ever left (`irn_call_at` null), or the IRP says so by
+ * document (2283). A found IRN is kept instead (its answer was lost). A change that would move the tax (supply
+ * type or place of supply) is refused: that needs a cancel and a new invoice.
+ */
+export async function refreshFailedIrn(db: OrrnDb, companyId: string, invoiceId: string, adapter: IrpAdapter, at: number): Promise<RefreshResult> {
+  const row = await loadForIrn(db, companyId, invoiceId);
+  if (!row || row.status !== "irn_pending" || row.irnStatus !== "failed" || row.irn || !row.needsIrn || !row.number || !row.invoiceDate) {
+    return { ok: false, message: "Only a document whose IRN failed can be tried again" };
+  }
+  const stored = row.snapshot as unknown as InvoiceSnapshot;
+  if (row.irnCallAt) {
+    const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
+    const found = await adapter.irnByDocument(stored.plant.gstin, doc);
+    if (found.ok) {
+      const facts = decodeSignedInvoice(found.data.SignedInvoice);
+      if (!facts) return { ok: false, message: "The IRP's signed invoice could not be read: try again in a few minutes" };
+      await persistIrn(db, companyId, row.id, { ...found.data, Irn: facts.irn, AckNo: found.data.AckNo ?? facts.ackNo, AckDt: found.data.AckDt ?? facts.ackDt }, at, "found_on_retry");
+      return { ok: true, recovered: true };
+    }
+    if (!IRN_NOT_FOUND_CODES.has(found.code)) return { ok: false, message: "The IRP could not be checked for this document: try again in a few minutes" };
+  }
+  const [plantRes, partyRes] = await Promise.all([loadPlantGst(db, companyId), loadPartyGst(db, companyId, row.customerId)]);
+  const missing = [...plantRes.missing, ...partyRes.missing];
+  if (!plantRes.plant || !partyRes.party) return { ok: false, message: `Billing details missing: ${[...new Set(missing)].join(", ")}` };
+  const plant = plantForSnapshot(plantRes.plant);
+  const party = partyRes.party;
+  if (supplyFor(plantRes.plant, party) !== stored.supplyType || party.placeOfSupply !== stored.placeOfSupply) {
+    return { ok: false, message: "These details change the tax on this document: cancel it and issue it again" };
+  }
+  const changed = [
+    ...(JSON.stringify(plant) !== JSON.stringify(stored.plant) ? ["plant"] : []),
+    ...(JSON.stringify(party) !== JSON.stringify(stored.party) ? ["party"] : []),
+  ];
+  if (changed.length > 0) {
+    const next: InvoiceSnapshot = { ...stored, plant, party };
+    await atomicBatch(db, [
+      db
+        .update(invoice)
+        .set({ snapshot: next as unknown as Record<string, unknown>, updatedAt: new Date(at) })
+        .where(and(eq(invoice.id, row.id), eq(invoice.companyId, companyId), eq(invoice.status, "irn_pending"), eq(invoice.irnStatus, "failed"), isNull(invoice.irn))),
+      event(db, companyId, row.id, "irn.refresh", "refreshed", at, changed.join(",")),
+    ]);
+  }
+  return { ok: true, recovered: false, changed };
 }
 
 /** "Try again" on a failed IRN: back to pending with a fresh retry budget. */

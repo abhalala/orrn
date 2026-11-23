@@ -6901,6 +6901,7 @@ export const hi = {
       invoice__ewb__generate: "ई-वे बिल बना",
       invoice__irn__cancel: "IRN रद्द हुआ",
       invoice__irn__generate: "IRN मांगा गया",
+      invoice__irn__refresh: "IRN के लिए जानकारी फिर से ली गई",
       irn__generate: "IRN मांगा गया",
       irn__cancel: "IRN रद्द हुआ",
       ewb__generate: "ई-वे बिल बना",

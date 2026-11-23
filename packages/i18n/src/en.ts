@@ -6919,6 +6919,7 @@ export const en = {
       invoice__ewb__generate: "E-way bill made",
       invoice__irn__cancel: "IRN cancelled",
       invoice__irn__generate: "IRN asked for",
+      invoice__irn__refresh: "IRN details read again",
       irn__generate: "IRN asked for",
       irn__cancel: "IRN cancelled",
       ewb__generate: "E-way bill made",

@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { approval, company, customer, dispatch, docSeries, invoice, packingList, salesOrderLine } from "@orrn/db/schema";
+import { approval, auditLog, company, customer, dispatch, docSeries, invoice, packingList, salesOrderLine } from "@orrn/db/schema";
 import { computeInvoice, decodeSignedInvoice, gstinCheckDigit, STANDARD_MODULES } from "@orrn/domain";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -404,6 +404,38 @@ describe("e-invoice (row 15)", () => {
     const [row] = await env.db.select().from(invoice).where(eq(invoice.id, inv.id));
     expect(row).toMatchObject({ status: "issued", irnStatus: "generated", irn: first.ok ? first.data.Irn : "x" });
     expect(fake.script.calls.map((c) => c.op)).toEqual(["generate", "generate", "byDocument"]);
+  }, SLOW);
+
+  test("S7: a refused IRN is tried again with the fixed party details, same number, with an audit row", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    await p.as("office").billing.party.save({ customerId: p.customerId, taxCategory: "regular", shipToKind: "same", pincode: "394210", place: "Surat" });
+    const fake = lib.fakeAdapter(() => OCT, { calls: [], failGenerate: { times: 1, response: { ok: false, code: "2172", message: "Invalid buyer pincode", retryable: false } } });
+    lib.setAdapter(fake);
+    const inv = await issued(p, [(await completedPl(p, [300])).plId]);
+    expect(inv).toMatchObject({ status: "irn_pending", irnStatus: "failed" });
+    await p.as("office").billing.party.save({ customerId: p.customerId, taxCategory: "regular", shipToKind: "same", pincode: "395003", place: "Surat" });
+    const out = await p.as("office").einvoice.generate({ id: inv.id });
+    expect(out.outcome).toBe("generated");
+    const row = (await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]!;
+    expect(row).toMatchObject({ status: "issued", irnStatus: "generated", number: inv.number });
+    expect((row.snapshot as { party: { pincode: string } }).party.pincode).toBe("395003");
+    const sent = fake.script.calls.filter((c) => c.op === "generate").map((c) => (c.body as { BuyerDtls: { Pin: number }; DocDtls: { No: string } }));
+    expect(sent.map((b) => b.BuyerDtls.Pin)).toEqual([394210, 395003]);
+    expect(sent.map((b) => b.DocDtls.No)).toEqual([inv.number, inv.number]);
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "invoice.irn.refresh")));
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.meta).toMatchObject({ changed: ["party"] });
+  }, SLOW);
+
+  test("S7: a fix that moves the tax (another state) is refused; the IRN stays failed", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => OCT, { calls: [], failGenerate: { times: 1, response: { ok: false, code: "2172", message: "Invalid buyer pincode", retryable: false } } });
+    lib.setAdapter(fake);
+    const inv = await issued(p, [(await completedPl(p, [300])).plId]);
+    await env.db.update(customer).set({ taxId: gstin("27ABCDE1234F1Z") }).where(eq(customer.id, p.customerId));
+    await p.as("office").billing.party.save({ customerId: p.customerId, taxCategory: "regular", shipToKind: "same", stateCode: "27", pincode: "400001", place: "Mumbai" } as never);
+    await expect(p.as("office").einvoice.generate({ id: inv.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("change the tax") });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ irnStatus: "failed" });
   }, SLOW);
 
   test("retryable failure: auto retry, then the cron generates it", async () => {

@@ -21,6 +21,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "invoice.ewb.generate",
   "invoice.irn.cancel",
   "invoice.irn.generate",
+  "invoice.irn.refresh",
   "invoice.issue",
   "irn.cancel",
   "irn.generate",

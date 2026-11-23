@@ -1483,7 +1483,10 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   "not set up": an invoice that needs an IRN stays `irn_pending` ("Draft, IRN pending") and is never final.
   IRN states `pending -> auto_retry -> generated | failed` (`lib/billing/einvoiceFlow.ts`); a 2150 duplicate is
   recovered by document and the signed JWT; SignedInvoice/QR/AckNo/AckDt are written once. Every generate call
-  stamps `irn_call_at` under a status guard before it leaves. Cron `*/5 * * * *` (`scheduled()` branches on
+  stamps `irn_call_at` under a status guard before it leaves. "Try again" on a failed IRN (`einvoice.generate`,
+  review S7) first makes sure no IRN exists (no call ever left, or 2283 by document; a found one is kept), then
+  re-reads the plant and party GST facts into the snapshot with the same number, date, lines and totals (audit
+  `invoice.irn.refresh`); a fix that changes the supply type or place of supply is refused (cancel and reissue). Cron `*/5 * * * *` (`scheduled()` branches on
   `controller.cron`): due IRNs only for plants with both modules named (filtered in SQL), at most 5 per plant and
   25 per run, oldest `irn_next_try_at` first (review S4); then every `cancel_pending` row, also with no relay
   (failed lookups and cancels back off by `irn_next_try_at`). Tests use `fakeIrpAdapter` via

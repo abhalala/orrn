@@ -12,7 +12,7 @@ import { ewbRequired, irnCancelRefusal } from "@orrn/domain";
 
 import { router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { cancelEwb, cancelIrn, generateEwb, generateIrn, resetFailedIrn } from "../lib/billing/einvoiceFlow";
+import { cancelEwb, cancelIrn, generateEwb, generateIrn, refreshFailedIrn, resetFailedIrn } from "../lib/billing/einvoiceFlow";
 import { einvoiceProcedure } from "../lib/billing/gate";
 import { currentIrpAdapter } from "../lib/billing/irp";
 
@@ -69,7 +69,21 @@ export const einvoiceRouter = router({
       if (!row.needsIrn) throw new TRPCError({ code: "BAD_REQUEST", message: "This document does not need an IRN" });
       if (row.irn) return { outcome: "generated" as const };
       const adapter = adapterOrThrow();
-      if (row.irnStatus === "failed") await resetFailedIrn(ctx.db, ctx.companyId, row.id, Date.now());
+      if (row.irnStatus === "failed") {
+        // Review S7: re-read the fixed GST details (same number, date, lines and totals), with an audit row.
+        const refreshed = await refreshFailedIrn(ctx.db, ctx.companyId, row.id, adapter, Date.now());
+        if (!refreshed.ok) throw new TRPCError({ code: "BAD_REQUEST", message: refreshed.message });
+        await ctx.db.batch([
+          auditInsert(ctx, {
+            action: "invoice.irn.refresh",
+            subjectType: "invoice",
+            subjectId: row.id,
+            meta: refreshed.recovered ? { recovered: true } : { changed: refreshed.changed },
+          }),
+        ]);
+        if (refreshed.recovered) return { outcome: "generated" as const };
+        await resetFailedIrn(ctx.db, ctx.companyId, row.id, Date.now());
+      }
       const outcome = await generateIrn(ctx.db, ctx.companyId, row.id, adapter, Date.now());
       await ctx.db.batch([auditInsert(ctx, { action: "invoice.irn.generate", subjectType: "invoice", subjectId: row.id, meta: { outcome } })]);
       return { outcome };
