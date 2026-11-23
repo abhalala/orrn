@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9309 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9314 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3734,7 +3734,7 @@ Counts: 9309 screen strings in 52 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (175)
+### refusal (178)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3876,6 +3876,9 @@ Counts: 9309 screen strings in 52 groups, 45 guides with 866 strings.
 | `alreadyDecided` | This request was already decided. | इस रिक्वेस्ट पर पहले ही फ़ैसला हो चुका है। |
 | `ownRequest` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
 | `frozenRate` | This line's rate was fixed when the order was confirmed. Ask for a rate change from the price sheet. | इस लाइन का भाव ऑर्डर कन्फर्म होते समय तय हो गया था। भाव बदलने के लिए भाव शीट से अनुरोध करें। |
+| `frozenProduct` | This line's price was fixed when the order was confirmed. Add a new line for a different section, alloy or finish. | इस लाइन का भाव ऑर्डर कन्फर्म होते समय तय हो गया था। दूसरे सेक्शन, अलॉय या फ़िनिश के लिए नई लाइन जोड़ें। |
+| `addedLineUnpriced` | This line can't be priced from the master today. Set the base metal rate and the plant conversion first. | आज मास्टर से इस लाइन का भाव नहीं बन सकता। पहले बेस मेटल रेट और प्लांट कन्वर्ज़न डालें। |
+| `unfrozenConfirmed` | This line was confirmed without a price from the master. Change its rate on the order. | यह लाइन मास्टर के भाव के बिना कन्फर्म हुई थी। इसका रेट ऑर्डर पर बदलें। |
 | `minOverMax` | The minimum weight can't be more than the maximum weight. | कम से कम वज़न, ज़्यादा से ज़्यादा वज़न से ज़्यादा नहीं हो सकता। |
 | `dieExists` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड की die पहले से है। |
 | `copyOwnerClash` | {code} belongs to another customer. Clear that copy's owner first. | {code} दूसरे ग्राहक की है। पहले उस कॉपी का मालिक हटाएं। |
@@ -7148,7 +7151,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### price (370)
+### price (371)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7215,6 +7218,7 @@ Please check, Lalubhai:
 | `master.settings.metalOptions.manual` | Typed rate | हाथ से डाला रेट |
 | `master.settings.tax` | Estimated tax (%) | अनुमानित टैक्स (%) |
 | `master.settings.taxHint` | Shown on a proforma invoice as an estimate. The real tax comes with the tax invoice. | प्रोफार्मा इनवॉइस पर अनुमान के रूप में दिखता है। असली टैक्स टैक्स इनवॉइस में आता है। |
+| `master.settings.metalApprover` | Only the owner, an admin or a manager changes the metal list. | मेटल लिस्ट सिर्फ़ मालिक, एडमिन या मैनेजर बदलते हैं। |
 | `master.settings.days` | Quote valid for (days) | कोटेशन कितने दिन चले |
 | `master.settings.save` | Save settings | सेटिंग सेव करें |
 | `master.settings.saved` | Price settings saved | भाव की सेटिंग सेव हुई |
@@ -8917,7 +8921,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (355)
+### audit (356)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9010,6 +9014,7 @@ Please check, Lalubhai:
 | `actions.price__rate__activate` | Rate change approved | रेट बदलाव मंज़ूर हुआ |
 | `actions.price__rate__reject` | Rate change rejected | रेट बदलाव नामंज़ूर हुआ |
 | `actions.price__override__request` | Line rate change asked | लाइन का रेट बदलने को कहा |
+| `actions.order__rate__correct` | Fixed line rate corrected on the order | तय लाइन रेट ऑर्डर पर सुधारा |
 | `actions.quote__create` | Quote made | कोटेशन बनाया |
 | `actions.quote__update` | Quote changed | कोटेशन बदला |
 | `actions.quote__send` | Quote marked as sent | कोटेशन भेजा गया |

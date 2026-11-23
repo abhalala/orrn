@@ -22,6 +22,7 @@ import {
   conversionKey,
   customerTermKey,
   isModuleOn,
+  overrideNeedsApproval,
   priceKey,
   readFloorSettings,
   readPricingSettings,
@@ -269,10 +270,13 @@ export async function planConfirmFreeze(
   db: OrrnDb,
   companyId: string,
   order: { id: string; customerId: string },
-  lines: readonly { id: string; dieId: string; alloy: string | null; finish: string | null; kgG: number; pcs: number | null }[],
+  allLines: readonly { id: string; dieId: string; alloy: string | null; finish: string | null; kgG: number; pcs: number | null; priceBreakup?: unknown }[],
   opts: { at: Date; ingest: boolean },
-): Promise<{ statements: (landed: SQL) => SqliteBatchItem[]; priced: number; rateDate: string | null }> {
-  const none = { statements: () => [], priced: 0, rateDate: null };
+): Promise<{ statements: (landed: SQL) => SqliteBatchItem[]; priced: number; rateDate: string | null; overridesDropped: number }> {
+  const none = { statements: () => [], priced: 0, rateDate: null, overridesDropped: 0 };
+  // Review B1: a line that already carries a breakdown (it came from a quote, with the quote's rate
+  // and add-ons) keeps it; only the other lines are priced from the master on the confirm date.
+  const lines = allLines.filter((l) => l.priceBreakup == null);
   if (opts.ingest || lines.length === 0) return none;
   const co = await pricingCompany(db, companyId);
   if (!co.moduleOn || !co.priceOnSalesOrder) return none;
@@ -298,9 +302,20 @@ export async function planConfirmFreeze(
     pcs: l.pcs,
   })));
   const writes: { id: string; breakup: PriceBreakup }[] = [];
-  for (const [i, r] of priced.entries()) if (r.ok) writes.push({ id: lines[i]!.id, breakup: r.breakup });
+  let overridesDropped = 0;
+  for (const [i, r] of priced.entries()) {
+    if (!r.ok) continue;
+    // Review S2: an override nobody approved is checked again against the confirm day's rate. Below
+    // it, it would have needed a second person, so it is not frozen: the line takes the computed rate.
+    const o = r.breakup.override;
+    if (o && !o.approvalId && overrideNeedsApproval(r.breakup.computedPaisePerKg, o.ratePaise)) {
+      overridesDropped++;
+      writes.push({ id: lines[i]!.id, breakup: { ...r.breakup, override: null, finalPaisePerKg: r.breakup.computedPaisePerKg } });
+    } else writes.push({ id: lines[i]!.id, breakup: r.breakup });
+  }
   return {
     priced: writes.length,
+    overridesDropped,
     rateDate: onDate,
     statements: (landed) =>
       writes.map((w) =>
@@ -314,15 +329,112 @@ export async function planConfirmFreeze(
 
 export const FROZEN_RATE_MESSAGE = "This line's rate was fixed when the order was confirmed. Ask for a rate change from the order's price sheet";
 
+export const FROZEN_PRODUCT_MESSAGE = "This line's price was fixed when the order was confirmed. Add a new line for a different section, alloy or finish";
+export const ADDED_LINE_UNPRICED = "This line can't be priced from the master today. Set the base metal rate and the plant conversion first";
+
+const sameKey = (a: string | null | undefined, b: string | null | undefined) => {
+  const k = (v: string | null | undefined) => (v ? priceKey(v) : "");
+  const x = k(a);
+  const y = k(b);
+  return x === y || ((x === "" || x === "none") && (y === "" || y === "none"));
+};
+
+export type OrderEditPricing = {
+  /** Per added line: the breakdown frozen on add (its rate is `finalPaisePerKg`), or null. */
+  addBreakups: (PriceBreakup | null)[];
+  /** Changed lines whose stored breakdown is replaced (null clears it). */
+  breakupPatch: Map<string, PriceBreakup | null>;
+  /** Frozen rates corrected on the order while pricing is off (audited `order.rate.correct`). */
+  corrections: { lineId: string; lineNo: number; fromPaise: number | null; toPaise: number | null }[];
+};
+
 /**
- * `orders.update` must not bypass the override approval: a line with a frozen breakdown keeps its
- * rate unless the edit sends the same rate (or none).
+ * `orders.update` and the price master (review S1, S4). Pricing is "on" for the order when the module
+ * and `priceOnSalesOrder` are on.
+ * - On: a line with a breakdown keeps its rate (`FROZEN_RATE_MESSAGE`). A section, alloy or finish
+ *   change on it is refused on a confirmed order (`FROZEN_PRODUCT_MESSAGE`); on a booking (a quoted
+ *   line) it clears the breakdown, so confirm prices the new product from the master. A line added
+ *   to a confirmed order is priced from the master on today's date and frozen on add (any typed rate
+ *   is replaced; per-order add-ons were charged at confirm and are not charged again). When the
+ *   master can't price it: refused if the order already has a frozen line, else added as before.
+ * - Off: an `order.price` holder may change a frozen line's rate on the order; the breakdown takes it
+ *   as an override and the change is audited, so a rate is never stuck.
  */
-export function assertFrozenRatesKept(edits: readonly { stored: { priceBreakup: unknown; ratePaise: number | null }; ratePaise: number | null | undefined }[]): void {
-  for (const e of edits) {
-    if (e.stored.priceBreakup == null || e.ratePaise === undefined) continue;
-    if (e.ratePaise !== e.stored.ratePaise) throw new TRPCError({ code: "BAD_REQUEST", message: FROZEN_RATE_MESSAGE });
+export async function planOrderEditPricing(
+  db: OrrnDb,
+  companyId: string,
+  opts: {
+    order: { customerId: string; status: string };
+    changes: readonly {
+      id: string;
+      stored: { lineNo: number; priceBreakup: unknown; ratePaise: number | null; dieId: string; alloy: string | null; finish: string | null };
+      next: { dieId: string; alloy: string | null; finish: string | null };
+      ratePaise: number | null | undefined;
+    }[];
+    additions: readonly { dieId: string; alloy: string | null; finish: string | null; kgG: number; pcs: number | null }[];
+    anyFrozen: boolean;
+    at: Date;
+    userId: string;
+  },
+): Promise<OrderEditPricing> {
+  const out: OrderEditPricing = { addBreakups: opts.additions.map(() => null), breakupPatch: new Map(), corrections: [] };
+  const anyFrozenChange = opts.changes.some((c) => c.stored.priceBreakup != null);
+  const confirmed = opts.order.status === "confirmed" || opts.order.status === "dispatching";
+  if (!anyFrozenChange && !(confirmed && opts.additions.length > 0)) return out;
+  const co = await pricingCompany(db, companyId);
+  const on = co.moduleOn && co.priceOnSalesOrder;
+
+  for (const c of opts.changes) {
+    const frozen = c.stored.priceBreakup as PriceBreakup | null;
+    if (!frozen) continue;
+    const rateChanged = c.ratePaise !== undefined && c.ratePaise !== c.stored.ratePaise;
+    if (on) {
+      if (rateChanged) throw new TRPCError({ code: "BAD_REQUEST", message: FROZEN_RATE_MESSAGE });
+      const productChanged = c.next.dieId !== c.stored.dieId || !sameKey(c.next.alloy, c.stored.alloy) || !sameKey(c.next.finish, c.stored.finish);
+      if (!productChanged) continue;
+      if (confirmed) throw new TRPCError({ code: "BAD_REQUEST", message: FROZEN_PRODUCT_MESSAGE });
+      out.breakupPatch.set(c.id, null);
+    } else if (rateChanged && c.ratePaise != null) {
+      out.breakupPatch.set(c.id, {
+        ...frozen,
+        override: { ratePaise: c.ratePaise, reason: "Corrected on the order while pricing was off", rateId: "order.rate.correct", approvalId: null, approvedBy: null, requestedBy: opts.userId },
+        finalPaisePerKg: c.ratePaise,
+      });
+      out.corrections.push({ lineId: c.id, lineNo: c.stored.lineNo, fromPaise: c.stored.ratePaise, toPaise: c.ratePaise });
+    } else if (rateChanged) {
+      // The rate is cleared: the line is no longer priced, so its breakdown goes too.
+      out.breakupPatch.set(c.id, null);
+      out.corrections.push({ lineId: c.id, lineNo: c.stored.lineNo, fromPaise: c.stored.ratePaise, toPaise: null });
+    }
   }
+
+  if (on && confirmed && opts.additions.length > 0) {
+    const onDate = pricingToday(co.settings, opts.at);
+    const all = await loadPricingRows(db, companyId, { onDate, metalSource: co.pricing.metalSource, customerId: opts.order.customerId });
+    if (!masterReady(all, co.pricing.metalSource, onDate)) {
+      if (opts.anyFrozen) throw new TRPCError({ code: "BAD_REQUEST", message: ADDED_LINE_UNPRICED });
+      return out;
+    }
+    // Per-order add-ons were charged once at confirm.
+    const rows = all.filter((r) => r.kind !== "component" || componentInfo(r).basis !== "order");
+    const series = new Map(
+      (
+        await mapInChunks([...new Set(opts.additions.map((l) => l.dieId))], (part) =>
+          db.select({ id: die.id, series: die.series }).from(die).where(and(eq(die.companyId, companyId), inArray(die.id, part))),
+        )
+      ).map((d) => [d.id, d.series] as const),
+    );
+    const priced = priceLines(
+      rows,
+      { onDate, metalSource: co.pricing.metalSource, customerId: opts.order.customerId },
+      opts.additions.map((l) => ({ dieId: l.dieId, series: series.get(l.dieId) ?? null, alloy: l.alloy, finish: l.finish, kgG: l.kgG, pcs: l.pcs })),
+    );
+    out.addBreakups = priced.map((r) => {
+      if (!r.ok) throw new TRPCError({ code: "BAD_REQUEST", message: ADDED_LINE_UNPRICED });
+      return r.breakup;
+    });
+  }
+  return out;
 }
 
 /**

@@ -507,3 +507,209 @@ describe("enquiries (row 19)", () => {
     SLOW,
   );
 });
+
+describe("fix round 1 (review of PR #15)", () => {
+  const editBase = (l: { lineId: string; sectionId: string; cutLengthMm: number; orderedG: number; orderedPcs: number | null; finish: string | null }) => ({
+    id: l.lineId,
+    sectionId: l.sectionId,
+    cutLengthMm: l.cutLengthMm,
+    kgG: l.orderedG,
+    pcs: l.orderedPcs ?? 100,
+    finish: l.finish,
+    tierRank: 1,
+  });
+
+  test(
+    "B1: a quote's rates and picked add-ons survive convert and confirm, even after the metal rate moves",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      await setRate(p, { kind: "component", label: "Cutting", basis: "piece", always: false, paise: 200 });
+      const q = await p.office.pricing.quotes.create({
+        customerId: p.customerId,
+        lines: [
+          { sectionId: p.dieA, cutLengthMm: 3_658, kgG: 1_000_000, pcs: 400, finish: "anodise", componentKeys: ["cutting"] },
+          { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 250_000, pcs: 100, ratePaise: 40_000 },
+        ],
+      });
+      const quoted = await p.office.pricing.quotes.get({ id: q.id });
+      const quotedRates = quoted.lines.map((l) => l.ratePaise);
+      // 6061 + anodise = 321, plus cutting Rs 2 x 400 pcs over 1000 kg = 80 paise per kg.
+      expect(quotedRates).toEqual([32_100 + 80, 40_000]);
+      // The metal list moves up from the 16th; the quote is valid to the 30th.
+      await setRate(p, { kind: "metal", source: "nalco", paisePerKg: 27_000 }, "2026-11-16");
+      const made = await p.office.pricing.quotes.convert({ id: q.id, poNumber: "PO-B1" });
+      setClockForTests(new Date("2026-11-17T06:30:00.000Z"));
+      await confirmOrder(p.owner, made.orderId);
+      const [l1, l2] = await lineRows(made.orderId);
+      expect([l1!.ratePaise, l2!.ratePaise]).toEqual(quotedRates);
+      const b1 = l1!.priceBreakup as unknown as PriceBreakup;
+      expect(b1.components.map((c) => c.key)).toEqual(["cutting"]);
+      expect(b1.metal.paisePerKg).toBe(25_000);
+      expect((l2!.priceBreakup as unknown as PriceBreakup).finalPaisePerKg).toBe(40_000);
+    },
+    SLOW,
+  );
+
+  test(
+    "B1: a quoted booking line whose finish changes is priced from the master again at confirm",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const q = await p.office.pricing.quotes.create({ customerId: p.customerId, lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: 100_000, pcs: 40, finish: "anodise", ratePaise: 40_000 }] });
+      const made = await p.office.pricing.quotes.convert({ id: q.id, poNumber: "PO-B1b" });
+      const got = await p.office.orders.get({ id: made.orderId });
+      await p.office.orders.update({ id: made.orderId, serverSeq: got.order.serverSeq, lines: [{ ...editBase(got.lines[0]!), finish: null }] });
+      expect((await lineRows(made.orderId))[0]!.priceBreakup).toBeNull();
+      await confirmOrder(p.owner, made.orderId);
+      expect((await lineRows(made.orderId))[0]!.ratePaise).toBe(25_000 + 4_500 + 800);
+    },
+    SLOW,
+  );
+
+  test(
+    "B2: line rates stay behind order.price; admin keeps the master and decides master changes, not line overrides",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const admin = p.as("admin");
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }, { sectionId: p.dieB, kg: 100 }]);
+      await confirmOrder(p.owner, orderId);
+      const [l1, l2] = await lineRows(orderId);
+      const ask = await p.office.pricing.lines.requestOverride({ lineId: l1!.id, ratePaise: 28_000, reason: "Matched a competitor" });
+      const DENY = { code: "FORBIDDEN" };
+      await expect(admin.pricing.rates.get({ id: ask.id })).rejects.toMatchObject(DENY);
+      await expect(admin.pricing.rates.history({ kind: "line" })).rejects.toMatchObject(DENY);
+      await expect(admin.pricing.lines.overrides({ lineId: l1!.id })).rejects.toMatchObject(DENY);
+      await expect(admin.pricing.lines.requestOverride({ lineId: l2!.id, ratePaise: 40_000, reason: "Admin raise" })).rejects.toMatchObject(DENY);
+      expect((await lineRows(orderId))[1]!.ratePaise).toBe(29_500);
+      const pi = await p.office.pricing.proforma.create({ source: "order", id: orderId });
+      await expect(admin.pricing.proforma.get({ id: pi.id })).rejects.toMatchObject(DENY);
+      await expect(admin.pricing.proforma.list({ source: "order", id: orderId })).rejects.toMatchObject(DENY);
+      // A line override is decided only by someone who holds order.price.
+      await expect(admin.approval.decide({ id: ask.approvalId!, decision: "approved" })).rejects.toMatchObject(DENY);
+      expect((await lineRows(orderId))[0]!.ratePaise).toBe(29_500);
+      await p.owner.approval.decide({ id: ask.approvalId!, decision: "approved" });
+      expect((await lineRows(orderId))[0]!.ratePaise).toBe(28_000);
+      // The master stays admin's: it reads rows and decides a master change.
+      const m = await p.office.pricing.rates.propose({ change: { kind: "alloy", alloy: "6082", paisePerKg: 900 }, reason: "6082" });
+      expect((await admin.pricing.rates.get({ id: m.id })).rate.paise).toBe(900);
+      await admin.approval.decide({ id: m.approvalId, decision: "approved" });
+      // Audit reads: the money in line-rate rows is hidden from admin, shown to the manager.
+      const adminAudit = await admin.audit.list({ action: "price.override.request" });
+      expect(adminAudit.items.length).toBeGreaterThan(0);
+      expect(JSON.stringify(adminAudit.items.map((i) => i.meta))).not.toMatch(/ratePaise|computedPaisePerKg|28000|29500/);
+      const mgrAudit = await p.manager.audit.list({ action: "price.override.request" });
+      expect(mgrAudit.items[0]!.meta).toMatchObject({ ratePaise: 28_000 });
+      const piAudit = await admin.audit.list({ action: "proforma.create" });
+      expect(piAudit.items[0]!.meta).not.toHaveProperty("totalPaise");
+    },
+    SLOW,
+  );
+
+  test(
+    "S1: a line added after confirm is priced and frozen on add; delete and re-add can't bypass; a product change on a frozen line is refused",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      await setRate(p, { kind: "component", label: "Packing", basis: "order", always: true, paise: 50_000 });
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 1000 }]);
+      await confirmOrder(p.owner, orderId);
+      expect((await lineRows(orderId))[0]!.ratePaise).toBe(29_500 + 50);
+      let got = await p.office.orders.get({ id: orderId });
+      // Added with a typed Rs 250: priced from the master instead, without charging packing again.
+      await p.office.orders.update({
+        id: orderId,
+        serverSeq: got.order.serverSeq,
+        lines: [editBase(got.lines[0]!), { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 500_000, pcs: 100, finish: null, tierRank: 1, ratePaise: 25_000 }],
+      });
+      let rows = await lineRows(orderId);
+      expect(rows[1]!.ratePaise).toBe(29_500);
+      expect((rows[1]!.priceBreakup as unknown as PriceBreakup).finalPaisePerKg).toBe(29_500);
+      // Delete line 1 and add the same section back at Rs 250.
+      got = await p.office.orders.get({ id: orderId });
+      await p.office.orders.update({
+        id: orderId,
+        serverSeq: got.order.serverSeq,
+        lines: [editBase(got.lines[1]!), { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 1_000_000, pcs: 100, finish: null, tierRank: 1, ratePaise: 25_000 }],
+      });
+      rows = await lineRows(orderId);
+      expect(rows.map((r) => r.ratePaise)).toEqual([29_500, 29_500]);
+      // A finish change on a frozen line is refused.
+      got = await p.office.orders.get({ id: orderId });
+      await expect(
+        p.office.orders.update({ id: orderId, serverSeq: got.order.serverSeq, lines: got.lines.map((l, i) => (i === 0 ? { ...editBase(l), finish: "anodise" } : editBase(l))) }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "This line's price was fixed when the order was confirmed. Add a new line for a different section, alloy or finish" });
+      // The master stops being ready (metal list switched to an empty one): an added line is refused, not left unpriced.
+      await p.manager.pricing.settings.update({ metalSource: "manual" });
+      got = await p.office.orders.get({ id: orderId });
+      await expect(
+        p.office.orders.update({ id: orderId, serverSeq: got.order.serverSeq, lines: [...got.lines.map(editBase), { sectionId: p.dieA, cutLengthMm: 3_658, kgG: 100_000, pcs: 10, finish: null, tierRank: 1 }] }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "This line can't be priced from the master today. Set the base metal rate and the plant conversion first" });
+    },
+    SLOW,
+  );
+
+  test(
+    "S2: an unapproved override below the confirm-day rate is not frozen; a confirmed line never frozen refuses an override",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }]);
+      const [l] = await lineRows(orderId);
+      const ask = await p.office.pricing.lines.requestOverride({ lineId: l!.id, ratePaise: 29_500, reason: "Same as today" });
+      expect(ask.status).toBe("active");
+      await setRate(p, { kind: "metal", source: "nalco", paisePerKg: 27_000 }, "2026-11-16");
+      setClockForTests(new Date("2026-11-16T06:30:00.000Z"));
+      await confirmOrder(p.owner, orderId);
+      const after = (await lineRows(orderId))[0]!;
+      expect(after.ratePaise).toBe(31_500);
+      expect((after.priceBreakup as unknown as PriceBreakup).override).toBeNull();
+
+      const bare = await plant();
+      const o2 = await bookOrder(bare, [{ sectionId: bare.dieB, kg: 100, ratePaise: 31_000 }]);
+      await confirmOrder(bare.owner, o2);
+      await readyMaster(bare);
+      const [b] = await lineRows(o2);
+      await expect(bare.office.pricing.lines.requestOverride({ lineId: b!.id, ratePaise: 40_000, reason: "Raise it" })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "This line was confirmed without a price from the master. Change its rate on the order",
+      });
+      expect((await lineRows(o2))[0]!.ratePaise).toBe(31_000);
+    },
+    SLOW,
+  );
+
+  test(
+    "S3: changing the metal list needs a price_change approver; other settings stay with price.manage",
+    async () => {
+      const p = await plant();
+      await expect(p.office.pricing.settings.update({ metalSource: "manual" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await p.office.pricing.settings.update({ metalSource: "nalco", estimatedGstBp: 1200 });
+      expect((await p.office.pricing.settings.get()).metalSource).toBe("nalco");
+      await p.as("admin").pricing.settings.update({ metalSource: "manual" });
+      expect((await p.office.pricing.settings.get()).metalSource).toBe("manual");
+    },
+    SLOW,
+  );
+
+  test(
+    "S4: with the module off, an order.price holder corrects a frozen line's rate on the order (audited)",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }]);
+      await confirmOrder(p.owner, orderId);
+      const { company } = await import("@orrn/db/schema");
+      await env.db.update(company).set({ modules: ["customers", "dies", "orders", "bundles", "dispatches"] }).where(eq(company.id, p.companyId));
+      const got = await p.office.orders.get({ id: orderId });
+      await p.office.orders.update({ id: orderId, serverSeq: got.order.serverSeq, lines: [{ ...editBase(got.lines[0]!), ratePaise: 31_000 }] });
+      const row = (await lineRows(orderId))[0]!;
+      expect(row.ratePaise).toBe(31_000);
+      expect((row.priceBreakup as unknown as PriceBreakup)).toMatchObject({ finalPaisePerKg: 31_000, computedPaisePerKg: 29_500, override: { ratePaise: 31_000, requestedBy: p.users.office.id } });
+      const audit = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "order.rate.correct"))).get();
+      expect(audit!.meta).toMatchObject({ orderId, lineId: row.id, fromPaise: 29_500, toPaise: 31_000 });
+    },
+    SLOW,
+  );
+});

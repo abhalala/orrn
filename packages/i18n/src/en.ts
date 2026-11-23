@@ -6911,6 +6911,7 @@ export const en = {
       price__rate__activate: "Rate change approved",
       price__rate__reject: "Rate change rejected",
       price__override__request: "Line rate change asked",
+      order__rate__correct: "Fixed line rate corrected on the order",
       quote__create: "Quote made",
       quote__update: "Quote changed",
       quote__send: "Quote marked as sent",

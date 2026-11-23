@@ -1,5 +1,6 @@
 import { METAL_SOURCES, type MetalSource } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
+import { canApprove } from "@orrn/server/lib/permissions";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Field, TextInput } from "@orrn/ui/components/field";
@@ -49,13 +50,15 @@ export function SettingsStrip({ settings }: { settings: PricingSettingsView }) {
   const taxBp = percentToBp(tax);
   const validDays = daysOf(days);
   const changed = metal !== settings.metalSource || taxBp !== settings.estimatedGstBp || validDays !== settings.quoteValidDays;
+  const metalLocked = !canApprove(me?.company?.role, "price_change");
   const metalLabel = (m: MetalSource) => t(`price.master.settings.metalOptions.${m}`);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setTried(true);
     if (update.isPending || taxBp === null || validDays === null) return;
-    update.mutate({ metalSource: metal, estimatedGstBp: taxBp, quoteValidDays: validDays });
+    // Review S3: the metal list is sent only when it changed (only a price_change approver may change it).
+    update.mutate({ ...(metal !== settings.metalSource ? { metalSource: metal } : {}), estimatedGstBp: taxBp, quoteValidDays: validDays });
   };
 
   return (
@@ -66,8 +69,8 @@ export function SettingsStrip({ settings }: { settings: PricingSettingsView }) {
       {can(me, "price.manage") ? (
         <form noValidate onSubmit={submit} className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label={t("price.master.settings.metal")}>
-              <FieldSelect value={metal} onChange={(e) => setMetal(e.currentTarget.value as MetalSource)}>
+            <Field label={t("price.master.settings.metal")} hint={metalLocked ? t("price.master.settings.metalApprover") : undefined}>
+              <FieldSelect value={metal} disabled={metalLocked} onChange={(e) => setMetal(e.currentTarget.value as MetalSource)}>
                 {METAL_SOURCES.map((m) => (
                   <option key={m} value={m}>
                     {metalLabel(m)}

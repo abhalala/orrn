@@ -41,6 +41,7 @@ import {
   approvalSubject,
   canOpenSubject,
   decideState,
+  isLineOverride,
   durationText,
   hasLiveFacts,
   lateDispatchOf,
@@ -252,7 +253,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
         {/* XE-PRICE: the old and new rate, read live for people who can read prices; Approve never waits for it. */}
         {current.kind === "price_change" ? (
-          canAny(me, ["price.view"]) ? (
+          canAny(me, ["price.view"]) && (!isLineOverride(current) || canAny(me, ["order.price"])) ? (
             <PriceChangeFigures rateId={current.subjectId} />
           ) : (
             <p className="m-0 text-[14px] text-muted-foreground">{t("price.approval.hidden")}</p>

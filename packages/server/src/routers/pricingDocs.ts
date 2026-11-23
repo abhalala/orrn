@@ -40,7 +40,7 @@ import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
 import { can } from "../lib/permissions";
 import { loadPricingRows, masterReady, priceLines, pricingCompany, pricingToday } from "../lib/pricing";
-import { bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
+import { assertOrderPrice, bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
 import { nextCompanySeq } from "../lib/sequence";
 import { createSalesOrder } from "./salesOrder";
 
@@ -416,7 +416,31 @@ export const pricingDocsProcedures = {
           { canPrice: withRates, source: "office" },
         );
         const seq = await nextCompanySeq(ctx, ctx.companyId);
+        // Review B1: the order keeps the quote's prices. Each line takes its quote line's breakdown
+        // (marked with the quote), and confirm freezes it as is instead of pricing it again. Written
+        // only while the order is still a booking and the line has no breakdown yet, so a replayed
+        // convert writes it once and never over a later decision.
+        const keepQuoted = withRates
+          ? lines.map((l, i) =>
+              ctx.db
+                .update(salesOrderLine)
+                .set({
+                  ratePaise: l.ratePaise,
+                  priceBreakup: { ...(l.priceBreakup as Record<string, unknown>), quote: { id: q.id, number: q.number, lineNo: l.lineNo } },
+                })
+                .where(
+                  and(
+                    eq(salesOrderLine.companyId, ctx.companyId),
+                    eq(salesOrderLine.salesOrderId, made.id),
+                    eq(salesOrderLine.lineNo, i + 1),
+                    isNull(salesOrderLine.priceBreakup),
+                    sql`exists (select 1 from sales_order o where o.id = ${made.id} and o.company_id = ${ctx.companyId} and o.status = 'booking')`,
+                  ),
+                ),
+            )
+          : [];
         await atomicBatch(ctx.db, [
+          ...keepQuoted,
           ctx.db
             .update(quote)
             .set({ status: "converted", salesOrderId: made.id, serverSeq: seq })
@@ -438,6 +462,8 @@ export const pricingDocsProcedures = {
     create: actionProcedure("quote.manage")
       .input(proformaSource)
       .mutation(async ({ ctx, input }) => {
+        // Review B2: an order's proforma carries its line rates.
+        if (input.source === "order") assertOrderPrice(ctx);
         const src = await proformaLines(ctx.db, ctx.companyId, input);
         const cust = await customerRow(ctx.db, ctx.companyId, src.customerId);
         const co = await pricingCompany(ctx.db, ctx.companyId);
@@ -497,6 +523,7 @@ export const pricingDocsProcedures = {
       .input(proformaSource)
       .query(async ({ ctx, input }) => {
         await pricingOn(ctx);
+        if (input.source === "order") assertOrderPrice(ctx);
         return ctx.db
           .select({ id: proforma.id, number: proforma.number, createdAt: proforma.createdAt })
           .from(proforma)
@@ -511,6 +538,7 @@ export const pricingDocsProcedures = {
         await pricingOn(ctx);
         const row = await ctx.db.select().from(proforma).where(and(eq(proforma.id, input.id), eq(proforma.companyId, ctx.companyId))).get();
         if (!row) notFound();
+        if (row!.sourceKind === "order") assertOrderPrice(ctx);
         return row!;
       }),
   }),

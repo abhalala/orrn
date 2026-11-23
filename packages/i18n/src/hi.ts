@@ -6892,6 +6892,7 @@ export const hi = {
       price__rate__activate: "रेट बदलाव मंज़ूर हुआ",
       price__rate__reject: "रेट बदलाव नामंज़ूर हुआ",
       price__override__request: "लाइन का रेट बदलने को कहा",
+      order__rate__correct: "तय लाइन रेट ऑर्डर पर सुधारा",
       quote__create: "कोटेशन बनाया",
       quote__update: "कोटेशन बदला",
       quote__send: "कोटेशन भेजा गया",

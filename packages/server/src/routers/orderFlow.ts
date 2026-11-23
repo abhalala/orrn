@@ -377,6 +377,7 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
           orderId: order.id,
           lines: lines.length,
           ...(freeze.priced > 0 ? { pricedLines: freeze.priced, rateDate: freeze.rateDate } : {}),
+          ...(freeze.overridesDropped > 0 ? { overridesDropped: freeze.overridesDropped } : {}),
           ...sourceMeta(ctx),
         },
       }),

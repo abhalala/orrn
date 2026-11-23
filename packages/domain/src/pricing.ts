@@ -186,6 +186,11 @@ export type PriceBreakup = {
   computedPaisePerKg: number;
   override: BreakupOverride | null;
   finalPaisePerKg: number;
+  /**
+   * Set when the line came from a quote (`quotes.convert`): the quote's breakdown is kept as it was
+   * quoted, and confirm freezes it as is instead of pricing the line again.
+   */
+  quote?: { id: string; number: string; lineNo: number } | null;
 };
 
 export type ComputeLineInput = {

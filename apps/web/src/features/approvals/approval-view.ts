@@ -488,7 +488,15 @@ export function decideState(me: Me | null | undefined, row: ApprovalForView): De
   const role = me?.company?.role;
   if (!me || !role) return "view";
   if (row.requestedBy !== null && row.requestedBy === me.user.id) return "own";
-  return canApprove(role, row.kind) ? "decide" : "view";
+  if (!canApprove(role, row.kind)) return "view";
+  // XE-PRICE review B2: a line override is an order-line rate; only an approver who holds order.price decides it.
+  if (isLineOverride(row) && !canAny(me, ["order.price"])) return "view";
+  return "decide";
+}
+
+/** A `price_change` request whose subject is an order line's override (meta `rateKind: "line"`). */
+export function isLineOverride(row: { kind: string; meta: Record<string, unknown> | null }): boolean {
+  return row.kind === "price_change" && row.meta?.rateKind === "line";
 }
 
 /** The same for places that take plain text (a sheet title): a word joiner (U+2060) after each hyphen inside a code. */

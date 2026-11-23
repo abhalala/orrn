@@ -353,6 +353,15 @@ describe("W3-AG-W: an ageing override request", () => {
     expect(decideState(me("supervisor", "u-supervisor"), request())).toBe("own");
     expect(decideState(me("manager", "u-supervisor"), request())).toBe("own");
   });
+
+  test("XE-PRICE review B2: a line override is decided only by an approver who holds order.price; a master change keeps admin", () => {
+    const line = request({ kind: "price_change", meta: { rateKind: "line", key: "l1", effectiveFrom: "2026-11-15", orderId: "o1" } });
+    const master = request({ kind: "price_change", meta: { rateKind: "metal", key: "nalco", effectiveFrom: "2026-11-15" } });
+    expect(decideState(me("admin", "u-admin"), line)).toBe("view");
+    expect(decideState(me("manager", "u-manager"), line)).toBe("decide");
+    expect(decideState(me("owner", "u-owner"), line)).toBe("decide");
+    expect(decideState(me("admin", "u-admin"), master)).toBe("decide");
+  });
 });
 
 describe("splitCodes", () => {

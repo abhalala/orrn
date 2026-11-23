@@ -13,6 +13,7 @@ import { atomicBatch } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, canApprove, type Action } from "../lib/permissions";
+import { holdsOrderPrice } from "../lib/pricingKit";
 import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
 
@@ -151,6 +152,11 @@ export const approvalRouter = router({
       // must be on, as for the module's own mutations.
       await assertModule(ctx, APPROVAL_KIND_MODULE[row.kind]);
       if (!canApprove(ctx.role, row.kind)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      }
+      // XE-PRICE review B2: a line override is an order-line rate, decided only by an approver who
+      // also holds order.price (owner, manager). A master-rate change keeps its approvers.
+      if (row.kind === "price_change" && (row.meta as { rateKind?: unknown } | null)?.rateKind === "line" && !holdsOrderPrice(ctx.role)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const userId = ctx.session.user.id;

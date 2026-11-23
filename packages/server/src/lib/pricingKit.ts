@@ -7,6 +7,7 @@ import { die } from "@orrn/db/schema/catalog";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { assertModule } from "./moduleGate";
+import { can, type CompanyRole } from "./permissions";
 
 export const ymd = z
   .string()
@@ -39,4 +40,16 @@ export async function sectionInfo(db: OrrnDb, companyId: string, ids: readonly s
       .where(and(eq(die.companyId, companyId), inArray(die.id, part), isNull(die.deletedAt))),
   );
   return new Map(found.map((d) => [d.id, d] as const));
+}
+
+/**
+ * Review B2: a rate on an order line (an override row, a frozen breakdown, an order proforma, the
+ * money in their audit rows) is shown and written only to `order.price` holders, as AGENTS says for
+ * `ratePaise`. `price.view` / `price.manage` cover the master alone. FORBIDDEN otherwise.
+ */
+export function holdsOrderPrice(role: CompanyRole | null | undefined): boolean {
+  return can({ company: role ? { role } : null, isPlatformAdmin: false, platformRole: null } as never, "order.price");
+}
+export function assertOrderPrice(ctx: { role: CompanyRole | null | undefined }): void {
+  if (!holdsOrderPrice(ctx.role)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
 }

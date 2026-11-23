@@ -9,6 +9,7 @@
  * `price_rate` row, pending until a second person approves it (`price_change`); until then the old
  * rate applies. Approval meta carries ids and the date only, never money (approval.list is open).
  */
+import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -48,7 +49,8 @@ import {
   pricingToday,
   toRateRow,
 } from "../lib/pricing";
-import { bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
+import { assertOrderPrice, bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
+import { canApprove } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
 import { pricingDocsProcedures } from "./pricingDocs";
 
@@ -154,6 +156,7 @@ async function resolveProposal(db: OrrnDb, companyId: string, input: z.infer<typ
 }
 
 const PENDING_EXISTS = "A change to this rate is already waiting for approval";
+export const UNFROZEN_CONFIRMED = "This line was confirmed without a price from the master. Change its rate on the order";
 
 /** Names for the keys of a list of rows: section codes for die conversions, customer names for terms. */
 async function keyNames(db: OrrnDb, companyId: string, rows: readonly { kind: string; key: string }[]) {
@@ -209,7 +212,11 @@ export const pricingRouter = router({
       const co = await pricingCompany(ctx.db, ctx.companyId);
       return { ...co.pricing, priceOnSalesOrder: co.priceOnSalesOrder };
     }),
-    /** Owner, admin or manager (price.manage + approver): which metal list, estimated GST, quote days. */
+    /**
+     * price.manage: estimated GST and quote days. Which metal list prices every order (`metalSource`)
+     * changes only by a `price_change` approver (owner, admin, manager; review S3), since it moves
+     * every later confirm as much as a metal rate does.
+     */
     update: manageProcedure
       .input(
         z.object({
@@ -220,6 +227,9 @@ export const pricingRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const co = await pricingCompany(ctx.db, ctx.companyId);
+        if (input.metalSource !== undefined && input.metalSource !== co.pricing.metalSource && !canApprove(ctx.role, "price_change")) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+        }
         const next = { ...co.pricing, ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) };
         await atomicBatch(ctx.db, [
           ctx.db.update(company).set({ settings: settingsPatchSql({ pricing: next }) as never }).where(eq(company.id, ctx.companyId)),
@@ -278,6 +288,8 @@ export const pricingRouter = router({
       )
       .query(async ({ ctx, input }) => {
         await pricingOn(ctx);
+        // Review B2: line overrides are order-line rates.
+        if (input.kind === "line") assertOrderPrice(ctx);
         const where = and(
           eq(priceRate.companyId, ctx.companyId),
           eq(priceRate.kind, input.kind),
@@ -299,6 +311,8 @@ export const pricingRouter = router({
       const row = await ctx.db.select().from(priceRate).where(and(eq(priceRate.id, input.id), eq(priceRate.companyId, ctx.companyId))).get();
       if (!row) notFound();
       const r = row!;
+      // Review B2: a line override is an order-line rate (approvers of it hold order.price).
+      if (r.kind === "line") assertOrderPrice(ctx);
       const others = await ctx.db
         .select()
         .from(priceRate)
@@ -434,6 +448,8 @@ export const pricingRouter = router({
     requestOverride: anyActionProcedure("price.manage")
       .input(z.object({ lineId: id, ratePaise: paise, reason }))
       .mutation(async ({ ctx, input }) => {
+        // Review B2: it writes an order-line rate, so it needs order.price as well as price.manage.
+        assertOrderPrice(ctx);
         const line = await ctx.db
           .select({
             id: salesOrderLine.id,
@@ -460,6 +476,9 @@ export const pricingRouter = router({
         if (!co.priceOnSalesOrder) bad("Rates on sales orders are turned off for this plant");
         const today = pricingToday(co.settings, clockNow());
         const frozen = l.breakup as PriceBreakup | null;
+        // Review S2: a confirmed line that was never priced from the master has no breakdown to take
+        // an override; an "active" answer would change nothing. Its rate is edited on the order.
+        if (!frozen && l.status !== "booking") bad(UNFROZEN_CONFIRMED);
         let computed: number;
         if (frozen) computed = frozen.computedPaisePerKg;
         else {
@@ -538,6 +557,7 @@ export const pricingRouter = router({
     /** The line's override history (newest first) with the computed rate each was asked against. */
     overrides: viewProcedure.input(z.object({ lineId: id })).query(async ({ ctx, input }) => {
       await pricingOn(ctx);
+      assertOrderPrice(ctx);
       const owner = await ctx.db.select({ id: salesOrderLine.id }).from(salesOrderLine).where(and(eq(salesOrderLine.id, input.lineId), eq(salesOrderLine.companyId, ctx.companyId))).get();
       if (!owner) notFound();
       const rows = await ctx.db

@@ -35,6 +35,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "price.rate.activate",
   "price.rate.reject",
   "price.override.request",
+  "order.rate.correct",
   "quote.create",
   "quote.update",
   "quote.send",

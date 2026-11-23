@@ -43,7 +43,7 @@ import {
   type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
-import { assertFrozenRatesKept } from "../lib/pricing";
+import { planOrderEditPricing } from "../lib/pricing";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
@@ -623,8 +623,6 @@ export const salesOrderRouter = router({
         }
         await assertSections(ctx.db, ctx.companyId, [...changes.filter((c) => c.sectionChanged), ...additions].map((l) => l.sectionId));
       }
-      // XE-PRICE: a rate frozen at confirm changes only through a price change request.
-      assertFrozenRatesKept(changes.map((c) => ({ stored: byId.get(c.id)!, ratePaise: c.ratePaise })));
       const floor = await companyFloor(ctx.db, ctx.companyId);
       const priceOk = canPrice(ctx.role);
       // Review round 1 I-4: an edit of a W1 line keeps its locked basis (or re-bases it, audited).
@@ -635,6 +633,25 @@ export const salesOrderRouter = router({
         { canPrice: priceOk, floor },
       );
       const resolvedAdds = await resolveLines(ctx.db, ctx.companyId, additions, { canPrice: priceOk, floor });
+      // XE-PRICE (review S1, S4): a rate frozen at confirm changes only through a price change request
+      // while pricing is on; a frozen line keeps its product; a line added to a confirmed order is
+      // priced and frozen on add. With pricing off, a frozen rate is corrected here (audited).
+      const pricing = await planOrderEditPricing(ctx.db, ctx.companyId, {
+        order: { customerId: input.customerId ?? order.customerId, status: order.status },
+        changes: changes.map((c, i) => {
+          const cur = byId.get(c.id)!;
+          return {
+            id: c.id,
+            stored: cur,
+            next: { dieId: c.sectionId, alloy: edits[i]!.resolved.alloy ?? null, finish: blank(c.finish) },
+            ratePaise: c.ratePaise,
+          };
+        }),
+        additions: additions.map((l, i) => ({ dieId: l.sectionId, alloy: resolvedAdds[i]!.alloy ?? null, finish: blank(l.finish), kgG: resolvedAdds[i]!.kgG, pcs: resolvedAdds[i]!.pcs ?? null })),
+        anyFrozen: existing.some((l) => l.row.priceBreakup != null),
+        at: clockNow(),
+        userId,
+      });
 
       // Figures of a line on a released press plan are fixed (the press has its quantity), and a
       // W1 line can't go below what already left (as `orders.repriceWeight`).
@@ -792,6 +809,7 @@ export const salesOrderRouter = router({
               cutLengthMm: c.cutLengthMm,
               finish: blank(c.finish),
               note: blank(c.note),
+              ...(pricing.breakupPatch.has(c.id) ? { priceBreakup: pricing.breakupPatch.get(c.id) as unknown as Record<string, unknown> | null } : {}),
               serverSeq: seq,
             })
             .where(
@@ -833,16 +851,21 @@ export const salesOrderRouter = router({
       pushChunkedInserts(
         statements,
         (rows) => ctx.db.insert(salesOrderLine).values(rows),
-        additions.map((l, i) =>
-          lineRow(l, resolvedAdds[i]!, {
+        additions.map((l, i) => {
+          const row = lineRow(l, resolvedAdds[i]!, {
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             serverSeq: seq,
             salesOrderId: order.id,
             lineNo: firstNew + i,
             createdBy: userId,
-          }),
-        ),
+          });
+          const frozen = pricing.addBreakups[i];
+          // Every row binds the same keys (fixed parameter count per row).
+          return frozen
+            ? { ...row, ratePaise: frozen.finalPaisePerKg, priceBreakup: frozen as unknown as Record<string, unknown> }
+            : { ...row, priceBreakup: null };
+        }),
       );
       statements.push(
         auditInsert(ctx, {
@@ -869,6 +892,17 @@ export const salesOrderRouter = router({
           },
         }),
       );
+      // XE-PRICE review S4: a frozen rate corrected on the order while pricing was off.
+      for (const c of pricing.corrections) {
+        statements.push(
+          auditInsert(ctx, {
+            action: "order.rate.correct",
+            subjectType: "sales_order_line",
+            subjectId: c.lineId,
+            meta: { orderId: order.id, number: order.number, lineId: c.lineId, lineNo: c.lineNo, fromPaise: c.fromPaise, toPaise: c.toPaise },
+          }),
+        );
+      }
       // A re-based W1 line is a weight refresh like `orders.repriceWeight` (FP-OP-04 audit).
       for (const [ci, c] of changes.entries()) {
         const e = edits[ci]!;

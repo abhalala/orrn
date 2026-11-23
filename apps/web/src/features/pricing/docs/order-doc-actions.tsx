@@ -12,7 +12,7 @@ import { usePricingOn } from "./use-docs";
 
 /**
  * The pricing documents of a confirmed order, beside the order's print buttons: the works order (every member), a
- * proforma (`quote.manage`) and the proformas already made (`price.view`). Nothing shows for an order that is not
+ * proforma (`quote.manage` and `order.price`) and the proformas already made (`price.view` and `order.price`). Nothing shows for an order that is not
  * confirmed yet, or on a plant that has the pricing module off.
  */
 export function OrderDocActions({ orderId, status }: { orderId: string; status: string }) {
@@ -28,15 +28,20 @@ export function OrderDocActions({ orderId, status }: { orderId: string; status: 
           {t("price.worksOrder.open")}
         </Link>
       </Button>
-      <MakeProformaButton source={{ source: "order", id: orderId }} />
+      <Can do="order.price">
+        <MakeProformaButton source={{ source: "order", id: orderId }} />
+      </Can>
+      {/* An order's proformas carry its line rates: price.view and order.price (review B2). */}
       <Can do="price.view">
-        <Button variant="secondary" onClick={() => setListOpen(true)} aria-haspopup="dialog">
-          <Receipt aria-hidden="true" strokeWidth={2} />
-          {t("price.proforma.previous")}
-        </Button>
-        <Sheet open={listOpen} onOpenChange={setListOpen} title={t("price.proforma.previous")} description={t("price.proforma.sheetHint")}>
-          {listOpen ? <ProformaList source={{ source: "order", id: orderId }} /> : null}
-        </Sheet>
+        <Can do="order.price">
+          <Button variant="secondary" onClick={() => setListOpen(true)} aria-haspopup="dialog">
+            <Receipt aria-hidden="true" strokeWidth={2} />
+            {t("price.proforma.previous")}
+          </Button>
+          <Sheet open={listOpen} onOpenChange={setListOpen} title={t("price.proforma.previous")} description={t("price.proforma.sheetHint")}>
+            {listOpen ? <ProformaList source={{ source: "order", id: orderId }} /> : null}
+          </Sheet>
+        </Can>
       </Can>
     </>
   );

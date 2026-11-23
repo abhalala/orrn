@@ -65,6 +65,7 @@ export const priceMasterEn = {
       metalOptions: { nalco: "Nalco list", lme: "London metal price", manual: "Typed rate" },
       tax: "Estimated tax (%)",
       taxHint: "Shown on a proforma invoice as an estimate. The real tax comes with the tax invoice.",
+      metalApprover: "Only the owner, an admin or a manager changes the metal list.",
       days: "Quote valid for (days)",
       save: "Save settings",
       saved: "Price settings saved",
