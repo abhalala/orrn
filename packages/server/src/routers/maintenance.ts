@@ -1032,7 +1032,7 @@ export const maintenanceRouter = router({
   /**
    * The Today tile: plans overdue and due soon (with the first five), live work orders, open breakdowns,
    * flagged readings. Null while the register is empty: a plant that never set maintenance up (the
-   * module is on by default) sees no new tile.
+   * module is opt-in, PROD-GATE) sees no new tile.
    */
   today: viewProcedure.query(async ({ ctx }) => {
     await assertModule(ctx, "maintenance");

@@ -43,7 +43,7 @@ describe("visibleItems", () => {
       "audit",
     ]);
     // With the XE keys named, their entries come in at their places.
-    expect(keys(visibleItems(ALL, me("owner", ["qa", "complaints", "mis", "pricing", "store_buy"])))).toEqual([
+    expect(keys(visibleItems(ALL, me("owner", ["qa", "complaints", "mis", "pricing", "store_buy", "maintenance"])))).toEqual([
       "today",
       "pack",
       "stock",
@@ -109,7 +109,7 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "maintenance", "purchase", "dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {
@@ -125,13 +125,13 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // XE modules are opt-in (PROD-GATE): a plant with no modules named has their six entries off, and naming
+    // XE modules are opt-in (PROD-GATE): a plant with no modules named has their seven entries off, and naming
     // them turns them on without touching the rest.
-    const xe = ["qa", "complaints", "owner", "billing", "pricing", "storeBuying"];
+    const xe = ["qa", "complaints", "owner", "billing", "pricing", "storeBuying", "maintenance"];
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - xe.length);
     for (const k of xe) expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain(k);
     expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - xe.length + 1);
-    expect(keys(visibleItems(ALL, me("owner", ["billing", "qa", "complaints", "mis", "pricing", "store_buy"])))).toHaveLength(ALL.length);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "qa", "complaints", "mis", "pricing", "store_buy", "maintenance"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {

@@ -16,7 +16,7 @@ import { maintErrorKey, maintReady } from "./model";
  * to maint.workorder holders when the module is on; online only (never queued in the press outbox).
  * A second tap gets the same work order back (`replayed`), so a double tap takes one number.
  * Nothing at all shows until the server says the plant has at least one maintenance asset: a plant that
- * never set maintenance up (the module is on by default) sees no new button or hint.
+ * never set maintenance up sees no new button or hint. The module is opt-in (PROD-GATE): off until named.
  */
 export function BreakdownWorkOrderButton({ downtimeId, online }: { downtimeId: string; online: boolean }) {
   const { t } = useT();

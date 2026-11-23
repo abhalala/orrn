@@ -76,7 +76,7 @@ type SeriesSettings = {
 };
 
 /** Read the tenant's numbering settings, falling back to defaults for anything malformed. */
-function readSettings(raw: Record<string, unknown> | null, modules: unknown = []): SeriesSettings {
+function readSettings(raw: Record<string, unknown> | null, modules: unknown): SeriesSettings {
   const tz = raw?.timezone;
   const timezone = typeof tz === "string" && isValidTimezone(tz) ? tz : DEFAULT_TIMEZONE;
   const pl = raw?.plSeries;
@@ -246,9 +246,9 @@ export async function docNumberInBatch(
   at: Date,
   createdBy: string | null = null,
 ): Promise<DocNumber & { statements: SqliteBatchItem[] }> {
-  const [co] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
+  const [co] = await db.select({ settings: company.settings, modules: company.modules }).from(company).where(eq(company.id, companyId)).limit(1);
   if (!co) throw new Error("Unable to allocate document number: unknown company");
-  const settings = readSettings(co.settings);
+  const settings = readSettings(co.settings, co.modules);
   const period = docPeriod(docType, at, settings.timezone);
   const key = and(eq(docSeries.companyId, companyId), eq(docSeries.docType, docType), eq(docSeries.period, period), eq(docSeries.scope, ""));
   const [cur] = await db.select({ value: docSeries.value }).from(docSeries).where(key).limit(1);

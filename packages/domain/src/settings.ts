@@ -66,9 +66,9 @@ export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
 /**
  * Opt-in modules: on only when `company.modules` names them (never by an empty list). Every key of
- * `COMPANY_MODULES` that is not standard is here (a domain test pins it). `payroll`, `maintenance`,
- * `costing` and `jobwork` are reserved for the open XE lanes: each joins `COMPANY_MODULES` when its lane
- * builds it, and is opt-in from then.
+ * `COMPANY_MODULES` that is not standard is here (a domain test pins it). `payroll`, `costing` and
+ * `jobwork` are reserved for the open XE lanes: each joins `COMPANY_MODULES` when its lane builds it, and
+ * is opt-in from then (`maintenance` joined with MAINT).
  */
 export const OPT_IN_MODULES = [
   "complaints",
