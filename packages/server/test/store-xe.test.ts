@@ -498,4 +498,12 @@ describe("module gate", () => {
     expect(await env.db.select().from(storeIndent).where(eq(storeIndent.companyId, companyId))).toHaveLength(0);
     expect(await env.db.select().from(storePo).where(eq(storePo.companyId, companyId))).toHaveLength(0);
   });
+
+  test("store buying named but the store off: buying writes are refused too (they need both keys)", async () => {
+    const { companyId } = await env.seedCompany({ modules: ["bundles", "store_buy"] });
+    const manager = env.caller({ role: "manager", companyId });
+    await expect(manager.store.indents.create({ department: "X", lines: [{ itemId: "x", qtyMilli: U }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(manager.store.po.cancel({ id: "x", reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await env.db.select().from(storeIndent).where(eq(storeIndent.companyId, companyId))).toHaveLength(0);
+  });
 });

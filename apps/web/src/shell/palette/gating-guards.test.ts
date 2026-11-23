@@ -148,6 +148,8 @@ function pageModule(to: string): string | null {
   // The Masters hub is no router of its own: its XE pages are the `masters` / `docs` / `toolRoom` routers
   // (opt-in, PROD-GATE); every other masters page belongs to the router of what it lists (no module here).
   if (segment === "masters") return ({ lists: "masters_plus", bank: "masters_plus", rules: "masters_plus", tooling: "masters_plus", documents: "docs" } as Record<string, string>)[sub] ?? null;
+  // Store buying pages sit under /store but are the opt-in `store_buy` (PROD-GATE).
+  if (segment === "store" && (sub === "buy" || sub === "po")) return "store_buy";
   const router = PATH_ROUTER[segment] ?? segment;
   return routerModule(router) ?? routerModule(router.replace(/s$/, ""));
 }
@@ -340,6 +342,8 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     // The press role reads the press nav but not reports: it is the case B1 was about.
     expect(can(testMe("press"), "reports.read")).toBe(false);
     expect(pageModule("/store/issue")).toBe("store");
+    expect(pageModule("/store/buy")).toBe("store_buy");
+    expect(pageModule("/store/po/new")).toBe("store_buy");
     expect(pageModule("/vendors")).toBe("purchase");
     expect(pageModule("/orders/plan")).toBe("orders");
     expect(pageModule("/casts/new")).toBe("foundry");

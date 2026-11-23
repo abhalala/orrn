@@ -723,7 +723,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
   (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
 - Module (PROD-GATE): store buying is the opt-in `store_buy` (`SUBROUTER_MODULE` and `PROCEDURE_MODULE` in
-  `lib/moduleGate.ts`), reads and writes. With it off, `store.receive` ignores `poLineId`, `ratePaise` and
+  `lib/moduleGate.ts`), reads and writes; its writes also need `store` (`modulesForPath`). With it off, `store.receive` ignores `poLineId`, `ratePaise` and
   `rejectedMilli` and keeps the GRN unrated and not pending (like a GRN from before 0061; `qtyMilli` 0 is
   refused), `store.items.update` ignores the levels, and `store.items.list`, `store.balances` and
   `store.txns` leave out the level and buying keys. Web: `useBuyAccess`, the Buying nav entry, the Today
@@ -794,7 +794,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
   rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
   line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`
-  (store.txn, store module on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+  (store.txn, `store_buy` on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
 
 ## Foundry (casts, melts, spectro, close-out)
 

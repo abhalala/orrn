@@ -30,7 +30,10 @@ export const BUY_PEOPLE: readonly Action[] = ["indent.raise", "indent.approve", 
 export function useBuyAccess() {
   const { data: me } = useMe();
   // XE store buying is the opt-in `store_buy` module (PROD-GATE): off, nobody may do anything here.
-  const on = useModuleOn("store_buy");
+  // It sits in the store, so the standard `store` module must be on as well (the server checks both on writes).
+  const buyOn = useModuleOn("store_buy");
+  const storeOn = useModuleOn("store");
+  const on = buyOn && storeOn;
   return {
     any: on && canAny(me, BUY_PEOPLE),
     readIndents: on && canAny(me, ["indent.raise", "indent.approve", "po.view", "po.manage"]),

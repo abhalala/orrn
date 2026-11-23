@@ -127,6 +127,18 @@ export function moduleForPath(path: string): CompanyModule | null {
   return own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
 }
 
+/**
+ * Every module a path needs: its own (`moduleForPath`) and, when that came from `PROCEDURE_MODULE` or
+ * `SUBROUTER_MODULE`, the module of the router it sits in (`store.po.create` needs `store_buy` and `store`).
+ */
+export function modulesForPath(path: string): CompanyModule[] {
+  const own_ = moduleForPath(path);
+  if (!own_) return [];
+  const top = path.split(".")[0] ?? "";
+  const parent = own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
+  return parent && parent !== own_ ? [own_, parent] : [own_];
+}
+
 /** The company's module list as stored (empty = every module on). */
 export async function companyModules(db: OrrnDb, companyId: string): Promise<string[]> {
   const row = await db.select({ modules: company.modules }).from(company).where(eq(company.id, companyId)).get();

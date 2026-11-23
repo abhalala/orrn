@@ -214,6 +214,12 @@ describe.each(VARIANTS)("the store of a plant with $name (store buying is `store
     const txns = await owner.store.txns({});
     expect(txns.items.length).toBe(1);
     expect(leaked(shape(txns), ["ratePaise", "ratePending", "valuePaise", "rejectedMilli", "poLineId", "poId", "poNumber"])).toEqual([]);
+    // Cancel as before XE: a GRN whose stock went partly out still cancels while the balance holds
+    // (with store buying on, a RATED GRN is refused after a later issue; an unrated one never is).
+    const second = await owner.store.receive({ itemId: item.id, qtyMilli: 3000 });
+    await keeper.store.issue({ itemId: item.id, qtyMilli: 2000, purpose: "melt" });
+    await owner.store.cancel({ txnId: grn.id, reason: "wrong challan" });
+    await expect(owner.store.cancel({ txnId: second.id, reason: "x" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     for (const [name, table] of Object.entries({ storeIndent, storePo })) {
       const [n] = await env.db.select({ n: count() }).from(table).where(eq((table as typeof storePo).companyId, companyId));
       expect({ name, n: n!.n }).toEqual({ name, n: 0 });
