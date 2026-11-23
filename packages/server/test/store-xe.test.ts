@@ -365,6 +365,25 @@ describe("reorder levels (row 72)", () => {
     const balances = await p.manager.store.balances();
     expect(balances.items.find((i) => i.id === p.fluxId)).toMatchObject({ minMilli: 20 * U, reorderMilli: 50 * U });
   });
+
+  test("a unit change checks the levels the item keeps; an explicit null clears them in the same update", async () => {
+    const p = await plant();
+    const { id } = await p.storekeeper.store.items.create({ name: "Loose shims", unit: "kg", category: "spare" });
+    await p.storekeeper.store.items.update({ id, minMilli: 1_500, reorderMilli: 2_500 });
+    await expect(p.storekeeper.store.items.update({ id, unit: "piece" })).rejects.toThrow(/whole numbers/);
+    await p.storekeeper.store.items.update({ id, unit: "piece", minMilli: null, reorderMilli: 3 * U });
+    const row = (await p.manager.store.balances()).items.find((i) => i.id === id);
+    expect(row).toMatchObject({ unit: "piece", minMilli: null, reorderMilli: 3 * U });
+  });
+
+  test("below minimum leaves out an item with enough stock in SQL and keeps one holding nothing", async () => {
+    const p = await plant();
+    await p.storekeeper.store.items.update({ id: p.bearingId, minMilli: 2 * U });
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 3 * U });
+    await p.storekeeper.store.items.update({ id: p.fluxId, minMilli: 20 * U });
+    const low = await p.storekeeper.store.belowMinimum();
+    expect(low.items.map((i) => i.itemId)).toEqual([p.fluxId]);
+  });
 });
 
 // ---------------------------------------------------------------------------

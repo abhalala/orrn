@@ -252,7 +252,10 @@ const itemsRouter = router({
       const existing = await loadStoreItem(ctx.db, ctx.companyId, input.id);
       const unitAfter = input.unit ?? existing.unit;
       const countable = (COUNTABLE_STORE_UNITS as readonly string[]).includes(unitAfter);
-      for (const level of [input.minMilli, input.reorderMilli]) {
+      // The levels the row keeps after this update: an omitted level stays, an explicit null clears it.
+      const minAfter = input.minMilli === undefined ? existing.minMilli : input.minMilli;
+      const reorderAfter = input.reorderMilli === undefined ? existing.reorderMilli : input.reorderMilli;
+      for (const level of [minAfter, reorderAfter]) {
         if (level != null && countable && level % 1000 !== 0) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${existing.name} is counted in whole numbers (${unitAfter})` });
         }

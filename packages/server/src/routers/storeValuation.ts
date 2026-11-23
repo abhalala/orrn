@@ -136,7 +136,12 @@ export const storeValuationRouter = router({
         };
       })
       .filter((r) => r.active || r.heldMilli !== 0);
-    return { items, totalPaise: items.reduce((s, r) => s + r.valuePaise, 0) };
+    // The plant total covers every item, not only the rows the list shows (the list stops at 1000).
+    const [total] = await ctx.db
+      .select({ paise: sql<number>`coalesce(sum(${storeHeldValueSql(ctx.companyId, sql`${storeItem.id}`)}), 0)` })
+      .from(storeItem)
+      .where(eq(storeItem.companyId, ctx.companyId));
+    return { items, totalPaise: Number(total?.paise ?? 0), truncated: rows.length === 1000 };
   }),
 
   /**
@@ -450,7 +455,15 @@ export const storeBelowMinimum = lowReader.query(async ({ ctx }) => {
       balanceMilli: storeBalanceSql(ctx.companyId, sql`${storeItem.id}`, store.id),
     })
     .from(storeItem)
-    .where(and(eq(storeItem.companyId, ctx.companyId), eq(storeItem.active, true), sql`${storeItem.minMilli} > 0`))
+    .where(
+      and(
+        eq(storeItem.companyId, ctx.companyId),
+        eq(storeItem.active, true),
+        sql`${storeItem.minMilli} > 0`,
+        // Below the minimum in SQL, before the limit: items with enough stock never crowd out a low one.
+        sql`${storeBalanceSql(ctx.companyId, sql`${storeItem.id}`, store.id)} < ${storeItem.minMilli}`,
+      ),
+    )
     .orderBy(asc(storeItem.name))
     .limit(500);
   const low = rows

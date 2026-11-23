@@ -300,6 +300,8 @@ export const storePoRouter = router({
             // An order a full delivery closed still offers its tolerance room for a late top-up.
             sql`(${storePo.status} in ('issued', 'part_received') or (${storePo.status} = 'closed' and ${storePo.closedBy} is null))`,
             input.itemId ? eq(storePoLine.itemId, input.itemId) : undefined,
+            // Room left (ordered + tolerance - received > 0) before the limit: full lines never crowd out open ones.
+            sql`${poLineReceivedSql(ctx.companyId, sql`${storePoLine.id}`)} < ${storePoLine.qtyMilli} + (${storePoLine.qtyMilli} * ${bp}) / 10000`,
           ),
         )
         .orderBy(asc(storePo.createdAt), asc(storePoLine.line))
@@ -412,7 +414,8 @@ export const storePoRouter = router({
         ctx.db
           .update(storePo)
           .set({
-            vendorId: input.vendorId ?? po.vendorId,
+            // Only a vendor the request names: an omitted one must not write back what this request read.
+            ...(input.vendorId ? { vendorId: input.vendorId } : {}),
             ...(input.deliveryDate !== undefined ? { deliveryDate: input.deliveryDate } : {}),
             ...(input.terms !== undefined ? { terms: input.terms } : {}),
             ...(input.note !== undefined ? { note: input.note } : {}),
@@ -435,7 +438,7 @@ export const storePoRouter = router({
             action: "store.po.update",
             subjectType: "store_po",
             subjectId: po.id,
-            meta: { number: po.number, vendorId: input.vendorId ?? po.vendorId, lines: input.lines?.length ?? null },
+            meta: { number: po.number, vendorId: input.vendorId ?? null, vendorBefore: input.vendorId ? po.vendorId : null, lines: input.lines?.length ?? null },
           },
           { from: storePo, where: and(eq(storePo.id, po.id), eq(storePo.companyId, ctx.companyId), eq(storePo.serverSeq, seq)) },
         ),
