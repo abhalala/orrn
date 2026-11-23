@@ -122,7 +122,7 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_x_batchDone", key: "foundry.refusal.batchDone", re: new RegExp(`^${S} is (?:already void|released|7)$`), vars: (m) => ({ batch: m[1]! }) },
   { id: "fd_x_vendorInactive", key: "foundry.refusal.vendorInactive", re: /^(.+) is not an active vendor$/, vars: (m) => ({ name: m[1]! }) },
   { id: "fd_x_receiptFuture", key: "foundry.refusal.receiptFuture", re: /^The receipt date cannot be in the future$/ },
-  { id: "fd_x_certKind", key: "foundry.refusal.certKind", re: /^The certificate must be a PDF or a photo$/ },
+  { id: "fd_x_certKind", key: "foundry.refusal.certKind", re: /^The mill test certificate must be a PDF or a photo$/ },
   { id: "fd_x_uploadUnfinished", key: "foundry.refusal.uploadUnfinished", re: /^The upload did not finish; try again$/ },
   { id: "fd_x_addBilletRack", key: "foundry.refusal.addBilletRack", re: /^Add a billet rack location first \(Masters → Locations\)$/ },
   { id: "fd_x_pickBilletRack", key: "foundry.refusal.pickBilletRack", re: /^Pick the billet rack the billets go to$/ },

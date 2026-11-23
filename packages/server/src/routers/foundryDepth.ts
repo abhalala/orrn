@@ -562,7 +562,7 @@ const logs = router({
     .mutation(async ({ ctx, input }) => {
       const r = await loadReceipt(ctx, input.id);
       const kind = dieFileKindOfName(input.name);
-      if (kind !== "pdf" && kind !== "image") bad("The certificate must be a PDF or a photo");
+      if (kind !== "pdf" && kind !== "image") bad("The mill test certificate must be a PDF or a photo");
       const contentType = checkDieFile(kind, { filename: input.name, contentType: input.mime, bytes: input.size });
       dieFilesBucket();
       const expiresAt = clockNow().getTime() + DIE_FILE_UPLOAD_TTL_MS;
