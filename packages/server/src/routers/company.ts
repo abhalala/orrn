@@ -14,6 +14,7 @@ import {
   MAX_STANDARD_TEXT,
   PACKING_LIST_SCOPES,
   SETTINGS_LOCALES,
+  effectiveModules,
   offeredUnitProblems,
   readFloorSettings,
   mergeUnitSettings,
@@ -534,7 +535,8 @@ export const companyRouter = router({
       castSeriesStart: floor.castSeriesStart,
       /** The owner's morning mail (XE parity REG #82): off by default, 07:00 plant time. */
       morningSummary: readMorningSummarySettings(raw.morningSummary),
-      modules: Array.isArray(row.modules) ? row.modules : [],
+      /** The EFFECTIVE list (B1, `effectiveModules`), never the stored one. */
+      modules: effectiveModules(Array.isArray(row.modules) ? row.modules : []),
       productionDay: {
         day: day.productionDay,
         startMs: day.startMs,

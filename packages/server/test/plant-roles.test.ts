@@ -117,6 +117,28 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE-PRICE (lane PRICE).
+  "price.view": ["admin", "office", "manager", "accountant"],
+  "price.manage": ["admin", "office", "manager"],
+  "quote.manage": ["office", "manager"],
+  "enquiry.manage": ["office", "manager"],
+  // XE-BILL.
+  "gst.settings": ["admin", "manager", "accountant", "office"],
+  "invoice.read": ["office", "manager", "accountant", "admin"],
+  "invoice.issue": ["office", "manager", "accountant"],
+  "invoice.cancel": ["office", "manager", "accountant"],
+  "payment.record": ["office", "accountant", "manager"],
+  // XE store (rows 69 to 73).
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
+  "store.rate": ["office", "manager", "admin", "accountant"],
+  // XE parity lane MAINT.
+  "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
+  "maint.manage": ["admin", "manager", "supervisor"],
+  "maint.workorder": ["admin", "manager", "supervisor", "operator", "press", "foundry"],
   // XE parity lane FOUNDRY.
   "foundry.homog": ["foundry", "supervisor"],
   "foundry.homogRelease": ["supervisor", "manager"],
@@ -356,6 +378,8 @@ describe("approvals", () => {
       melt_correct: ["owner", "admin", "manager"],
       dispatch_off_band: ["owner", "admin", "manager"],
       dispatch_late_entry: ["owner", "admin", "manager"],
+      price_change: ["owner", "admin", "manager"],
+      invoice_cancel: ["owner", "admin", "manager"],
     });
   });
 

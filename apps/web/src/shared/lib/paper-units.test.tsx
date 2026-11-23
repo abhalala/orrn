@@ -19,6 +19,7 @@ const { PrintCard } = await import("@/features/die-room/print-card");
 const { CastBlock, PortalCertificatePage } = await import("@/features/portal/certificate-page");
 const { CertificateScreen } = await import("@/features/foundry/certificate-view");
 const { DieSharePage } = await import("@/features/die-room/share-page");
+const { PoPrintScreen } = await import("@/features/store-buy/po-print");
 
 const DEFAULT = screenPrefs({});
 // Pounds, metres, pounds per foot, international grouping, month first, 12 hour clock: nothing of today's is left.
@@ -175,6 +176,39 @@ describe("the die share page", () => {
     const t = text(render(FAR));
     expect(t).toContain("kg/12ft");
     expect(t).not.toMatch(/lb\/ft|kg\/m\b/);
+    expect(render(FAR)).toBe(render(DEFAULT));
+  });
+});
+
+describe("the store purchase order", () => {
+  const detail = {
+    po: {
+      id: "p1", number: "PO-7", status: "issued", deliveryDate: "2026-11-05", terms: "Payment in 30 days", note: null,
+      issuedAt: new Date("2026-10-24T09:00:00+05:30"), createdAt: new Date("2026-10-23T09:00:00+05:30"),
+    },
+    vendor: { id: "v1", name: "Shree Gases", gstin: null, phone: null, city: "Rajkot" },
+    lines: [
+      { id: "pl1", line: 1, itemId: "i1", itemName: "Cover flux", unit: "kg", qtyMilli: 1_250_500, ratePaise: 8_450, gstBp: 1_800, receivedMilli: 0, amountPaise: 1_056_702, gstPaise: 190_206, totalPaise: 1_246_908 },
+    ],
+    totals: { amountPaise: 1_056_702, gstPaise: 190_206, totalPaise: 1_246_908 },
+    grns: [],
+    indent: null,
+    plant: { name: "Four Cubes", legalName: "Four Cubes LLP", gstin: null, address: "Plot 4, Rajkot", phone: null },
+    overReceiptBp: 0,
+  };
+  function render(prefs: ReturnType<typeof screenPrefs>) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    qc.setQueryData(trpc.store.po.get.queryOptions({ id: "p1" }).queryKey, detail as never);
+    return page(prefs, <PoPrintScreen id="p1" />, qc);
+  }
+  test("a kilogram line, the dates and the money are today's on a plant of pounds, metres and pounds per foot", () => {
+    const t = text(render(FAR));
+    expect(t).toContain("1,250.5");
+    expect(t).toContain("kg");
+    expect(t).toContain("24 Oct 2026");
+    expect(t).toContain("5 Nov 2026");
+    expect(t).toContain("\u20B984.50");
+    expect(t).not.toMatch(/\blb\b|October 24|10\/24/);
     expect(render(FAR)).toBe(render(DEFAULT));
   });
 });

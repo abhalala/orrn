@@ -27,6 +27,10 @@ export const APPROVAL_KINDS = [
   "dispatch_off_band",
   // arch 52: a packing list entered late for line-down hours.
   "dispatch_late_entry",
+  // XE-PRICE: a master rate, a customer term or a line rate below the computed one.
+  "price_change",
+  // XE-BILL: ask to cancel an issued invoice or credit note.
+  "invoice_cancel",
 ] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).

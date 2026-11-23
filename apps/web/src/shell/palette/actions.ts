@@ -1,4 +1,4 @@
-import type { CompanyModule } from "@orrn/domain";
+import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { LOCALE_NAMES, LOCALES, type Locale, type MessageKey } from "@orrn/i18n";
 import { can, canAny, type Me } from "@orrn/server/lib/permissions";
 import {
@@ -87,8 +87,7 @@ const LOCALE_WORDS: Record<Locale, readonly string[]> = {
 };
 
 function moduleOn(me: Me | null | undefined, module: CompanyModule): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes(module);
+  return isModuleOn(me?.company?.modules, module);
 }
 
 /**

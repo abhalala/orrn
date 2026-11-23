@@ -4,6 +4,7 @@ import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { complaint } from "@orrn/db/schema/complaint";
 import { countSession } from "@orrn/db/schema/count";
+import { maintAsset, maintWorkOrder } from "@orrn/db/schema/maintenance";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import { cast } from "@orrn/db/schema/foundry";
@@ -12,6 +13,7 @@ import { packingList } from "@orrn/db/schema/packing";
 import { pressPlan, pressRun } from "@orrn/db/schema/press";
 import { vendor, purchaseLot } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
+import { proforma, quote } from "@orrn/db/schema/pricing";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 
@@ -24,6 +26,8 @@ type Lookup = (db: OrrnDb, companyId: string, ids: string[]) => Promise<Named[]>
  */
 const LOOKUPS: Record<string, Lookup> = {
   complaint: (db, companyId, ids) => db.select({ id: complaint.id, label: complaint.number }).from(complaint).where(and(eq(complaint.companyId, companyId), inArray(complaint.id, ids))),
+  maint_asset: (db, companyId, ids) => db.select({ id: maintAsset.id, label: maintAsset.code }).from(maintAsset).where(and(eq(maintAsset.companyId, companyId), inArray(maintAsset.id, ids))),
+  maint_work_order: (db, companyId, ids) => db.select({ id: maintWorkOrder.id, label: maintWorkOrder.number }).from(maintWorkOrder).where(and(eq(maintWorkOrder.companyId, companyId), inArray(maintWorkOrder.id, ids))),
   sales_order: (db, companyId, ids) => db.select({ id: salesOrder.id, label: salesOrder.number }).from(salesOrder).where(and(eq(salesOrder.companyId, companyId), inArray(salesOrder.id, ids))),
   dispatch: (db, companyId, ids) => db.select({ id: dispatch.id, label: dispatch.code }).from(dispatch).where(and(eq(dispatch.companyId, companyId), inArray(dispatch.id, ids))),
   packing_list: (db, companyId, ids) => db.select({ id: packingList.id, label: packingList.code }).from(packingList).where(and(eq(packingList.companyId, companyId), inArray(packingList.id, ids))),
@@ -36,6 +40,9 @@ const LOOKUPS: Record<string, Lookup> = {
   bundle: (db, companyId, ids) => db.select({ id: bundle.id, label: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, companyId), inArray(bundle.id, ids))),
   cast: (db, companyId, ids) => db.select({ id: cast.id, label: cast.number }).from(cast).where(and(eq(cast.companyId, companyId), inArray(cast.id, ids))),
   purchase_lot: (db, companyId, ids) => db.select({ id: purchaseLot.id, label: purchaseLot.number }).from(purchaseLot).where(and(eq(purchaseLot.companyId, companyId), inArray(purchaseLot.id, ids))),
+  // XE-PRICE: quotations and proformas by number.
+  quote: (db, companyId, ids) => db.select({ id: quote.id, label: quote.number }).from(quote).where(and(eq(quote.companyId, companyId), inArray(quote.id, ids))),
+  proforma: (db, companyId, ids) => db.select({ id: proforma.id, label: proforma.number }).from(proforma).where(and(eq(proforma.companyId, companyId), inArray(proforma.id, ids))),
   count_session: (db, companyId, ids) => db.select({ id: countSession.id, label: countSession.number }).from(countSession).where(and(eq(countSession.companyId, companyId), inArray(countSession.id, ids))),
 };
 

@@ -10,7 +10,7 @@ import { company } from "./tenant";
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 /**
- * Foundry depth (XE parity lane FOUNDRY, migration 0061). Logs and billets stay ONE ledger item:
+ * Foundry depth (XE parity lane FOUNDRY, migration 0063). Logs and billets stay ONE ledger item:
  * `billet`, item_ref = cast id. Where the metal sits says what it is:
  * - `billet_store` (BILLET): logs as they leave the caster or arrive from a vendor;
  * - `billet_rack`: billets cut to length (#44);

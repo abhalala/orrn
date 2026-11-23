@@ -32,6 +32,9 @@ import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG } from "@/shared/lib/plant-input";
 import type { Fmt } from "@orrn/domain";
 import { useFmt } from "@/shared/lib/fmt";
+import { GrnBuyFields, useOpenPoLines } from "@/features/store-buy/grn-fields";
+import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, parseAcceptedMilli, poLineGone, type GrnBuyDraft } from "@/features/store-buy/grn-model";
+import { buyErrorText } from "@/features/store-buy/buy-errors";
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
@@ -199,6 +202,7 @@ function EntryFormBody({
   const [ref, setRef] = useState("");
   const [challan, setChallan] = useState("");
   const [note, setNote] = useState("");
+  const [buy, setBuy] = useState<GrnBuyDraft>(EMPTY_GRN_BUY);
   const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
   const [attempted, setAttempted] = useState(false);
   const [saved, setSaved] = useState<Saved | null>(null);
@@ -222,6 +226,13 @@ function EntryFormBody({
   const issue = useMutation(trpc.store.issue.mutationOptions());
   const exchange = useMutation(trpc.store.exchange.mutationOptions());
   const mutation = mode === "receive" ? receive : mode === "issue" ? issue : exchange;
+  const { data: me } = useMe();
+  const canRate = can(me, "store.rate");
+  const buyParsed = grnBuyInput(buy, unit, canRate);
+  const rejectedForQty = buyParsed.ok ? buyParsed.rejectedMilli : null;
+  // The same query the buying fields read: a picked order line that is no longer open blocks the submit.
+  const openLines = useOpenPoLines(mode === "receive" ? (item?.id ?? null) : null);
+  const lineGone = mode === "receive" && poLineGone(openLines.data, buy.poLineId);
 
   // What is wrong with each field right now (shown once touched or after a submit attempt).
   const problems = useMemo(() => {
@@ -229,7 +240,11 @@ function EntryFormBody({
     const short: FieldKey[] = [];
     if (!item) out.item = t("store.form.itemRequired");
     const parse = (text: string, key: FieldKey) => {
-      const parsed = parseQtyMilli(text, unit);
+      // A GRN may accept nothing when the whole delivery was rejected.
+      const parsed =
+        mode === "receive" && key === "qty"
+          ? parseAcceptedMilli(text, unit, rejectedForQty)
+          : parseQtyMilli(text, unit);
       if (!parsed.ok) {
         out[key] = qtyProblemText(t, parsed.problem);
         return null;
@@ -252,6 +267,7 @@ function EntryFormBody({
       signature = entrySignature({ mode, itemId: item.id, outMilli, inMilli, note });
     } else if (item && mode !== "exchange" && milli !== null) {
       signature = entrySignature({ mode, itemId: item.id, milli, purpose, ref, challan, note });
+      if (mode === "receive") signature += `|${buy.poLineId ?? ""}|${canRate ? buy.rate.trim() : ""}|${buy.rejected.trim()}`;
     }
 
     // Not enough in the store, against the balance last loaded. Skipped for a resend of a submit
@@ -268,7 +284,7 @@ function EntryFormBody({
     if (mode === "exchange") checkShort(outMilli, "old");
     if (mode === "issue") checkShort(milli, "qty");
     return { errors: out, short, milli, outMilli, inMilli, signature };
-  }, [item, unit, qty, oldQty, newQty, purpose, ref, challan, note, mode, unsure, t]);
+  }, [item, unit, qty, oldQty, newQty, purpose, ref, challan, note, buy, canRate, rejectedForQty, mode, unsure, t]);
 
   const shownError = (key: FieldKey) => {
     const e = problems.errors[key];
@@ -317,6 +333,7 @@ function EntryFormBody({
     setRef("");
     setChallan("");
     setNote("");
+    setBuy(EMPTY_GRN_BUY);
     setTouched({});
     setAttempted(false);
     setSaved(null);
@@ -337,6 +354,10 @@ function EntryFormBody({
       if (firstBad) focusField(firstBad);
       return;
     }
+    if (mode === "receive" && !buyParsed.ok) return;
+    // A closed line blocks a new submit; a resend of a submit that got no answer goes out unchanged (same
+    // line, rate and id), because that first submit may be what used the line up.
+    if (grnHeldByGoneLine(lineGone, signature, unsure)) return;
     const note_ = note.trim() || null;
     inFlight.current = true;
     try {
@@ -346,6 +367,13 @@ function EntryFormBody({
           qtyMilli: problems.milli,
           grnRef: challan.trim() || null,
           note: note_,
+          ...(buyParsed.ok
+            ? {
+                poLineId: buyParsed.poLineId ?? undefined,
+                ratePaise: buyParsed.ratePaise ?? undefined,
+                rejectedMilli: buyParsed.rejectedMilli ?? undefined,
+              }
+            : {}),
           clientRequestId: ids.idFor(signature),
         });
         done({
@@ -501,6 +529,8 @@ function EntryFormBody({
                   value={itemId}
                   takesStock={mode !== "receive"}
                   onChange={(id) => {
+                    // An order line and its rate belong to the item they were picked for.
+                    if (id !== itemId) setBuy(EMPTY_GRN_BUY);
                     setItemId(id);
                     touch("item");
                     edited();
@@ -651,6 +681,20 @@ function EntryFormBody({
             </Field>
           ) : null}
 
+          {mode === "receive" ? (
+            <GrnBuyFields
+              itemId={item?.id ?? null}
+              unit={unit}
+              draft={buy}
+              onChange={(next) => {
+                setBuy(next);
+                edited();
+              }}
+              parsed={buyParsed}
+              showErrors={attempted}
+            />
+          ) : null}
+
           <NoteField value={note} onChange={setNote} />
 
           {mutation.error ? (
@@ -662,7 +706,7 @@ function EntryFormBody({
             >
               {isUnknownOutcome(mutation.error)
                 ? t("store.form.unknownOutcome", { action: t(copy.submit) })
-                : t("store.form.failed", { reason: storeErrorText(t, mutation.error) })}
+                : t("store.form.failed", { reason: mode === "receive" ? buyErrorText(t, mutation.error) : storeErrorText(t, mutation.error) })}
             </p>
           ) : null}
 

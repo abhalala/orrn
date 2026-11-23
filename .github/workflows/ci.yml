@@ -58,13 +58,18 @@ jobs:
   test-server:
     name: Server tests (${{ matrix.shard }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The bounded shards get more room: ingest-bounded-targets alone runs 24 to 35 min on a runner.
+    timeout-minutes: ${{ startsWith(matrix.shard, 'bounded') && 70 || 45 }}
     strategy:
       fail-fast: false
       matrix:
         # 1-4: the ordinary packages/server files, split round-robin by name.
-        # bounded: the 5,000-row ingest files (about 11 min each on an M-series Mac).
-        shard: ["1", "2", "3", "4", "bounded"]
+        # bounded-*: the 5,000-row ingest files, one job each so no two share a runner or a step limit
+        # (side by side on one 4-vCPU runner, the slower runners pushed them past their limits).
+        #   bounded-merge:  ingest-merge-bounded + ingest-round6-bounded (12 to 19 min)
+        #   bounded-writes: ingest-bounded-targets, the write steps (24 to 35 min)
+        #   bounded-dry:    ingest-bounded-targets-dry, the dry run steps (5 to 8 min)
+        shard: ["1", "2", "3", "4", "bounded-merge", "bounded-writes", "bounded-dry"]
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -83,7 +88,7 @@ jobs:
       # process cascades on Linux CI. TIMEOUT_MS is the per-test timeout the repo uses
       # for the full suite under load.
       - name: packages/server (process per file)
-        timeout-minutes: 40
+        timeout-minutes: ${{ startsWith(matrix.shard, 'bounded') && 60 || 40 }}
         working-directory: packages/server
         env:
           SHARD: ${{ matrix.shard }}
@@ -92,15 +97,25 @@ jobs:
           TIMEOUT_MS: 60000
           LOG_DIR: ${{ runner.temp }}/server-tests
         run: |
+          echo "runner: $(nproc) vCPU, $(lscpu | sed -n 's/^Model name: *//p')"
           files=()
           i=0
           for f in test/*.test.ts; do
             case "$f" in
-              *bounded*) [ "$SHARD" = bounded ] && files+=("$f") ;;
-              *) [ "$SHARD" != bounded ] && [ $((i % SHARDS + 1)) = "$SHARD" ] && files+=("$f"); i=$((i + 1)) ;;
+              *bounded*)
+                # Every bounded file names its shard here; a new one fails every shard until it does.
+                case "$f" in
+                  test/ingest-merge-bounded.test.ts | test/ingest-round6-bounded.test.ts) b=bounded-merge ;;
+                  test/ingest-bounded-targets.test.ts) b=bounded-writes ;;
+                  test/ingest-bounded-targets-dry.test.ts) b=bounded-dry ;;
+                  *) echo "::error::$f has no bounded shard in .github/workflows/ci.yml"; exit 1 ;;
+                esac
+                [ "$SHARD" = "$b" ] && files+=("$f") ;;
+              *) case "$SHARD" in bounded-*) ;; *) [ $((i % SHARDS + 1)) = "$SHARD" ] && files+=("$f") ;; esac; i=$((i + 1)) ;;
             esac
           done
           echo "shard $SHARD: ${#files[@]} files"
+          [ "${#files[@]}" -gt 0 ] || { echo "::error::shard $SHARD has no files"; exit 1; }
           # Full paths as filters: each matches only its own file.
           bash scripts/test-per-file.sh "${files[@]}"
       - name: Failed file logs

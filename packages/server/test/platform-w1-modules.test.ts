@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 
 import { approval, auditLog, company } from "@orrn/db/schema";
-import { COMPANY_MODULES, isModuleOn, type CompanyModule } from "@orrn/domain";
+import { COMPANY_MODULES, isModuleOn, OPT_IN_MODULES, STANDARD_MODULES, type CompanyModule } from "@orrn/domain";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -49,6 +49,7 @@ const MUTATIONS: { module: CompanyModule; path: string; call: (c: Caller) => Pro
   { module: "bundles", path: "stock.move", call: (c) => c.stock.move({} as never) },
   { module: "bundles", path: "stock.openingBalance", call: (c) => c.stock.openingBalance() },
   { module: "complaints", path: "complaints.open", call: (c) => c.complaints.open({} as never) },
+  { module: "maintenance", path: "maint.workOrders.create", call: (c) => c.maint.workOrders.create({} as never) },
 ];
 
 async function failure(p: Promise<unknown>): Promise<{ code?: string; message: string } | null> {
@@ -285,7 +286,9 @@ describe("migration 0026_modules_all (D14): the old 4-key module list becomes []
         "legacy-with-duplicate": ["customers", "dies", "bundles", "bundles"],
       });
       // A migrated plant passes the gate for every module the new router gate checks.
-      for (const m of COMPANY_MODULES) expect({ m, on: isModuleOn(after.legacy!, m) }).toEqual({ m, on: true });
+      for (const m of STANDARD_MODULES) expect({ m, on: isModuleOn(after.legacy!, m) }).toEqual({ m, on: true });
+      // The opt-in statutory modules (XE-BILL) are never switched on by an empty list.
+      for (const m of OPT_IN_MODULES) expect({ m, on: isModuleOn(after.legacy!, m as never) }).toEqual({ m, on: false });
 
       // The release.check index exists and device carries auth_session_id.
       const idx = await d1.prepare("select name from sqlite_master where type = 'index' and name = 'device_install_idx'").all();

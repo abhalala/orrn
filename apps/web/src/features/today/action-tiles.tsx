@@ -21,6 +21,7 @@ const ACCENT: Record<TodayTile["key"], NonNullable<ActionTileProps["accent"]>> =
   store: "green",
   approvals: "ink",
   guides: "ink",
+  enquiries: "amber",
 };
 
 /**

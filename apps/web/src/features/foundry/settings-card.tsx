@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import { isModuleOn } from "@orrn/domain";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -16,8 +17,7 @@ import { SwitchRow, type PlantSettings } from "../settings/ui";
 export function FoundrySettingsCard({ settings }: { settings: PlantSettings }) {
   const { t } = useT();
   const queryClient = useQueryClient();
-  const modules = settings.modules as readonly string[];
-  const foundryOn = modules.length === 0 || modules.includes("foundry");
+  const foundryOn = isModuleOn(settings.modules as readonly string[], "foundry");
   const on = Boolean((settings as { foundry?: { requireHomogenizing?: boolean } }).foundry?.requireHomogenizing);
   const save = useMutation(
     trpc.company.updateSettings.mutationOptions({

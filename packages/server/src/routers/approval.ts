@@ -13,6 +13,7 @@ import { atomicBatch } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, PURCHASE_READ_ACTIONS } from "../lib/permissions";
+import { holdsOrderPrice } from "../lib/pricingKit";
 import { kindsRoleMayDecide, loadApprovalRules, mayDecide } from "../lib/approverRules";
 import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
@@ -82,7 +83,15 @@ export const approvalRouter = router({
       // XE ADM #78: whether the caller may decide each row under the plant's approver rules (the
       // threshold reads the request's own meta), so the screens offer Approve only where it would land.
       const rules = await loadApprovalRules(ctx.db, ctx.companyId);
-      const withDecide = items.map((item) => ({ ...item, canDecide: item.status === "pending" && mayDecide(ctx.role, item.kind, item.meta, rules) }));
+      // XE-PRICE B2: a line override (an order-line rate) is decided only by a holder of order.price.
+      const priceOk = holdsOrderPrice(ctx.role);
+      const withDecide = items.map((item) => ({
+        ...item,
+        canDecide:
+          item.status === "pending" &&
+          mayDecide(ctx.role, item.kind, item.meta, rules) &&
+          (priceOk || !(item.kind === "price_change" && (item.meta as { rateKind?: unknown } | null)?.rateKind === "line")),
+      }));
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
       const visible = purchaseReader
         ? withDecide
@@ -157,6 +166,11 @@ export const approvalRouter = router({
       if (!mayDecide(ctx.role, row.kind, row.meta ?? null, await loadApprovalRules(ctx.db, ctx.companyId))) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
+      // XE-PRICE review B2: a line override is an order-line rate, decided only by an approver who
+      // also holds order.price (owner, manager). A master-rate change keeps its approvers.
+      if (row.kind === "price_change" && (row.meta as { rateKind?: unknown } | null)?.rateKind === "line" && !holdsOrderPrice(ctx.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      }
       const userId = ctx.session.user.id;
       if (row.requestedBy === userId) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Someone else has to approve your request" });
@@ -215,6 +229,11 @@ export const approvalRouter = router({
         .limit(1);
       if (!landed) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This request was already decided" });
+      }
+      // XE-BILL (review S1): an approved invoice cancel that waits for the IRP is tried at once; the cron retries.
+      if (row.kind === "invoice_cancel" && input.decision === "approved") {
+        const [{ settleCancelNow }, { currentIrpAdapter }] = await Promise.all([import("../lib/billing/einvoiceFlow"), import("../lib/billing/irp")]);
+        await settleCancelNow(ctx.db, ctx.companyId, row.subjectId, currentIrpAdapter(), decidedAt.getTime());
       }
 
       return { id: row.id, status: input.decision, decidedAt };

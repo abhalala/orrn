@@ -22,6 +22,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AgeingOverrideFigures } from "@/features/ageing/approval-figures";
+import { PriceChangeFigures } from "@/features/pricing/master/approval-rate";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
@@ -40,6 +41,7 @@ import {
   approvalSubject,
   canOpenSubject,
   decideState,
+  isLineOverride,
   durationText,
   hasLiveFacts,
   lateDispatchOf,
@@ -248,6 +250,15 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         {late ? <LateEntryFigures late={late} run={lateRun.data} loading={lateRun.isLoading} error={showsQueryError(lateRun)} /> : null}
 
         {current.kind === "ageing_override" && canAny(me, ["ageing.view"]) ? <AgeingOverrideFigures batchId={current.subjectId} /> : null}
+
+        {/* XE-PRICE: the old and new rate, read live for people who can read prices; Approve never waits for it. */}
+        {current.kind === "price_change" ? (
+          canAny(me, ["price.view"]) && (!isLineOverride(current) || canAny(me, ["order.price"])) ? (
+            <PriceChangeFigures rateId={current.subjectId} />
+          ) : (
+            <p className="m-0 text-[14px] text-muted-foreground">{t("price.approval.hidden")}</p>
+          )
+        ) : null}
 
         {isNote ? (
           readsFigures ? (

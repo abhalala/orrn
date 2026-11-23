@@ -17,6 +17,7 @@ import { formatQty } from "./store-qty";
 import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-ui";
 import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreEntries, useStoreItems } from "./use-store";
 import { useFmt } from "@/shared/lib/fmt";
+import { ReorderLevels } from "@/features/store-buy/levels";
 
 const ACTION_ROUTES = {
   issue: "/store/issue",
@@ -144,6 +145,8 @@ export function StoreItemPage({ id }: { id: string }) {
           </div>
         </Can>
       ) : null}
+
+      <ReorderLevels item={item} />
 
       <StoreSection id="store-item-entries" title={t("store.entries")}>
         <StoreEntries itemId={item.id} label={t("store.entries")} />

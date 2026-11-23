@@ -5,7 +5,7 @@
  * 10 keys incl. purchase); the platform mutation normalizes against it and
  * the Godseye form renders it.
  */
-export { COMPANY_MODULES, type CompanyModule } from "@orrn/domain";
+export { COMPANY_MODULES, OPT_IN_MODULES, type CompanyModule } from "@orrn/domain";
 
 /** Plans offered in the Godseye form. Older companies may carry another value (for example `dev`); it is kept as is. */
 export const COMPANY_PLANS = ["starter", "growth", "enterprise"] as const;

@@ -54,7 +54,8 @@ describe("orderedNavItems", () => {
   test("items absent from the saved order follow in default order", () => {
     const result = order({ order: ["today"] });
     expect(keys(result.primary)).toEqual(["today", "pack", "stock", "dispatch"]);
-    expect(keys(result.more)).toEqual(keys(TENANT_MORE));
+    // Billing is opt-in: a plant that names no modules has it off, so it is not among the visible items.
+    expect(keys(result.more)).toEqual(keys(TENANT_MORE).filter((k) => k !== "billing"));
   });
 
   test("items newly visible to the person follow saved items in default order", () => {

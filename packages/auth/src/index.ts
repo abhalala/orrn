@@ -26,7 +26,7 @@ import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
 import { sendTransactionalEmail, type EmailOptions, type EmailEnvironment } from "./email-delivery";
 
-export { configureAuthHooks, type AuthHooks } from "./google-guard";
+export { configureAuthHooks, type AuthHooks } from "./auth-hooks";
 
 export function sendAuthEmail(options: EmailOptions, environment: EmailEnvironment = env) {
   return sendTransactionalEmail(environment, options, "Auth email");
