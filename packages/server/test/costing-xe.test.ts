@@ -325,6 +325,50 @@ describe("row 51: capacity", () => {
   );
 });
 
+describe("rows 51 and 52 together: forecast and what-if feed the press load", () => {
+  test(
+    "expected orders above what is booked add load in later weeks; a what-if percent scales them",
+    async () => {
+      const p = await plant({ costing: { workDaysPerWeek: 6, hoursPerDay: 20 } });
+      await runOf(p, { day: "2026-11-02", inputKg: 1200, goodKg: 1000, hours: 4 }); // 250 kg/h
+      // 3 months of 4300 kg each, nothing open: about 1000 kg a week expected.
+      for (const day of ["2026-08-10", "2026-09-10", "2026-10-10"]) {
+        const o = await orderOf(p, { kg: 4_300 });
+        await env.db.run(`update sales_order set order_date = '${day}', status = 'closed' where id = '${o.orderId}'` as never);
+      }
+      const plain = await p.manager.costing.capacity({ weeks: 4 });
+      expect(plain.lines[0]!.weeks.every((w) => w.bookedMin === 0)).toBe(true);
+      const fc = await p.manager.costing.capacity({ weeks: 4, withForecast: true });
+      expect(fc.forecast).toMatchObject({ pairs: 1 });
+      const w1 = fc.lines[0]!.weeks[1]!;
+      expect(w1.refs[0]!.ref).toMatch(/^forecast /);
+      const weekG = Math.round((4_300_000 * 7) / 30.4);
+      expect(w1.bookedMin).toBe(Math.round((weekG * 60) / 250_000));
+      expect(fc.lines[0]!.weeks[0]!.bookedMin).toBe(0); // this week is what is booked
+      const up = await p.manager.costing.capacity({ weeks: 4, withForecast: true, scenario: [{ customerId: p.customerId, pct: 100 }] });
+      expect(up.lines[0]!.weeks[1]!.bookedMin).toBe(Math.round((Math.round(weekG * 2) * 60) / 250_000));
+    },
+    SLOW,
+  );
+});
+
+describe("row 16: runs page", () => {
+  test(
+    "a section with more runs than the page says there is a next page",
+    async () => {
+      const p = await plant();
+      for (const d of ["2026-11-10", "2026-11-11", "2026-11-12"]) await runOf(p, { day: d, inputKg: 1000, goodKg: 800 });
+      const first = await p.manager.costing.runs({ limit: 2, offset: 0 });
+      expect(first.items).toHaveLength(2);
+      expect(first.nextOffset).toBe(2);
+      const second = await p.manager.costing.runs({ limit: 2, offset: 2 });
+      expect(second.items).toHaveLength(1);
+      expect(second.nextOffset).toBeNull();
+    },
+    SLOW,
+  );
+});
+
 describe("row 52: forecast", () => {
   test(
     "a moving average of the last three full months with its method named, per plant and per customer",

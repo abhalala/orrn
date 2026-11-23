@@ -239,14 +239,14 @@ export const costingRouter = router({
     .query(async ({ ctx, input }) => {
       const co = await gate(ctx);
       const { from, to } = range(co.today, input);
-      const { runs, factors } = await costRuns(ctx.db, ctx.companyId, co, { from, to, sectionId: input.sectionId, limit: input.offset + input.limit }, clockNow());
+      const { runs, truncated, factors } = await costRuns(ctx.db, ctx.companyId, co, { from, to, sectionId: input.sectionId, limit: input.offset + input.limit }, clockNow());
       const page = runs.slice(input.offset, input.offset + input.limit);
       return {
         from,
         to,
         factors,
         items: page.map(runView),
-        nextOffset: runs.length > input.offset + input.limit ? input.offset + input.limit : null,
+        nextOffset: truncated ? input.offset + input.limit : null,
       };
     }),
 
