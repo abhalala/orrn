@@ -76,6 +76,8 @@ export const appRouter = router({
   einvoice: lazy(() => import("./einvoice").then((m) => m.einvoiceRouter)),
   // XE parity lane MAINT (#63 to #68), module `maintenance`.
   maint: lazy(() => import("./maintenance").then((m) => m.maintenanceRouter)),
+  // XE DEVICES (opt-in module `devices`). `device` (above) is the app-install registry.
+  devices: lazy(() => import("./devices").then((m) => m.devicesRouter)),
 });
 export type AppRouter = typeof appRouter;
 

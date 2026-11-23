@@ -54,6 +54,7 @@ import {
   DEFAULT_SCRAP_ITEMS,
   isIsoDate,
   isShortBeyondTolerance,
+  lotHasWeightLockingNote,
   nameKey,
   parseScrapItemRef,
   toleranceG,
@@ -237,13 +238,6 @@ async function hasWeightLockingNote(ctx: Ctx, lotId: string): Promise<boolean> {
     )
     .limit(1);
   return Boolean(row);
-}
-
-/** SQL over the outer `purchase_lot` row: the write-time form of `hasWeightLockingNote`. */
-function lotHasWeightLockingNote(): SQL {
-  const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
-  return sql`exists (select 1 from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
-    and n.status in ('pending', 'approved') and ((n.type = 'debit' and n.reason = 'weight') or n.bori_deduction_g > 0))`;
 }
 
 function auditCtx(ctx: {

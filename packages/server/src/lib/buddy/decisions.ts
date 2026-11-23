@@ -45,6 +45,7 @@ export const BUDDY_DECISIONS = {
     buddy: deny("The buddy's own grants and drafts: browser session only, so Hermes cannot confirm its own drafts (§4.4)."),
     billing: deny("Tax invoices, GST, payments: money and statutory numbers stay with people (XE-BILL)."),
     einvoice: deny("IRN and e-way bills at the GST portal (XE-BILL)."),
+    devices: deny("Device tokens, enrolment and the weights taken at the kanta stay with people (XE DEVICES)."),
     ingest: "per-procedure",
 
     company: allow,

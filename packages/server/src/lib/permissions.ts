@@ -175,6 +175,9 @@ export const PLANT_ACTIONS = [
   "foundry.billets", // cut logs into billets, issue billets to a press floor
   "foundry.reject", // log and billet reject registers
   "foundry.plan", // casting plan: accept, edit, drop, open a cast from a line
+  // XE DEVICES (opt-in `devices` module): weighbridge, scanner and tensile tester capture, device enrolment.
+  "device.view", // the devices list and health, readings, the weigh mismatches, the lab inbox
+  "device.manage", // enrol a device, rotate or revoke its token, its map and the weigh tolerance
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -366,6 +369,10 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "foundry.billets": ["foundry", "supervisor"],
   "foundry.reject": ["foundry", "supervisor"],
   "foundry.plan": ["supervisor", "office", "manager"],
+  // XE DEVICES: the people who run the gate, the lab and the floor see the devices; the plant admin and the
+  // manager enrol them and own their tokens (as edge boxes are the admin's).
+  "device.view": ["admin", "manager", "supervisor", "office", "storekeeper"],
+  "device.manage": ["admin", "manager"],
   "support.request": [
     "admin",
     "manager",

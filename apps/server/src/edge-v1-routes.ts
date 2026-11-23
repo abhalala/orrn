@@ -277,3 +277,41 @@ edgeV1Routes.get("/api/edge/v1/snapshots/:snapshotId/chunks/:sequence", async (c
 
   return c.json(res.body, res.status);
 });
+
+// XE DEVICES (row 95): plant devices behind an edge node. Bodies are read bounded before any auth, and the
+// handlers load on first call (`await import`), so nothing of the device code evaluates at Worker start.
+// Paths equal DEVICE_READINGS_PATH / DEVICE_HEARTBEAT_PATH / DEVICE_CONFIG_PATH in @orrn/edge-runtime/devices
+// (packages/server/test/devices-edge.test.ts pins them).
+for (const [path, handler] of [
+  ["/api/edge/v1/devices/readings", "handleDeviceReadings"],
+  ["/api/edge/v1/devices/heartbeat", "handleDeviceHeartbeat"],
+] as const) {
+  edgeV1Routes.post(path, async (c: HonoContext) => {
+    const { readCollectorBody } = await import("@orrn/server/lib/collectorNode");
+    const read = await readCollectorBody(c.req.raw);
+    if (!read.ok) return c.json({ code: "body_too_large", error: "Body too large" }, read.status);
+    const mod = await import("@orrn/server/lib/deviceEdge");
+    const res = await mod[handler](createDb(), {
+      rawBody: read.body,
+      path: requestPathAndQuery(c),
+      nodeIdHeader: c.req.header("X-ORRN-Node-ID"),
+      authorization: c.req.header("Authorization"),
+      deviceIdHeader: c.req.header("X-ORRN-Device"),
+      deviceTokenHeader: c.req.header("X-ORRN-Device-Token"),
+      masterKey: env.ORRN_MASTER_KEY,
+    });
+    return c.json(res.body, res.status);
+  });
+}
+
+edgeV1Routes.get("/api/edge/v1/devices/config", async (c: HonoContext) => {
+  const { handleDeviceConfig } = await import("@orrn/server/lib/deviceEdge");
+  const res = await handleDeviceConfig(createDb(), {
+    rawBody: null,
+    path: requestPathAndQuery(c),
+    nodeIdHeader: c.req.header("X-ORRN-Node-ID"),
+    authorization: c.req.header("Authorization"),
+    masterKey: env.ORRN_MASTER_KEY,
+  });
+  return c.json(res.body, res.status);
+});
