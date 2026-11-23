@@ -81,6 +81,9 @@ export const BUDDY_DECISIONS = {
     // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
+    // XE parity lane MAINT: maintenance reads (assets, plans due, work orders, readings, reports). Its writes are
+    // not named in `changes`, so every one of them stays denied (a person raises and closes work orders).
+    maint: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {

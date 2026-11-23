@@ -26,6 +26,8 @@ export const docTypes = [
   "party_bundle",
   // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
   "complaint",
+  // XE parity (lane MAINT, #65): maintenance work orders WO-n per financial year.
+  "maint_wo",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

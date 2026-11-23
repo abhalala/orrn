@@ -15,6 +15,7 @@ export * from "./foundry";
 export * from "./ingest";
 export * from "./inventory";
 export * from "./legacy";
+export * from "./maintenance";
 export * from "./packing";
 export * from "./platform";
 export * from "./portal";

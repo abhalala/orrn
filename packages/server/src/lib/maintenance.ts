@@ -1,0 +1,197 @@
+/**
+ * Plant maintenance reads shared by the router and Today (XE parity lane MAINT). Pure rules live in
+ * `@orrn/domain` (`maintenance.ts`); this file reads rows and hands them over.
+ *
+ * Run hours (row 64) come from what the plant already records, per linked master:
+ * - press: press runs on the line (started to stopped; a running run counts to now), minus the downtime
+ *   logged on those runs; voided runs never count.
+ * - furnace: locked melts on the furnace, from preheat (else charging) start to casting end.
+ * - oven: ageing batches in the oven, from in to out (still in: to now); void batches never count.
+ * An asset with no link has no run hours, so a plan on it can only run on calendar days.
+ * Every query aggregates in SQL (GROUP BY plan) and binds a handful of parameters, never an id list.
+ */
+import { comparePmDue, pmDue, type MaintLinkKind, type PmDue } from "@orrn/domain";
+import { TRPCError } from "@trpc/server";
+import { and, eq, sql } from "drizzle-orm";
+
+import { maintAsset, maintPlan, maintSetting, type MaintAssetRow } from "@orrn/db/schema/maintenance";
+import { furnace } from "@orrn/db/schema/foundry";
+import { ageingOven } from "@orrn/db/schema/ageing";
+import { pressLine } from "@orrn/db/schema/press";
+import { membership } from "@orrn/db/schema/tenant";
+
+import type { OrrnDb } from "./atomic";
+
+type Ctx = { db: OrrnDb; companyId: string };
+
+export const MAINT_NOT_FOUND = "Not found";
+export const ASSET_NO_RUN_HOURS = "This asset has no run hours. Link it to a press, furnace or oven, or plan by days";
+export const LINK_NOT_FOUND = "That press, furnace or oven is not in this plant";
+export const LINK_TAKEN = "Another asset already points at that press, furnace or oven";
+export const ASSET_CODE_TAKEN = "Another asset already has that code";
+export const ASSIGNEE_NOT_MEMBER = "The person is not a member of this plant";
+
+export function notFound(): TRPCError {
+  return new TRPCError({ code: "NOT_FOUND", message: MAINT_NOT_FOUND });
+}
+
+export async function loadAsset(ctx: Ctx, assetId: string): Promise<MaintAssetRow> {
+  const [row] = await ctx.db.select().from(maintAsset).where(and(eq(maintAsset.companyId, ctx.companyId), eq(maintAsset.id, assetId))).limit(1);
+  if (!row) throw notFound();
+  return row;
+}
+
+/** The linked master in this plant, with its code and name; throws BAD_REQUEST when it is not here. */
+export async function loadLink(ctx: Ctx, kind: MaintLinkKind, id: string): Promise<{ code: string; name: string | null }> {
+  const [row] =
+    kind === "press"
+      ? await ctx.db.select({ code: pressLine.code, name: pressLine.name }).from(pressLine).where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.id, id))).limit(1)
+      : kind === "furnace"
+        ? await ctx.db.select({ code: furnace.code, name: furnace.name }).from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.id, id))).limit(1)
+        : await ctx.db.select({ code: ageingOven.code, name: ageingOven.name }).from(ageingOven).where(and(eq(ageingOven.companyId, ctx.companyId), eq(ageingOven.id, id))).limit(1);
+  if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: LINK_NOT_FOUND });
+  return row;
+}
+
+/** A person named on a work order must be a member of this plant. */
+export async function assertMember(ctx: Ctx, userId: string): Promise<void> {
+  const [row] = await ctx.db
+    .select({ id: membership.userId })
+    .from(membership)
+    .where(and(eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)))
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: ASSIGNEE_NOT_MEMBER });
+}
+
+export async function labourRate(ctx: Ctx): Promise<number | null> {
+  const [row] = await ctx.db.select({ rate: maintSetting.labourRatePaisePerHour }).from(maintSetting).where(eq(maintSetting.companyId, ctx.companyId)).limit(1);
+  return row?.rate ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Run minutes since each plan's base
+// ---------------------------------------------------------------------------
+
+type Row = { plan_id: string; ms: number | null };
+
+/**
+ * Run minutes of each active hours plan since its `base_at`, as of `nowMs`, for plans whose asset is
+ * linked. `assetId` narrows to one asset. Plans with no link (or no hours interval) are absent.
+ */
+export async function planUsageMinutes(ctx: Ctx, nowMs: number, assetId?: string): Promise<Map<string, number>> {
+  const c = ctx.companyId;
+  const now = sql`${nowMs}`;
+  const assetFilter = assetId ? sql`and p.asset_id = ${assetId}` : sql``;
+  const base = sql`p.company_id = ${c} and p.active = 1 and p.interval_hours is not null ${assetFilter}`;
+  const clip = (start: ReturnType<typeof sql>, end: ReturnType<typeof sql>) =>
+    sql`coalesce(sum(max(0, min(${end}, ${now}) - max(${start}, p.base_at))), 0)`;
+
+  const [runs, downtime, melts, batches] = await Promise.all([
+    ctx.db.all<Row>(sql`
+      select p.id as plan_id, ${clip(sql`r.started_at`, sql`coalesce(r.stopped_at, ${now})`)} as ms
+      from maint_plan p
+      join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
+      join press_run r on r.company_id = p.company_id and r.press_line_id = a.link_id
+        and r.status <> 'voided' and r.started_at is not null and coalesce(r.stopped_at, ${now}) > p.base_at
+      where ${base}
+      group by p.id`),
+    ctx.db.all<Row>(sql`
+      select p.id as plan_id, ${clip(sql`d.started_at`, sql`coalesce(d.stopped_at, ${now})`)} as ms
+      from maint_plan p
+      join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
+      join press_downtime d on d.company_id = p.company_id and d.press_line_id = a.link_id and d.press_run_id is not null
+        and coalesce(d.stopped_at, ${now}) > p.base_at
+      join press_run r on r.id = d.press_run_id and r.company_id = d.company_id and r.status <> 'voided'
+      where ${base}
+      group by p.id`),
+    ctx.db.all<Row>(sql`
+      select p.id as plan_id, ${clip(sql`coalesce(m.preheat_start_at, m.charging_start_at)`, sql`m.casting_end_at`)} as ms
+      from maint_plan p
+      join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'furnace'
+      join melt m on m.company_id = p.company_id and m.furnace_id = a.link_id and m.status = 'locked'
+        and coalesce(m.preheat_start_at, m.charging_start_at) is not null and m.casting_end_at is not null and m.casting_end_at > p.base_at
+      where ${base}
+      group by p.id`),
+    ctx.db.all<Row>(sql`
+      select p.id as plan_id, ${clip(sql`b.in_at`, sql`coalesce(b.out_at, ${now})`)} as ms
+      from maint_plan p
+      join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'oven'
+      join ageing_batch b on b.company_id = p.company_id and b.oven_id = a.link_id and b.status <> 'void'
+        and b.in_at is not null and coalesce(b.out_at, ${now}) > p.base_at
+      where ${base}
+      group by p.id`),
+  ]);
+
+  const out = new Map<string, number>();
+  const add = (rows: Row[], sign: 1 | -1) => {
+    for (const r of rows) out.set(r.plan_id, (out.get(r.plan_id) ?? 0) + sign * Number(r.ms ?? 0));
+  };
+  add(runs, 1);
+  add(downtime, -1);
+  add(melts, 1);
+  add(batches, 1);
+  for (const [k, ms] of out) out.set(k, Math.max(0, Math.floor(ms / 60_000)));
+  return out;
+}
+
+export type PlanDueRow = {
+  planId: string;
+  title: string;
+  assetId: string;
+  assetCode: string;
+  assetName: string;
+  intervalDays: number | null;
+  intervalHours: number | null;
+  baseAt: number;
+  due: PmDue;
+  /** The live preventive work order on this plan, if one is open. */
+  openWorkOrderId: string | null;
+  openWorkOrderNumber: string | null;
+};
+
+/** Every active plan (of one asset, or all), with its due figures, overdue first. */
+export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promise<PlanDueRow[]> {
+  const usage = await planUsageMinutes(ctx, nowMs, assetId);
+  const rows = await ctx.db.all<{
+    id: string;
+    title: string;
+    asset_id: string;
+    code: string;
+    name: string;
+    interval_days: number | null;
+    interval_hours: number | null;
+    base_at: number;
+    wo_id: string | null;
+    wo_number: string | null;
+  }>(sql`
+    select p.id, p.title, p.asset_id, a.code, a.name, p.interval_days, p.interval_hours, p.base_at,
+      w.id as wo_id, w.number as wo_number
+    from ${maintPlan} p
+    join ${maintAsset} a on a.id = p.asset_id and a.company_id = p.company_id
+    left join maint_work_order w on w.company_id = p.company_id and w.plan_id = p.id
+      and w.status in ('open', 'in_progress', 'waiting_spares')
+    where p.company_id = ${ctx.companyId} and p.active = 1 and a.status <> 'retired'
+      ${assetId ? sql`and p.asset_id = ${assetId}` : sql``}
+    limit 1000`);
+  return rows
+    .map((r) => ({
+      planId: r.id,
+      title: r.title,
+      assetId: r.asset_id,
+      assetCode: r.code,
+      assetName: r.name,
+      intervalDays: r.interval_days,
+      intervalHours: r.interval_hours,
+      baseAt: Number(r.base_at),
+      due: pmDue({
+        intervalDays: r.interval_days,
+        intervalHours: r.interval_hours,
+        baseAtMs: Number(r.base_at),
+        usageMinSinceBase: r.interval_hours != null ? (usage.get(r.id) ?? 0) : null,
+        nowMs,
+      }),
+      openWorkOrderId: r.wo_id,
+      openWorkOrderNumber: r.wo_number,
+    }))
+    .sort((a, b) => comparePmDue(a.due, b.due));
+}

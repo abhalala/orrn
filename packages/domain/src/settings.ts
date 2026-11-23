@@ -29,6 +29,8 @@ export const COMPANY_MODULES = [
   "complaints",
   // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
   "qa",
+  // XE parity lane MAINT (#63 to #68): assets, preventive plans, work orders, spares, readings.
+  "maintenance",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 

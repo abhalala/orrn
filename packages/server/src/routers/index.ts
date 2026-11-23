@@ -42,6 +42,7 @@ import { plantMastersRouter } from "./plantMasters";
 import { toolRoomRouter } from "./toolRoom";
 import { plantDocsRouter } from "./plantDocs";
 import { qaRouter } from "./qa";
+import { maintenanceRouter } from "./maintenance";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -100,5 +101,7 @@ export const appRouter = router({
   docs: plantDocsRouter,
   // XE parity lane QA.
   qa: qaRouter,
+  // XE parity lane MAINT (#63 to #68), module `maintenance`.
+  maint: maintenanceRouter,
 });
 export type AppRouter = typeof appRouter;

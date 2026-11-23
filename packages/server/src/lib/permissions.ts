@@ -144,6 +144,11 @@ export const PLANT_ACTIONS = [
   "qa.hold", // put a bundle on quality hold
   "qa.release", // release a bundle from quality hold, with a note
   "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
+  // XE parity lane MAINT (#63 to #68): plant maintenance. See the maintenance screens; set up assets, plans,
+  // reading limits and the labour rate (and see the cost); raise and work work orders and take readings.
+  "maint.view",
+  "maint.manage",
+  "maint.workorder",
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -301,6 +306,11 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE parity lane MAINT. Everyone who works near the machines (and the storekeeper who issues spares) sees
+  // maintenance; the supervisor and up set it up; the floor raises a breakdown and works the work order.
+  "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
+  "maint.manage": ["admin", "manager", "supervisor"],
+  "maint.workorder": ["admin", "manager", "supervisor", "operator", "press", "foundry"],
   "support.request": [
     "admin",
     "manager",

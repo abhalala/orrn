@@ -44,6 +44,8 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   toolRoom: "dies",
   // XE parity lane QA.
   qa: "qa",
+  // XE parity lane MAINT (#63 to #68): plant maintenance (reads call assertModule too, routers/maintenance.ts).
+  maint: "maintenance",
 };
 
 /**
