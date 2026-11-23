@@ -18,6 +18,7 @@ import { guApprovals } from "./gu-more/approvals";
 import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBuddy } from "./gu-more/buddy";
+import { guQa } from "./gu-more/qa";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -80,6 +81,8 @@ export const GU_FLOOR_NAMESPACES = [
   "foundry.title", "foundry.common", "foundry.today", "foundry.casts", "foundry.newCast", "foundry.cast", "foundry.melt", "foundry.spectro", "foundry.stock",
   // W2-FD-S: a refused foundry write reaches the furnace floor
   "foundry.refusal",
+  // XE parity lane QA: a quality refusal reaches the scan, pack and the melt lock on the floor
+  "qa.refusal",
   // Final explore M5: the press overview and a press's line board (its queue) are where the press role
   // lands; Today's stock-age tile and the chart table toggle are on the owner's floor Today
   "press.title", "press.board", "press.queue", "press.summary.title", "press.report.title", "reports.todayTile", "charts",
@@ -353,6 +356,10 @@ const guBase = {
       approvalsHint: "{count} રાહ જુએ છે",
       approvalsHintNone: "કંઈ રાહમાં નથી",
       approvalsHintAny: "રાહમાં વિનંતીઓ",
+      enquiries: "પૂછપરછ, ફોલો-અપ કરવાનું છે",
+      enquiriesHint: "{count} મોડું થયું",
+      enquiriesHintNone: "કોઈ મોડું નથી",
+      enquiriesHintAny: "ફોલો-અપની તારીખો",
       store: "સ્ટોર",
       storeHint: "કેમિકલ, બળતણ અને સ્પેર",
     },
@@ -1869,6 +1876,7 @@ export const gu = mergeGu(
   guPrintingQueue,
   guIngest,
   guBuddy,
+  guQa,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1890,4 +1898,5 @@ export const gu = mergeGu(
   typeof guPrintingQueue &
   typeof guIngest &
   typeof guBuddy &
-  typeof guReg satisfies GuMessages;
+  typeof guReg &
+  typeof guQa satisfies GuMessages;

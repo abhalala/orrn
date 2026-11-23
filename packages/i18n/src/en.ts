@@ -25,8 +25,11 @@ import { stockEn } from "./native/stock.en";
 import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
+import { priceMasterEn } from "./price/master.en";
+import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
+import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
 
@@ -225,6 +228,7 @@ export const en = {
   },
 
   nav: {
+    qa: "Quality",
     ageing: "Ageing",
     complaints: "Complaints",
     owner: "Owner",
@@ -300,6 +304,7 @@ export const en = {
     purchase: "Purchase",
     approvals: "Approvals",
     audit: "Audit log",
+    pricing: "Prices",
     billing: "Billing",
     adminReleases: "App builds",
     adminBackups: "Backups",
@@ -751,6 +756,10 @@ export const en = {
       approvalsHint: "{count} waiting",
       approvalsHintNone: "Nothing waiting",
       approvalsHintAny: "Requests waiting",
+      enquiries: "Enquiries to follow up",
+      enquiriesHint: "{count} overdue",
+      enquiriesHintNone: "None overdue",
+      enquiriesHintAny: "Follow-up dates",
       store: "Store",
       storeHint: "Chemicals, fuel and spares",
     },
@@ -3788,8 +3797,10 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        pricing: "Prices and quotes",
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
       },
@@ -3803,8 +3814,10 @@ export const en = {
         press: "Press runs and the press console",
         ageing: "Ageing batches and readings",
         store: "Store items, GRN and issues",
+        qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
         complaints: "Customer complaints on a bundle, with the trace and the reply",
+        pricing: "Price master, quotes, proformas and enquiries",
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
       },
@@ -4642,6 +4655,7 @@ export const en = {
       melt_correct: "Correct a locked melt",
       dispatch_off_band: "Bundle off the order weight",
       dispatch_late_entry: "Packing list entered late",
+      price_change: "Price change",
       invoice_cancel: "Cancel an invoice",
     },
     subject: {
@@ -6502,6 +6516,9 @@ export const en = {
 
   ageing: ageingEn.ageing,
 
+  // XE-PRICE (lane PRICE): price master, quotes, proforma, works order, enquiries.
+  price: { ...priceMasterEn, ...priceDocsEn },
+
   ingest: ingestEn,
 
   adm: admEn,
@@ -6509,6 +6526,7 @@ export const en = {
   buddy: buddyEn,
 
   reg: regEn,
+  qa: qaEn,
 
   reasons: {
     kinds: {
@@ -6664,8 +6682,10 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        pricing: "Prices and quotes",
         billing: "Tax invoices",
         einvoice: "E-invoice",
       },
@@ -6885,6 +6905,15 @@ export const en = {
       ingest_hole: "Import layout",
       buddy_draft: "Buddy change",
       buddy_grant: "Hermes connection",
+      qa_check: "Quality check",
+      qa_temper: "Temper",
+      qa_station: "Inspection point",
+      qa_alloy_substitute: "Alloy substitute",
+      qa_instrument: "Instrument",
+      price_rate: "Price rate",
+      quote: "Quote",
+      proforma: "Proforma invoice",
+      enquiry: "Enquiry",
       invoice: "Invoice",
       payment: "Payment",
       gst_hsn: "HSN code",
@@ -6938,6 +6967,21 @@ export const en = {
       ageing__oven__create: "Oven added",
       ageing__oven__update: "Oven changed",
       ageing__override__request: "Ageing release sent for approval",
+      price__settings__update: "Price settings changed",
+      price__rate__propose: "Rate change sent for approval",
+      price__rate__activate: "Rate change approved",
+      price__rate__reject: "Rate change rejected",
+      price__override__request: "Line rate change asked",
+      order__rate__correct: "Fixed line rate corrected on the order",
+      quote__create: "Quote made",
+      quote__update: "Quote changed",
+      quote__send: "Quote marked as sent",
+      quote__cancel: "Quote cancelled",
+      quote__convert: "Quote made into an order",
+      proforma__create: "Proforma invoice made",
+      works_order__issue: "Works order issued",
+      enquiry__create: "Enquiry noted",
+      enquiry__update: "Enquiry changed",
       ageing__readings: "Oven readings received",
       ageing__recipe__create: "Cycle recipe added",
       ageing__recipe__update: "Cycle recipe changed",
@@ -7134,6 +7178,19 @@ export const en = {
       portal__user__accept: "Party login accepted",
       portal__user__grant: "Party login given",
       portal__user__revoke: "Party login turned off",
+      qa__check__record: "Quality check recorded",
+      qa__hold: "Bundle put on quality hold",
+      qa__release: "Bundle released from quality hold",
+      qa__place: "Put at an inspection point",
+      qa__settings__update: "Quality switches changed",
+      qa__temper__save: "Temper saved",
+      qa__plan__save: "Quality plan saved",
+      qa__station__save: "Inspection point saved",
+      qa__substitute__save: "Alloy substitute saved",
+      qa__substitute__remove: "Alloy substitute removed",
+      qa__instrument__save: "Instrument saved",
+      qa__instrument__calibrate: "Instrument calibrated",
+      qa__instrument__certificate: "Calibration certificate saved",
       press__alert__ack: "Press alert acknowledged",
       press__alert__ackEnded: "Ended press alerts acknowledged",
       press__alert__threshold: "Press alert limits changed",

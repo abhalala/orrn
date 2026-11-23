@@ -239,6 +239,9 @@ export const dieFileRouter = router({
     }
     const bucket = dieFilesBucket();
     const key = ticketKey(ticket);
+    // XE QA review N5: a calibration certificate ticket (section "qa-<instrument>") is never a die file;
+    // refuse it before any head or delete so a saved certificate keeps its object.
+    if (ticket.sectionId.startsWith("qa-")) throw new TRPCError({ code: "NOT_FOUND", message: "Upload not found" });
     const [already] = await ctx.db
       .select({ id: dieFile.id })
       .from(dieFile)

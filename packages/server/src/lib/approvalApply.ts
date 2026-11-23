@@ -17,6 +17,7 @@ import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { ageingOverrideDecision } from "./ageing";
 import { holdsOf, releaseOnVoidStatement } from "./orderHold";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
+import { priceChangeDecision } from "./pricing";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
 import { explainInvoiceCancelAbort, invoiceCancelDecision } from "./billing/invoices";
 
@@ -369,6 +370,8 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   press_late_entry: pressLateEntryDecision,
   // FP-AG-14 (W3-AG-S): the approved override goes on the batch; the supervisor releases after it.
   ageing_override: ageingOverrideDecision,
+  // XE-PRICE: a price master change or a line override goes live (or is rejected) with the decision.
+  price_change: priceChangeDecision,
   // XE-BILL: an approved invoice cancel; its abort is explained by explainInvoiceCancelAbort.
   invoice_cancel: invoiceCancelDecision,
 };

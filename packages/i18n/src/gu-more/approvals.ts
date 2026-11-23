@@ -31,6 +31,7 @@ export const guApprovals = {
       melt_correct: "લૉક થયેલ melt સુધારવો",
       dispatch_off_band: "ઓર્ડરના વજનથી અલગ bundle",
       dispatch_late_entry: "મોડી ભરેલી પેકિંગ લિસ્ટ",
+      price_change: "ભાવમાં ફેરફાર",
       invoice_cancel: "ઇનવોઇસ રદ કરવી",
     },
     subject: {

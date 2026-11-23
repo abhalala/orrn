@@ -42,6 +42,10 @@ export const approvalKinds = [
   // arch 52: a dispatch completed later at the time the truck left (line down); subject = dispatch id;
   // meta { dispatchId, dispatchCode, occurredAt, reason }. No applier: dispatch.complete reads it.
   "dispatch_late_entry",
+  // XE-PRICE (0058): a price master change or a line override below the computed rate; subject =
+  // the price_rate row; meta { rateKind, key, effectiveFrom } only (no money: approval.list is open
+  // to every role). Applier: activates or rejects the row (lib/pricing.ts).
+  "price_change",
   // XE-BILL: cancel an issued tax invoice (or credit note); subject = invoice id; meta { invoiceId,
   // number, kind } (ids and the number only: approval.list is open to every role). The applier cancels it,
   // keeps the number used and frees its packing lists. An IRN is cancelled after, by the relay.

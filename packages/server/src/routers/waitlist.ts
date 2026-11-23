@@ -4,6 +4,9 @@ import { company, waitlistRequest } from "@orrn/db/schema/tenant";
 
 import { atomicBatch } from "../lib/atomic";
 import { publicProcedure, router } from "../index";
+import { newPlantQaSettings } from "@orrn/domain";
+import { companyTimezone } from "../lib/dayWindow";
+import { companyDay } from "../lib/qa";
 
 const submitWaitlistSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(500),
@@ -34,7 +37,8 @@ export const waitlistRouter = router({
         name: input.companyName.trim(),
         slug,
         status: "pending",
-        settings: {},
+        // XE QA (row 22): a new plant inspects scrap lots before a melt from its first day.
+        settings: { qa: newPlantQaSettings(companyDay(companyTimezone({}), Date.now())) },
         modules: [],
       }),
       ctx.db.insert(waitlistRequest).values({

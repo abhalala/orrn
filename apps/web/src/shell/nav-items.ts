@@ -2,6 +2,7 @@ import { isModuleOn } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
+  BadgeCheck,
   BookOpen,
   BookMarked,
   Boxes,
@@ -19,6 +20,7 @@ import {
   ListChecks,
   PackagePlus,
   Printer,
+  Tags,
   Rocket,
   Scale,
   ScrollText,
@@ -35,7 +37,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "billing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing";
 
 export type NavItem = {
   key: string;
@@ -76,6 +78,8 @@ const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.re
 /** The foundry: who enters casts and melts, closes them, and who reads reports (the cast pages are readable by any member). */
 const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.close", "reports.read"];
 
+/** Quality (XE parity lane QA): who checks, holds, releases, keeps its lists, or reads reports. */
+const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.masters", "reports.read"];
 /** Billing: who reads invoices, issues them, records payments or sets up GST. */
 const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
 
@@ -88,6 +92,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "foundry", to: "/casts", labelKey: "nav.foundry", icon: Flame, requires: FOUNDRY_PEOPLE, module: "foundry" },
   // W3-AG-W: the ageing ovens and trolleys, between the press and pack. Floor roles hold ageing.view / ageing.enter.
   { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
+  // XE parity lane QA: what waits for a check, quality holds, registers and instruments.
+  { key: "qa", to: "/qa", labelKey: "nav.qa", icon: BadgeCheck, requires: QA_PEOPLE, module: "qa" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   // XE parity REG: the complaint register and the owner's morning page.
@@ -99,6 +105,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
+  // XE-PRICE: the price master, quotes and enquiries. People who read prices or run enquiries.
+  { key: "pricing", to: "/pricing", labelKey: "nav.pricing", icon: Tags, requires: ["price.view", "enquiry.manage"], module: "pricing" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
   { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },

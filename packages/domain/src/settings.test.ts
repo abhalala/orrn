@@ -85,11 +85,11 @@ describe("reason codes (C39: one master with a kind)", () => {
 describe("modules (FP-PF-07, C42)", () => {
   test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
     expect([...COMPANY_MODULES]).toEqual([
-      "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints",
+      "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "pricing",
       "billing", "einvoice",
     ]);
     expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll"]);
-    expect(STANDARD_MODULES).toHaveLength(11);
+    expect(STANDARD_MODULES).toHaveLength(13);
   });
   test("opt-in modules are off on an empty list and on only when named", () => {
     for (const m of ["billing", "einvoice"] as const) {

@@ -306,6 +306,16 @@ function bandEnd(id: unknown, label: unknown, words: SubjectWords, fmt?: Fmt): s
   return id == null ? (words.mainBand ?? "main band") : (words.otherBand ?? "another band");
 }
 
+/** The title of a `price_change` request by what kind of rate it changes (`meta.rateKind`). */
+const PRICE_CHANGE_TITLES = {
+  metal: "price.approval.subject.metal",
+  conversion: "price.approval.subject.conversion",
+  alloy: "price.approval.subject.alloy",
+  finish: "price.approval.subject.finish",
+  component: "price.approval.subject.component",
+  customer: "price.approval.subject.customer",
+} as const satisfies Record<string, MessageKey>;
+
 export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }, fmt?: Fmt): ApprovalSubject {
   const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
   const U = fmt ? massUnit(fmt) : "kg";
@@ -408,6 +418,16 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       openKey: dispatchId ? "approvals.openDispatch" : null,
     };
   }
+  if (row.kind === "price_change") {
+    // XE-PRICE: the meta holds ids, the kind and the date only (never money); the figures are read live in the review sheet.
+    const rateKind = text(m.rateKind);
+    const orderId = safeId(m.orderId);
+    if (rateKind === "line") {
+      return { kindKey, titleKey: "price.approval.subject.line", vars: {}, href: orderId ? `/orders/${orderId}` : null, openKey: orderId ? "approvals.openOrder" : null };
+    }
+    const titleKey = (PRICE_CHANGE_TITLES as Record<string, MessageKey>)[rateKind] ?? "price.approval.subject.rate";
+    return { kindKey, titleKey, vars: {}, href: "/pricing", openKey: "price.approval.openPrices" };
+  }
   if (row.kind === "invoice_cancel") {
     // XE-BILL: the invoice or credit note asked to be cancelled; the number is the request's own snapshot.
     const invoiceId = safeId(m.invoiceId) ?? safeId(row.subjectId);
@@ -481,10 +501,17 @@ export function decideState(me: Me | null | undefined, row: ApprovalForView): De
   const role = me?.company?.role;
   if (!me || !role) return "view";
   if (row.requestedBy !== null && row.requestedBy === me.user.id) return "own";
+  // XE-PRICE review B2: a line override is an order-line rate; only an approver who holds order.price decides it.
+  if (isLineOverride(row) && !canAny(me, ["order.price"])) return "view";
   // The server decides who may approve under the plant's approver rules (and thresholds); the built-in
   // matrix is only the fallback for a row that does not carry the answer.
   if (row.canDecide !== undefined) return row.canDecide ? "decide" : "view";
   return canApprove(role, row.kind) ? "decide" : "view";
+}
+
+/** A `price_change` request whose subject is an order line's override (meta `rateKind: "line"`). */
+export function isLineOverride(row: { kind: string; meta: Record<string, unknown> | null }): boolean {
+  return row.kind === "price_change" && row.meta?.rateKind === "line";
 }
 
 /** The same for places that take plain text (a sheet title): a word joiner (U+2060) after each hyphen inside a code. */
@@ -512,6 +539,8 @@ export const PURCHASE_READERS: readonly Action[] = ["purchase.receipt", "purchas
 export function canOpenSubject(me: Me | null | undefined, row: ApprovalForView): boolean {
   if (!me) return false;
   if (row.kind === "dc_note") return canAny(me, PURCHASE_READERS);
+  // The price master is for people who read prices; a line change opens its order, which anyone who plans or manages orders reads.
+  if (row.kind === "price_change") return row.meta?.rateKind === "line" ? canAny(me, ["order.manage", "order.plan", "price.view"]) : canAny(me, ["price.view", "enquiry.manage"]);
   return true;
 }
 
@@ -527,7 +556,11 @@ export function nextApprovalsOffset(last: { nextOffset: number | null }): number
   return last.nextOffset ?? undefined;
 }
 
-/** Kinds whose sheet reads live facts (`approval.facts`) before Approve opens (BACKLOG 89). */
+/**
+ * Kinds whose sheet reads live facts (`approval.facts`) before Approve opens (BACKLOG 89). A `price_change`
+ * is not here on purpose: its old and new rate come from `pricing.rates.get` for people who hold `price.view`,
+ * and Approve never waits for them (the approver may be a role that cannot read prices, and still decides).
+ */
 export const FACT_KINDS = ["order_reallocate", "die_rerank", "dispatch_off_band"] as const satisfies readonly ApprovalKind[];
 export function hasLiveFacts(kind: string): boolean {
   return (FACT_KINDS as readonly string[]).includes(kind);

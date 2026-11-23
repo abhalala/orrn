@@ -296,7 +296,8 @@ describe("POST /collector/press/frames", () => {
 
   test("permissions: no tRPC procedure takes frames; thresholds need masters.publish, ack needs press.close", async () => {
     const p = await plant();
-    const { appRouter } = await import("../src/routers/index");
+    const { appRouter, loadAllRouters } = await import("../src/routers/index");
+    await loadAllRouters();
     const paths = Object.keys((appRouter as unknown as { _def: { procedures: Record<string, unknown> } })._def.procedures);
     expect(paths).toContain("press.collector.setThreshold");
     expect(paths.filter((k) => /collector|spectroInbox/.test(k) && /ingest|frame|upload/i.test(k))).toEqual([]);

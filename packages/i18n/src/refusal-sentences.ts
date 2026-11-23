@@ -207,3 +207,15 @@ const REALIZE: [RegExp, string[]][] = [
 ];
 const realize = (text: string): string[] => REALIZE.find(([re]) => re.test(text))?.[1] ?? [text];
 
+
+/**
+ * XE parity lane QA: every quality refusal (callers use qaRefusal(code), never their own message). Not in
+ * FILES: the table lives in `@orrn/i18n/refusal-qa`; refusal-qa.test.ts checks these against it.
+ */
+export const QA_FILE = "lib/qaRefusals.ts";
+
+export function qaSentences(): { file: string; text: string }[] {
+  return messageSentences(SRC(QA_FILE))
+    .filter(isSentence)
+    .map((text) => ({ file: QA_FILE, text }));
+}

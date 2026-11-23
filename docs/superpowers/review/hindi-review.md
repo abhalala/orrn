@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
+Counts: 10708 screen strings in 56 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,10 +191,11 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (92)
+### nav (94)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `qa` | Quality | गुणवत्ता |
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
@@ -266,6 +267,7 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
 | `audit` | Audit log | ऑडिट लॉग |
+| `pricing` | Prices | भाव |
 | `billing` | Billing | बिलिंग |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
@@ -526,7 +528,7 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `done.passkeyAdd` | Add a passkey | पासकी जोड़ें |
 | `done.passkeyAdded` | Passkey added. Next time, sign in with it. | पासकी जुड़ गई। अगली बार इसी से साइन इन करें। |
 
-### today (136)
+### today (140)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -664,6 +666,10 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `floor.approvalsHint` | {count} waiting | {count} इंतज़ार में |
 | `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
 | `floor.approvalsHintAny` | Requests waiting | इंतज़ार में अनुरोध |
+| `floor.enquiries` | Enquiries to follow up | पूछताछ, फ़ॉलो-अप करना है |
+| `floor.enquiriesHint` | {count} overdue | {count} देर हो चुकी |
+| `floor.enquiriesHintNone` | None overdue | कोई देर नहीं |
+| `floor.enquiriesHintAny` | Follow-up dates | फ़ॉलो-अप की तारीखें |
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
@@ -3151,7 +3157,7 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (390)
+### admin (394)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3363,8 +3369,10 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleNames.press` | Press | प्रेस |
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
 | `plan.moduleNames.store` | Store | स्टोर |
+| `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleNames.complaints` | Complaints | शिकायतें |
+| `plan.moduleNames.pricing` | Prices and quotes | भाव और कोटेशन |
 | `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
@@ -3376,8 +3384,10 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
+| `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
+| `plan.moduleHints.pricing` | Price master, quotes, proformas and enquiries | भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ |
 | `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.save` | Save plan | प्लान सेव करें |
@@ -3736,7 +3746,7 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (175)
+### refusal (179)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3878,6 +3888,10 @@ Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 | `maxDies` | At most {max} dies on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} die। |
 | `alreadyDecided` | This request was already decided. | इस रिक्वेस्ट पर पहले ही फ़ैसला हो चुका है। |
 | `ownRequest` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
+| `frozenRate` | This line's rate was fixed when the order was confirmed. Ask for a rate change from the price sheet. | इस लाइन का भाव ऑर्डर कन्फर्म होते समय तय हो गया था। भाव बदलने के लिए भाव शीट से अनुरोध करें। |
+| `frozenProduct` | This line's price was fixed when the order was confirmed. Add a new line for a different section, alloy or finish. | इस लाइन का भाव ऑर्डर कन्फर्म होते समय तय हो गया था। दूसरे सेक्शन, अलॉय या फ़िनिश के लिए नई लाइन जोड़ें। |
+| `addedLineUnpriced` | This line can't be priced from the master today. Set the base metal rate and the plant conversion first. | आज मास्टर से इस लाइन का भाव नहीं बन सकता। पहले बेस मेटल रेट और प्लांट कन्वर्ज़न डालें। |
+| `unfrozenConfirmed` | This line was confirmed without a price from the master. Change its rate on the order. | यह लाइन मास्टर के भाव के बिना कन्फर्म हुई थी। इसका रेट ऑर्डर पर बदलें। |
 | `minOverMax` | The minimum weight can't be more than the maximum weight. | कम से कम वज़न, ज़्यादा से ज़्यादा वज़न से ज़्यादा नहीं हो सकता। |
 | `dieExists` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड की die पहले से है। |
 | `copyOwnerClash` | {code} belongs to another customer. Clear that copy's owner first. | {code} दूसरे ग्राहक की है। पहले उस कॉपी का मालिक हटाएं। |
@@ -4453,7 +4467,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (169)
+### approvals (170)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4482,6 +4496,7 @@ Please check, Lalubhai:
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `kind.dispatch_off_band` | Bundle off the order weight | ऑर्डर के वज़न से हटा bundle |
 | `kind.dispatch_late_entry` | Packing list entered late | देर से भरी पैकिंग लिस्ट |
+| `kind.price_change` | Price change | दाम में बदलाव |
 | `kind.invoice_cancel` | Cancel an invoice | इनवॉइस रद्द करना |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
@@ -7152,6 +7167,382 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
+### price (371)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Prices | भाव |
+| `master.subtitle` | The rates every order line and quote is priced from. A change applies only after a manager approves it. | वे रेट जिनसे हर ऑर्डर लाइन और कोटेशन का भाव बनता है। बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। |
+| `master.sectionsLabel` | Price pages | भाव के पन्ने |
+| `master.tabPrices` | Prices | भाव |
+| `master.tabQuotes` | Quotes | कोटेशन |
+| `master.tabEnquiries` | Enquiries | पूछताछ |
+| `master.noAccess` | Your role can't read the price list. Ask an owner, admin or manager. | आपकी भूमिका भाव की सूची नहीं पढ़ सकती। ओनर, एडमिन या मैनेजर से पूछें। |
+| `master.loadFailed` | Couldn't load the prices. Try again. | भाव नहीं खुले। फिर कोशिश करें। |
+| `master.onDate` | Rates as on {date} | {date} के रेट |
+| `master.notReadyTitle` | Prices are not ready yet | भाव अभी तैयार नहीं हैं |
+| `master.notReadyBody` | Orders and quotes cannot be priced until {missing} is set and approved. | {missing} तय होकर मंज़ूर होने तक ऑर्डर और कोटेशन का भाव नहीं बन सकता। |
+| `master.notReadyBodyGeneric` | Orders and quotes cannot be priced until the base metal rate and the plant conversion are set and approved. | बेस मेटल रेट और प्लांट कन्वर्ज़न तय होकर मंज़ूर होने तक ऑर्डर और कोटेशन का भाव नहीं बन सकता। |
+| `master.missingMetal` | the base metal rate | बेस मेटल रेट |
+| `master.missingConversion` | the plant conversion | प्लांट कन्वर्ज़न |
+| `master.missingBoth` | the base metal rate and the plant conversion | बेस मेटल रेट और प्लांट कन्वर्ज़न |
+| `master.approvalNote` | A change applies only after a manager approves it. Until then the old rate stands. | बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। तब तक पुराना रेट चलता है। |
+| `master.empty` | Nothing set yet | अभी कुछ तय नहीं है |
+| `master.add` | Add | जोड़ें |
+| `master.change` | Change rate | रेट बदलें |
+| `master.changeLabel` | Change rate: {name} | रेट बदलें: {name} |
+| `master.pendingBlocks` | A change to this rate is waiting for approval. | इस रेट का एक बदलाव मंज़ूरी के इंतज़ार में है। |
+| `master.current` | Applies now | अभी लागू |
+| `master.noCurrent` | No rate applies yet | अभी कोई रेट लागू नहीं है |
+| `master.from` | from {date} | {date} से |
+| `master.waiting` | Waiting for approval | मंज़ूरी का इंतज़ार |
+| `master.waitingLine` | {rate} {from} | {rate}, {from} |
+| `master.upcoming` | Coming up | आने वाले |
+| `master.upcomingLine` | {rate} {from} | {rate}, {from} |
+| `master.reasonLine` | Reason: {reason} | कारण: {reason} |
+| `master.perKg` | ₹{rate} per kg | ₹{rate} प्रति kg |
+| `master.perPiece` | ₹{rate} per piece | ₹{rate} प्रति पीस |
+| `master.perOrder` | ₹{rate} per order | ₹{rate} प्रति ऑर्डर |
+| `master.always` | On every order | हर ऑर्डर पर |
+| `master.optional` | Only when picked on a quote line | सिर्फ़ तब जब कोटेशन लाइन पर चुना जाए |
+| `master.names.metal.nalco` | Nalco list | Nalco लिस्ट |
+| `master.names.metal.lme` | London metal price | लंदन मेटल भाव |
+| `master.names.metal.manual` | Typed rate | हाथ से डाला रेट |
+| `master.names.conversionDefault` | Plant conversion | प्लांट कन्वर्ज़न |
+| `master.names.conversionSeries` | Section group {series} | सेक्शन ग्रुप {series} |
+| `master.names.conversionDie` | Section {code} | सेक्शन {code} |
+| `master.names.customer.conversion` | {name}: own conversion | {name}: अपना कन्वर्ज़न |
+| `master.names.customer.discount` | {name}: discount | {name}: छूट |
+| `master.names.customer.fixed` | {name}: fixed rate | {name}: तय रेट |
+| `master.kinds.metal.title` | Base metal | बेस मेटल |
+| `master.kinds.metal.hint` | The metal rate per kg that every price starts from. | प्रति kg मेटल रेट, जिससे हर भाव शुरू होता है। |
+| `master.kinds.conversion.title` | Conversion | कन्वर्ज़न |
+| `master.kinds.conversion.hint` | What the plant charges per kg to press, on top of the metal. A section or a group can have its own. | मेटल के ऊपर प्लांट प्रति kg प्रेस करने का क्या लेता है। किसी सेक्शन या ग्रुप का अपना हो सकता है। |
+| `master.kinds.alloy.title` | Alloy surcharge | अलॉय अतिरिक्त |
+| `master.kinds.alloy.hint` | Extra per kg for an alloy. | किसी अलॉय पर प्रति kg अतिरिक्त। |
+| `master.kinds.finish.title` | Finish | फ़िनिश |
+| `master.kinds.finish.hint` | Price per kg of a finish such as anodise. A plain finish has no price. | एनोडाइज़ जैसी फ़िनिश का प्रति kg भाव। सादी फ़िनिश का कोई भाव नहीं। |
+| `master.kinds.component.title` | Add-ons | ऐड-ऑन |
+| `master.kinds.component.hint` | Cutting, packing and other charges, per piece or once per order. | कटिंग, पैकिंग और दूसरे चार्ज, प्रति पीस या हर ऑर्डर पर एक बार। |
+| `master.kinds.customer.title` | Customer terms | पार्टी की शर्तें |
+| `master.kinds.customer.hint` | A party's own conversion, a discount per kg, or one fixed rate. | पार्टी का अपना कन्वर्ज़न, प्रति kg छूट, या एक तय रेट। |
+| `master.settings.title` | Price settings | भाव की सेटिंग |
+| `master.settings.hint` | Settings apply at once. Only rates wait for a manager. | सेटिंग तुरंत लागू होती है। सिर्फ़ रेट मैनेजर का इंतज़ार करते हैं। |
+| `master.settings.metal` | Metal list | मेटल लिस्ट |
+| `master.settings.metalOptions.nalco` | Nalco list | Nalco लिस्ट |
+| `master.settings.metalOptions.lme` | London metal price | लंदन मेटल भाव |
+| `master.settings.metalOptions.manual` | Typed rate | हाथ से डाला रेट |
+| `master.settings.tax` | Estimated tax (%) | अनुमानित टैक्स (%) |
+| `master.settings.taxHint` | Shown on a proforma invoice as an estimate. The real tax comes with the tax invoice. | प्रोफार्मा इनवॉइस पर अनुमान के रूप में दिखता है। असली टैक्स टैक्स इनवॉइस में आता है। |
+| `master.settings.metalApprover` | Only the owner, an admin or a manager changes the metal list. | मेटल लिस्ट सिर्फ़ मालिक, एडमिन या मैनेजर बदलते हैं। |
+| `master.settings.days` | Quote valid for (days) | कोटेशन कितने दिन चले |
+| `master.settings.save` | Save settings | सेटिंग सेव करें |
+| `master.settings.saved` | Price settings saved | भाव की सेटिंग सेव हुई |
+| `master.settings.saveFailed` | Couldn't save the settings. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
+| `master.settings.errors.tax` | Enter a percent from 0 to 100, like 18. | 0 से 100 के बीच प्रतिशत डालें, जैसे 18। |
+| `master.settings.errors.days` | Enter whole days from 1 to 365. | 1 से 365 के बीच पूरे दिन डालें। |
+| `form.intro` | A change applies only after a manager approves it. Until then the old rate stands. | बदलाव तभी लागू होता है जब मैनेजर मंज़ूर करे। तब तक पुराना रेट चलता है। |
+| `form.addTitle` | Add: {what} | जोड़ें: {what} |
+| `form.changeTitle` | Change rate: {what} | रेट बदलें: {what} |
+| `form.source` | Metal list | मेटल लिस्ट |
+| `form.rate` | Rate (₹ per kg) | रेट (₹ प्रति kg) |
+| `form.rateAddon` | Charge (₹) | चार्ज (₹) |
+| `form.rateDiscount` | Discount (₹ per kg) | छूट (₹ प्रति kg) |
+| `form.rateFixed` | Fixed rate (₹ per kg) | तय रेट (₹ प्रति kg) |
+| `form.lmeUsd` | London metal price (dollars per tonne) | लंदन मेटल भाव (डॉलर प्रति टन) |
+| `form.lmeInr` | Rupees per dollar | रुपये प्रति डॉलर |
+| `form.lmePremium` | Premium (₹ per kg) | प्रीमियम (₹ प्रति kg) |
+| `form.lmePremiumHint` | Leave empty for none. | न हो तो खाली छोड़ें। |
+| `form.lmePreview` | Works out to ₹{rate} per kg | प्रति kg रेट बनता है ₹{rate} |
+| `form.lmeWaiting` | Fill in the first two boxes to see the rate per kg. | प्रति kg रेट देखने के लिए पहले दो खाने भरें। |
+| `form.scope` | Applies to | किस पर लागू |
+| `form.scopes.default` | The whole plant | पूरा प्लांट |
+| `form.scopes.series` | A section group | एक सेक्शन ग्रुप |
+| `form.scopes.die` | One section | एक सेक्शन |
+| `form.series` | Section group | सेक्शन ग्रुप |
+| `form.alloy` | Alloy | अलॉय |
+| `form.finish` | Finish | फ़िनिश |
+| `form.label` | Add-on name | ऐड-ऑन का नाम |
+| `form.basis` | Charged | कैसे लगे |
+| `form.bases.piece` | Per piece | प्रति पीस |
+| `form.bases.order` | Once per order | हर ऑर्डर पर एक बार |
+| `form.always` | Add to every order | हर ऑर्डर में जोड़ें |
+| `form.customer` | Customer | पार्टी |
+| `form.mode` | Term | शर्त |
+| `form.modes.conversion` | Own conversion per kg | प्रति kg अपना कन्वर्ज़न |
+| `form.modes.discount` | Discount per kg | प्रति kg छूट |
+| `form.modes.fixed` | Fixed rate per kg | प्रति kg तय रेट |
+| `form.effective` | Starts on | कब से |
+| `form.effectiveHint` | Leave empty to start today. | आज से शुरू करना हो तो खाली छोड़ें। |
+| `form.reason` | Reason | कारण |
+| `form.reasonHint` | Say why. The manager reads this before approving. | वजह लिखें। मैनेजर मंज़ूर करने से पहले इसे पढ़ता है। |
+| `form.submit` | Send for approval | मंज़ूरी के लिए भेजें |
+| `form.sent` | Sent for approval. The old rate stands until a manager approves it. | मंज़ूरी के लिए भेजा गया। मैनेजर के मंज़ूर करने तक पुराना रेट चलेगा। |
+| `form.errors.rate` | Enter a rate in rupees, like 205.50. | रुपये में रेट डालें, जैसे 205.50। |
+| `form.errors.lme` | Enter the London metal price and the rupees per dollar. | लंदन मेटल भाव और रुपये प्रति डॉलर डालें। |
+| `form.errors.series` | Enter the section group. | सेक्शन ग्रुप डालें। |
+| `form.errors.die` | Pick the section. | सेक्शन चुनें। |
+| `form.errors.alloy` | Enter the alloy, up to 16 characters. | अलॉय डालें, 16 अक्षर तक। |
+| `form.errors.finish` | Enter the finish. | फ़िनिश डालें। |
+| `form.errors.label` | Enter the add-on name. | ऐड-ऑन का नाम डालें। |
+| `form.errors.customer` | Pick the customer. | पार्टी चुनें। |
+| `form.errors.reason` | Give a reason of a few words. | कुछ शब्दों में कारण लिखें। |
+| `form.errors.date` | Pick a date. | तारीख चुनें। |
+| `line.summary` | Price details | भाव का ब्योरा |
+| `line.perKg` | ₹{rate} per kg | ₹{rate} प्रति kg |
+| `line.rows.metal` | Base metal | बेस मेटल |
+| `line.rows.conversion` | Conversion | कन्वर्ज़न |
+| `line.rows.alloy` | Alloy surcharge | अलॉय अतिरिक्त |
+| `line.rows.finish` | Finish | फ़िनिश |
+| `line.rows.addons` | Add-ons, per kg | ऐड-ऑन, प्रति kg |
+| `line.rows.discount` | Discount | छूट |
+| `line.rows.fixed` | Fixed rate for this customer | इस पार्टी का तय रेट |
+| `line.rows.computed` | Rate from the master | मास्टर से बना रेट |
+| `line.rows.override` | Rate changed by hand | हाथ से बदला रेट |
+| `line.rows.final` | Rate on this line | इस लाइन का रेट |
+| `line.notes.metalList` | {source}, list of {date} | {source}, {date} की लिस्ट |
+| `line.notes.lme` | {usd} dollars per tonne at ₹{inr} per dollar, premium ₹{premium} per kg | {usd} डॉलर प्रति टन, ₹{inr} प्रति डॉलर, प्रीमियम ₹{premium} प्रति kg |
+| `line.notes.conversionFrom.customer` | This customer's own conversion | इस पार्टी का अपना कन्वर्ज़न |
+| `line.notes.conversionFrom.die` | Set for this section | इस सेक्शन के लिए तय |
+| `line.notes.conversionFrom.series` | Set for this section group | इस सेक्शन ग्रुप के लिए तय |
+| `line.notes.conversionFrom.default` | Plant conversion | प्लांट कन्वर्ज़न |
+| `line.notes.approved` | Approved by a manager | मैनेजर ने मंज़ूर किया |
+| `line.change` | Change rate | रेट बदलें |
+| `line.changeLabel` | Change rate of line {n} | लाइन {n} का रेट बदलें |
+| `line.changeTitle` | Change the rate of line {n} | लाइन {n} का रेट बदलें |
+| `line.changeIntro` | {order}. The rate from the master is ₹{computed} per kg. | {order}। मास्टर से बना रेट ₹{computed} प्रति kg है। |
+| `line.asked` | New rate (₹ per kg) | नया रेट (₹ प्रति kg) |
+| `line.reason` | Reason | कारण |
+| `line.reasonHint` | Say why this party gets this rate. | लिखें कि इस पार्टी को यह रेट क्यों मिल रहा है। |
+| `line.waits` | This is below the rate from the master. It will wait for a manager to approve it. The line keeps ₹{now} per kg until then. | यह मास्टर से बने रेट से कम है। मैनेजर के मंज़ूर करने तक यह रुका रहेगा। तब तक लाइन का रेट ₹{now} प्रति kg रहेगा। |
+| `line.applies` | This is at or above the rate from the master, so it applies at once. | यह मास्टर के रेट के बराबर या ज़्यादा है, इसलिए तुरंत लागू होगा। |
+| `line.same` | This is the rate the line has now. | लाइन का रेट अभी यही है। |
+| `line.save` | Save rate | रेट सेव करें |
+| `line.submitApproval` | Send for approval | मंज़ूरी के लिए भेजें |
+| `line.savedNow` | Rate changed | रेट बदल गया |
+| `line.sentApproval` | Sent for approval. The line keeps its rate until a manager approves it. | मंज़ूरी के लिए भेजा गया। मैनेजर के मंज़ूर करने तक लाइन का रेट वही रहेगा। |
+| `line.failed` | Couldn't change the rate. Try again. | रेट नहीं बदला जा सका। फिर कोशिश करें। |
+| `line.errors.rate` | Enter a rate in rupees, like 205.50. | रुपये में रेट डालें, जैसे 205.50। |
+| `line.errors.reason` | Give a reason of a few words. | कुछ शब्दों में कारण लिखें। |
+| `approval.openPrices` | Open prices | भाव खोलें |
+| `approval.title` | The change | बदलाव |
+| `approval.hidden` | The rates are shown only to people who can read prices. | रेट सिर्फ़ उन्हें दिखते हैं जो भाव पढ़ सकते हैं। |
+| `approval.loadFailed` | Couldn't load the rate. Try again. | रेट नहीं खुला। फिर कोशिश करें। |
+| `approval.what` | Rate | रेट |
+| `approval.now` | Rate now | अभी का रेट |
+| `approval.noBefore` | No rate before | पहले कोई रेट नहीं |
+| `approval.asked` | Rate asked | माँगा गया रेट |
+| `approval.startsOn` | Starts on | कब से |
+| `approval.order` | Order and line | ऑर्डर और लाइन |
+| `approval.orderValue` | {order}, line {line} | {order}, लाइन {line} |
+| `approval.computed` | Rate from the master | मास्टर से बना रेट |
+| `approval.askedLine` | Rate asked | माँगा गया रेट |
+| `approval.subject.metal` | Base metal rate change | बेस मेटल रेट का बदलाव |
+| `approval.subject.conversion` | Conversion rate change | कन्वर्ज़न रेट का बदलाव |
+| `approval.subject.alloy` | Alloy surcharge change | अलॉय अतिरिक्त का बदलाव |
+| `approval.subject.finish` | Finish rate change | फ़िनिश रेट का बदलाव |
+| `approval.subject.component` | Add-on rate change | ऐड-ऑन रेट का बदलाव |
+| `approval.subject.customer` | Customer terms change | पार्टी की शर्तों का बदलाव |
+| `approval.subject.line` | Order line rate change | ऑर्डर लाइन के रेट का बदलाव |
+| `approval.subject.rate` | Rate change | रेट का बदलाव |
+| `docsTitle` | Quotes and enquiries | कोटेशन और पूछताछ |
+| `quotes.title` | Quotes | कोटेशन |
+| `quotes.subtitle` | Price a customer's enquiry from the price master, send it, and turn it into an order. | ग्राहक की पूछताछ का भाव प्राइस मास्टर से निकालें, भेजें और ऑर्डर बनाएं। |
+| `quotes.new` | New quote | नया कोटेशन |
+| `quotes.empty` | No quotes yet. Make the first one from a customer's enquiry. | अभी कोई कोटेशन नहीं है। ग्राहक की पूछताछ से पहला बनाएं। |
+| `quotes.noMatch` | No quote matches these filters. | इन फ़िल्टर से कोई कोटेशन नहीं मिला। |
+| `quotes.loadFailed` | Quotes didn't load. Check the connection and try again. | कोटेशन नहीं आए। कनेक्शन जांचकर फिर कोशिश करें। |
+| `quotes.pages` | Quote pages | कोटेशन के पन्ने |
+| `quotes.status.draft` | Draft | ड्राफ़्ट |
+| `quotes.status.sent` | Sent | भेजा गया |
+| `quotes.status.converted` | Order made | ऑर्डर बना |
+| `quotes.status.cancelled` | Cancelled | रद्द |
+| `quotes.status.expired` | Expired | मियाद खत्म |
+| `quotes.columns.number` | Quote | कोटेशन |
+| `quotes.columns.customer` | Customer | ग्राहक |
+| `quotes.columns.status` | Status | स्थिति |
+| `quotes.columns.date` | Date | तारीख |
+| `quotes.columns.validUntil` | Valid until | मान्य तारीख |
+| `quotes.columns.weight` | Weight | वज़न |
+| `quotes.columns.amount` | Amount | रकम |
+| `quotes.filters.label` | Filter quotes | कोटेशन छांटें |
+| `quotes.filters.status` | Status | स्थिति |
+| `quotes.filters.anyStatus` | Any status | कोई भी स्थिति |
+| `quotes.filters.customer` | Customer | ग्राहक |
+| `quotes.filters.anyCustomer` | Any customer | कोई भी ग्राहक |
+| `quotes.filters.text` | Quote number or customer | कोटेशन नंबर या ग्राहक |
+| `quotes.filters.textPlaceholder` | Type to narrow the list | सूची छोटी करने के लिए लिखें |
+| `quotes.filters.from` | Quote date from | कोटेशन तारीख से |
+| `quotes.filters.to` | Quote date to | कोटेशन तारीख तक |
+| `quotes.filters.clear` | Clear filters | फ़िल्टर हटाएं |
+| `quotes.form.subtitle` | Pick the customer, add the sections and the weight. Rates come from the price master. | ग्राहक चुनें, सेक्शन और वज़न जोड़ें। भाव प्राइस मास्टर से आता है। |
+| `quotes.form.party` | Customer and validity | ग्राहक और मान्यता |
+| `quotes.form.validUntil` | Valid until | मान्य तारीख |
+| `quotes.form.validHint` | A new quote stays valid for {days} days unless you change the date. | नया कोटेशन {days} दिन मान्य रहता है, जब तक आप तारीख न बदलें। |
+| `quotes.form.addLine` | Add a line | लाइन जोड़ें |
+| `quotes.form.pcsHint` | Optional. The price is on the weight. | ज़रूरी नहीं। भाव वज़न पर है। |
+| `quotes.form.rate` | Rate over the master | मास्टर से ऊपर भाव |
+| `quotes.form.rateHint` | Leave empty for the master rate. A rate can only go above it. | मास्टर भाव के लिए खाली छोड़ें। भाव सिर्फ़ उससे ऊपर जा सकता है। |
+| `quotes.form.addons` | Add-ons | ऐड-ऑन |
+| `quotes.form.addonAlways` | always charged | हमेशा लगता है |
+| `quotes.form.addonOrder` | once per quote | कोटेशन में एक बार |
+| `quotes.form.addonPiece` | per piece | हर पीस पर |
+| `quotes.form.priceHint` | Pick a section and a weight to see the rate. | भाव देखने के लिए सेक्शन और वज़न चुनें। |
+| `quotes.form.pricing` | Working out the rate | भाव निकल रहा है |
+| `quotes.form.lineMissing` | The price master has no rate for this line yet. Ask a manager to add it. | इस लाइन का भाव प्राइस मास्टर में अभी नहीं है। मैनेजर से जुड़वाएं। |
+| `quotes.form.lineRate` | Rate {rate} per kg | भाव {rate} प्रति kg |
+| `quotes.form.breakup` | How the rate is made | भाव कैसे बना |
+| `quotes.form.total` | Quote total: {kg} {massUnit}, {amount} | कोटेशन कुल: {kg} {massUnit}, {amount} |
+| `quotes.form.masterNotReady` | The price master is not complete. Rates can't be worked out yet. | प्राइस मास्टर पूरा नहीं है। अभी भाव नहीं निकल सकते। |
+| `quotes.form.missingRates` | {count} {count:line has\|lines have} no rate yet. | {count} {count:लाइन का\|लाइनों का} भाव अभी नहीं है। |
+| `quotes.form.save` | Save quote | कोटेशन सेव करें |
+| `quotes.form.saveChanges` | Save changes | बदलाव सेव करें |
+| `quotes.form.saved` | Quote saved | कोटेशन सेव हुआ |
+| `quotes.form.errors.kg` | Enter the weight. | वज़न डालें। |
+| `quotes.form.errors.pcs` | Pieces must be a whole number, or empty. | पीस पूरी संख्या में हों, या खाली छोड़ें। |
+| `quotes.form.errors.rateLow` | A quote rate can't go below the master rate. | कोटेशन का भाव मास्टर भाव से नीचे नहीं जा सकता। |
+| `quotes.form.errors.validUntil` | Pick the date the quote is valid until. | कोटेशन की मान्य तारीख चुनें। |
+| `quotes.form.errors.validBefore` | The quote can't run out before its own date. | कोटेशन अपनी तारीख से पहले खत्म नहीं हो सकता। |
+| `quotes.detail.editTitle` | Change quote {number} | कोटेशन {number} बदलें |
+| `quotes.detail.validUntilOn` | Valid until {date} | {date} तक मान्य |
+| `quotes.detail.dated` | Dated {date} | तारीख {date} |
+| `quotes.detail.order` | Order {number} | ऑर्डर {number} |
+| `quotes.detail.lines` | Lines | लाइनें |
+| `quotes.detail.lineTitle` | Line {n}: {section} | लाइन {n}: {section} |
+| `quotes.detail.total` | Total {amount} | कुल {amount} |
+| `quotes.detail.print` | Print quote | कोटेशन प्रिंट करें |
+| `quotes.detail.printFailed` | The quote didn't print. Try again. | कोटेशन प्रिंट नहीं हुआ। फिर कोशिश करें। |
+| `quotes.detail.markSent` | Mark sent | भेजा हुआ मानें |
+| `quotes.detail.sentDone` | Quote marked as sent | कोटेशन भेजा हुआ दर्ज हुआ |
+| `quotes.detail.convert` | Make order | ऑर्डर बनाएं |
+| `quotes.detail.convertTitle` | Make an order from {number} | {number} से ऑर्डर बनाएं |
+| `quotes.detail.convertHint` | This books a sales order with these lines. Add the customer's PO number if you have it. | इससे इन्हीं लाइनों का सेल्स ऑर्डर बुक होगा। ग्राहक का PO नंबर हो तो डालें। |
+| `quotes.detail.converted` | Order {number} made | ऑर्डर {number} बना |
+| `quotes.detail.cancelQuote` | Cancel quote | कोटेशन रद्द करें |
+| `quotes.detail.cancelTitle` | Cancel quote {number} | कोटेशन {number} रद्द करें |
+| `quotes.detail.cancelHint` | A cancelled quote can't be sent or turned into an order. | रद्द कोटेशन भेजा या ऑर्डर में नहीं बदला जा सकता। |
+| `quotes.detail.cancelled` | Quote {number} cancelled | कोटेशन {number} रद्द हुआ |
+| `quotes.detail.keep` | Keep quote | कोटेशन रखें |
+| `quotes.detail.reason` | Reason | कारण |
+| `quotes.breakup.metal` | Metal ({source}) | मेटल ({source}) |
+| `quotes.breakup.source.nalco` | Nalco list | Nalco सूची |
+| `quotes.breakup.source.lme` | London metal price | लंदन मेटल भाव |
+| `quotes.breakup.source.manual` | own price | अपना भाव |
+| `quotes.breakup.conversion` | Conversion | कन्वर्शन |
+| `quotes.breakup.alloy` | Alloy {alloy} | अलॉय {alloy} |
+| `quotes.breakup.finish` | Finish {finish} | फ़िनिश {finish} |
+| `quotes.breakup.component` | Add-on: {label} | ऐड-ऑन: {label} |
+| `quotes.breakup.addons` | Add-ons per kg | ऐड-ऑन प्रति kg |
+| `quotes.breakup.discount` | Customer discount | ग्राहक की छूट |
+| `quotes.breakup.fixed` | Customer's fixed rate | ग्राहक का तय भाव |
+| `quotes.breakup.rate` | Rate per kg | भाव प्रति kg |
+| `quotes.paper.title` | Quotation | कोटेशन |
+| `quotes.paper.number` | Quote | कोटेशन |
+| `quotes.paper.date` | Date | तारीख |
+| `quotes.paper.validUntil` | Valid until | मान्य तारीख |
+| `quotes.paper.to` | To | प्रति |
+| `quotes.paper.taxId` | Tax number | टैक्स नंबर |
+| `quotes.paper.no` | No | क्र. |
+| `quotes.paper.section` | Section | सेक्शन |
+| `quotes.paper.alloy` | Alloy | अलॉय |
+| `quotes.paper.finish` | Finish | फ़िनिश |
+| `quotes.paper.length` | Length | लंबाई |
+| `quotes.paper.pcs` | Pieces | पीस |
+| `quotes.paper.weight` | Weight | वज़न |
+| `quotes.paper.rate` | Rate per kg | भाव प्रति kg |
+| `quotes.paper.amount` | Amount | रकम |
+| `quotes.paper.total` | Total | कुल |
+| `quotes.paper.taxNote` | Amounts are before tax. | रकम टैक्स से पहले की है। |
+| `quotes.paper.perKg` | Rates are per kg of the weight shown. | भाव दिखाए गए वज़न के प्रति kg हैं। |
+| `proforma.make` | Make proforma | प्रोफ़ॉर्मा बनाएं |
+| `proforma.made` | Proforma {number} made | प्रोफ़ॉर्मा {number} बना |
+| `proforma.previous` | Proformas made | बने प्रोफ़ॉर्मा |
+| `proforma.none` | No proforma made yet. | अभी कोई प्रोफ़ॉर्मा नहीं बना। |
+| `proforma.loadFailed` | Proformas didn't load. | प्रोफ़ॉर्मा नहीं आए। |
+| `proforma.printFailed` | The proforma didn't print. Open it again from the list. | प्रोफ़ॉर्मा प्रिंट नहीं हुआ। सूची से फिर खोलें। |
+| `proforma.reprint` | Print again | फिर प्रिंट करें |
+| `proforma.reprintOf` | Print proforma {number} again | प्रोफ़ॉर्मा {number} फिर प्रिंट करें |
+| `proforma.sheetHint` | Each print is the proforma as it was made, with its own number. | हर प्रिंट वही प्रोफ़ॉर्मा है जैसा बना था, अपने नंबर के साथ। |
+| `proforma.paper.title` | Proforma invoice | प्रोफ़ॉर्मा इनवॉइस |
+| `proforma.paper.banner` | Proforma invoice. Not a tax invoice. | Proforma invoice. Not a tax invoice. प्रोफ़ॉर्मा इनवॉइस है, टैक्स इनवॉइस नहीं। |
+| `proforma.paper.number` | Proforma | प्रोफ़ॉर्मा |
+| `proforma.paper.date` | Date | तारीख |
+| `proforma.paper.po` | PO | PO |
+| `proforma.paper.fromOrder` | Order | ऑर्डर |
+| `proforma.paper.fromQuote` | Quote | कोटेशन |
+| `proforma.paper.subtotal` | Amount | रकम |
+| `proforma.paper.tax` | Tax estimate at {percent} percent | टैक्स का अनुमान {percent} प्रतिशत पर |
+| `proforma.paper.total` | Total with estimated tax | अनुमानित टैक्स के साथ कुल |
+| `proforma.paper.estimateNote` | Tax is an estimate at {percent} percent. The tax invoice shows the real tax. | टैक्स {percent} प्रतिशत पर अनुमान है। असली टैक्स टैक्स इनवॉइस में दिखेगा। |
+| `proforma.paper.charges` | Already included in the rates: {list}. | भाव में पहले से शामिल: {list}। |
+| `proforma.paper.bank` | Bank details | बैंक की जानकारी |
+| `proforma.paper.noBank` | Bank details not set | बैंक की जानकारी तय नहीं है |
+| `proforma.paper.breakup` | Per kg: metal {metal}, conversion {conversion}, alloy {alloy}, finish {finish}, add-ons {addons}, discount {discount} | प्रति kg: मेटल {metal}, कन्वर्शन {conversion}, अलॉय {alloy}, फ़िनिश {finish}, ऐड-ऑन {addons}, छूट {discount} |
+| `worksOrder.title` | Works order | वर्क ऑर्डर |
+| `worksOrder.open` | Works order | वर्क ऑर्डर |
+| `worksOrder.backToOrder` | Order | ऑर्डर |
+| `worksOrder.loadFailed` | The works order didn't load. Check the connection and try again. | वर्क ऑर्डर नहीं आया। कनेक्शन जांचकर फिर कोशिश करें। |
+| `worksOrder.print` | Print works order | वर्क ऑर्डर प्रिंट करें |
+| `worksOrder.issueAndPrint` | Take number and print | नंबर लें और प्रिंट करें |
+| `worksOrder.printFailed` | The works order didn't print. Try again. | वर्क ऑर्डर प्रिंट नहीं हुआ। फिर कोशिश करें। |
+| `worksOrder.notIssuedHint` | No works order number yet. Taking the number fixes it for this order. | वर्क ऑर्डर का नंबर अभी नहीं लिया गया। नंबर लेने पर वह इस ऑर्डर का पक्का हो जाता है। |
+| `worksOrder.notConfirmed` | A works order number is taken once the order is confirmed. | वर्क ऑर्डर का नंबर ऑर्डर कन्फ़र्म होने पर लिया जाता है। |
+| `worksOrder.paper.title` | Works order | वर्क ऑर्डर |
+| `worksOrder.paper.number` | Works order | वर्क ऑर्डर |
+| `worksOrder.paper.notIssued` | Number not taken | नंबर नहीं लिया |
+| `worksOrder.paper.order` | Order | ऑर्डर |
+| `worksOrder.paper.orderDate` | Order date | ऑर्डर की तारीख |
+| `worksOrder.paper.expected` | Expected by | कब तक चाहिए |
+| `worksOrder.paper.po` | PO | PO |
+| `worksOrder.paper.customer` | Customer | ग्राहक |
+| `worksOrder.paper.section` | Section | सेक्शन |
+| `worksOrder.paper.temper` | Temper | टेम्पर |
+| `worksOrder.paper.cutLength` | Cut length | कट लंबाई |
+| `worksOrder.paper.tier` | Die tier | Die टियर |
+| `worksOrder.paper.note` | Note | नोट |
+| `enquiries.title` | Enquiries | पूछताछ |
+| `enquiries.subtitle` | Who asked for what, and when to call them back. | किसने क्या मांगा, और कब वापस फ़ोन करना है। |
+| `enquiries.add` | Add enquiry | पूछताछ जोड़ें |
+| `enquiries.empty` | No enquiries here yet. | यहां अभी कोई पूछताछ नहीं है। |
+| `enquiries.noneOverdue` | No enquiry is overdue. | कोई पूछताछ देर से नहीं है। |
+| `enquiries.loadFailed` | Enquiries didn't load. Check the connection and try again. | पूछताछ नहीं आई। कनेक्शन जांचकर फिर कोशिश करें। |
+| `enquiries.cut` | Only the first 100 are shown. Narrow the list to see the rest. | सिर्फ़ पहली 100 दिखाई गई हैं। बाकी देखने के लिए सूची छोटी करें। |
+| `enquiries.added` | Enquiry added | पूछताछ जुड़ी |
+| `enquiries.saved` | Enquiry saved | पूछताछ सेव हुई |
+| `enquiries.overdue` | {days} {days:day\|days} late | {days} {days:दिन\|दिन} की देर |
+| `enquiries.dueToday` | Due today | आज है |
+| `enquiries.makeQuote` | Make quote | कोटेशन बनाएं |
+| `enquiries.filters.label` | Show enquiries | पूछताछ दिखाएं |
+| `enquiries.filters.open` | Open | खुली |
+| `enquiries.filters.overdue` | Overdue | देर वाली |
+| `enquiries.filters.all` | All | सब |
+| `enquiries.status.open` | Open | खुली |
+| `enquiries.status.quoted` | Quoted | कोटेशन दिया |
+| `enquiries.status.won` | Won | मिली |
+| `enquiries.status.lost` | Lost | गई |
+| `enquiries.status.dropped` | Dropped | छोड़ी |
+| `enquiries.columns.party` | From | किसकी |
+| `enquiries.columns.contact` | Contact | संपर्क |
+| `enquiries.columns.section` | Section | सेक्शन |
+| `enquiries.columns.weight` | Weight | वज़न |
+| `enquiries.columns.followUp` | Follow up | फ़ॉलो-अप |
+| `enquiries.columns.status` | Status | स्थिति |
+| `enquiries.columns.actions` | Actions | काम |
+| `enquiries.form.addTitle` | Add enquiry | पूछताछ जोड़ें |
+| `enquiries.form.editTitle` | Change enquiry | पूछताछ बदलें |
+| `enquiries.form.hint` | Name a customer, or a buyer who is not a customer yet. | ग्राहक का नाम दें, या ऐसे खरीदार का जो अभी ग्राहक नहीं है। |
+| `enquiries.form.prospect` | Buyer's name | खरीदार का नाम |
+| `enquiries.form.prospectHint` | For someone who is not in the customer list. | उसके लिए जो ग्राहक सूची में नहीं है। |
+| `enquiries.form.clearCustomer` | Use a buyer's name instead | खरीदार का नाम लिखें |
+| `enquiries.form.contact` | Phone or email | फ़ोन या ईमेल |
+| `enquiries.form.clearSection` | Type the section instead | सेक्शन खुद लिखें |
+| `enquiries.form.sectionText` | Section asked for | मांगा गया सेक्शन |
+| `enquiries.form.sectionTextHint` | Type it if it is not in the catalogue. | कैटलॉग में न हो तो लिख दें। |
+| `enquiries.form.followUp` | Follow up on | फ़ॉलो-अप की तारीख |
+| `enquiries.form.status` | Status | स्थिति |
+| `enquiries.form.save` | Save enquiry | पूछताछ सेव करें |
+| `enquiries.form.errors.party` | Pick a customer or type the buyer's name. | ग्राहक चुनें या खरीदार का नाम लिखें। |
+
 ### ingest (679)
 
 | Key | English | हिंदी |
@@ -8953,6 +9344,287 @@ Please check, Lalubhai:
 | `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
 | `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
+### qa (276)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Quality | गुणवत्ता |
+| `subtitle` | Checks, holds and the lists behind them | जाँच, होल्ड और उनकी सूचियाँ |
+| `moduleOff` | Quality is off for this plant. Ask orrn support to turn it on. | इस प्लांट के लिए गुणवत्ता बंद है। orrn सपोर्ट से चालू करवाएँ। |
+| `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर कोशिश करें। |
+| `failed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
+| `saved` | Saved | सेव हुआ |
+| `required` | Fill this in. | इसे भरें। |
+| `tabs.waiting` | Waiting | इंतज़ार में |
+| `tabs.holds` | On hold | होल्ड पर |
+| `tabs.checks` | Checks | जाँच |
+| `tabs.instruments` | Instruments | उपकरण |
+| `tabs.lists` | Lists | सूचियाँ |
+| `tabs.settings` | Settings | सेटिंग |
+| `kind.incoming` | Incoming inspection | आवक जाँच |
+| `kind.first_piece` | First piece | पहला पीस |
+| `kind.in_process` | In-process check | प्रक्रिया के दौरान जाँच |
+| `kind.clearance` | Clearance | क्लियरेंस |
+| `kind.dimension` | Dimensions | माप |
+| `kind.mechanical` | Mechanical test | मैकेनिकल टेस्ट |
+| `kind.ultrasonic` | Ultrasonic test | अल्ट्रासोनिक टेस्ट |
+| `subject.press_run` | Press run | प्रेस रन |
+| `subject.bundle` | Bundle | Bundle |
+| `subject.purchase_lot` | Scrap lot | स्क्रैप लॉट |
+| `subject.store_grn` | Store GRN | स्टोर GRN |
+| `subject.cast` | Cast | कास्ट |
+| `subject.ageing_batch` | Ageing batch | एजिंग बैच |
+| `stage.incoming` | Incoming | आवक |
+| `stage.press` | Press | Press |
+| `stage.ageing` | Ageing | एजिंग |
+| `stage.pack` | Pack | पैक |
+| `stage.dispatch` | Dispatch | डिस्पैच |
+| `result.pass` | Pass | पास |
+| `result.fail` | Fail | फ़ेल |
+| `result.unchecked` | Not checked | जाँच नहीं हुई |
+| `state.waiting` | Waiting | इंतज़ार में |
+| `state.failed` | Failed | फ़ेल हुआ |
+| `state.passed` | Passed | पास हुआ |
+| `waiting.stage` | Stage | चरण |
+| `waiting.station` | Inspection point | जाँच बिंदु |
+| `waiting.allStations` | All points | सभी बिंदु |
+| `waiting.number` | Number | नंबर |
+| `waiting.since` | Since | कब से |
+| `waiting.empty` | Nothing waits at this stage. | इस चरण में कुछ इंतज़ार में नहीं है। |
+| `waiting.dispatchHint` | At dispatch the hold list is the queue. Open On hold. | डिस्पैच पर होल्ड सूची ही कतार है। होल्ड पर खोलें। |
+| `waiting.putAt` | Put at | यहाँ रखें |
+| `waiting.placed` | Placed at {code} | {code} पर रखा गया |
+| `waiting.check` | Check | जाँच |
+| `holds.holdTitle` | Put a bundle on quality hold | Bundle को गुणवत्ता होल्ड पर रखें |
+| `holds.holdHint` | A held bundle stays in stock. The dispatch scan refuses it until someone releases it. | होल्ड वाला bundle स्टॉक में रहता है। जब तक कोई छोड़ता नहीं, डिस्पैच स्कैन उसे मना करता है। |
+| `holds.serial` | Bundle serial | Bundle सीरियल |
+| `holds.reason` | Reason | कारण |
+| `holds.hold` | Hold | होल्ड |
+| `holds.held` | {serial} is on quality hold | {serial} गुणवत्ता होल्ड पर है |
+| `holds.release` | Release | छोड़ें |
+| `holds.releaseTitle` | Release {serial} | {serial} छोड़ें |
+| `holds.note` | What was done | क्या किया गया |
+| `holds.noteHint` | Say what was checked or fixed before release. | छोड़ने से पहले क्या जाँचा या ठीक किया, लिखें। |
+| `holds.released` | {serial} released | {serial} छोड़ा गया |
+| `holds.empty` | No bundle is on quality hold. | कोई bundle गुणवत्ता होल्ड पर नहीं है। |
+| `holds.logEmpty` | No holds yet. | अभी कोई होल्ड नहीं। |
+| `holds.show` | Show | दिखाएँ |
+| `holds.open` | Open holds | खुले होल्ड |
+| `holds.log` | Hold log | होल्ड लॉग |
+| `holds.bundle` | Bundle | Bundle |
+| `holds.section` | Section | सेक्शन |
+| `holds.weight` | Weight | वज़न |
+| `holds.when` | Held | होल्ड हुआ |
+| `holds.heldBy` | Held by {name} | {name} ने होल्ड किया |
+| `holds.releasedBy` | Released by {name} | {name} ने छोड़ा |
+| `holds.releasedAt` | Released | छोड़ा गया |
+| `checks.kindFilter` | Check | जाँच |
+| `checks.all` | All checks | सभी जाँच |
+| `checks.record` | Record a check | जाँच दर्ज करें |
+| `checks.empty` | No checks recorded yet. | अभी कोई जाँच दर्ज नहीं। |
+| `checks.subject` | On | किस पर |
+| `checks.result` | Result | नतीजा |
+| `checks.by` | By | किसने |
+| `checks.when` | When | कब |
+| `checks.station` | Point | बिंदु |
+| `checks.detail` | Detail | ब्योरा |
+| `checks.flagged` | Out of tolerance: {names} | टॉलरेंस से बाहर: {names} |
+| `checks.low` | Below the minimum: {names} | न्यूनतम से कम: {names} |
+| `checks.unchecked` | Not compared (other hardness scale or no limits): {names} | मिलान नहीं किया (दूसरा हार्डनेस स्केल या कोई सीमा नहीं): {names} |
+| `checks.noLimits` | No temper limits to check against | जाँचने के लिए टेम्पर की कोई सीमा नहीं |
+| `checks.more` | Show older | पुराने दिखाएँ |
+| `run.find` | Find a press run | प्रेस रन खोजें |
+| `run.findHint` | The run number, such as PR-12 | रन नंबर, जैसे PR-12 |
+| `run.show` | Show | दिखाएँ |
+| `run.title` | Run {number} | रन {number} |
+| `run.firstPiece` | First piece | पहला पीस |
+| `run.notChecked` | Not checked | जाँचा नहीं गया |
+| `run.blocksPack` | Pack waits for a passed first piece. | पैक के लिए पहला पीस पास होना ज़रूरी है। |
+| `run.inProcess` | In-process checks | प्रक्रिया के दौरान जाँच |
+| `run.due` | A check is due: {count} bundles since the last one. | जाँच बाकी है: पिछली जाँच के बाद {count} bundle। |
+| `run.notDue` | No check is due. | कोई जाँच बाकी नहीं। |
+| `run.breaches` | Readings out of the quality plan | गुणवत्ता प्लान से बाहर रीडिंग |
+| `run.noBreaches` | Every press reading is inside the plan. | प्रेस की हर रीडिंग प्लान के अंदर है। |
+| `run.noPlan` | No quality plan for this section. | इस सेक्शन का कोई गुणवत्ता प्लान नहीं। |
+| `run.notFound` | No press run with that number in this plant. | इस प्लांट में उस नंबर का कोई प्रेस रन नहीं। |
+| `sheet.title` | Record a check | जाँच दर्ज करें |
+| `sheet.kind` | Check | जाँच |
+| `sheet.subjectType` | On | किस पर |
+| `sheet.number` | Number | नंबर |
+| `sheet.numberHint` | As written on the paper | जैसा कागज़ पर लिखा है |
+| `sheet.find` | Find | खोजें |
+| `sheet.notFound` | Nothing with that number in this plant. | इस प्लांट में उस नंबर का कुछ नहीं मिला। |
+| `sheet.found` | Found {number} | {number} मिला |
+| `sheet.result` | Result | नतीजा |
+| `sheet.stage` | For stage | किस चरण के लिए |
+| `sheet.station` | Inspection point | जाँच बिंदु |
+| `sheet.instrument` | Instrument | उपकरण |
+| `sheet.none` | None | कोई नहीं |
+| `sheet.note` | Note | नोट |
+| `sheet.save` | Save check | जाँच सेव करें |
+| `sheet.recorded` | Check recorded | जाँच दर्ज हुई |
+| `sheet.standard` | Standard | मानक |
+| `sheet.operator` | Operator | ऑपरेटर |
+| `sheet.needSubject` | Find what the check is on first. | पहले खोजें कि जाँच किस पर है। |
+| `sheet.dims.title` | Dimensions | माप |
+| `sheet.dims.name` | Name | नाम |
+| `sheet.dims.nominal` | Nominal (mm) | नॉमिनल (mm) |
+| `sheet.dims.minus` | Minus (mm) | माइनस (mm) |
+| `sheet.dims.plus` | Plus (mm) | प्लस (mm) |
+| `sheet.dims.measured` | Measured (mm) | नापा गया (mm) |
+| `sheet.dims.add` | Add a dimension | माप जोड़ें |
+| `sheet.dims.remove` | Remove | हटाएँ |
+| `sheet.dims.bad` | Fill the name and every number of each dimension. | हर माप का नाम और सभी नंबर भरें। |
+| `sheet.mech.tensile` | Tensile (MPa) | टेन्साइल (MPa) |
+| `sheet.mech.yield` | Yield (MPa) | यील्ड (MPa) |
+| `sheet.mech.elongation` | Elongation (%) | एलोंगेशन (%) |
+| `sheet.mech.hardness` | Hardness | हार्डनेस |
+| `sheet.mech.temper` | Temper | टेम्पर |
+| `sheet.mech.temperPlan` | From the quality plan | गुणवत्ता प्लान से |
+| `sheet.mech.scaleTemper` | Same as the temper | टेम्पर जैसा |
+| `sheet.readings.title` | Readings | रीडिंग |
+| `sheet.readings.name` | What | क्या |
+| `sheet.readings.value` | Seen | देखा गया |
+| `sheet.readings.add` | Add a reading | रीडिंग जोड़ें |
+| `instruments.add` | Add instrument | उपकरण जोड़ें |
+| `instruments.code` | Code | कोड |
+| `instruments.name` | Name | नाम |
+| `instruments.range` | Range | रेंज |
+| `instruments.place` | Where | कहाँ |
+| `instruments.interval` | Calibrate every (days) | कैलिब्रेशन हर (दिन) |
+| `instruments.last` | Last calibrated | आखिरी कैलिब्रेशन |
+| `instruments.next` | Next due | अगली तारीख |
+| `instruments.status` | Status | स्थिति |
+| `instruments.states.ok` | In date | तारीख के अंदर |
+| `instruments.states.due_soon` | Due soon | जल्द देय |
+| `instruments.states.overdue` | Overdue | देरी हो चुकी |
+| `instruments.states.unknown` | No date | तारीख नहीं |
+| `instruments.calibrate` | Calibrate | कैलिब्रेट करें |
+| `instruments.calibrateTitle` | Calibrate {code} | {code} कैलिब्रेट करें |
+| `instruments.calibratedOn` | Calibrated on | कैलिब्रेशन की तारीख |
+| `instruments.certificate` | Certificate | सर्टिफिकेट |
+| `instruments.upload` | Upload certificate | सर्टिफिकेट अपलोड करें |
+| `instruments.uploaded` | Certificate saved | सर्टिफिकेट सेव हुआ |
+| `instruments.view` | Open certificate | सर्टिफिकेट खोलें |
+| `instruments.uploadFailed` | The file did not upload. Check the connection and try again. | फ़ाइल अपलोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
+| `instruments.empty` | No instruments yet. | अभी कोई उपकरण नहीं। |
+| `instruments.edit` | Edit | बदलें |
+| `instruments.editTitle` | Edit {code} | {code} बदलें |
+| `instruments.retire` | Take out of use | उपयोग से हटाएँ |
+| `instruments.reactivate` | Put back in use | फिर उपयोग में लाएँ |
+| `instruments.note` | Note | नोट |
+| `instruments.invalid` | Fill the code and the name. | कोड और नाम भरें। |
+| `lists.tempers` | Tempers | टेम्पर |
+| `lists.plans` | Quality plans | गुणवत्ता प्लान |
+| `lists.stations` | Inspection points | जाँच बिंदु |
+| `lists.substitutes` | Alloy substitutes | अलॉय विकल्प |
+| `tempers.add` | Add temper | टेम्पर जोड़ें |
+| `tempers.edit` | Edit | बदलें |
+| `tempers.editTitle` | Edit temper {code} | टेम्पर {code} बदलें |
+| `tempers.code` | Code | कोड |
+| `tempers.alloy` | Alloy | अलॉय |
+| `tempers.alloyHint` | Blank for every alloy | खाली छोड़ें तो हर अलॉय के लिए |
+| `tempers.name` | Name | नाम |
+| `tempers.method` | Hardness scale | हार्डनेस स्केल |
+| `tempers.methods.webster` | Webster | Webster |
+| `tempers.methods.hb` | Brinell | Brinell |
+| `tempers.hardnessMin` | Lowest hardness | न्यूनतम हार्डनेस |
+| `tempers.tensileMin` | Lowest tensile (MPa) | न्यूनतम टेन्साइल (MPa) |
+| `tempers.yieldMin` | Lowest yield (MPa) | न्यूनतम यील्ड (MPa) |
+| `tempers.elongationMin` | Lowest elongation (%) | न्यूनतम एलोंगेशन (%) |
+| `tempers.recipes` | Ageing recipes | एजिंग रेसिपी |
+| `tempers.noRecipe` | No ageing recipe | कोई एजिंग रेसिपी नहीं |
+| `tempers.empty` | No tempers yet. | अभी कोई टेम्पर नहीं। |
+| `tempers.pick` | Pick from the temper list | टेम्पर सूची से चुनें |
+| `plans.add` | Add plan | प्लान जोड़ें |
+| `plans.edit` | Edit | बदलें |
+| `plans.editTitle` | Quality plan for {section} | {section} का गुणवत्ता प्लान |
+| `plans.section` | Section | सेक्शन |
+| `plans.sectionHint` | The section code, such as 1234 | सेक्शन कोड, जैसे 1234 |
+| `plans.copy` | Die copy | Die कॉपी |
+| `plans.allCopies` | Every copy | हर कॉपी |
+| `plans.temper` | Temper | टेम्पर |
+| `plans.billetTemp` | Billet temperature (°C) | बिलेट तापमान (°C) |
+| `plans.exitTemp` | Exit temperature (°C) | एग्ज़िट तापमान (°C) |
+| `plans.ramSpeed` | Ram speed (mm/s) | रैम स्पीड (mm/s) |
+| `plans.ageingTemp` | Ageing temperature (°C) | एजिंग तापमान (°C) |
+| `plans.ageingSoak` | Ageing soak (minutes) | एजिंग सोक (मिनट) |
+| `plans.everyBundles` | In-process check every (bundles) | प्रक्रिया जाँच हर (bundle) |
+| `plans.everyMinutes` | In-process check every (minutes) | प्रक्रिया जाँच हर (मिनट) |
+| `plans.min` | Lowest | न्यूनतम |
+| `plans.max` | Highest | अधिकतम |
+| `plans.dimensions` | Dimensions to check | जाँचने के माप |
+| `plans.limits` | Limits | सीमाएँ |
+| `plans.empty` | No quality plans yet. | अभी कोई गुणवत्ता प्लान नहीं। |
+| `plans.sectionNotFound` | No section with that code. | इस कोड का कोई सेक्शन नहीं। |
+| `plans.sectionPick` | Pick the section | सेक्शन चुनें |
+| `stations.add` | Add point | बिंदु जोड़ें |
+| `stations.edit` | Edit | बदलें |
+| `stations.editTitle` | Edit point {code} | बिंदु {code} बदलें |
+| `stations.code` | Code | कोड |
+| `stations.name` | Name | नाम |
+| `stations.stage` | Stage | चरण |
+| `stations.empty` | No inspection points yet. | अभी कोई जाँच बिंदु नहीं। |
+| `stations.retire` | Take out of use | उपयोग से हटाएँ |
+| `stations.reactivate` | Put back in use | फिर उपयोग में लाएँ |
+| `substitutes.add` | Add substitute | विकल्प जोड़ें |
+| `substitutes.alloy` | Alloy | अलॉय |
+| `substitutes.substitute` | Allowed instead | इसके बदले मान्य |
+| `substitutes.customer` | Party | पार्टी |
+| `substitutes.everyParty` | Every party | हर पार्टी |
+| `substitutes.note` | Note | नोट |
+| `substitutes.remove` | Remove | हटाएँ |
+| `substitutes.removed` | Removed | हटाया गया |
+| `substitutes.empty` | No substitutes yet. | अभी कोई विकल्प नहीं। |
+| `substitutes.short` | Alloy short | अलॉय कम |
+| `substitutes.shortBody` | {alloy}: {have} {massUnit} of billets for {need} {massUnit} left. | {alloy}: {need} {massUnit} के लिए बिलेट {have} {massUnit} बचे हैं। |
+| `substitutes.allowed` | Allowed instead | इसके बदले मान्य |
+| `substitutes.onHand` | {kg} {massUnit} on hand | {kg} {massUnit} हाथ में |
+| `substitutes.noneAllowed` | No substitute is allowed for {alloy}. | {alloy} के लिए कोई विकल्प मान्य नहीं। |
+| `settings.title` | Quality switches | गुणवत्ता स्विच |
+| `settings.firstPiece` | Pack waits for the first piece | पैक के लिए पहला पीस ज़रूरी |
+| `settings.firstPieceHint` | On: no bundle is packed from a run until its first piece passes. | चालू: रन का पहला पीस पास होने तक उससे कोई bundle पैक नहीं होता। |
+| `settings.lotInspection` | Melt waits for incoming inspection | मेल्ट के लिए आवक जाँच ज़रूरी |
+| `settings.lotInspectionHint` | On: a scrap lot is charged to a melt only after it passes inspection. | चालू: स्क्रैप लॉट जाँच में पास होने के बाद ही मेल्ट में डलता है। |
+| `settings.everyBundles` | In-process check every N bundles | प्रक्रिया जाँच हर N bundle |
+| `settings.everyMinutes` | In-process check every N minutes | प्रक्रिया जाँच हर N मिनट |
+| `settings.blankOff` | Leave blank for off. | बंद रखने के लिए खाली छोड़ें। |
+| `settings.since` | On since {date} | {date} से चालू |
+| `settings.save` | Save switches | स्विच सेव करें |
+| `today.title` | Quality | गुणवत्ता |
+| `today.onHold` | {count} on quality hold | {count} गुणवत्ता होल्ड पर |
+| `today.overdue` | {count} instruments overdue | {count} उपकरण की देरी |
+| `today.dueSoon` | {count} due within 7 days | {count} 7 दिन में देय |
+| `today.allClear` | No hold and no instrument overdue. | कोई होल्ड नहीं और कोई उपकरण देरी पर नहीं। |
+| `today.open` | Open quality | गुणवत्ता खोलें |
+| `refusal.bundleOnHold` | Bundle {serial} is on quality hold | Bundle {serial} गुणवत्ता होल्ड पर है |
+| `refusal.alreadyOnHold` | Bundle {serial} is already on quality hold | Bundle {serial} पहले से गुणवत्ता होल्ड पर है |
+| `refusal.notOnHold` | Bundle {serial} is not on quality hold | Bundle {serial} गुणवत्ता होल्ड पर नहीं है |
+| `refusal.bundleNotInStock` | Bundle {serial} is not in stock; only stock can go on quality hold | Bundle {serial} स्टॉक में नहीं है; सिर्फ़ स्टॉक होल्ड पर जा सकता है |
+| `refusal.bundleOnLoad` | Bundle {serial} is held on a load; take it off the load first | Bundle {serial} लोड पर रुका है; पहले उसे लोड से हटाएँ |
+| `refusal.lotWaiting` | {lot} is waiting for inspection | {lot} जाँच के इंतज़ार में है |
+| `refusal.lotFailed` | {lot} failed inspection | {lot} जाँच में फ़ेल हुआ |
+| `refusal.firstPieceWaiting` | The first piece of {run} is not checked yet | {run} का पहला पीस अभी जाँचा नहीं गया |
+| `refusal.firstPieceFailed` | The first piece of {run} failed; check a new piece first | {run} का पहला पीस फ़ेल हुआ; पहले नया पीस जाँचें |
+| `refusal.kindSubject` | This check cannot be recorded on that | यह जाँच उस पर दर्ज नहीं हो सकती |
+| `refusal.dimensionsNone` | Enter at least one dimension | कम से कम एक माप भरें |
+| `refusal.dimensionsTooMany` | Enter at most {n} dimensions | ज़्यादा से ज़्यादा {n} माप भरें |
+| `refusal.dimensionsBadValue` | Each dimension needs a name, a nominal above zero and its tolerances | हर माप में नाम, शून्य से ऊपर नॉमिनल और उसकी टॉलरेंस चाहिए |
+| `refusal.dimensionsDuplicate` | A dimension is listed twice | एक माप दो बार लिखा है |
+| `refusal.mechanicalNone` | Enter at least one test value | कम से कम एक टेस्ट वैल्यू भरें |
+| `refusal.resultNeeded` | Pick pass or fail | पास या फ़ेल चुनें |
+| `refusal.temperCode` | Use a temper code such as T6, T5 or O, at most 8 letters and digits | T6, T5 या O जैसा टेम्पर कोड लें, ज़्यादा से ज़्यादा 8 अक्षर और अंक |
+| `refusal.temperTaken` | Temper {code} is already in the list | टेम्पर {code} सूची में पहले से है |
+| `refusal.temperYield` | The yield minimum cannot be above the tensile minimum | न्यूनतम यील्ड, न्यूनतम टेन्साइल से ऊपर नहीं हो सकती |
+| `refusal.planLimits` | A lower limit is above its upper limit | एक निचली सीमा अपनी ऊपरी सीमा से ऊपर है |
+| `refusal.planSavedMeanwhile` | Someone saved this quality plan just now; open it again and save | यह गुणवत्ता प्लान अभी किसी और ने सेव किया; फिर से खोलें और सेव करें |
+| `refusal.substituteSame` | An alloy cannot be its own substitute | कोई अलॉय अपना ही विकल्प नहीं हो सकता |
+| `refusal.substituteTaken` | {alloy} is already a substitute here | {alloy} यहाँ पहले से विकल्प है |
+| `refusal.instrumentTaken` | Instrument {code} is already in the list | उपकरण {code} सूची में पहले से है |
+| `refusal.instrumentCode` | Use letters, digits and dashes for the instrument code, at most 24 | उपकरण कोड में अक्षर, अंक और डैश लें, ज़्यादा से ज़्यादा 24 |
+| `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
+| `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -9037,7 +9709,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (53)
+### plantSettings (55)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9076,8 +9748,10 @@ Please check, Lalubhai:
 | `modules.names.press` | Press | प्रेस |
 | `modules.names.ageing` | Ageing | एजिंग |
 | `modules.names.store` | Store | स्टोर |
+| `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `modules.names.complaints` | Complaints | शिकायतें |
+| `modules.names.pricing` | Prices and quotes | भाव और कोटेशन |
 | `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `letterhead.title` | Letterhead | लेटरहेड |
@@ -9219,7 +9893,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (393)
+### audit (430)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9282,6 +9956,15 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
 | `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
 | `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
+| `subjectTypes.qa_check` | Quality check | गुणवत्ता जांच |
+| `subjectTypes.qa_temper` | Temper | टेम्पर |
+| `subjectTypes.qa_station` | Inspection point | जांच स्थान |
+| `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
+| `subjectTypes.qa_instrument` | Instrument | उपकरण |
+| `subjectTypes.price_rate` | Price rate | दाम का रेट |
+| `subjectTypes.quote` | Quote | कोटेशन |
+| `subjectTypes.proforma` | Proforma invoice | प्रोफार्मा इनवॉइस |
+| `subjectTypes.enquiry` | Enquiry | पूछताछ |
 | `subjectTypes.invoice` | Invoice | इनवॉइस |
 | `subjectTypes.payment` | Payment | भुगतान |
 | `subjectTypes.gst_hsn` | HSN code | HSN कोड |
@@ -9332,6 +10015,21 @@ Please check, Lalubhai:
 | `actions.ageing__oven__create` | Oven added | ओवन जोड़ा |
 | `actions.ageing__oven__update` | Oven changed | ओवन बदला |
 | `actions.ageing__override__request` | Ageing release sent for approval | एजिंग रिलीज़ की मंज़ूरी मांगी |
+| `actions.price__settings__update` | Price settings changed | दाम की सेटिंग बदली |
+| `actions.price__rate__propose` | Rate change sent for approval | रेट बदलाव की मंज़ूरी मांगी |
+| `actions.price__rate__activate` | Rate change approved | रेट बदलाव मंज़ूर हुआ |
+| `actions.price__rate__reject` | Rate change rejected | रेट बदलाव नामंज़ूर हुआ |
+| `actions.price__override__request` | Line rate change asked | लाइन का रेट बदलने को कहा |
+| `actions.order__rate__correct` | Fixed line rate corrected on the order | तय लाइन रेट ऑर्डर पर सुधारा |
+| `actions.quote__create` | Quote made | कोटेशन बनाया |
+| `actions.quote__update` | Quote changed | कोटेशन बदला |
+| `actions.quote__send` | Quote marked as sent | कोटेशन भेजा गया |
+| `actions.quote__cancel` | Quote cancelled | कोटेशन रद्द किया |
+| `actions.quote__convert` | Quote made into an order | कोटेशन से ऑर्डर बनाया |
+| `actions.proforma__create` | Proforma invoice made | प्रोफार्मा इनवॉइस बनाया |
+| `actions.works_order__issue` | Works order issued | वर्क्स ऑर्डर जारी किया |
+| `actions.enquiry__create` | Enquiry noted | पूछताछ दर्ज की |
+| `actions.enquiry__update` | Enquiry changed | पूछताछ बदली |
 | `actions.ageing__readings` | Oven readings received | ओवन की रीडिंग आईं |
 | `actions.ageing__recipe__create` | Cycle recipe added | साइकल रेसिपी जोड़ी |
 | `actions.ageing__recipe__update` | Cycle recipe changed | साइकल रेसिपी बदली |
@@ -9528,6 +10226,19 @@ Please check, Lalubhai:
 | `actions.portal__user__accept` | Party login accepted | पार्टी लॉगिन स्वीकार हुआ |
 | `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
 | `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
+| `actions.qa__check__record` | Quality check recorded | गुणवत्ता जांच दर्ज |
+| `actions.qa__hold` | Bundle put on quality hold | बंडल गुणवत्ता होल्ड पर रखा |
+| `actions.qa__release` | Bundle released from quality hold | बंडल गुणवत्ता होल्ड से छोड़ा |
+| `actions.qa__place` | Put at an inspection point | जांच स्थान पर रखा |
+| `actions.qa__settings__update` | Quality switches changed | गुणवत्ता स्विच बदले |
+| `actions.qa__temper__save` | Temper saved | टेम्पर सेव |
+| `actions.qa__plan__save` | Quality plan saved | गुणवत्ता प्लान सेव |
+| `actions.qa__station__save` | Inspection point saved | जांच स्थान सेव |
+| `actions.qa__substitute__save` | Alloy substitute saved | मिश्रधातु विकल्प सेव |
+| `actions.qa__substitute__remove` | Alloy substitute removed | मिश्रधातु विकल्प हटाया |
+| `actions.qa__instrument__save` | Instrument saved | उपकरण सेव |
+| `actions.qa__instrument__calibrate` | Instrument calibrated | उपकरण कैलिब्रेट किया |
+| `actions.qa__instrument__certificate` | Calibration certificate saved | कैलिब्रेशन सर्टिफिकेट सेव |
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
 | `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |

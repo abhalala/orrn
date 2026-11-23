@@ -19,12 +19,17 @@ import { toast } from "sonner";
 
 import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/shared/lib/fmt-text";
+import { OrderLineAlloy } from "@/features/qa/flags";
 import { Can } from "@/shared/components/can";
+import { useMe } from "@/shared/lib/me";
+import { LinePriceSheet } from "@/features/pricing/line/line-price-sheet";
+import { showsPriceSheet } from "@/features/pricing/line/breakup-rows";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { BakiStrip } from "./components/baki-strip";
 import { LineFilters } from "./components/line-filters";
 import { StockOnSheet } from "./components/stock-on-sheet";
+import { OrderDocActions } from "@/features/pricing/docs/order-doc-actions";
 import { OrderPrintButtons } from "./components/print-buttons";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
@@ -45,6 +50,7 @@ export function OrderDetailPage({ id }: { id: string }) {
   const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
+  const meQuery = useMe();
   const [editOpen, setEditOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -220,6 +226,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             {t("orders.stockOn.button")}
           </Button>
           <OrderPrintButtons data={get.data} />
+          <OrderDocActions orderId={order.id} status={status} />
           {/* Every open order can be dispatched from, a booking too (as dispatch.create allows; review m-8). */}
           {status === "booking" || status === "confirmed" || status === "dispatching" ? (
             <Can do="dispatch.create">
@@ -389,6 +396,10 @@ export function OrderDetailPage({ id }: { id: string }) {
                   {kgGrouped3(fmt, line.orderedG)} {massUnit(fmt)}
                   {rate != null ? ` · ${t("orders.detail.rate", { rate: rateText(fmt, rate) })}` : ""}
                 </p>
+                {/* XE-PRICE: the frozen price sheet of the line, for people the server sends a breakup to. */}
+                {d && "priceBreakup" in d && showsPriceSheet(d.priceBreakup, meQuery.data?.company?.modules) ? (
+                  <LinePriceSheet line={{ lineId: line.lineId, lineNo: line.lineNo, orderNumber: order.number }} breakup={d.priceBreakup} />
+                ) : null}
                 {d && line.kgPer12ftMilli != null ? (
                   <p className="m-0 text-[13px] leading-5 text-muted-foreground">
                     {d.weightBasis === "band_start" && d.copyMilli == null
@@ -409,6 +420,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                 <Can do="order.manage">
                   <LinePackingMode orderId={order.id} lineId={line.lineId} lineNo={line.lineNo} />
                 </Can>
+                {/* XE parity lane QA (row 37): on an open order, the alloy is short, with the substitutes allowed. Nothing otherwise. */}
+                {status === "booking" || status === "confirmed" || status === "dispatching" ? <OrderLineAlloy lineId={line.lineId} /> : null}
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,

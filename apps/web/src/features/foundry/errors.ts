@@ -5,6 +5,8 @@
  * Never show `error.message` on a foundry screen.
  */
 import "@orrn/i18n/refusal-foundry";
+// XE parity lane QA: a lot waiting for or failing inspection is refused at the melt in the person's language.
+import "@orrn/i18n/refusal-qa";
 
 import type { MeltLockError } from "@orrn/domain";
 import type { MessageKey, Translate } from "@orrn/i18n";

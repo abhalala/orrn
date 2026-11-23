@@ -1,6 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { isStrongSession } from "@orrn/auth/session-method";
-import { hasStrongMethod, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { company } from "@orrn/db/schema/tenant";
 import { eq } from "drizzle-orm";
 
@@ -80,6 +79,8 @@ async function assertStrongSignIn(ctx: Context & { companyId: string; membership
   if (isStrongSession(session?.signInMethod)) return;
   const userId = ctx.session?.user.id;
   if (!userId) return;
+  // Loaded here, not at module scope: it pulls in better-auth, which would run at Worker startup (10021).
+  const { hasStrongMethod, signInMethodsFor } = await import("@orrn/auth/sign-in-methods");
   const strong = hasStrongMethod(await signInMethodsFor(ctx.db, userId));
   const plant = await ctx.db.select({ name: company.name }).from(company).where(eq(company.id, ctx.companyId)).get();
   throw new TRPCMetaError({

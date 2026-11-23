@@ -139,6 +139,17 @@ export const PLANT_ACTIONS = [
   "docs.manage", // add, edit, retire plant documents and their files (#80)
   "approvalRule.manage", // who may approve each approval kind, and thresholds (#78)
   "refFormat.manage", // number formats per doc type (#77)
+  // XE parity lane QA (migration 0055). `qc.enter` stays the press station's reject entry.
+  "qa.check", // record a quality check (incoming, first piece, in process, clearance, dimensions, mechanical, ultrasonic), place a lot at an inspection point, record a calibration
+  "qa.hold", // put a bundle on quality hold
+  "qa.release", // release a bundle from quality hold, with a note
+  "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
+  // XE-PRICE (lane PRICE): the price master, quotations, proforma and enquiries. `order.price` stays the
+  // gate for rates on order lines; these cover the master and the documents built on it.
+  "price.view", // read the price master, quotations, proformas and line breakdowns
+  "price.manage", // propose a master rate or customer term, ask for a line override, set pricing settings
+  "quote.manage", // make, send, cancel and convert quotations; make proformas
+  "enquiry.manage", // enquiries and their follow-ups
   // XE-BILL (opt-in `billing` module): tax invoices, credit notes, payments received, GST settings.
   "gst.settings", // plant GST state and HSN codes, customer GST details
   "invoice.read", // invoices, credit notes, payments and outstanding, read only
@@ -296,6 +307,17 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "docs.manage": ["admin", "manager", "office"],
   "approvalRule.manage": ["admin"],
   "refFormat.manage": ["admin"],
+  // XE parity lane QA: the floor people who already judge quality record checks (press first piece, the
+  // foundry's incoming lots, the store's bought-in material); a supervisor or manager holds and releases.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
+  // XE-PRICE: the people who see order rates read the master; the office desk and the manager change it.
+  "price.view": ["admin", "office", "manager", "accountant"],
+  "price.manage": ["admin", "office", "manager"],
+  "quote.manage": ["office", "manager"],
+  "enquiry.manage": ["office", "manager"],
   // XE-BILL: the billing desk (office), the accountant and the manager. GST settings (incl. the e-invoice start
   // date) are the admin's and theirs too: the billing desk keeps them up to date (review N2: comment corrected).
   "gst.settings": ["admin", "manager", "accountant", "office"],
@@ -421,6 +443,8 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   dispatch_off_band: ["owner", "admin", "manager"],
   // arch 52: a dispatch completed later at the time the truck left (line down). Never the requester.
   dispatch_late_entry: ["owner", "admin", "manager"],
+  // XE-PRICE: a master rate change or a line override below the computed rate. Never the requester.
+  price_change: ["owner", "admin", "manager"],
   // XE-BILL: cancelling an issued tax invoice (its number stays used). Never the requester.
   invoice_cancel: ["owner", "admin", "manager"],
 };

@@ -1,4 +1,4 @@
--- XE-BILL (lane BILL, CONTRACTS migration 0059): tax invoice, credit note, GST settings, HSN, payments received,
+-- XE-BILL (lane BILL, CONTRACTS migration 0059 (renumbered to 0060 at merge)): tax invoice, credit note, GST settings, HSN, payments received,
 -- e-invoice / e-way bill state. Additive: nine new tables, no existing table changed. Both modules (billing,
 -- einvoice) are opt-in, so nothing here is read for a plant that has not named them.
 

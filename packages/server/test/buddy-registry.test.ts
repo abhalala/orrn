@@ -23,7 +23,8 @@ afterAll(async () => {
 });
 
 async function load() {
-  const { appRouter } = await import("../src/routers/index");
+  const { appRouter, loadAllRouters } = await import("../src/routers/index");
+  await loadAllRouters();
   const { BUDDY_DECISIONS, decideBuddyPath } = await import("../src/lib/buddy/decisions");
   const { buddyRegistry, inputJsonSchema } = await import("../src/lib/buddy/registry");
   const { buddyDescriptions } = await import("../src/lib/buddy/descriptions");

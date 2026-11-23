@@ -6,8 +6,9 @@ import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { useQuery } from "@tanstack/react-query";
 import { Boxes, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
+import { useTemperCodes } from "@/features/qa/flags";
 import { trpc } from "@/shared/utils/trpc";
 
 import { pcsText } from "../format";
@@ -58,6 +59,8 @@ export function LineEditor({
   const fmt = useFmt();
   const [stockOpen, setStockOpen] = useState(false);
   const { choices } = useCopyChoices(line.die?.id ?? null);
+  const temperCodes = useTemperCodes();
+  const temperListId = `temper-list-${useId().replace(/:/g, "")}`;
   const mm = cutLengthMm(line, unit);
 
   const args = quoteArgs(line, unit);
@@ -195,7 +198,15 @@ export function LineEditor({
           <TextInput value={line.alloy ?? known?.alloy ?? ""} onChangeText={(alloy) => onChange({ alloy })} autoComplete="off" />
         </Field>
         <Field label={t("orders.line.temper")}>
-          <TextInput value={line.temper ?? known?.temper ?? ""} onChangeText={(temper) => onChange({ temper })} autoComplete="off" />
+          <TextInput value={line.temper ?? known?.temper ?? ""} onChangeText={(temper) => onChange({ temper })} autoComplete="off" list={temperCodes.length ? temperListId : undefined} />
+          {/* XE parity lane QA (row 35): the temper stays free text; the plant's temper list is offered to pick from. */}
+          {temperCodes.length ? (
+            <datalist id={temperListId}>
+              {temperCodes.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          ) : null}
         </Field>
         <Field label={t("orders.line.finish")}>
           <FieldSelect value={line.finish} onChange={(e) => onChange({ finish: e.target.value as Finish })}>

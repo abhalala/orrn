@@ -61,6 +61,8 @@ export function castStateMessage(c: Pick<CastRow, "number" | "status">): string 
 export type LotForMelt = {
   id: string;
   number: string;
+  /** Book date `YYYY-MM-DD`: the quality gate exempts lots received before its switch day (XE QA row 22). */
+  lotDate: string;
   status: string;
   locationId: string | null;
   scrapItemId: string;
@@ -77,6 +79,7 @@ export async function lotsForMelt(ctx: Ctx, lotIds: string[]): Promise<Map<strin
         .select({
           id: purchaseLot.id,
           number: purchaseLot.number,
+          lotDate: purchaseLot.lotDate,
           status: purchaseLot.status,
           locationId: purchaseLot.locationId,
           scrapItemId: purchaseLot.scrapItemId,

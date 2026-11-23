@@ -23,7 +23,9 @@ let appRouter: AppRouter;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  appRouter = (await import("../src/routers/index")).appRouter;
+  const routers = await import("../src/routers/index");
+  await routers.loadAllRouters();
+  appRouter = routers.appRouter;
   (await import("@orrn/auth")).resetAuthForTests();
 }, 60_000);
 
