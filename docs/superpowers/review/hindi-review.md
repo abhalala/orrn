@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
+Counts: 10007 screen strings in 54 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (91)
+### nav (92)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -266,6 +266,7 @@ Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
 | `audit` | Audit log | ऑडिट लॉग |
+| `billing` | Billing | बिलिंग |
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
@@ -3150,7 +3151,7 @@ Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (386)
+### admin (390)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3364,6 +3365,8 @@ Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleNames.complaints` | Complaints | शिकायतें |
+| `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
+| `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3375,6 +3378,8 @@ Counts: 9606 screen strings in 53 groups, 45 guides with 866 strings.
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
+| `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
+| `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -4448,7 +4453,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (166)
+### approvals (169)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4477,6 +4482,7 @@ Please check, Lalubhai:
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `kind.dispatch_off_band` | Bundle off the order weight | ऑर्डर के वज़न से हटा bundle |
 | `kind.dispatch_late_entry` | Packing list entered late | देर से भरी पैकिंग लिस्ट |
+| `kind.invoice_cancel` | Cancel an invoice | इनवॉइस रद्द करना |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
@@ -4493,6 +4499,7 @@ Please check, Lalubhai:
 | `subject.meltCorrect` | Correct melt {seq} of cast {number} | कास्ट {number} की मेल्ट {seq} सुधारें |
 | `subject.offBand` | {serial} on {code}: {kg} {sectionUnit}, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} {sectionUnit}, {order} लाइन {line} में {lineKg} |
 | `subject.lateDispatch` | {code}, entered late | {code}, देर से भरा |
+| `subject.invoiceCancel` | Cancel {number} | {number} रद्द करना |
 | `foundry.title` | Figures | आँकड़े |
 | `foundry.produced` | Billets made | बने बिलेट |
 | `foundry.metalIn` | Metal in | डाला मेटल |
@@ -4577,6 +4584,7 @@ Please check, Lalubhai:
 | `move.line` | {party}, {order} line {line} | {party}, {order} लाइन {line} |
 | `openOrder` | Open order | ऑर्डर खोलें |
 | `openDispatch` | Open dispatch | Dispatch खोलें |
+| `openInvoice` | Open invoice | इनवॉइस खोलें |
 | `askedBy` | Asked by {name} | {name} ने मांगा |
 | `someone` | Someone | किसी ने |
 | `decidedBy` | {status} by {name} | {name} ने {status} किया |
@@ -9029,7 +9037,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (51)
+### plantSettings (53)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9070,6 +9078,8 @@ Please check, Lalubhai:
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `modules.names.complaints` | Complaints | शिकायतें |
+| `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
+| `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -9209,7 +9219,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (365)
+### audit (393)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9272,6 +9282,9 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
 | `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
 | `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
+| `subjectTypes.invoice` | Invoice | इनवॉइस |
+| `subjectTypes.payment` | Payment | भुगतान |
+| `subjectTypes.gst_hsn` | HSN code | HSN कोड |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -9285,6 +9298,31 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
+| `actions.billing__hsn__assign` | HSN given to sections | सेक्शन को HSN दिया |
+| `actions.billing__hsn__save` | HSN code saved | HSN कोड सेव हुआ |
+| `actions.billing__hsn__seed` | Aluminium HSN codes added | एल्युमिनियम के HSN कोड जुड़े |
+| `actions.billing__party__save` | Customer GST details saved | ग्राहक का GST ब्योरा सेव हुआ |
+| `actions.billing__settings` | GST settings saved | GST सेटिंग सेव हुई |
+| `actions.credit_note__draft` | Credit note drafted | क्रेडिट नोट का ड्राफ्ट बना |
+| `actions.credit_note__issue` | Credit note issued | क्रेडिट नोट जारी हुआ |
+| `actions.invoice__cancel` | Invoice cancelled | इनवॉइस रद्द हुआ |
+| `actions.invoice__cancel__request` | Invoice cancel asked | इनवॉइस रद्द करने को कहा |
+| `actions.invoice__discard` | Draft invoice discarded | ड्राफ्ट इनवॉइस हटा |
+| `actions.invoice__draft` | Invoice drafted | इनवॉइस का ड्राफ्ट बना |
+| `actions.invoice__ewb__cancel` | E-way bill cancelled | ई-वे बिल रद्द हुआ |
+| `actions.invoice__ewb__generate` | E-way bill made | ई-वे बिल बना |
+| `actions.invoice__irn__cancel` | IRN cancelled | IRN रद्द हुआ |
+| `actions.invoice__irn__generate` | IRN asked for | IRN मांगा गया |
+| `actions.invoice__irn__refresh` | IRN details read again | IRN के लिए जानकारी फिर से ली गई |
+| `actions.invoice__irn__portal_check` | IRP portal check recorded | IRP पोर्टल की जाँच दर्ज हुई |
+| `actions.invoice__cancel__done` | Invoice cancel finished at the IRP | इनवॉइस IRP पर रद्द पूरा हुआ |
+| `actions.invoice__cancel__reverted` | Invoice cancel given up, invoice kept | इनवॉइस रद्द नहीं हो सका, इनवॉइस बना रहा |
+| `actions.irn__generate` | IRN asked for | IRN मांगा गया |
+| `actions.irn__cancel` | IRN cancelled | IRN रद्द हुआ |
+| `actions.ewb__generate` | E-way bill made | ई-वे बिल बना |
+| `actions.invoice__issue` | Invoice issued | इनवॉइस जारी हुआ |
+| `actions.payment__record` | Payment recorded | भुगतान दर्ज हुआ |
+| `actions.payment__void` | Payment voided | भुगतान रद्द हुआ |
 | `actions.ageing__discard` | Rest of the batch scrapped | बैच का बाकी माल स्क्रैप किया |
 | `actions.ageing__draw` | Aged pieces taken for packing | पैकिंग के लिए एज्ड पीस लिए |
 | `actions.ageing__hardness` | Hardness recorded | कठोरता दर्ज की |
@@ -9579,7 +9617,7 @@ Please check, Lalubhai:
 | `actions.plant_document__update` | Document changed | दस्तावेज़ बदला |
 | `actions.plant_document__file` | Document file attached | दस्तावेज़ की फ़ाइल लगाई |
 
-### portal (186)
+### portal (187)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9682,6 +9720,7 @@ Please check, Lalubhai:
 | `dispatches.date` | Date | तारीख |
 | `dispatches.plNo` | PL no | PL नंबर |
 | `dispatches.vehicle` | Vehicle | गाड़ी |
+| `dispatches.invoiceNo` | Invoice no | इनवॉइस नंबर |
 | `dispatches.bundlesLabel` | Bundles | बंडल |
 | `dispatches.weight` | {massUnit} | {massUnit} |
 | `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} {massUnit} | {bundles} बंडल, {pcs} पीस, {kg} {massUnit} |
@@ -9770,10 +9809,377 @@ Please check, Lalubhai:
 | `staff.chemistry_partial` | Chemistry partly tested | केमिस्ट्री आंशिक जांची गई |
 | `staff.chemistry_ready` | Chemistry ready | केमिस्ट्री तैयार |
 
-### reports (120)
+### bill (357)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `title` | Billing | बिलिंग |
+| `subtitle` | Tax invoices, credit notes, payments received and what customers owe. | टैक्स इनवॉइस, क्रेडिट नोट, मिला भुगतान और ग्राहकों का बकाया। |
+| `tabs.label` | Billing sections | बिलिंग के हिस्से |
+| `tabs.invoices` | Invoices | इनवॉइस |
+| `tabs.new` | New invoice | नया इनवॉइस |
+| `tabs.payments` | Payments | भुगतान |
+| `tabs.outstanding` | Outstanding | बकाया |
+| `tabs.settings` | GST settings | GST सेटिंग |
+| `status.draft` | Draft | ड्राफ्ट |
+| `status.irn_pending` | Draft, IRN pending | ड्राफ्ट, IRN बाकी |
+| `status.issued` | Issued | जारी |
+| `status.cancel_pending` | Cancel waiting for the IRP | रद्द, IRP का इंतज़ार |
+| `status.cancelled` | Cancelled | रद्द |
+| `kind.invoice` | Tax invoice | टैक्स इनवॉइस |
+| `kind.credit_note` | Credit note | क्रेडिट नोट |
+| `list.label` | Invoices and credit notes | इनवॉइस और क्रेडिट नोट |
+| `list.newInvoice` | New invoice | नया इनवॉइस |
+| `list.number` | Number | नंबर |
+| `list.date` | Date | तारीख |
+| `list.customer` | Customer | ग्राहक |
+| `list.kg` | Kg | किलो |
+| `list.total` | Total | कुल |
+| `list.status` | Status | स्थिति |
+| `list.ewb` | E-way bill | ई-वे बिल |
+| `list.notNumbered` | Not numbered yet | अभी नंबर नहीं मिला |
+| `list.kindLabel` | Show | दिखाएं |
+| `list.kindAll` | All | सभी |
+| `list.statusLabel` | Status | स्थिति |
+| `list.statusAll` | Any status | कोई भी स्थिति |
+| `list.empty` | No invoice yet | अभी कोई इनवॉइस नहीं |
+| `list.loadError` | The invoices did not load | इनवॉइस लोड नहीं हुए |
+| `new.title` | New invoice | नया इनवॉइस |
+| `new.subtitle` | Pick the packing lists to bill, check the figures, save a draft. | बिल करने वाली पैकिंग लिस्ट चुनें, आंकड़े देखें, ड्राफ्ट सेव करें। |
+| `new.pick` | Packing lists to bill | बिल करने की पैकिंग लिस्ट |
+| `new.pickHint` | Tick the lists of one customer. Lists already on an invoice are not shown. | एक ही ग्राहक की लिस्ट चुनें। जो लिस्ट इनवॉइस पर चढ़ चुकी हैं, वे नहीं दिखतीं। |
+| `new.tick` | Bill {code} | {code} का बिल बनाएं |
+| `new.bundles` | bundles | बंडल |
+| `new.none` | Nothing to bill | बिल करने को कुछ नहीं |
+| `new.noneHint` | Packing lists of completed dispatches show here until they are on an invoice. | पूरे हो चुके dispatch की पैकिंग लिस्ट इनवॉइस पर चढ़ने तक यहां दिखती हैं। |
+| `new.loadError` | The packing lists did not load | पैकिंग लिस्ट लोड नहीं हुईं |
+| `new.rates` | Rate per kg | प्रति किलो भाव |
+| `new.ratesHint` | These items have no rate on the order. Type the rate for each. | इन आइटम का भाव ऑर्डर में नहीं है। हर एक का भाव लिखें। |
+| `new.perKg` | per kg | प्रति किलो |
+| `new.rateBad` | Type a rate above zero | शून्य से ऊपर भाव लिखें |
+| `new.ratesFirst` | Type the rates, then show the invoice again. | भाव लिखकर इनवॉइस फिर से दिखाएं। |
+| `new.charges` | Other charges | दूसरे खर्च |
+| `new.chargesHint` | Finish, components or packing, added as lines on the invoice. | फिनिश, कंपोनेंट या पैकिंग, इनवॉइस में लाइन बनकर जुड़ते हैं। |
+| `new.chargeLabel` | What for | किस बात का |
+| `new.chargeExample` | Powder coating | पाउडर कोटिंग |
+| `new.chargeAmount` | Amount | रकम |
+| `new.chargeHsn` | HSN | HSN |
+| `new.hsnDefault` | Plant default | प्लांट का डिफ़ॉल्ट |
+| `new.chargeBad` | Give a name and an amount above zero | नाम और शून्य से ऊपर रकम लिखें |
+| `new.addCharge` | Add a charge | खर्च जोड़ें |
+| `new.show` | Show invoice | इनवॉइस दिखाएं |
+| `new.refresh` | Show invoice again | इनवॉइस फिर दिखाएं |
+| `new.missing` | Fix these before the invoice can be saved | इनवॉइस सेव करने से पहले ये ठीक करें |
+| `new.openSettings` | Open GST settings | GST सेटिंग खोलें |
+| `new.save` | Save as draft | ड्राफ्ट सेव करें |
+| `new.saved` | Draft saved | ड्राफ्ट सेव हुआ |
+| `missing.plant_gstin` | The plant's GSTIN is missing or wrong | प्लांट का GSTIN नहीं है या गलत है |
+| `missing.plant_legal_name` | The plant's legal name is missing | प्लांट का कानूनी नाम नहीं है |
+| `missing.plant_address` | The plant's address is missing | प्लांट का पता नहीं है |
+| `missing.plant_state` | The plant's state is not set, or does not match the GSTIN | प्लांट का राज्य नहीं भरा, या GSTIN से नहीं मिलता |
+| `missing.plant_pincode` | The plant's pincode is missing or not in that state | प्लांट का पिनकोड नहीं है या उस राज्य का नहीं है |
+| `missing.plant_place` | The plant's place is missing | प्लांट की जगह नहीं भरी |
+| `missing.customer` | The customer was not found | ग्राहक नहीं मिला |
+| `missing.party_gstin` | The customer's GSTIN is missing or wrong | ग्राहक का GSTIN नहीं है या गलत है |
+| `missing.party_state` | The customer's state is missing or does not match the GSTIN | ग्राहक का राज्य नहीं है या GSTIN से नहीं मिलता |
+| `missing.party_pincode` | The customer's pincode is missing or not in that state | ग्राहक का पिनकोड नहीं है या उस राज्य का नहीं है |
+| `missing.party_place` | The customer's place is missing | ग्राहक की जगह नहीं भरी |
+| `missing.party_address` | The customer's address is missing | ग्राहक का पता नहीं है |
+| `missing.ship_to` | The ship-to details are not complete | माल भेजने की जगह पूरी नहीं भरी |
+| `missing.hsn` | No HSN code is set up | कोई HSN कोड नहीं बना है |
+| `doc.preview` | Invoice figures | इनवॉइस के आंकड़े |
+| `doc.billTo` | Bill to | बिल किसे |
+| `doc.shipTo` | Ship to | माल कहां |
+| `doc.shipSame` | Same as bill to | बिल वाला ही पता |
+| `doc.unregistered` | Unregistered | बिना रजिस्ट्रेशन |
+| `doc.placeOfSupply` | Place of supply | माल की सप्लाई का राज्य |
+| `doc.description` | Description | विवरण |
+| `doc.hsn` | HSN | HSN |
+| `doc.kg` | Kg | किलो |
+| `doc.rate` | Rate per kg | प्रति किलो भाव |
+| `doc.gst` | GST | GST |
+| `doc.taxable` | Taxable | टैक्स लगने वाली रकम |
+| `doc.taxableValue` | Taxable value | टैक्स लगने वाली रकम |
+| `doc.cgst` | CGST | CGST |
+| `doc.sgst` | SGST | SGST |
+| `doc.igst` | IGST | IGST |
+| `doc.cgstSgst` | CGST + SGST | CGST + SGST |
+| `doc.noTax` | Tax, supply without tax | टैक्स, बिना टैक्स की सप्लाई |
+| `doc.roundOff` | Round off | राउंड ऑफ |
+| `doc.total` | Total | कुल |
+| `doc.hsnSummary` | HSN summary | HSN का सार |
+| `detail.draftInvoice` | Draft invoice | ड्राफ्ट इनवॉइस |
+| `detail.draftCredit` | Draft credit note | ड्राफ्ट क्रेडिट नोट |
+| `detail.pdf` | PDF | PDF |
+| `detail.pdfFailed` | The PDF could not be made | PDF नहीं बन सका |
+| `detail.packingLists` | Packing lists | पैकिंग लिस्ट |
+| `detail.poNumbers` | PO numbers | PO नंबर |
+| `detail.vehicle` | Vehicle | गाड़ी |
+| `detail.against` | Against invoice | इस इनवॉइस के बदले |
+| `detail.issue` | Issue | जारी करें |
+| `detail.issueTitle` | Issue this document? | यह जारी करें? |
+| `detail.issueHint` | It gets its number and its date today. After this it cannot be edited. | आज की तारीख और नंबर मिल जाएगा। इसके बाद इसे बदल नहीं सकते। |
+| `detail.issueCreditHint` | It gets its number and its date today. After this it cannot be edited. | आज की तारीख और नंबर मिल जाएगा। इसके बाद इसे बदल नहीं सकते। |
+| `detail.issued` | Issued | जारी हो गया |
+| `detail.discard` | Discard draft | ड्राफ्ट हटाएं |
+| `detail.discardTitle` | Discard this draft? | यह ड्राफ्ट हटाएं? |
+| `detail.discardHint` | The packing lists go back to the billing list. | पैकिंग लिस्ट वापस बिलिंग की सूची में आ जाएंगी। |
+| `detail.discarded` | Draft discarded | ड्राफ्ट हट गया |
+| `detail.creditNote` | Credit note | क्रेडिट नोट |
+| `detail.recordPayment` | Record payment | भुगतान दर्ज करें |
+| `detail.askCancel` | Ask to cancel | रद्द करने को कहें |
+| `detail.askCancelHint` | A manager decides. Give the reason. | मैनेजर तय करेगा। कारण लिखें। |
+| `detail.sendAsk` | Send the ask | भेजें |
+| `detail.cancelAsked` | Sent for approval | मंज़ूरी के लिए भेज दिया |
+| `detail.cancelWaiting` | A cancel ask is waiting for a manager. | रद्द करने की मांग मैनेजर के पास है। |
+| `detail.cancelAtIrp` | The cancel is approved. The IRN is being cancelled at the IRP. The packing lists stay on this invoice until it is. | रद्द करना मंज़ूर है। IRP पर IRN रद्द हो रहा है। तब तक पैकिंग लिस्ट इसी बिल पर रहेंगी। |
+| `detail.creditNoteOnly` | This IRN is more than 24 hours old and cannot be cancelled. To undo this invoice, issue a credit note. | यह IRN 24 घंटे से पुराना है, रद्द नहीं हो सकता। यह बिल वापस लेने के लिए क्रेडिट नोट बनाएं। |
+| `detail.cancelledOn` | Cancelled {when}. {reason} | रद्द हुआ {when}। {reason} |
+| `detail.payments` | Payments | भुगतान |
+| `detail.paid` | Paid | मिला |
+| `detail.credited` | Credit notes | क्रेडिट नोट |
+| `detail.due` | Due | बाकी |
+| `detail.credits` | Credit notes | क्रेडिट नोट |
+| `detail.loadError` | The document did not load | कागज़ लोड नहीं हुआ |
+| `reason.label` | Reason | कारण |
+| `reason.short` | Give a reason of at least 3 letters | कम से कम 3 अक्षर का कारण लिखें |
+| `credit.title` | Credit note | क्रेडिट नोट |
+| `credit.hint` | For goods returned or a rate difference on this invoice. | इस इनवॉइस पर माल वापसी या भाव के फर्क के लिए। |
+| `credit.reason` | Reason | कारण |
+| `credit.reasons.return` | Goods returned | माल वापस आया |
+| `credit.reasons.rate_difference` | Rate difference | भाव का फर्क |
+| `credit.reasons.other` | Other | दूसरा |
+| `credit.note` | Note | नोट |
+| `credit.lineKind` | Line type | लाइन की किस्म |
+| `credit.byWeight` | By weight | वज़न से |
+| `credit.byAmount` | By amount | रकम से |
+| `credit.description` | Description | विवरण |
+| `credit.kg` | Weight | वज़न |
+| `credit.rate` | Rate | भाव |
+| `credit.amount` | Amount | रकम |
+| `credit.lineBad` | Fill every box on this line | इस लाइन के सब खाने भरें |
+| `credit.addLine` | Add a line | लाइन जोड़ें |
+| `credit.save` | Save credit note | क्रेडिट नोट सेव करें |
+| `credit.saved` | Credit note saved | क्रेडिट नोट सेव हुआ |
+| `irn.title` | IRN | IRN |
+| `irn.words.none` | No IRN | IRN नहीं |
+| `irn.words.pending` | IRN pending | IRN बाकी |
+| `irn.words.retrying` | IRN will be tried again | IRN फिर कोशिश होगी |
+| `irn.words.generated` | IRN made | IRN बन गया |
+| `irn.words.failed` | IRN failed | IRN नहीं बना |
+| `irn.words.cancelled` | IRN cancelled | IRN रद्द |
+| `irn.irn` | IRN | IRN |
+| `irn.ackNo` | Ack no | पावती नंबर |
+| `irn.ackDt` | Ack date | पावती की तारीख |
+| `irn.generate` | Make IRN | IRN बनाएं |
+| `irn.generated` | IRN made | IRN बन गया |
+| `irn.notYet` | The IRN is not ready yet. It will be tried again. | IRN अभी तैयार नहीं है। फिर कोशिश होगी। |
+| `irn.nextTry` | Next try {when} | अगली कोशिश {when} |
+| `irn.notSetUp` | E-invoicing is not set up yet. The document stays as a draft until it is. | ई-इनवॉइस अभी चालू नहीं है। तब तक कागज़ ड्राफ्ट रहेगा। |
+| `irn.moduleOff` | E-invoicing is switched off for this plant. | इस प्लांट में ई-इनवॉइस बंद है। |
+| `irn.cancel` | Cancel IRN | IRN रद्द करें |
+| `irn.cancelTitle` | Cancel the IRN? | IRN रद्द करें? |
+| `irn.cancelHint` | Only within 24 hours of making it, and only with no e-way bill. | बनने के 24 घंटे के अंदर ही, और ई-वे बिल न हो तभी। |
+| `irn.cancelled` | IRN cancelled | IRN रद्द हुआ |
+| `irn.cancelNotYet` | The IRP has not answered yet. It will be tried again. | IRP से अभी जवाब नहीं आया। फिर से कोशिश होगी। |
+| `irn.portal.needed` | The IRP no longer answers for this document. Look it up on the IRP portal and record what you see. | IRP अब इस दस्तावेज़ के बारे में जवाब नहीं देता। IRP पोर्टल पर देखें और जो दिखे वह दर्ज करें। |
+| `irn.portal.open` | Record IRP portal check | IRP पोर्टल की जाँच दर्ज करें |
+| `irn.portal.title` | What does the IRP portal show? | IRP पोर्टल पर क्या दिखता है? |
+| `irn.portal.hint` | Search the IRP portal by document number and date. orrn goes on from your answer, with your name on it. | IRP पोर्टल पर दस्तावेज़ नंबर और तारीख से खोजें। orrn आपके जवाब से आगे बढ़ेगा, आपके नाम के साथ। |
+| `irn.portal.seen` | On the portal | पोर्टल पर |
+| `irn.portal.none` | No IRN for this document | इस दस्तावेज़ का कोई IRN नहीं |
+| `irn.portal.found` | An IRN for this document | इस दस्तावेज़ का एक IRN है |
+| `irn.portal.irn` | IRN (64 letters and digits) | IRN (64 अक्षर और अंक) |
+| `irn.portal.ackNo` | Ack no (if shown) | Ack नंबर (अगर दिखे) |
+| `irn.portal.note` | What you saw | आपने क्या देखा |
+| `irn.portal.save` | Record | दर्ज करें |
+| `irn.portal.saved` | Portal check recorded | पोर्टल की जाँच दर्ज हुई |
+| `irn.reasonCode` | Why | क्यों |
+| `irn.codes.1` | Duplicate | दोहरा |
+| `irn.codes.2` | Data entry mistake | भरने में गलती |
+| `irn.codes.3` | Order cancelled | ऑर्डर रद्द |
+| `irn.codes.4` | Other | दूसरा |
+| `ewb.title` | E-way bill | ई-वे बिल |
+| `ewb.words.none` | None yet | अभी नहीं |
+| `ewb.words.active` | Active | चालू |
+| `ewb.words.cancelled` | Cancelled | रद्द |
+| `ewb.needed` | Needed for this value | इतनी रकम पर ज़रूरी |
+| `ewb.number` | E-way bill no | ई-वे बिल नंबर |
+| `ewb.validUntil` | Valid until | कब तक चलेगा |
+| `ewb.vehicle` | Vehicle | गाड़ी |
+| `ewb.vehicleBad` | Type the vehicle number | गाड़ी का नंबर लिखें |
+| `ewb.distance` | Distance | दूरी |
+| `ewb.distanceBad` | Type the distance in whole km | दूरी पूरे किमी में लिखें |
+| `ewb.transporterId` | Transporter ID | ट्रांसपोर्टर ID |
+| `ewb.transporterName` | Transporter name | ट्रांसपोर्टर का नाम |
+| `ewb.generate` | Make e-way bill | ई-वे बिल बनाएं |
+| `ewb.generated` | E-way bill made | ई-वे बिल बन गया |
+| `ewb.cancel` | Cancel e-way bill | ई-वे बिल रद्द करें |
+| `ewb.cancelTitle` | Cancel the e-way bill? | ई-वे बिल रद्द करें? |
+| `ewb.cancelled` | E-way bill cancelled | ई-वे बिल रद्द हुआ |
+| `ewb.download` | E-way bill file | ई-वे बिल फाइल |
+| `ewb.notSetUp` | E-invoicing is not set up yet. Download the file and upload it on the e-way bill portal. | ई-इनवॉइस अभी चालू नहीं है। फाइल उतारकर ई-वे बिल पोर्टल पर चढ़ाएं। |
+| `payments.title` | Payments received | मिले भुगतान |
+| `payments.subtitle` | Money received from customers, and which invoices it settled. | ग्राहकों से मिला पैसा, और उससे कौन से इनवॉइस चुके। |
+| `payments.record` | Record payment | भुगतान दर्ज करें |
+| `payments.recordHint` | Pick the customer, then say which invoices this payment settles. | ग्राहक चुनें, फिर बताएं कि यह भुगतान किन इनवॉइस का है। |
+| `payments.number` | Number | नंबर |
+| `payments.date` | Date | तारीख |
+| `payments.amount` | Amount | रकम |
+| `payments.amountBad` | Type an amount above zero | शून्य से ऊपर रकम लिखें |
+| `payments.customer` | Customer | ग्राहक |
+| `payments.customerSearch` | Search a customer | ग्राहक खोजें |
+| `payments.pickCustomer` | Pick a customer | ग्राहक चुनें |
+| `payments.mode` | Paid by | कैसे मिला |
+| `payments.modes.cash` | Cash | नकद |
+| `payments.modes.cheque` | Cheque | चेक |
+| `payments.modes.neft` | NEFT | NEFT |
+| `payments.modes.rtgs` | RTGS | RTGS |
+| `payments.modes.upi` | UPI | UPI |
+| `payments.modes.card` | Card | कार्ड |
+| `payments.modes.other` | Other | दूसरा |
+| `payments.reference` | Reference | रेफरेंस |
+| `payments.note` | Note | नोट |
+| `payments.allocate` | Settle invoices | इनवॉइस चुकाएं |
+| `payments.oldestFirst` | Oldest first | पुराना पहले |
+| `payments.noOpen` | No open invoice. The whole amount stays on account. | कोई इनवॉइस खुला नहीं है। पूरी रकम खाते में जमा रहेगी। |
+| `payments.due` | due | बाकी |
+| `payments.pays` | Pays | चुकाया |
+| `payments.allocated` | Settled | चुकाया |
+| `payments.onAccount` | On account | खाते में जमा |
+| `payments.problems.amount` | Type an amount above zero | शून्य से ऊपर रकम लिखें |
+| `payments.problems.negative` | Type an amount above zero | शून्य से ऊपर रकम लिखें |
+| `payments.problems.over_due` | More than this invoice owes | इस इनवॉइस के बाकी से ज़्यादा है |
+| `payments.problems.over_amount` | The invoices add up to more than the payment | इनवॉइस का जोड़ भुगतान से ज़्यादा है |
+| `payments.save` | Save payment | भुगतान सेव करें |
+| `payments.saved` | Payment recorded | भुगतान दर्ज हुआ |
+| `payments.active` | Counted | गिना गया |
+| `payments.void` | Void | रद्द |
+| `payments.voidAction` | Void | रद्द करें |
+| `payments.voidTitle` | Void this payment? | यह भुगतान रद्द करें? |
+| `payments.voidHint` | The invoices it settled become due again. | जो इनवॉइस इससे चुके थे, वे फिर बाकी हो जाएंगे। |
+| `payments.voided` | Payment voided | भुगतान रद्द हुआ |
+| `payments.empty` | No payment yet | अभी कोई भुगतान नहीं |
+| `payments.loadError` | The payments did not load | भुगतान लोड नहीं हुए |
+| `outstanding.title` | Outstanding | बकाया |
+| `outstanding.subtitle` | What each customer owes, by age of the invoice. | हर ग्राहक पर कितना बाकी है, इनवॉइस की उम्र के हिसाब से। |
+| `outstanding.asOf` | As of | इस तारीख तक |
+| `outstanding.statementFrom` | Statement from | स्टेटमेंट शुरू |
+| `outstanding.statementTo` | Statement to | स्टेटमेंट अंत |
+| `outstanding.search` | Find a customer | ग्राहक खोजें |
+| `outstanding.buckets.d0_30` | 0 to 30 days | 0 से 30 दिन |
+| `outstanding.buckets.d31_60` | 31 to 60 days | 31 से 60 दिन |
+| `outstanding.buckets.d61_90` | 61 to 90 days | 61 से 90 दिन |
+| `outstanding.buckets.d90_plus` | Over 90 days | 90 दिन से ऊपर |
+| `outstanding.due` | Invoices due | बाकी इनवॉइस |
+| `outstanding.onAccount` | On account | खाते में जमा |
+| `outstanding.balance` | Balance | शेष |
+| `outstanding.statement` | Statement | स्टेटमेंट |
+| `outstanding.rangeBad` | Check the statement dates | स्टेटमेंट की तारीखें देखें |
+| `outstanding.empty` | Nobody owes anything | किसी का कुछ बाकी नहीं |
+| `outstanding.loadError` | The figures did not load | आंकड़े लोड नहीं हुए |
+| `settings.title` | GST settings | GST सेटिंग |
+| `settings.subtitle` | What the tax invoice needs: the plant's GST facts, HSN codes and customer details. | टैक्स इनवॉइस को जो चाहिए: प्लांट की GST जानकारी, HSN कोड और ग्राहकों का ब्योरा। |
+| `settings.noAccess` | Your role cannot change GST settings. Ask an owner, admin or manager. | आपकी भूमिका GST सेटिंग नहीं बदल सकती। ओनर, एडमिन या मैनेजर से कहें। |
+| `settings.loadError` | The settings did not load | सेटिंग लोड नहीं हुई |
+| `settings.plant` | Plant | प्लांट |
+| `settings.plantHint` | The legal name, GSTIN and address come from the company letterhead. | कानूनी नाम, GSTIN और पता कंपनी के लेटरहेड से आते हैं। |
+| `settings.legalName` | Legal name | कानूनी नाम |
+| `settings.address` | Address | पता |
+| `settings.stateHint` | Must match the first two digits of the GSTIN. | GSTIN के पहले दो अंकों से मेल खाना चाहिए। |
+| `settings.placeBad` | Type the place, 3 letters at least | जगह लिखें, कम से कम 3 अक्षर |
+| `settings.tradeName` | Trade name | ट्रेड नाम |
+| `settings.signatory` | Authorised signatory | अधिकृत हस्ताक्षरकर्ता |
+| `settings.terms` | Terms on the invoice | इनवॉइस पर शर्तें |
+| `settings.einvoiceFrom` | E-invoice starts on | ई-इनवॉइस कब से |
+| `settings.einvoiceFromHint` | Documents dated before this need no IRN. | इससे पहले की तारीख के कागज़ पर IRN नहीं लगता। |
+| `settings.dateBad` | Use a date | तारीख लिखें |
+| `settings.ledgers` | Tally ledger names | Tally के लेजर नाम |
+| `settings.ledgersHint` | The names in your Tally books. The Tally file uses them. | आपकी Tally की बही के नाम। Tally फाइल यही नाम लेती है। |
+| `settings.ledger.sales` | Sales | बिक्री |
+| `settings.ledger.cgst` | CGST | CGST |
+| `settings.ledger.sgst` | SGST | SGST |
+| `settings.ledger.igst` | IGST | IGST |
+| `settings.ledger.roundOff` | Round off | राउंड ऑफ |
+| `settings.ledger.cash` | Cash | नकद |
+| `settings.ledger.bank` | Bank | बैंक |
+| `settings.saved` | Settings saved | सेटिंग सेव हुई |
+| `hsn.title` | HSN codes | HSN कोड |
+| `hsn.hint` | The tax code and GST rate of what you sell. One is the default for sections with none set. | जो आप बेचते हैं उसका टैक्स कोड और GST दर। एक कोड उन सेक्शन के लिए डिफ़ॉल्ट है जिनका अपना कोड नहीं। |
+| `hsn.seed` | Add aluminium codes | एल्युमिनियम के कोड जोड़ें |
+| `hsn.seeded` | {count} codes added | {count} कोड जुड़े |
+| `hsn.seedNone` | All the aluminium codes are already there | एल्युमिनियम के सब कोड पहले से हैं |
+| `hsn.assign` | Set for sections | सेक्शन के लिए चुनें |
+| `hsn.add` | Add HSN | HSN जोड़ें |
+| `hsn.edit` | Edit HSN | HSN बदलें |
+| `hsn.empty` | No HSN code yet | अभी कोई HSN कोड नहीं |
+| `hsn.emptyHint` | Add the aluminium codes to start. | शुरू करने के लिए एल्युमिनियम के कोड जोड़ें। |
+| `hsn.rate` | GST rate | GST दर |
+| `hsn.sections` | Sections | सेक्शन |
+| `hsn.default` | Default | डिफ़ॉल्ट |
+| `hsn.inactive` | Not in use | चालू नहीं |
+| `hsn.codeHint` | 4, 6 or 8 digits | 4, 6 या 8 अंक |
+| `hsn.codeBad` | An HSN code is 4, 6 or 8 digits | HSN कोड 4, 6 या 8 अंक का होता है |
+| `hsn.descriptionBad` | Type a description | विवरण लिखें |
+| `hsn.rateBad` | Type a rate from 0 to 28 | 0 से 28 के बीच दर लिखें |
+| `hsn.unit` | Unit | इकाई |
+| `hsn.makeDefault` | Use for sections with none set | जिनका अपना कोड नहीं उनके लिए रखें |
+| `hsn.active` | In use | चालू है |
+| `hsn.defaultActive` | The default code must be in use | डिफ़ॉल्ट कोड चालू होना चाहिए |
+| `hsn.saved` | HSN saved | HSN सेव हुआ |
+| `hsn.assignHint` | Pick sections and the code they take. Choose plant default to take a section off its own code. | सेक्शन चुनें और जो कोड उन्हें देना है वह। प्लांट का डिफ़ॉल्ट चुनने पर सेक्शन का अपना कोड हट जाता है। |
+| `hsn.assignTo` | Code | कोड |
+| `hsn.backToDefault` | Plant default | प्लांट का डिफ़ॉल्ट |
+| `hsn.pickSections` | Sections | सेक्शन |
+| `hsn.assignSave` | Save | सेव करें |
+| `hsn.assigned` | {count} sections updated | {count} सेक्शन बदले |
+| `party.title` | Customer GST details | ग्राहक का GST ब्योरा |
+| `party.hint` | Pick a customer to see or change how it is billed. | ग्राहक चुनें और देखें या बदलें कि उसका बिल कैसे बनता है। |
+| `party.noGstin` | No GSTIN on the customer | ग्राहक का GSTIN नहीं है |
+| `party.gstinHint` | The GSTIN is kept on the customer page. | GSTIN ग्राहक के पेज पर रहता है। |
+| `party.category` | GST type | GST की किस्म |
+| `party.categories.regular` | Registered | रजिस्टर्ड |
+| `party.categories.unregistered` | Unregistered | बिना रजिस्ट्रेशन |
+| `party.categories.sez_with_payment` | SEZ, tax paid | SEZ, टैक्स के साथ |
+| `party.categories.sez_without_payment` | SEZ, without tax | SEZ, बिना टैक्स |
+| `party.categories.export_with_payment` | Export, tax paid | निर्यात, टैक्स के साथ |
+| `party.categories.export_without_payment` | Export, without tax | निर्यात, बिना टैक्स |
+| `party.state` | State | राज्य |
+| `party.notSet` | Not set | नहीं भरा |
+| `party.pincode` | Pincode | पिनकोड |
+| `party.pincodeBad` | A pincode is 6 digits | पिनकोड 6 अंक का होता है |
+| `party.place` | Place | जगह |
+| `party.placeOfSupply` | Place of supply | सप्लाई का राज्य |
+| `party.placeOfSupplyHint` | Leave as the state unless the goods are supplied elsewhere. | माल कहीं और जाता हो तभी बदलें, वरना राज्य जैसा ही रहने दें। |
+| `party.sameAsState` | Same as the state | राज्य जैसा ही |
+| `party.distance` | Distance for the e-way bill | ई-वे बिल की दूरी |
+| `party.distanceHint` | Usual distance in km to this customer. | इस ग्राहक तक की आम दूरी किमी में। |
+| `party.shipTo` | Ship to | माल कहां जाए |
+| `party.shipSame` | Same address | वही पता |
+| `party.shipParty` | Another customer | दूसरा ग्राहक |
+| `party.shipAddress` | An address | कोई पता |
+| `party.shipPartyPick` | Customer to ship to | जिस ग्राहक को माल जाए |
+| `party.shipName` | Name | नाम |
+| `party.shipAddressLine` | Address | पता |
+| `party.save` | Save details | ब्योरा सेव करें |
+| `party.saved` | Details saved | ब्योरा सेव हुआ |
+| `exports.title` | Accounts files | हिसाब की फाइलें |
+| `exports.hint` | One month at a time. The Tally file brings invoices, credit notes and payments into your books. | एक बार में एक महीना। Tally फाइल इनवॉइस, क्रेडिट नोट और भुगतान आपकी बही में लाती है। |
+| `exports.month` | Month | महीना |
+| `exports.tally` | Tally file | Tally फाइल |
+| `exports.register` | GST sales register | GST बिक्री रजिस्टर |
+| `exports.nothing` | Nothing to export for that month | उस महीने कुछ निकालने को नहीं |
+| `exports.saved` | {count} entries saved | {count} एंट्री सेव हुईं |
+
+### reports (125)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `salesRegister.title` | Sales register | बिक्री रजिस्टर |
+| `salesRegister.hint` | Every dispatch of one month with its invoice number, party, vehicle and bundles. | एक महीने के हर dispatch का इनवॉइस नंबर, पार्टी, गाड़ी और बंडल। |
+| `salesRegister.month` | Month | महीना |
+| `salesRegister.download` | Sales register (CSV) | बिक्री रजिस्टर (CSV) |
+| `salesRegister.none` | No dispatch in that month | उस महीने कोई dispatch नहीं |
 | `title` | Reports | रिपोर्ट |
 | `subtitle` | Production, die life, stock age and the order book. The server works out every figure. | प्रोडक्शन, die की लाइफ, स्टॉक की उम्र और ऑर्डर बुक। हर आंकड़ा सर्वर निकालता है। |
 | `csv` | Download CSV | CSV डाउनलोड करें |
