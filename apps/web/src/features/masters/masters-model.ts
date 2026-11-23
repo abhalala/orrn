@@ -1,5 +1,5 @@
 import type { StatusTone } from "@orrn/domain";
-import { parseDecimal, withoutGrouping, type Fmt } from "@orrn/domain";
+import { isModuleOn, parseDecimal, withoutGrouping, type CompanyModule, type Fmt } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 
@@ -276,6 +276,8 @@ export type MasterEntry = {
   requires?: readonly Action[];
   /** No count beside the row (plant rules hold no list). */
   noCount?: boolean;
+  /** An opt-in (XE) module the entry belongs to: hidden unless the plant has it (PROD-GATE). */
+  module?: CompanyModule;
 };
 
 /**
@@ -298,15 +300,16 @@ const ENTRIES: readonly MasterEntry[] = [
   { key: "trolleys", group: "floor", to: "/masters/trolleys", titleKey: "masters.hub.trolleys", hintKey: "masters.hub.trolleysHint", requires: AGEING_MASTER_PEOPLE },
   { key: "recipes", group: "floor", to: "/masters/recipes", titleKey: "masters.hub.recipes", hintKey: "masters.hub.recipesHint", requires: AGEING_MASTER_PEOPLE },
   // XE ADM: the plant's own lists, bank accounts, rules, document register and tooling.
-  { key: "plantLists", group: "plant", to: "/masters/lists", titleKey: "adm.masters.hub.lists", hintKey: "adm.masters.hub.listsHint" },
-  { key: "bank", group: "plant", to: "/masters/bank", titleKey: "adm.masters.hub.bank", hintKey: "adm.masters.hub.bankHint", requires: ["masters.publish"] },
-  { key: "rules", group: "plant", to: "/masters/rules", titleKey: "adm.masters.hub.rules", hintKey: "adm.masters.hub.rulesHint", requires: ["masters.publish"], noCount: true },
-  { key: "documents", group: "plant", to: "/masters/documents", titleKey: "adm.masters.hub.documents", hintKey: "adm.masters.hub.documentsHint" },
-  { key: "tooling", group: "plant", to: "/masters/tooling", titleKey: "adm.masters.hub.tooling", hintKey: "adm.masters.hub.toolingHint" },
+  { key: "plantLists", group: "plant", to: "/masters/lists", titleKey: "adm.masters.hub.lists", hintKey: "adm.masters.hub.listsHint", module: "masters_plus" },
+  { key: "bank", group: "plant", to: "/masters/bank", titleKey: "adm.masters.hub.bank", hintKey: "adm.masters.hub.bankHint", requires: ["masters.publish"], module: "masters_plus" },
+  { key: "rules", group: "plant", to: "/masters/rules", titleKey: "adm.masters.hub.rules", hintKey: "adm.masters.hub.rulesHint", requires: ["masters.publish"], noCount: true, module: "masters_plus" },
+  { key: "documents", group: "plant", to: "/masters/documents", titleKey: "adm.masters.hub.documents", hintKey: "adm.masters.hub.documentsHint", module: "docs" },
+  { key: "tooling", group: "plant", to: "/masters/tooling", titleKey: "adm.masters.hub.tooling", hintKey: "adm.masters.hub.toolingHint", module: "masters_plus" },
 ];
 
 export function masterEntries(me: Me | null | undefined): MasterEntry[] {
-  return ENTRIES.filter((e) => !e.requires || canAny(me, e.requires));
+  const modules = me?.company?.modules ?? [];
+  return ENTRIES.filter((e) => (!e.requires || canAny(me, e.requires)) && (!e.module || isModuleOn(modules, e.module)));
 }
 
 /** "2026-10-04" as "4 Oct" (the plant's current year) or "31 Dec 2025", English month names as ever. `today` is the company's day. */

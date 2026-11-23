@@ -5,6 +5,7 @@
 import {
   COMPANY_MODULES,
   isModuleOn,
+  isOptInModule,
   MAX_SHIFTS,
   MAX_STANDARD_TEXT,
   MINUTES_PER_DAY,
@@ -174,9 +175,13 @@ export function standardBlank(pair: StandardPair): boolean {
 // Modules (FP-PF-07)
 // ---------------------------------------------------------------------------
 
-/** Each module and whether it is on. An empty list means every module is on. */
+/**
+ * Each module and whether it is on. An empty list means every standard module is on. An opt-in (XE)
+ * module is listed only when it is on: a plant never sees the name of a module it does not have
+ * (PROD-GATE, owner rule 2026-11-23).
+ */
 export function moduleStates(modules: readonly string[] | undefined | null): { id: CompanyModule; on: boolean }[] {
-  return COMPANY_MODULES.map((id) => ({ id, on: isModuleOn(modules, id) }));
+  return COMPANY_MODULES.map((id) => ({ id, on: isModuleOn(modules, id) })).filter((s) => s.on || !isOptInModule(s.id));
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { riseDelay } from "@orrn/ui/components/motion";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -56,7 +57,7 @@ const NOUNS: Record<MasterKey, MessageKey> = {
 };
 
 /** How many entries each list holds (live ones), for the count beside it. Undefined while loading. */
-function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: boolean; ageing: boolean; bank: boolean }) {
+function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: boolean; ageing: boolean; bank: boolean; mastersPlus: boolean; docs: boolean }) {
   const vendors = useQuery({ ...trpc.vendor.list.queryOptions({ limit: 1, offset: 0 }), enabled: enabled.vendors });
   const drafts = useQuery({
     ...trpc.vendor.list.queryOptions({ status: "draft", limit: 1, offset: 0 }),
@@ -73,10 +74,11 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: bo
   const ovens = useQuery({ ...trpc.ageing.ovens.list.queryOptions({}), enabled: enabled.ageing });
   const trolleys = useQuery({ ...trpc.ageing.trolleys.list.queryOptions({}), enabled: enabled.ageing });
   const recipes = useQuery({ ...trpc.ageing.recipes.list.queryOptions({}), enabled: enabled.ageing });
-  const plantLists = useQuery(trpc.masters.lists.list.queryOptions());
-  const bank = useQuery({ ...trpc.masters.bank.list.queryOptions(), enabled: enabled.bank });
-  const docs = useQuery(trpc.docs.list.queryOptions());
-  const tooling = useQuery(trpc.toolRoom.tooling.list.queryOptions());
+  // PROD-GATE: the XE lists are asked for only when their opt-in module is on.
+  const plantLists = useQuery({ ...trpc.masters.lists.list.queryOptions(), enabled: enabled.mastersPlus });
+  const bank = useQuery({ ...trpc.masters.bank.list.queryOptions(), enabled: enabled.bank && enabled.mastersPlus });
+  const docs = useQuery({ ...trpc.docs.list.queryOptions(), enabled: enabled.docs });
+  const tooling = useQuery({ ...trpc.toolRoom.tooling.list.queryOptions(), enabled: enabled.mastersPlus });
   const counts: Partial<Record<MasterKey, number>> = {
     vendors: vendors.data?.total,
     scrap: scrap.data?.items.filter((i) => i.active).length,
@@ -113,6 +115,8 @@ export function MastersHubPage() {
     foundry: access.canPublish,
     ageing: canAny(access.me, AGEING_MASTER_PEOPLE),
     bank: access.canPublish,
+    mastersPlus: isModuleOn(access.me?.company?.modules ?? [], "masters_plus"),
+    docs: isModuleOn(access.me?.company?.modules ?? [], "docs"),
   });
   const groups = (["buying", "floor", "plant"] as const)
     .map((g) => ({ id: g, entries: entries.filter((e) => e.group === g) }))

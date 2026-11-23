@@ -40,7 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "mis";
 
 export type NavItem = {
   key: string;
@@ -101,7 +101,7 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   // XE parity REG: the complaint register and the owner's morning page.
   { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
-  { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
+  { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"], module: "mis" },
   // XE-BILL: tax invoices, payments, outstanding and the accounts exports. Opt-in module, hidden while it is off.
   { key: "billing", to: "/billing", labelKey: "nav.billing", icon: FileText, requires: BILLING_PEOPLE, module: "billing" },
   // XE parity lane MAINT: assets, preventive plans, work orders and readings.

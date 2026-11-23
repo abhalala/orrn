@@ -18,6 +18,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { blocksIssue, inspectionInput, type InspectionResult } from "./card-toolroom-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useModuleOn } from "@/shared/lib/modules";
 
 export type ToolRoomCopy = {
   category: { id: string; name: string; expectedLifeG: number | null } | null;
@@ -97,7 +98,7 @@ export function ToolRoomView({ data, recordAction, costAction }: { data: ToolRoo
 }
 
 /** The die card's Tool room block: reads `toolRoom.copy` and offers Record inspection and (managers) Edit cost. */
-export function ToolRoomBlock({ copyId, code }: { copyId: string; code: string }) {
+function ToolRoomBlockInner({ copyId, code }: { copyId: string; code: string }) {
   const { t } = useT();
   const [recording, setRecording] = useState(false);
   const [costing, setCosting] = useState(false);
@@ -268,4 +269,9 @@ function CostSheet({ open, onOpenChange, copyId, code, costPaise }: { open: bool
       </form>
     </Sheet>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function ToolRoomBlock(props: Parameters<typeof ToolRoomBlockInner>[0]) {
+  return useModuleOn("masters_plus") ? <ToolRoomBlockInner {...props} /> : null;
 }

@@ -6,12 +6,13 @@ import { toast } from "sonner";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { MasterPicker } from "@/shared/components/master-picker";
 import { trpc } from "@/shared/utils/trpc";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /**
  * Mode of packing for the whole load (`masters.packing.setForDispatch`); it prints on the packing list.
  * The caller gates it with `<Can>` and hides it for a cancelled dispatch.
  */
-export function DispatchPackingMode({ dispatchId, current }: { dispatchId: string; current: string | null }) {
+function DispatchPackingModeInner({ dispatchId, current }: { dispatchId: string; current: string | null }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const set = useMutation({
@@ -36,4 +37,9 @@ export function DispatchPackingMode({ dispatchId, current }: { dispatchId: strin
       </div>
     </Card>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function DispatchPackingMode(props: Parameters<typeof DispatchPackingModeInner>[0]) {
+  return useModuleOn("masters_plus") ? <DispatchPackingModeInner {...props} /> : null;
 }

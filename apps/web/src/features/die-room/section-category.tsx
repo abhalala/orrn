@@ -7,9 +7,10 @@ import { MasterPicker } from "@/shared/components/master-picker";
 import { trpc } from "@/shared/utils/trpc";
 
 import { useRefusal } from "./use-die-room";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /** The section's die category (sets the expected life on its copies). The caller gates it with `<Can>`. */
-export function SectionCategory({ sectionId, current }: { sectionId: string; current: string | null }) {
+function SectionCategoryInner({ sectionId, current }: { sectionId: string; current: string | null }) {
   const { t } = useT();
   const refusal = useRefusal();
   const queryClient = useQueryClient();
@@ -36,4 +37,9 @@ export function SectionCategory({ sectionId, current }: { sectionId: string; cur
       </Field>
     </div>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function SectionCategory(props: Parameters<typeof SectionCategoryInner>[0]) {
+  return useModuleOn("masters_plus") ? <SectionCategoryInner {...props} /> : null;
 }

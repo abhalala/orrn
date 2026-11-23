@@ -11,6 +11,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { SwitchRow } from "../settings/ui";
+import { useModuleOn } from "@/shared/lib/modules";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -18,7 +19,7 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h);
  * The morning summary mail setting (#82): on or off, and the plant hour it goes out. `settings.update`
  * holders change and save it; everyone else reads it. Saved with `company.updateSettings({ morningSummary })`.
  */
-export function MorningMailCard() {
+function MorningMailCardInner() {
   const settings = useQuery({ ...trpc.company.getSettings.queryOptions(), meta: INLINE_ERROR_META });
   const saved = settings.data?.morningSummary;
   if (!saved) return null;
@@ -76,4 +77,9 @@ function MorningMailForm({ saved }: { saved: { enabled: boolean; hour: number } 
       </CardContent>
     </Card>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `mis` module on. */
+export function MorningMailCard() {
+  return useModuleOn("mis") ? <MorningMailCardInner /> : null;
 }
