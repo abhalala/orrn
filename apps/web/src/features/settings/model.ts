@@ -4,6 +4,7 @@
  */
 import {
   COMPANY_MODULES,
+  isModuleOn,
   MAX_SHIFTS,
   MAX_STANDARD_TEXT,
   MINUTES_PER_DAY,
@@ -175,8 +176,7 @@ export function standardBlank(pair: StandardPair): boolean {
 
 /** Each module and whether it is on. An empty list means every module is on. */
 export function moduleStates(modules: readonly string[] | undefined | null): { id: CompanyModule; on: boolean }[] {
-  const list = (modules ?? []).map((m) => m.toLowerCase());
-  return COMPANY_MODULES.map((id) => ({ id, on: list.length === 0 || list.includes(id) }));
+  return COMPANY_MODULES.map((id) => ({ id, on: isModuleOn(modules, id) }));
 }
 
 // ---------------------------------------------------------------------------

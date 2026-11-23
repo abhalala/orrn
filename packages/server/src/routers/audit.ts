@@ -10,6 +10,7 @@ import type { OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { withSubjectLabels } from "../lib/auditSubjects";
 import { canAny, type Action } from "../lib/permissions";
+import { holdsOrderPrice } from "../lib/pricingKit";
 
 /**
  * Audit viewer (FP-PF-16, ledger D8: Now). Read-only, company-scoped, `audit.read` (owner, admin,
@@ -22,6 +23,13 @@ export const AUDIT_FOR_SUBJECT_CAP = 50;
 const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
 const PURCHASE_SUBJECTS = new Set(["dc_note", "purchase_lot"]);
 const PURCHASE_PUBLIC_META = ["number", "lotId", "lotNumber", "type", "reason", "status"];
+
+/**
+ * XE-PRICE review B2: order-line rates in audit rows (a line override, an order proforma's total, a
+ * rate corrected on the order) are shown only to `order.price` holders, like the rates themselves.
+ */
+const LINE_RATE_ACTIONS = new Set(["price.override.request", "proforma.create", "order.rate.correct"]);
+const LINE_RATE_META = ["ratePaise", "computedPaisePerKg", "totalPaise", "fromPaise", "toPaise"];
 
 const cursorSchema = z.object({ at: z.number().int(), id: z.string().min(1).max(64) });
 
@@ -37,8 +45,13 @@ type Row = {
   impersonatorId: string | null;
 };
 
-function view(rows: Row[], purchaseReader: boolean) {
-  return rows.map((r) => ({
+function lineRateSafe(r: Row, priceReader: boolean): Row {
+  if (priceReader || !LINE_RATE_ACTIONS.has(r.action) || !r.meta) return r;
+  return { ...r, meta: Object.fromEntries(Object.entries(r.meta).filter(([k]) => !LINE_RATE_META.includes(k))) };
+}
+
+function view(rows: Row[], purchaseReader: boolean, priceReader: boolean) {
+  return rows.map((row) => lineRateSafe(row, priceReader)).map((r) => ({
     id: r.id,
     at: r.at.toISOString(),
     action: r.action,
@@ -92,6 +105,7 @@ export async function listAudit(
   companyId: string,
   input: z.infer<typeof auditListInput>,
   purchaseReader: boolean,
+  priceReader = false,
 ) {
   const co = await db.select({ days: company.auditRetentionDays }).from(company).where(eq(company.id, companyId)).get();
   const from = input.from ?? now().getTime() - (co?.days ?? 180) * 86_400_000;
@@ -124,7 +138,7 @@ export async function listAudit(
   const page = rows.slice(0, input.limit) as Row[];
   const last = page[page.length - 1];
   return {
-    items: await withSubjectLabels(db, companyId, view(page, purchaseReader)),
+    items: await withSubjectLabels(db, companyId, view(page, purchaseReader, priceReader)),
     nextCursor: rows.length > input.limit && last ? { at: last.at.getTime(), id: last.id } : null,
     from,
   };
@@ -135,7 +149,7 @@ export const auditRouter = router({
     .input(auditListInput)
     .query(async ({ ctx, input }) => {
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
-      return listAudit(ctx.db, ctx.companyId, input, purchaseReader);
+      return listAudit(ctx.db, ctx.companyId, input, purchaseReader, holdsOrderPrice(ctx.role));
     }),
 
   /** One subject's history (bundle, dispatch screens): newest first, at most 50 rows. */
@@ -157,7 +171,7 @@ export const auditRouter = router({
         .limit(AUDIT_FOR_SUBJECT_CAP + 1);
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
       return {
-        items: await withSubjectLabels(ctx.db, ctx.companyId, view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader)),
+        items: await withSubjectLabels(ctx.db, ctx.companyId, view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader, holdsOrderPrice(ctx.role))),
         capped: rows.length > AUDIT_FOR_SUBJECT_CAP,
       };
     }),

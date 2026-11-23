@@ -409,10 +409,24 @@
       "breakpoints": true
     },
     {
-      "idx": 62,
+      "idx": 59,
       "version": "6",
-      "when": 1795398042233,
-      "tag": "0062_xe_store2",
+      "when": 1795400204415,
+      "tag": "0059_xe_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1795406959910,
+      "tag": "0060_xe_bill",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1795408815055,
+      "tag": "0061_xe_store",
       "breakpoints": true
     }
   ]

@@ -190,12 +190,27 @@ describe("plan form", () => {
     expect(modulesOn(["dies", "bundles"], ALL)).toEqual(["dies", "bundles"]);
     expect(modulesOn(["payroll"], ALL)).toEqual([...ALL]);
   });
+  test("opt-in modules (billing) start unticked on an empty list and save beside an all-on floor (XE-BILL)", () => {
+    const all = ["customers", "dies", "billing", "einvoice"] as const;
+    const optIn = ["billing", "einvoice"];
+    expect(modulesOn([], all, optIn)).toEqual(["customers", "dies"]);
+    expect(modulesOn(["billing"], all, optIn)).toEqual(["customers", "dies", "billing"]);
+    expect(modulesOn(["dies", "einvoice"], all, optIn)).toEqual(["dies", "einvoice"]);
+    expect(modulesToSave(["customers", "dies"], all, optIn)).toEqual([]);
+    expect(modulesToSave(["customers", "dies", "billing"], all, optIn)).toEqual(["billing"]);
+    expect(modulesToSave(["dies", "billing"], all, optIn)).toEqual(["dies", "billing"]);
+  });
   test("every box ticked saves as all on (empty); unticking one keeps the rest on", () => {
     expect(modulesToSave([...ALL], ALL)).toEqual([]);
     expect(modulesToSave(["dispatches", "customers", "dies"], ALL)).toEqual(["customers", "dies", "dispatches"]);
   });
   test("no box ticked cannot be saved (it would mean every module on)", () => {
     expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: [] }).noneOn).toBe(true);
+  });
+  test("only an opt-in box ticked cannot be saved either: it would switch every floor module on (B1)", () => {
+    const optIn = ["billing", "einvoice"];
+    expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: ["billing"] }, optIn).noneOn).toBe(true);
+    expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: ["dies", "billing"] }, optIn).noneOn).toBe(false);
   });
   test("a changed plan or module is dirty", () => {
     expect(planForm({ plan: "growth", modules: [] }, { plan: "enterprise", modules: [] }).dirty).toBe(true);

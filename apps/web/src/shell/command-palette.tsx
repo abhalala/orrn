@@ -1,4 +1,4 @@
-import { parseScan, type BundleStatus } from "@orrn/domain";
+import { anyModuleOn, parseScan, type BundleStatus } from "@orrn/domain";
 import { createI18n, useT, type MessageKey } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 import { CommandDialog } from "@orrn/ui/components/command-dialog";
@@ -228,8 +228,7 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 function moduleOn(me: Me | null | undefined, m: string): boolean {
-  const modules = (me?.company?.modules ?? []).map((x) => x.toLowerCase());
-  return modules.length === 0 || modules.includes(m);
+  return anyModuleOn(me?.company?.modules, [m]);
 }
 
 type RemoteGates = { bundles: boolean; dispatches: boolean; dies: boolean; customers: boolean };

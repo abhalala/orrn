@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
@@ -90,8 +91,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const tabPrimary = godseye ? primary : visibleItems(TENANT_PRIMARY, me);
   const tabKeys = new Set(tabPrimary.map((item) => item.key));
   const phoneMore = godseye ? more : [...primary, ...more].filter((item) => !tabKeys.has(item.key));
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  const scanOn = !godseye && scan.available && (modules.length === 0 || modules.includes("bundles"));
+  const scanOn = !godseye && scan.available && isModuleOn(me?.company?.modules, "bundles");
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;
   const openArrange = !godseye && canArrangeMenu(me)
     ? () => {

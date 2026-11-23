@@ -26,6 +26,15 @@ export const docTypes = [
   "party_bundle",
   // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
   "complaint",
+  // XE-PRICE: quotation Q-, proforma invoice PI-, works order WO- (per FY).
+  "quote",
+  "proforma",
+  "works_order",
+  // XE-BILL (0059): tax invoice INV/26-27/n, credit note CN/26-27/n, payment received PAY-n. Invoice and
+  // credit note numbers are taken INSIDE the issuing batch (no gap, never reused; lib/billing/numbering.ts).
+  "invoice",
+  "credit_note",
+  "payment",
   // XE store (rows 69, 70): store indents IND- and store purchase orders PO- (per FY).
   "indent",
   "store_po",

@@ -38,6 +38,7 @@ describe("visibleItems", () => {
       "approvals",
       "dies",
       "customers",
+      "pricing",
       "store",
       "storeBuying",
       "printing",
@@ -98,9 +99,12 @@ describe("visibleItems", () => {
 
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    // Store and Buying need the store module.
+    // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
+    // Billing is opt-in: a plant with no modules named has it off, and naming it turns it on without touching the rest.
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 1);
+    expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
@@ -114,6 +118,18 @@ describe("visibleItems", () => {
     expect(more("packer")).not.toContain("purchase");
     expect(more("packer")).not.toContain("approvals");
     expect(more("press")).not.toContain("purchase");
+  });
+
+  test("Prices for people who read prices or run enquiries, hidden when the pricing module is off (XE-PRICE)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("pricing");
+    for (const role of ["owner", "admin", "manager", "office", "accountant"] as const) {
+      expect({ role, pricing: has(role) }).toEqual({ role, pricing: true });
+    }
+    for (const role of ["operator", "viewer", "storekeeper", "packer", "supervisor", "press", "foundry", "die_room"] as const) {
+      expect({ role, pricing: has(role) }).toEqual({ role, pricing: false });
+    }
+    expect(has("owner", ["customers"])).toBe(false);
+    expect(has("owner", ["pricing"])).toBe(true);
   });
 
   test("Masters for the people who publish or draft masters (PL-W1)", () => {

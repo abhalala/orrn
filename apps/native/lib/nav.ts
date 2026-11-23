@@ -1,3 +1,4 @@
+import { anyModuleOn } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 
@@ -73,7 +74,7 @@ export function tabSetFor(me: Pick<Me, "company"> | null | undefined): TabSet {
 
 /** Tabs this person may see, in their set's order (the bar draws them in this order; `placeScan` then centres Scan). Today is always there. */
 export function visibleTabs(me: Me | null | undefined): TabName[] {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  const modules = me?.company?.modules;
   const set = TAB_SETS[tabSetFor(me)];
   const byName = new Map(TAB_ROUTES.map((tab) => [tab.name, tab]));
   const inSetOrder = set.map((name) => byName.get(name)!).filter(Boolean);
@@ -84,7 +85,7 @@ export function visibleTabs(me: Me | null | undefined): TabName[] {
     if (tab.requires && !canAny(me, tab.requires)) return false;
     // Stock is the bundle stock for the packer set; only the foundry role's Stock (billets) is on with the foundry module alone.
     const tabModules = tab.name === "stock" && tabSetFor(me) !== "foundry" ? (["bundles"] as const) : tab.modules;
-    if (tabModules && modules.length > 0 && !tabModules.some((m) => modules.includes(m))) return false;
+    if (tabModules && !anyModuleOn(modules, tabModules)) return false;
     return true;
   }).map((t) => t.name);
 }
@@ -102,8 +103,7 @@ const PRESS_READERS = ["press.run", "press.close"] as const satisfies readonly A
  */
 export function extraTabs(me: Me | null | undefined): TabName[] {
   if (!me?.company) return [];
-  const modules = (me.company.modules ?? []).map((m) => m.toLowerCase());
-  const moduleOn = (m: NavModule) => modules.length === 0 || modules.includes(m);
+  const moduleOn = (m: NavModule) => anyModuleOn(me.company?.modules, [m]);
   const onBar = new Set(visibleTabs(me));
   const out: TabName[] = [];
   if (!onBar.has("dies") && moduleOn("dies") && canAny(me, DIE_READERS)) out.push("dies");

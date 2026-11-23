@@ -173,3 +173,30 @@ export async function downloadOrderBookXlsx(rows: readonly import("@orrn/documen
   const { buildOrderBookXlsxBuffer, orderBookFileName } = await import("@orrn/documents/order-sheet");
   saveXlsx(buildOrderBookXlsxBuffer(rows), orderBookFileName(day));
 }
+
+// XE-BILL: the tax invoice, credit note and customer statement. Same rule: the renderer loads on click.
+
+export type { PaperDoc, StatementDoc } from "./invoicePaper";
+
+export async function downloadInvoicePdf(doc: import("./invoicePaper").PaperDoc) {
+  const { downloadInvoicePdf: run } = await import("./invoicePdf");
+  await run(doc);
+}
+
+export async function downloadStatementPdf(doc: import("./invoicePaper").StatementDoc) {
+  const { downloadStatementPdf: run } = await import("./statementPdf");
+  await run(doc);
+}
+
+/** Save text the server already made (Tally XML, sales register CSV, e-way bill JSON) as a file. A BOM goes on CSV so Excel reads it. */
+export function saveTextFile(fileName: string, text: string, mime: string) {
+  const body = mime.startsWith("text/csv") ? `﻿${text}` : text;
+  const url = URL.createObjectURL(new Blob([body], { type: `${mime};charset=utf-8` }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -1,3 +1,4 @@
+import { isModuleOn } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
@@ -6,6 +7,7 @@ import {
   BookMarked,
   Boxes,
   Building2,
+  FileText,
   ClipboardCheck,
   ChartColumn,
   Cylinder,
@@ -18,6 +20,7 @@ import {
   ListChecks,
   PackagePlus,
   Printer,
+  Tags,
   Rocket,
   Scale,
   ScrollText,
@@ -35,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "store";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store";
 
 export type NavItem = {
   key: string;
@@ -78,6 +81,8 @@ const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.clo
 
 /** Quality (XE parity lane QA): who checks, holds, releases, keeps its lists, or reads reports. */
 const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.masters", "reports.read"];
+/** Billing: who reads invoices, issues them, records payments or sets up GST. */
+const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
 
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
@@ -95,10 +100,14 @@ export const TENANT_MORE: readonly NavItem[] = [
   // XE parity REG: the complaint register and the owner's morning page.
   { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
   { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
+  // XE-BILL: tax invoices, payments, outstanding and the accounts exports. Opt-in module, hidden while it is off.
+  { key: "billing", to: "/billing", labelKey: "nav.billing", icon: FileText, requires: BILLING_PEOPLE, module: "billing" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
+  // XE-PRICE: the price master, quotes and enquiries. People who read prices or run enquiries.
+  { key: "pricing", to: "/pricing", labelKey: "nav.pricing", icon: Tags, requires: ["price.view", "enquiry.manage"], module: "pricing" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
   { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"], module: "store" },
@@ -156,10 +165,9 @@ export const GODSEYE_MORE: readonly NavItem[] = [
   { key: "support", to: "/admin/support", labelKey: "nav.adminSupport", icon: LifeBuoy, requires: ["platform.company.manage"] },
 ];
 
-/** Is this company module on? An empty or missing modules list means every module is on. */
+/** Is this company module on? The server's rule (`isModuleOn`): opt-in modules only when named. */
 export function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes(module);
+  return isModuleOn(me?.company?.modules ?? [], module);
 }
 
 /**
@@ -168,9 +176,11 @@ export function moduleOn(me: Me | null | undefined, module: NavModule): boolean 
  * modules existed have none set).
  */
 export function visibleItems(items: readonly NavItem[], me: Me | null | undefined): NavItem[] {
+  const modules = me?.company?.modules ?? [];
   return items.filter((item) => {
     if (item.requires && !canAny(me, item.requires)) return false;
-    if (item.module && !moduleOn(me, item.module)) return false;
+    // The server's rule (`isModuleOn`): opt-in modules such as billing show only when named.
+    if (item.module && !isModuleOn(modules, item.module)) return false;
     return true;
   });
 }

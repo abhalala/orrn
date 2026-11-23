@@ -4,10 +4,11 @@
  * production). A 5,000-row order book whose 1,000 orders interleave over the whole sheet is the
  * worst case for the old range scan: every chunk's row range spans almost the whole candidate.
  */
-import { afterAll, beforeAll, describe, expect, test as bunTest } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 
 import type { IngestTarget } from "@orrn/db/schema/ingest";
 
+import { boundedLimits, DRAIN_MS } from "./bounded-limit";
 import { putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { createTestEnv, type TestEnv } from "./harness";
 import { apiFor as fixtureApiFor, candidateRow, contextFor, seedCandidate, stagedRows } from "./ingest-merge-fixture";
@@ -16,76 +17,19 @@ import { orderKeyOf } from "../src/lib/ingest/merge/shared";
 
 let env: TestEnv;
 
-/**
- * Each test below keeps its own limit, but the limit is timed here, not by Bun. When Bun times a test
- * out it walks away from the body (the merge step in flight keeps running), kills the Miniflare child
- * as a dangling process, and the next test cannot connect; afterAll then disposes Miniflare under the
- * running step and its error lands as "Unhandled error between tests" (CI run 44852373688). So when a
- * limit passes, the API callers that test made refuse their next call, the body is awaited until it
- * stops, and the test fails as timed out at its own limit, however soon the body stops after that.
- * Bun gets the limit plus DRAIN_MS only as a backstop.
- */
-const DRAIN_MS = 120_000;
+/** Each test times its own limit and drains its body when the limit passes (bounded-limit.ts says why). */
+const limits = boundedLimits();
+const test = limits.test;
 
-/** One per test: set when that test's limit passes. Callers made during the test read it on every call. */
-type Stop = { stopped: boolean };
-let currentStop: Stop = { stopped: false };
-/** Bodies that have not settled yet (each promise never rejects), awaited before Miniflare is disposed. */
-const bodies = new Set<Promise<unknown>>();
-
-/** A tRPC caller whose every call throws once `stop` is set. Calls already made are left to finish. */
-function guarded<T>(node: T, stop: Stop): T {
-  if (node === null || (typeof node !== "object" && typeof node !== "function")) return node;
-  return new Proxy(node as object, {
-    get: (target, prop) => guarded(Reflect.get(target, prop), stop),
-    apply(target, self, args) {
-      if (stop.stopped) throw new Error("this test's limit has passed: call refused");
-      return Reflect.apply(target as (...a: unknown[]) => unknown, self, args);
-    },
-  }) as T;
-}
-
-const apiFor: typeof fixtureApiFor = async (ctx) => guarded(await fixtureApiFor(ctx), currentStop);
-
-function test(name: string, body: () => Promise<void>, limitMs: number) {
-  bunTest(
-    name,
-    async () => {
-      const stop: Stop = { stopped: false };
-      currentStop = stop;
-      const settled = body().then(
-        () => ({ ok: true as const }),
-        (error: unknown) => ({ ok: false as const, error }),
-      );
-      bodies.add(settled);
-      void settled.then(() => bodies.delete(settled));
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const limit = new Promise<"late">((resolve) => {
-        timer = setTimeout(() => resolve("late"), limitMs);
-      });
-      const first = await Promise.race([settled, limit]);
-      clearTimeout(timer);
-      if (first === "late") {
-        stop.stopped = true;
-        let drainTimer: ReturnType<typeof setTimeout> | undefined;
-        await Promise.race([settled, new Promise((resolve) => (drainTimer = setTimeout(resolve, DRAIN_MS)))]);
-        clearTimeout(drainTimer);
-        throw new Error(`Test "${name}" timed out after ${limitMs}ms`);
-      }
-      if (!first.ok) throw first.error;
-    },
-    limitMs + DRAIN_MS + 10_000,
-  );
-}
+const apiFor: typeof fixtureApiFor = async (ctx) => limits.guard(await fixtureApiFor(ctx));
 
 beforeAll(async () => {
   const real = await createTestEnv();
-  env = { ...real, caller: (as) => guarded(real.caller(as), currentStop) };
+  env = { ...real, caller: (as) => limits.guard(real.caller(as)) };
 }, 60_000);
 
 afterAll(async () => {
-  currentStop.stopped = true;
-  await Promise.all(bodies);
+  await limits.drain();
   await env.dispose();
 }, DRAIN_MS + 10_000);
 
@@ -685,6 +629,15 @@ describe("bounded dry run steps (S3-2)", () => {
   }, 600_000);
 });
 
+/**
+ * 300 write steps of 10 orders each: about 1.7 s a step on a GitHub runner, flat from the first step
+ * to the last. Measured on CI: 468 to 536 s on a normal runner, past 600 s on the slower runners
+ * (every test of the file about 1.45x slower there), so 600 s failed about one run in three
+ * (runs 45087657574, 45093811686, 45094525000, 45098619093, 45099150888). 1,200 s is twice the
+ * slowest pass. The row bounds below are what the test checks; this limit only stops a hung run.
+ */
+const S3_6_WRITE_LIMIT_MS = 1_200_000;
+
 describe("order writes read old orders by key, not the customer's whole history (S3-6)", () => {
   test(`every write step of a 3,000-order one-customer book with POs reads at most ${STEP_ROWS_READ_MAX} rows, the last as the first`, async () => {
     const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
@@ -711,17 +664,22 @@ describe("order writes read old orders by key, not the customer's whole history 
     for (let i = 0; last.state === "planning" && i < 10; i += 1) last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
     expect(last.state).toBe("running");
     const reads: number[] = [];
+    const ms: number[] = [];
     for (let i = 0; last.state === "running" && i < 400; i += 1) {
       tally.rows = 0;
+      const t0 = performance.now();
       last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      ms.push(Math.round(performance.now() - t0));
       reads.push(tally.rows);
     }
     expect(last.state).toBe("done");
     if (process.env.DEBUG_READS) console.log("WRITE READS first", reads.slice(0, 3), "last", reads.slice(-3), "max", Math.max(...reads));
+    // Wall time a step, first ten and last ten: flat means the limit is not hiding cost that grows.
+    if (process.env.DEBUG_STEP_MS) console.log("WRITE STEP MS steps", ms.length, "first", ms.slice(0, 10), "last", ms.slice(-10), "total", ms.reduce((a, b) => a + b, 0));
     for (const n of reads) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
     // The last write step reads about what the first did: the orders made before it are not read.
     expect(reads.at(-2)!).toBeLessThanOrEqual(reads[0]! + 100);
-  }, 600_000);
+  }, S3_6_WRITE_LIMIT_MS);
 
   test(`with 1,000 live orders for the customer, a 10-row sheet's dry run, planning and write steps each read at most ${STEP_ROWS_READ_MAX} rows`, async () => {
     const { createHash, randomUUID } = await import("node:crypto");

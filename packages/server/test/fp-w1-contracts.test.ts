@@ -243,7 +243,7 @@ describe("platform actions (Wave 1)", () => {
 describe("dev seed: Wave 1 masters (idempotent)", () => {
   test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
     const { company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
-    const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
+    const { defaultReasonCodeRows, STANDARD_MODULES, readFloorSettings } = await import("@orrn/domain");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
@@ -270,7 +270,7 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
       hollow: { standard: "IS 1285", cml: "" },
       semi: { standard: "IS 1285", cml: "" },
     });
-    expect(co!.modules).toEqual([...COMPANY_MODULES]);
+    expect(co!.modules).toEqual([...STANDARD_MODULES]);
     expect((await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).map((l) => l.code).sort()).toEqual(["P1", "P2"]);
     expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(3);
     expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
