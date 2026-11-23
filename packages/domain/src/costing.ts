@@ -43,7 +43,11 @@ export type StageRate = { basis: CostRateBasis; paise: number; kgPerHour: number
 export type StageRateVersion = { from: string; stages: Partial<Record<CostStage, StageRate>> };
 
 export type CostingSettings = {
-  /** Effective-dated stage rates, oldest first. A change adds a version; past runs keep theirs. */
+  /**
+   * Effective-dated stage rates, oldest first. Costs are worked out when read: a version dated after a
+   * run's day leaves that run alone, but removing a version, or adding one dated on or before a past
+   * run's day, re-prices that run.
+   */
   rates: StageRateVersion[];
   /** A line whose margin is below this share of its rate is flagged (basis points; 800 = 8 %). */
   lowMarginBp: number;
@@ -63,6 +67,8 @@ export type CostingSettings = {
   /** A copy is "due soon" within this share of its interval (bp) or this many days. */
   dieSoonBp: number;
   dieSoonDays: number;
+  /** Save counter: every settings save sends the value it read and adds one; a stale save is refused. */
+  rev: number;
 };
 
 export const DEFAULT_COSTING_SETTINGS: CostingSettings = {
@@ -78,6 +84,7 @@ export const DEFAULT_COSTING_SETTINGS: CostingSettings = {
   correctEveryKg: null,
   dieSoonBp: 1500,
   dieSoonDays: 14,
+  rev: 0,
 };
 
 export const MAX_COST_PAISE = 100_000_000;
@@ -131,6 +138,7 @@ export function readCostingSettings(raw: unknown): CostingSettings {
     correctEveryKg: intIn(s.correctEveryKg, 1, 10_000_000) ? s.correctEveryKg : null,
     dieSoonBp: intIn(s.dieSoonBp, 0, 10_000) ? s.dieSoonBp : d.dieSoonBp,
     dieSoonDays: intIn(s.dieSoonDays, 0, 365) ? s.dieSoonDays : d.dieSoonDays,
+    rev: intIn(s.rev, 0, Number.MAX_SAFE_INTEGER) ? s.rev : 0,
   };
 }
 
@@ -187,7 +195,7 @@ export type RunCostInput = {
   discardG: number;
   endsG: number;
   rejectG: number;
-  /** Press minutes (start to stop), null when the times are not trusted. */
+  /** Press minutes (start to stop, fractions kept), null when the times are not trusted. */
   runMinutes: number | null;
   metal: MetalInput;
   rates: StageRateVersion | null;
@@ -259,10 +267,11 @@ export function runCost(input: RunCostInput): RunCost {
     }
     if (stage === "extrusion") {
       if (input.runMinutes != null && input.runMinutes > 0 && goodG > 0) {
-        // paise/h × minutes ÷ 60 ÷ (good g ÷ 1000)
-        return { stage, paisePerKg: roundDiv(r.paise * input.runMinutes * 1000, 60 * goodG), basis: "hour" as const, ratePaise: r.paise, note: "run_time" as const };
+        // paise/h × minutes ÷ 60 ÷ (good g ÷ 1000); minutes keep their fraction (a 90 s run is 1.5 min).
+        return { stage, paisePerKg: Math.round((r.paise * input.runMinutes * 1000) / (60 * goodG)), basis: "hour" as const, ratePaise: r.paise, note: "run_time" as const };
       }
-      const kph = input.fallbackKgPerHour ?? r.kgPerHour;
+      // A section speed that rounds to 0 kg/h says nothing: the typed throughput takes over.
+      const kph = input.fallbackKgPerHour != null && input.fallbackKgPerHour > 0 ? input.fallbackKgPerHour : r.kgPerHour;
       if (kph != null && kph > 0) return { stage, paisePerKg: roundDiv(r.paise, kph), basis: "hour" as const, ratePaise: r.paise, note: "section_speed" as const };
       return { stage, paisePerKg: null, basis: "hour" as const, ratePaise: r.paise, note: "no_time" as const };
     }
@@ -484,10 +493,14 @@ function predict(series: readonly { month: string; g: number }[], target: string
   if (idx < 2) return null;
   const last = series.slice(idx - 2, idx + 1);
   if (!seasonal) return Math.round(last.reduce((s, p) => s + p.g, 0) / 3);
-  // Take the season out of the three months, average, put the target month's season back.
-  const de = last.map((p) => p.g / ((seasonal[p.month.slice(5, 7)] ?? 10_000) / 10_000));
-  const base = de.reduce((s, v) => s + v, 0) / 3;
-  return Math.round(base * ((seasonal[target.slice(5, 7)] ?? 10_000) / 10_000));
+  // Take the season out of the three months, average, put the target month's season back. A month
+  // whose index is 0 (a shutdown month with no orders in any year) says nothing about the level, so it
+  // is left out of the average; when all three are such months the plain average is used.
+  const sIdx = (month: string) => seasonal[month.slice(5, 7)] ?? 10_000;
+  const usable = last.filter((p) => sIdx(p.month) > 0);
+  if (usable.length === 0) return Math.round(last.reduce((s, p) => s + p.g, 0) / 3);
+  const base = usable.reduce((s, p) => s + p.g / (sIdx(p.month) / 10_000), 0) / usable.length;
+  return Math.round(base * (Math.max(0, sIdx(target)) / 10_000));
 }
 
 // TODO(xe-cost): the seasonal backtest is in-sample (the index is fitted on the months it is tested on).
@@ -625,7 +638,7 @@ export type DriftProjection =
       slopeMilliPerT: number;
       /** The fitted weight now (grams per 12 ft). */
       nowMilli: number;
-      /** Kg left before the fitted line leaves the band; 0 when it already has; null when flat. */
+      /** Kg left before the fitted line leaves the band; 0 when it is already outside (either limit); null when flat inside it or no limit. */
       leftG: number | null;
     };
 
@@ -651,9 +664,12 @@ export function driftProjection(points: readonly { cumG: number; milli: number }
   const slope = sxx > 0 ? sxy / sxx : 0; // milli per gram
   const nowMilli = Math.round(my + slope * (nowCumG - mx));
   const slopeMilliPerT = Math.round(slope * 1_000_000);
-  if (slopeMilliPerT === 0) return { state: "flat", readings: n, spanG, slopeMilliPerT: 0, nowMilli, leftG: null };
+  const state = slopeMilliPerT === 0 ? "flat" : slope > 0 ? "toward_max" : "toward_min";
+  // Already outside the band on either side: nothing is left, whichever way the line runs.
+  const out = (band.maxMilli != null && nowMilli > band.maxMilli) || (band.minMilli != null && nowMilli < band.minMilli);
+  if (out) return { state, readings: n, spanG, slopeMilliPerT, nowMilli, leftG: 0 };
+  if (state === "flat") return { state, readings: n, spanG, slopeMilliPerT: 0, nowMilli, leftG: null };
   const limit = slope > 0 ? band.maxMilli : band.minMilli;
-  const state = slope > 0 ? "toward_max" : "toward_min";
   if (limit == null) return { state, readings: n, spanG, slopeMilliPerT, nowMilli, leftG: null };
   const leftG = Math.max(0, Math.round((limit - nowMilli) / slope));
   return { state, readings: n, spanG, slopeMilliPerT, nowMilli, leftG };
