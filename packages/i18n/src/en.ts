@@ -30,6 +30,8 @@ import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
+import { hrEn } from "./hr/hr.en";
+import { hrNativeEn } from "./native/hr.en";
 import { buddyEn } from "./buddy/en";
 import { costEn } from "./cost/en";
 import { regEn } from "./reg/en";
@@ -4347,6 +4349,7 @@ export const en = {
     ...scanEn,
     ...dispatchEn,
     ...moreEn,
+    ...hrNativeEn,
     ...diesEn,
     ...ordersEn,
     ...platformEn,
@@ -6548,6 +6551,7 @@ export const en = {
   qa: qaEn,
   store2: store2En,
   maint: maintEn,
+  hr: hrEn,
 
   reasons: {
     kinds: {

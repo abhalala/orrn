@@ -14,6 +14,8 @@ import { priceDocsHi } from "./price/docs.hi";
 import { ingestHi } from "./ingest/hi";
 import { admHi } from "./adm/hi";
 import { qaHi } from "./qa/qa.hi";
+import { hrHi } from "./hr/hr.hi";
+import { hrNativeHi } from "./native/hr.hi";
 import { buddyHi } from "./buddy/hi";
 import { costHi } from "./cost/hi";
 import { regHi } from "./reg/hi";
@@ -4333,6 +4335,7 @@ export const hi = {
     ...scanHi,
     ...dispatchHi,
     ...moreHi,
+    ...hrNativeHi,
     ...diesHi,
     ...ordersHi,
     ...platformHi,
@@ -6529,6 +6532,7 @@ export const hi = {
   qa: qaHi,
   store2: store2Hi,
   maint: maintHi,
+  hr: hrHi,
 
   reasons: {
     kinds: {
