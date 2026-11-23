@@ -7,7 +7,7 @@ import { NUM, ReportActions, ReportTableFrame, TD, TH } from "@/features/reports
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { costCsv, csvFile, metalLine, stageLine, stageNames } from "./model";
+import { costCsv, csvFile, metalLine, nextRunsLimit, RUNS_MAX, RUNS_STEP, stageLine, stageNames } from "./model";
 import { Loaded, Note, Panel, RangeFields, useCostSay } from "./ui";
 import type { RunView, SectionsView } from "./hooks";
 
@@ -103,7 +103,7 @@ function SectionsTable({ data, onOpen }: { data: SectionsView; onOpen(id: string
 function RunsPanel({ sectionId, code, from, to }: { sectionId: string; code: string; from: string; to: string }) {
   const say = useCostSay();
   const { t } = say;
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(RUNS_STEP);
   const runs = useQuery({
     ...trpc.costing.runs.queryOptions({ sectionId, limit, ...(from ? { from } : {}), ...(to ? { to } : {}) }),
     meta: INLINE_ERROR_META,
@@ -123,11 +123,12 @@ function RunsPanel({ sectionId, code, from, to }: { sectionId: string; code: str
                   </li>
                 ))}
               </ul>
-              {data.nextOffset != null ? (
+              {data.nextOffset != null && limit < RUNS_MAX ? (
                 <div>
-                  <Button variant="secondary" onClick={() => setLimit(limit + 20)}>{t("cost.cost.runsMore")}</Button>
+                  <Button variant="secondary" onClick={() => setLimit(nextRunsLimit(limit))}>{t("cost.cost.runsMore")}</Button>
                 </div>
               ) : null}
+              {(data.nextOffset != null || data.capped) && limit >= RUNS_MAX ? <Note>{t("cost.cost.runsCapped", { n: RUNS_MAX })}</Note> : null}
             </>
           )
         }

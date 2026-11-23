@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -11,7 +11,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import type { CostSettingsView } from "./hooks";
 import { useCostSettings } from "./hooks";
-import { emptyRateForm, rateVersion, settingsForm, settingsUpdate, versionRows, type RateForm, type SettingsForm } from "./model";
+import { emptyRateForm, isConflict, rateVersion, settingsForm, settingsUpdate, versionRows, type RateForm, type SettingsForm } from "./model";
 import { Loaded, Note, Panel, useCostSay } from "./ui";
 
 /** Settings: margin and press time, die fallbacks, and the dated stage rates. Editing needs `cost.manage`. */
@@ -28,7 +28,10 @@ function SettingsBody({ s }: { s: CostSettingsView }) {
   const [bad, setBad] = useState<string[]>([]);
   const [rates, setRates] = useState<RateForm>(() => emptyRateForm(s.today));
   const [rateError, setRateError] = useState<string | null>(null);
-  useEffect(() => setForm(settingsForm(s)), [s]);
+  // Sync the form only when the saved general settings change (a general save, or someone else's),
+  // never because a rate version was added or removed: unsaved edits stay.
+  const baseline = useMemo(() => JSON.stringify(settingsForm(s)), [s]);
+  useEffect(() => setForm(JSON.parse(baseline) as SettingsForm), [baseline]);
 
   const update = useMutation(
     trpc.costing.settings.update.mutationOptions({
@@ -36,7 +39,15 @@ function SettingsBody({ s }: { s: CostSettingsView }) {
         toast.success(t("cost.settings.saved"));
         await queryClient.invalidateQueries(trpc.costing.pathFilter());
       },
-      onError: () => toast.error(t("cost.settings.saveFailed")),
+      onError: async (e) => {
+        if (isConflict(e)) {
+          // Someone saved first: say so and load theirs. Unsaved general edits stay unless they changed the same settings.
+          toast.error(t("cost.settings.conflict"));
+          await queryClient.invalidateQueries(trpc.costing.settings.get.pathFilter());
+          return;
+        }
+        toast.error(t("cost.settings.saveFailed"));
+      },
     }),
   );
   const set = (patch: Partial<SettingsForm>) => setForm({ ...form, ...patch });
@@ -49,7 +60,7 @@ function SettingsBody({ s }: { s: CostSettingsView }) {
     const r = settingsUpdate(form);
     if (!r.ok) return setBad(r.bad);
     setBad([]);
-    update.mutate(r.input);
+    update.mutate({ ...r.input, rev: s.rev });
   };
   const saveRates = () => {
     const r = rateVersion(rates);
@@ -58,7 +69,7 @@ function SettingsBody({ s }: { s: CostSettingsView }) {
       return;
     }
     setRateError(null);
-    update.mutate({ rateVersion: r.input }, { onSuccess: () => setRates(emptyRateForm(s.today)) });
+    update.mutate({ rateVersion: r.input, rev: s.rev }, { onSuccess: () => setRates(emptyRateForm(s.today)) });
   };
   const setStage = (st: CostStage, patch: Partial<RateForm["stages"][CostStage]>) =>
     setRates({ ...rates, stages: { ...rates.stages, [st]: { ...rates.stages[st], ...patch } } });
@@ -80,7 +91,7 @@ function SettingsBody({ s }: { s: CostSettingsView }) {
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        if (window.confirm(t("cost.settings.removeConfirm", { date: say.day(v.from) }))) update.mutate({ removeRateFrom: v.from });
+                        if (window.confirm(t("cost.settings.removeConfirm", { date: say.day(v.from) }))) update.mutate({ removeRateFrom: v.from, rev: s.rev });
                       }}
                     >
                       {t("cost.settings.remove")}

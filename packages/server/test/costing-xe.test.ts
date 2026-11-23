@@ -134,7 +134,7 @@ describe("opt-in module gate", () => {
         const o = await p.owner.orders.create({ customerId: p.customerId, poNumber: "PO-1", lines: [{ sectionId: p.sectionId, cutLengthMm: 3_658, kgG: 1000, pcs: 1, tierRank: 1 }] } as never).catch(() => null);
         const calls = [
           () => p.manager.costing.settings.get(),
-          () => p.manager.costing.settings.update({ lowMarginBp: 500 }),
+          () => p.manager.costing.settings.update({ lowMarginBp: 500, rev: 0 }),
           () => p.manager.costing.sections({}),
           () => p.manager.costing.runs({}),
           () => p.manager.costing.orderLines({ orderId: o?.id ?? "x" }),
@@ -176,9 +176,9 @@ describe("permissions and tenancy", () => {
       const acc = await p.accountant.costing.orderLines({ orderId });
       expect(acc.lines[0]).toMatchObject({ ratePaise: 30_000, margin: expect.objectContaining({ low: false }) });
       await expect(p.accountant.costing.profitability({})).resolves.toMatchObject({ groupBy: "month" });
-      await expect(p.accountant.costing.settings.update({ lowMarginBp: 500 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(p.accountant.costing.settings.update({ lowMarginBp: 500, rev: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-      await p.manager.costing.settings.update({ lowMarginBp: 1_500, rateVersion: RATES as never });
+      await p.manager.costing.settings.update({ lowMarginBp: 1_500, rateVersion: RATES as never, rev: 0 });
       const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "cost.settings.update")));
       expect(audits).toHaveLength(1);
     },
@@ -200,7 +200,7 @@ describe("permissions and tenancy", () => {
       await expect(q.manager.costing.orderLines({ orderId })).rejects.toMatchObject({ code: "NOT_FOUND", message: "Not found" });
       const qs = await q.manager.costing.sections({ from: "2026-11-01", to: "2026-11-15" });
       expect(qs.rows).toEqual([]);
-      await expect(q.manager.costing.settings.update({ lineDowntimeHours: { [p.lineId]: 4 } })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(q.manager.costing.settings.update({ lineDowntimeHours: { [p.lineId]: 4 }, rev: 0 })).rejects.toMatchObject({ code: "NOT_FOUND" });
       const qd = await q.manager.costing.dies({ state: "all" });
       expect(qd.items.map((d) => d.copyId)).toEqual([q.copyId]);
     },
@@ -429,17 +429,17 @@ describe("settings", () => {
     async () => {
       const p = await plant();
       await expect(
-        p.manager.costing.settings.update({ rateVersion: { from: "2026-11-01", stages: { ageing: { basis: "hour", paise: 50_000, kgPerHour: null } } } }),
+        p.manager.costing.settings.update({ rateVersion: { from: "2026-11-01", stages: { ageing: { basis: "hour", paise: 50_000, kgPerHour: null } } }, rev: 0 }),
       ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-      await p.manager.costing.settings.update({ rateVersion: RATES as never, workDaysPerWeek: 6, lineDowntimeHours: { [p.lineId]: 8 } });
+      await p.manager.costing.settings.update({ rateVersion: RATES as never, workDaysPerWeek: 6, lineDowntimeHours: { [p.lineId]: 8 }, rev: 0 });
       let s = await p.manager.costing.settings.get();
       expect(s.rates.map((r) => r.from)).toEqual(["2026-11-01"]);
       expect(s.ratesToday!.from).toBe("2026-11-01");
       expect(s.lineDowntimeHours).toEqual({ [p.lineId]: 8 });
-      await p.manager.costing.settings.update({ removeRateFrom: "2026-11-01" });
+      await p.manager.costing.settings.update({ removeRateFrom: "2026-11-01", rev: s.rev });
       s = await p.manager.costing.settings.get();
       expect(s.rates).toEqual([]);
-      await expect(p.manager.costing.settings.update({ lowMarginBp: 20_000 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(p.manager.costing.settings.update({ lowMarginBp: 20_000, rev: 2 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     },
     SLOW,
   );
@@ -547,6 +547,147 @@ describe("fix round 1", () => {
       expect(page.items.map((r) => r.id)).toEqual([late]);
       expect(page.items[0]!.metal).toMatchObject({ basis: "cast", paisePerBilletKg: 30_000 });
       expect(page.nextOffset).toBe(1);
+    },
+    SLOW,
+  );
+});
+
+describe("CodeRabbit round (COST-FIX)", () => {
+  test(
+    "two saves from one copy of the settings: one lands, the other is refused with CONFLICT and writes no audit row",
+    async () => {
+      const p = await plant();
+      const snap = await p.manager.costing.settings.get();
+      expect(snap.rev).toBe(0);
+      // Raced: both read rev 0; the write-time guard (or the read check) refuses the loser.
+      const results = await Promise.allSettled([
+        p.manager.costing.settings.update({ rateVersion: { from: "2026-11-01", stages: { packing: { basis: "kg", paise: 200 } } } as never, rev: snap.rev }),
+        p.owner.costing.settings.update({ rateVersion: { from: "2026-11-10", stages: { packing: { basis: "kg", paise: 300 } } } as never, rev: snap.rev }),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+      expect(lost.reason).toMatchObject({ code: "CONFLICT" });
+      const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "cost.settings.update")));
+      expect(audits).toHaveLength(1);
+      const after = await p.manager.costing.settings.get();
+      expect(after.rev).toBe(1);
+      expect(after.rates).toHaveLength(1);
+      // A save from the old copy, after the fact, is refused too; the version that landed stays.
+      await expect(p.manager.costing.settings.update({ removeRateFrom: after.rates[0]!.from, rev: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
+      expect((await p.manager.costing.settings.get()).rates).toHaveLength(1);
+      // From the fresh copy it lands.
+      await p.manager.costing.settings.update({ lowMarginBp: 900, rev: after.rev });
+      expect((await p.manager.costing.settings.get()).rev).toBe(2);
+    },
+    SLOW,
+  );
+
+  test(
+    "the write-time guard alone refuses a save whose counter moved after the read",
+    async () => {
+      const p = await plant();
+      // The stored counter moves under the caller (another save landed between its read and its write).
+      await env.db.run(`update company set settings = json_set(settings, '$.costing', json('{"rev":5}')) where id = '${p.companyId}'` as never);
+      await expect(p.manager.costing.settings.update({ lowMarginBp: 900, rev: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
+      await p.manager.costing.settings.update({ lowMarginBp: 900, rev: 5 });
+      expect((await p.manager.costing.settings.get())).toMatchObject({ rev: 6, lowMarginBp: 900 });
+    },
+    SLOW,
+  );
+
+  test(
+    "profitability: costs come from runs inside the window only; booked revenue counts when the cost is unknown, margin does not",
+    async () => {
+      const p = await plant();
+      const { castId } = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      // Pressed in October only: before the November window.
+      await runOf(p, { day: "2026-10-20", inputKg: 1000, goodKg: 800, castId });
+      await orderOf(p, { kg: 100, ratePaise: 30_000 });
+      const prof = await p.accountant.costing.profitability({ from: "2026-11-01", to: "2026-11-30", groupBy: "month" });
+      expect(prof.costBasisKgG).toEqual({ none: 100_000 });
+      expect(prof.total).toMatchObject({ kgG: 100_000, revenuePaise: 100 * 30_000, costedRevenuePaise: 0, costPaise: null, marginPaise: null, marginBp: null, noCostKgG: 100_000 });
+      // A window that holds the run: costed.
+      const wide = await p.accountant.costing.profitability({ from: "2026-10-01", to: "2026-11-30", groupBy: "month" });
+      expect(wide.total).toMatchObject({ revenuePaise: 100 * 30_000, costPaise: 100 * 25_000, marginPaise: 100 * 5_000, marginBp: 1_667 });
+    },
+    SLOW,
+  );
+
+  test(
+    "capacity: kg already pressed for a line is not press load, even before it is packed",
+    async () => {
+      const p = await plant({ costing: { workDaysPerWeek: 1, hoursPerDay: 10, downtimeHoursPerWeek: 0 } });
+      const o = await orderOf(p, { kg: 2_000, expectedDate: "2026-11-14" });
+      // 1000 kg pressed for the line (250 kg/h), nothing packed yet: 1000 kg left = 240 min.
+      await runOf(p, { day: "2026-11-10", inputKg: 1200, goodKg: 1000, hours: 4, orderLineId: o.lineId });
+      const cap = await p.manager.costing.capacity({ weeks: 4 });
+      expect(cap.lines[0]!.weeks[0]).toMatchObject({ bookedMin: 240 });
+      // The rest pressed: nothing left for the press.
+      await runOf(p, { day: "2026-11-11", inputKg: 1200, goodKg: 1000, hours: 4, orderLineId: o.lineId });
+      const done = await p.manager.costing.capacity({ weeks: 4 });
+      expect(done.lines[0]!.weeks[0]).toMatchObject({ bookedMin: 0 });
+    },
+    SLOW,
+  );
+
+  test(
+    "dies: every live copy is estimated and the list pages in a fixed order",
+    async () => {
+      const p = await plant();
+      for (let i = 2; i <= 4; i++) await env.db.insert(dieInstance).values({ id: uid(), companyId: p.companyId, sectionId: p.sectionId, seqNo: i, code: `Z${++seq}-${i}`, status: "available" });
+      const all = await p.manager.costing.dies({ state: "all" });
+      expect(all).toMatchObject({ copies: 4, total: 4, more: false, nextOffset: null });
+      const first = await p.manager.costing.dies({ state: "all", limit: 3 });
+      expect(first.items).toHaveLength(3);
+      expect(first).toMatchObject({ more: true, nextOffset: 3, total: 4 });
+      const second = await p.manager.costing.dies({ state: "all", limit: 3, offset: 3 });
+      expect(second.items).toHaveLength(1);
+      expect(second).toMatchObject({ more: false, nextOffset: null });
+      expect([...first.items, ...second.items].map((d) => d.copyId)).toEqual(all.items.map((d) => d.copyId));
+      expect(new Set(all.items.map((d) => d.copyId)).size).toBe(4);
+    },
+    SLOW,
+  );
+
+  test(
+    "section rollup across two rate versions counts an unset stage as zero, so the stages add up to the total",
+    async () => {
+      const v1 = { from: "2026-11-01", stages: { casting: { basis: "kg", paise: 0 } } };
+      const v2 = { from: "2026-11-10", stages: { casting: { basis: "kg", paise: 0 }, packing: { basis: "kg", paise: 200 } } };
+      const p = await plant({ costing: { rates: [v1, v2] } });
+      const { castId } = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      await runOf(p, { day: "2026-11-05", inputKg: 1000, goodKg: 800, castId });
+      await runOf(p, { day: "2026-11-12", inputKg: 1000, goodKg: 800, castId });
+      const sec = await p.manager.costing.sections({ from: "2026-11-01", to: "2026-11-15" });
+      const row = sec.rows[0]!;
+      expect(row.stages.packing).toBe(100);
+      expect(row.stages.extrusion).toBeNull(); // no run has a rate for it
+      expect(row.totalPaisePerKg).toBe(row.metalPaisePerKg! + 100);
+    },
+    SLOW,
+  );
+
+  test(
+    "fractional press minutes are costed as they are; a section speed that rounds to 0 does not block the typed throughput",
+    async () => {
+      const p = await plant({ costing: { rates: [{ from: "2026-11-01", stages: { extrusion: { basis: "hour", paise: 120_000, kgPerHour: 500 } } }] } });
+      const { castId } = await castOf(p, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      // 90 s for 10 kg: Rs 1200/h × 1.5 min ÷ 10 kg = Rs 3 per kg (not Rs 4 from a rounded 2 min).
+      const quick = await runOf(p, { day: "2026-11-12", inputKg: 12, goodKg: 10, hours: 90 / 3600, castId });
+      const r = await p.manager.costing.runs({ from: "2026-11-01", to: "2026-11-15" });
+      const q = r.items.find((x) => x.id === quick)!;
+      expect(q.stages.find((s) => s.stage === "extrusion")).toMatchObject({ paisePerKg: 300, note: "run_time" });
+      expect(q.minutes).toBe(2); // shown rounded
+
+      // 1 kg in 4 h is 0.25 kg/h, which rounds to 0: the typed 500 kg/h applies to a run with no times.
+      const z = await plant({ costing: { rates: [{ from: "2026-11-01", stages: { extrusion: { basis: "hour", paise: 100_000, kgPerHour: 500 } } }] } });
+      const zc = await castOf(z, { lotKg: 1000, ratePaise: 20_000, billetKg: 1000 });
+      await runOf(z, { day: "2026-11-05", inputKg: 2, goodKg: 1, hours: 4, castId: zc.castId });
+      const untimed = await runOf(z, { day: "2026-11-12", inputKg: 1000, goodKg: 800, castId: zc.castId });
+      const zr = await z.manager.costing.runs({ from: "2026-11-01", to: "2026-11-15" });
+      const u = zr.items.find((x) => x.id === untimed)!;
+      expect(u.stages.find((s) => s.stage === "extrusion")).toMatchObject({ paisePerKg: 200, note: "section_speed" });
+      expect(u.totalPaisePerKg).not.toBeNull();
     },
     SLOW,
   );

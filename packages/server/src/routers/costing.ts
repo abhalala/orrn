@@ -28,6 +28,7 @@ import {
   MAX_COST_PAISE,
   minutesFor,
   monthOf,
+  nextPageOffset,
   pickCost,
   putRateVersion,
   ratesOn,
@@ -59,7 +60,7 @@ import {
   sectionSpeeds,
   type CostedRun,
 } from "../lib/costing";
-import { lineBalancePage, type LineBalance } from "../lib/orders";
+import { batchAbortUnlessOn, isBatchAbortOn, lineBalancePage, type LineBalance } from "../lib/orders";
 import { ymd } from "../lib/pricingKit";
 
 const viewProcedure = actionProcedure("cost.view");
@@ -68,8 +69,11 @@ const manageProcedure = actionProcedure("cost.manage");
 const id = z.string().min(1).max(64);
 const paise = z.number().int().min(0).max(MAX_COST_PAISE);
 const FORBIDDEN_RATES = "Rates are not shown to you";
-/** Most live die copies the dies-due read takes; past it the answer says `copiesTruncated`. */
-const MAX_DIE_COPIES = 3000;
+const STALE_SETTINGS = "These cost settings changed while you were editing. Open them again.";
+/** Highest `offset` the runs list takes; past it the list stops and says `capped`. */
+const MAX_RUNS_OFFSET = 5000;
+/** Highest `offset` the dies list takes. */
+const MAX_DIES_OFFSET = 100_000;
 
 const stageRate = z.object({ basis: z.enum(["kg", "hour"]), paise, kgPerHour: z.number().int().min(1).max(1_000_000).nullable().default(null) });
 
@@ -105,7 +109,7 @@ function runView(r: CostedRun) {
     discardG: r.discardG,
     endsG: r.endsG,
     rejectG: r.rejectG,
-    minutes: r.minutes,
+    minutes: r.minutes == null ? null : Math.round(r.minutes),
     metal: {
       basis: r.metal.basis,
       paisePerBilletKg: r.metal.paisePerBilletKg,
@@ -146,16 +150,31 @@ async function orderHistory(db: Parameters<typeof costingCompany>[0], companyId:
   return { rows: rows.slice(0, LIMIT).map((r) => ({ ...r, kg_g: Number(r.kg_g) })), truncated: rows.length > LIMIT };
 }
 
-/** Open order lines with work left to press (ordered − packed), at most 5000. */
-async function openWork(db: Parameters<typeof costingCompany>[0], companyId: string): Promise<{ lines: LineBalance[]; truncated: boolean }> {
+/**
+ * Open order lines with baki left (at most 5000) and the good kg already pressed for each. Work left
+ * to press = ordered − the larger of pressed and packed: pressed kg waiting in ageing or for packing
+ * no longer needs the press, and packed kg (a line filled from stock has bundles but no press rows)
+ * does not either. Packed bundles of the line's own runs are inside its pressed kg, so the larger of
+ * the two never counts a kg twice.
+ */
+async function openWork(db: Parameters<typeof costingCompany>[0], companyId: string): Promise<{ lines: LineBalance[]; pressedG: Map<string, number>; truncated: boolean }> {
   const lines: LineBalance[] = [];
   let offset: number | null = 0;
+  const pressedRows = db.all<{ line_id: string; good_g: number }>(sql`
+    select prl.sales_order_line_id as line_id, sum(prl.good_g) as good_g
+    from press_run_line prl
+    join press_run r on r.id = prl.press_run_id and r.company_id = prl.company_id
+    join sales_order_line l on l.id = prl.sales_order_line_id and l.company_id = prl.company_id
+    join sales_order o on o.id = l.sales_order_id and o.company_id = l.company_id
+    where prl.company_id = ${companyId} and r.status = 'logged' and o.status in ('booking', 'confirmed', 'dispatching')
+    group by prl.sales_order_line_id`);
   for (let page = 0; page < 5 && offset != null; page++) {
     const got: { lines: LineBalance[]; nextOffset: number | null } = await lineBalancePage(db, companyId, { openOnly: true, withBaki: true }, { limit: 1000, offset });
     lines.push(...got.lines);
     offset = got.nextOffset;
   }
-  return { lines, truncated: offset != null };
+  const pressedG = new Map((await pressedRows).map((r) => [r.line_id, Number(r.good_g)]));
+  return { lines, pressedG, truncated: offset != null };
 }
 
 export const costingRouter = router({
@@ -172,7 +191,10 @@ export const costingRouter = router({
 
     /**
      * cost.manage. Stage rates are effective-dated: `rateVersion` adds (or replaces) the version that
-     * starts on its date, so past runs keep the rates of their day. `removeRateFrom` drops a version.
+     * starts on its date; `removeRateFrom` drops a version. Costs are worked out when read, so a
+     * version dated on or before a past run's day, or removing the one it used, re-prices that run.
+     * `rev` is the save counter the caller read: a save from a stale copy is refused (CONFLICT, no
+     * audit row), so two managers never overwrite each other's change.
      */
     update: manageProcedure
       .input(
@@ -195,11 +217,13 @@ export const costingRouter = router({
             })
             .optional(),
           removeRateFrom: ymd.optional(),
+          rev: z.number().int().min(0),
         }),
       )
       .mutation(async ({ ctx, input }) => {
         const co = await gate(ctx);
-        const { rateVersion, removeRateFrom, lineDowntimeHours, ...plain } = input;
+        const { rateVersion, removeRateFrom, lineDowntimeHours, rev, ...plain } = input;
+        // No read-time check: the UPDATE's own WHERE on the stored counter refuses a stale save.
         if (lineDowntimeHours) {
           const ids = new Set(
             (await ctx.db.select({ id: pressLine.id }).from(pressLine).where(eq(pressLine.companyId, ctx.companyId))).map((l) => l.id),
@@ -225,11 +249,22 @@ export const costingRouter = router({
           ...Object.fromEntries(Object.entries(plain).filter(([, v]) => v !== undefined)),
           ...(lineDowntimeHours ? { lineDowntimeHours } : {}),
           rates,
+          rev: rev + 1,
         };
-        await atomicBatch(ctx.db, [
-          ctx.db.update(company).set({ settings: settingsPatchSql({ costing: next }) as never }).where(eq(company.id, ctx.companyId)),
-          auditInsert(ctx, { action: "cost.settings.update", subjectType: "company", subjectId: ctx.companyId, meta: { from: co.costing, to: next } }),
-        ]);
+        try {
+          await atomicBatch(ctx.db, [
+            // Write-time guard: lands only while the stored counter is still the one this save read.
+            ctx.db
+              .update(company)
+              .set({ settings: settingsPatchSql({ costing: next }) as never })
+              .where(sql`${company.id} = ${ctx.companyId} and coalesce(json_extract(${company.settings}, '$.costing.rev'), 0) = ${rev}`),
+            batchAbortUnlessOn(ctx.db, pressLine, sql`changes() > 0`),
+            auditInsert(ctx, { action: "cost.settings.update", subjectType: "company", subjectId: ctx.companyId, meta: { from: co.costing, to: next } }),
+          ]);
+        } catch (e) {
+          if (isBatchAbortOn(e, "press_line")) throw new TRPCError({ code: "CONFLICT", message: STALE_SETTINGS });
+          throw e;
+        }
         return next;
       }),
   }),
@@ -238,7 +273,7 @@ export const costingRouter = router({
   runs: viewProcedure
     .input(
       z
-        .object({ from: ymd.optional(), to: ymd.optional(), sectionId: id.optional(), limit: z.number().int().min(1).max(200).default(50), offset: z.number().int().min(0).max(5000).default(0) })
+        .object({ from: ymd.optional(), to: ymd.optional(), sectionId: id.optional(), limit: z.number().int().min(1).max(200).default(50), offset: z.number().int().min(0).max(MAX_RUNS_OFFSET).default(0) })
         .default({ limit: 50, offset: 0 }),
     )
     .query(async ({ ctx, input }) => {
@@ -246,13 +281,9 @@ export const costingRouter = router({
       const { from, to } = range(co.today, input);
       const { runs, truncated, factors } = await costRuns(ctx.db, ctx.companyId, co, { from, to, sectionId: input.sectionId, limit: input.offset + input.limit }, clockNow());
       const page = runs.slice(input.offset, input.offset + input.limit);
-      return {
-        from,
-        to,
-        factors,
-        items: page.map(runView),
-        nextOffset: truncated ? input.offset + input.limit : null,
-      };
+      // Never a next offset the input refuses: past MAX_RUNS_OFFSET the list stops and says `capped`.
+      const { nextOffset, capped } = nextPageOffset(input.offset, input.limit, truncated, MAX_RUNS_OFFSET);
+      return { from, to, factors, items: page.map(runView), nextOffset, capped };
     }),
 
   /** Row 16: cost per kg per section over the window, good-weighted over its runs, and the plant total. */
@@ -334,8 +365,11 @@ export const costingRouter = router({
 
   /**
    * Row 17: profitability of booked orders by section, customer or month (order date in the window).
-   * Revenue = ordered kg × line rate; cost = the section's cost per kg in the order's month (else the
-   * section's over the window, else the plant's). `order.price` and `priceOnSalesOrder` required.
+   * Revenue = ordered kg × line rate for every line with a rate, costed or not. Cost = the section's
+   * cost per kg in the order's month, else the section's over the window, else the plant's month,
+   * else the plant's; only runs pressed inside the window count. The margin compares the revenue and
+   * cost of the costed lines only (`costedRevenuePaise`) and is null when no line has a cost.
+   * `order.price` and `priceOnSalesOrder` required.
    */
   profitability: viewProcedure
     .input(z.object({ from: ymd.optional(), to: ymd.optional(), groupBy: z.enum(["section", "customer", "month"]).default("month") }).default({ groupBy: "month" }))
@@ -357,21 +391,22 @@ export const costingRouter = router({
           group by l.die_id, d.section_code, o.customer_id, c.name, substr(o.order_date, 1, 7), l.rate_paise
           order by m desc, l.die_id, o.customer_id, l.rate_paise
           limit ${LIMIT + 1}`),
-        costRuns(ctx.db, ctx.companyId, co, { from: addDaysYmd(from, -90), to }, clockNow()),
+        costRuns(ctx.db, ctx.companyId, co, { from, to }, clockNow()),
       ]);
       const runs = costed.runs;
       const secMonth = new Map([...groupRuns(runs, (r) => `${r.sectionId}|${runMonth(r)}`)].map(([k, v]) => [k, rollup(v).totalPaisePerKg]));
       const sec = new Map([...groupRuns(runs, (r) => r.sectionId)].map(([k, v]) => [k, rollup(v).totalPaisePerKg]));
       const plantMonth = new Map([...groupRuns(runs, runMonth)].map(([k, v]) => [k, rollup(v).totalPaisePerKg]));
       const plant = rollup(runs).totalPaisePerKg;
-      type Acc = { key: string; label: string; kgG: number; revenuePaise: number; costPaise: number; costedKgG: number; lowKgG: number; noRateKgG: number; noCostKgG: number; lines: number };
+      type Acc = { key: string; label: string; kgG: number; revenuePaise: number; costedRevenuePaise: number; costPaise: number; costedKgG: number; lowKgG: number; noRateKgG: number; noCostKgG: number; lines: number };
+      const empty = (key: string, label: string): Acc => ({ key, label, kgG: 0, revenuePaise: 0, costedRevenuePaise: 0, costPaise: 0, costedKgG: 0, lowKgG: 0, noRateKgG: 0, noCostKgG: 0, lines: 0 });
       const groups = new Map<string, Acc>();
-      const total: Acc = { key: "total", label: "", kgG: 0, revenuePaise: 0, costPaise: 0, costedKgG: 0, lowKgG: 0, noRateKgG: 0, noCostKgG: 0, lines: 0 };
+      const total = empty("total", "");
       const bases: Record<string, number> = {};
       for (const r of lineRows.slice(0, LIMIT)) {
         const key = input.groupBy === "section" ? r.die_id : input.groupBy === "customer" ? r.customer_id : r.m;
         const label = input.groupBy === "section" ? r.section_code : input.groupBy === "customer" ? r.customer_name : r.m;
-        const acc = groups.get(key) ?? { key, label, kgG: 0, revenuePaise: 0, costPaise: 0, costedKgG: 0, lowKgG: 0, noRateKgG: 0, noCostKgG: 0, lines: 0 };
+        const acc = groups.get(key) ?? empty(key, label);
         const kgG = Number(r.kg_g);
         const rate = r.rate_paise == null ? null : Number(r.rate_paise);
         const cost = pickCost({ sectionMonth: secMonth.get(`${r.die_id}|${r.m}`) ?? null, section: sec.get(r.die_id) ?? null, plantMonth: plantMonth.get(r.m) ?? null, plant });
@@ -380,9 +415,13 @@ export const costingRouter = router({
           a.kgG += kgG;
           a.lines += Number(r.lines);
           if (rate == null) a.noRateKgG += kgG;
-          else if (cost.paisePerKg == null) a.noCostKgG += kgG;
-          else {
+          else if (cost.paisePerKg == null) {
             a.revenuePaise += amountPaise(kgG, rate);
+            a.noCostKgG += kgG;
+          } else {
+            const revenue = amountPaise(kgG, rate);
+            a.revenuePaise += revenue;
+            a.costedRevenuePaise += revenue;
             a.costPaise += amountPaise(kgG, cost.paisePerKg);
             a.costedKgG += kgG;
             if (marginOf(rate, cost.paisePerKg, co.costing.lowMarginBp)?.low) a.lowKgG += kgG;
@@ -391,21 +430,22 @@ export const costingRouter = router({
         groups.set(key, acc);
       }
       const view = (a: Acc) => {
-        const marginPaise = a.revenuePaise - a.costPaise;
-        return { ...a, marginPaise, marginBp: a.revenuePaise > 0 ? Math.round((marginPaise * 10_000) / a.revenuePaise) : null };
+        // Margin only over the lines that have both a rate and a cost; unknown (null) when none does.
+        const marginPaise = a.costedKgG > 0 ? a.costedRevenuePaise - a.costPaise : null;
+        return { ...a, costPaise: a.costedKgG > 0 ? a.costPaise : null, marginPaise, marginBp: marginPaise != null && a.costedRevenuePaise > 0 ? Math.round((marginPaise * 10_000) / a.costedRevenuePaise) : null };
       };
       const rows = [...groups.values()].map(view).sort((a, b) => (input.groupBy === "month" ? (a.key < b.key ? -1 : 1) : b.kgG - a.kgG || (a.label < b.label ? -1 : 1)));
       return { from, to, groupBy: input.groupBy, lowMarginBp: co.costing.lowMarginBp, rows, total: view(total), costBasisKgG: bases, truncated: lineRows.length > LIMIT || costed.truncated };
     }),
 
   /**
-   * Row 51: press load week by week. Booked = open order lines' kg still to press (ordered − packed),
+   * Row 51: press load week by week. Booked = open order lines' kg still to press (ordered − the larger
+   * of pressed good kg and packed kg, see `openWork`),
    * due on the order's expected date (else order date + lead days; late work lands in this week),
    * turned into press hours at the section's own kg per hour (else the plant's, else the setting).
    * Available = press days × hours − planned stops. Optional: a forecast top-up (expected orders not
    * yet booked) and a what-if change per customer.
    * TODO(xe-maint): subtract planned maintenance stops per press once the maintenance lane merges.
-   * TODO(xe-cost): still to press = ordered − packed, so pressed work waiting in ageing still counts as press load.
    * TODO(xe-cost): week 0 is a full week and also holds every overdue line.
    * TODO(xe-cost): the forecast top-up is netted per section-week across customers, not per customer.
    */
@@ -448,7 +488,7 @@ export const costingRouter = router({
     const bookedSectionWeek = new Map<string, number>();
     let laterG = 0;
     for (const l of work.lines) {
-      const left = Math.max(0, l.orderedG - l.producedG);
+      const left = Math.max(0, l.orderedG - Math.max(work.pressedG.get(l.lineId) ?? 0, l.producedG));
       if (left <= 0) continue;
       const g = pct.has(l.customerId) ? scaleByPct(left, pct.get(l.customerId)!) : left;
       const due = l.expectedDate ?? addDaysYmd(l.orderDate, co.costing.leadDays);
@@ -593,7 +633,11 @@ export const costingRouter = router({
    * a straight line through its kg/12ft readings since its last correction against the section band.
    */
   dies: viewProcedure
-    .input(z.object({ state: z.enum(["attention", "all"]).default("attention"), limit: z.number().int().min(1).max(500).default(100) }).default({ state: "attention", limit: 100 }))
+    .input(
+      z
+        .object({ state: z.enum(["attention", "all"]).default("attention"), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).max(MAX_DIES_OFFSET).default(0) })
+        .default({ state: "attention", limit: 100, offset: 0 }),
+    )
     .query(async ({ ctx, input }) => {
       const co = await gate(ctx);
       const nowMs = clockNow().getTime();
@@ -607,7 +651,7 @@ export const costingRouter = router({
           select di.id, di.code, di.section_id, d.section_code, di.status, d.weight_min_g, d.weight_max_g, di.tier_rank
           from die_instance di join die d on d.id = di.section_id and d.company_id = di.company_id
           where di.company_id = ${cid} and di.status <> 'retired' and d.deleted_at is null
-          order by d.section_code, di.seq_no limit ${MAX_DIE_COPIES + 1}`),
+          order by d.section_code, di.seq_no`),
         ctx.db.all<{ copy_id: string; total_g: number; recent_g: number }>(sql`
           select r.die_instance_id as copy_id, sum(r.good_g) as total_g, sum(case when ${RUN_AT} >= ${recentFrom} then r.good_g else 0 end) as recent_g
           from press_run r where r.company_id = ${cid} and r.status = 'logged' and r.die_instance_id is not null group by r.die_instance_id`),
@@ -630,8 +674,8 @@ export const costingRouter = router({
             where w.company_id = ${cid} and di.status <> 'retired'
           ) x where x.rn <= 20 order by x.copy_id, x.at`),
       ]);
-      const copiesTruncated = copies.length > MAX_DIE_COPIES;
-      copies.length = Math.min(copies.length, MAX_DIE_COPIES);
+      // Every live copy is estimated (the totals read is one row per copy already); the page is cut
+      // only after the copies that need attention are picked and ranked.
       const tot = new Map(totals.map((t) => [t.copy_id, { totalG: Number(t.total_g), recentG: Number(t.recent_g) }]));
       const eventsBy = (rows: { copy_id: string; section_id: string; at: number; cum_g: number }[]) => {
         const copy = new Map<string, { at: number; cumG: number }[]>();
@@ -704,16 +748,18 @@ export const costingRouter = router({
       });
       const attention = rows.filter((r) => r.urgency <= 1 || (r.drift.state !== "too_few" && r.drift.leftG != null && gPerDayDays(r.drift.leftG, r.gPerDay) <= s.dieSoonDays));
       const pick = input.state === "attention" ? attention : rows;
-      pick.sort((a, b) => a.urgency - b.urgency || (a.code < b.code ? -1 : 1));
+      pick.sort((a, b) => a.urgency - b.urgency || (a.code < b.code ? -1 : a.code > b.code ? 1 : a.copyId < b.copyId ? -1 : a.copyId > b.copyId ? 1 : 0));
+      const { nextOffset } = nextPageOffset(input.offset, input.limit, pick.length > input.offset + input.limit, MAX_DIES_OFFSET);
       return {
         due: rows.filter((r) => r.urgency === 0).length,
         soon: rows.filter((r) => r.urgency === 1).length,
         copies: rows.length,
         settings: { dieSoonBp: s.dieSoonBp, dieSoonDays: s.dieSoonDays, nitrideEveryKg: s.nitrideEveryKg, correctEveryKg: s.correctEveryKg },
-        items: pick.slice(0, input.limit),
-        more: pick.length > input.limit,
-        /** More live copies than one read takes: `copies`, `due` and `soon` count the first 3000 by section code. */
-        copiesTruncated,
+        items: pick.slice(input.offset, input.offset + input.limit),
+        /** Copies past this page (the screen's "Show more"); `total` is how many the filter picked. */
+        total: pick.length,
+        more: nextOffset != null,
+        nextOffset,
       };
     }),
 });

@@ -10,10 +10,11 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import type { CapacityView } from "./hooks";
-import { bpText, hoursText, scenarioPct } from "./model";
+import type { ScenarioCustomer } from "./model";
+import { addScenario, bpText, hoursText, MAX_SCENARIO, scenarioPct } from "./model";
 import { Loaded, Note, Panel, useCostSay } from "./ui";
 
-type What = { customerId: string; name: string; pct: number };
+type What = ScenarioCustomer;
 const WEEK_CHOICES = [4, 8, 13, 26] as const;
 
 /** Row 51: each press line week by week, booked hours against available, over-booked weeks with the orders behind them. */
@@ -25,6 +26,7 @@ export function CapacityTab() {
   const [what, setWhat] = useState<What[]>([]);
   const [pick, setPick] = useState<{ id: string; name: string } | null>(null);
   const [pct, setPct] = useState("");
+  const [full, setFull] = useState(false);
   const names = useRef(new Map<string, string>());
   const pctValue = scenarioPct(pct);
   const cap = useQuery({
@@ -33,15 +35,18 @@ export function CapacityTab() {
   });
   const addWhat = () => {
     if (!pick || pctValue === null) return;
-    setWhat([...what.filter((w) => w.customerId !== pick.id), { customerId: pick.id, name: pick.name, pct: pctValue }].slice(0, 10));
+    const r = addScenario(what, { customerId: pick.id, name: pick.name, pct: pctValue });
+    setFull(r.full);
+    if (r.full) return; // keep the pick and the percent: the message says what to do
+    setWhat(r.list);
     setPick(null);
     setPct("");
   };
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="capacity-tab">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-        <Field label={t("cost.capacity.weeks")} className="w-32">
-          <NativeSelect value={String(weeks)} onChange={(e) => setWeeks(Number(e.currentTarget.value))}>
+        <Field label={t("cost.capacity.weeks")} className="w-32" id="cap-weeks">
+          <NativeSelect id="cap-weeks" value={String(weeks)} onChange={(e) => setWeeks(Number(e.currentTarget.value))}>
             {WEEK_CHOICES.map((w) => (
               <option key={w} value={w}>{w}</option>
             ))}
@@ -70,6 +75,7 @@ export function CapacityTab() {
           </Field>
           <Button variant="secondary" onClick={addWhat} disabled={!pick || pctValue === null}>{t("cost.capacity.add")}</Button>
         </div>
+        {full ? <p role="alert" className="m-0 text-[14px] font-medium text-destructive">{t("cost.capacity.scenarioFull", { n: MAX_SCENARIO })}</p> : null}
         {what.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             {what.map((w) => (
@@ -77,7 +83,15 @@ export function CapacityTab() {
                 {t("cost.capacity.scenarioLine", { customer: w.name, pct: `${w.pct > 0 ? "+" : ""}${w.pct}%` })}
               </span>
             ))}
-            <Button variant="ghost" onClick={() => setWhat([])}>{t("cost.capacity.clear")}</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setWhat([]);
+                setFull(false);
+              }}
+            >
+              {t("cost.capacity.clear")}
+            </Button>
           </div>
         ) : null}
       </Panel>

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12388 screen strings in 60 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -9920,7 +9920,7 @@ Please check, Lalubhai:
 | `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
 | `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
-### cost (260)
+### cost (262)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9998,6 +9998,7 @@ Please check, Lalubhai:
 | `cost.runsTitle` | Runs of {section} | {section} के रन |
 | `cost.runsEmpty` | No runs for this section in this range. | इस अवधि में इस सेक्शन का कोई रन नहीं। |
 | `cost.runsMore` | Show more runs | और रन दिखाएं |
+| `cost.runsCapped` | Showing the first {n} runs. Choose a shorter range to see the rest. | पहले {n} रन दिख रहे हैं। बाकी देखने के लिए छोटी अवधि चुनें। |
 | `cost.number` | Run | रन |
 | `cost.day` | Day | दिन |
 | `cost.copy` | Copy | Copy |
@@ -10043,7 +10044,7 @@ Please check, Lalubhai:
 | `profit.basisNote` | Cost came from: {parts}. | लागत यहां से आई: {parts}। |
 | `profit.basisPart` | {what} ({kg}) | {what} ({kg}) |
 | `profit.noRate` | {kg} has no rate and is left out. | {kg} पर रेट नहीं है, इसे छोड़ा गया। |
-| `profit.noCost` | {kg} has no known cost and is left out. | {kg} की लागत पता नहीं, इसे छोड़ा गया। |
+| `profit.noCost` | {kg} has no known cost: its revenue is counted, its cost and margin are not. | {kg} की लागत पता नहीं: उसकी बिक्री गिनी गई, लागत और मार्जिन नहीं। |
 | `profit.lowRule` | Low margin means under {pct} of the rate. | कम मार्जिन यानी रेट के {pct} से कम। |
 | `profit.notAllowed` | Rates and margins are not shown to you. | आपको रेट और मार्जिन नहीं दिखाए जाते। |
 | `profit.truncated` | Only part of the lines are counted. Choose a shorter range. | सिर्फ़ कुछ लाइनें गिनी गई हैं। छोटी अवधि चुनें। |
@@ -10058,6 +10059,7 @@ Please check, Lalubhai:
 | `capacity.add` | Add | जोड़ें |
 | `capacity.clear` | Clear | हटाएं |
 | `capacity.scenarioLine` | {customer}: {pct} | {customer}: {pct} |
+| `capacity.scenarioFull` | A what-if takes up to {n} customers. Change one already on the list, or clear the list. | एक what-if में {n} ग्राहक तक आते हैं। सूची में पहले से मौजूद ग्राहक बदलें, या सूची हटाएं। |
 | `capacity.line` | Press | प्रेस |
 | `capacity.week` | Week of | हफ़्ता, शुरू |
 | `capacity.available` | Available hours | उपलब्ध घंटे |
@@ -10098,8 +10100,7 @@ Please check, Lalubhai:
 | `dies.correct` | Correction | करेक्शन |
 | `dies.drift` | Weight drift | वज़न का बहाव |
 | `dies.summary` | {due} due, {soon} soon, of {copies} copies. | {copies} copy में से {due} का समय हो गया, {soon} जल्दी। |
-| `dies.copiesTruncated` | Only the first {n} copies are counted. | सिर्फ़ पहली {n} copy गिनी गईं। |
-| `dies.more` | More copies match. Narrow the list or choose a shorter one. | और copy मेल खाती हैं। सूची छोटी करें। |
+| `dies.showMore` | Show more ({shown} of {total}) | और दिखाएं ({total} में से {shown}) |
 | `dies.empty` | No copy needs attention. | किसी copy को ध्यान नहीं चाहिए। |
 | `dies.state.due` | Due | समय हो गया |
 | `dies.state.soon` | Soon | जल्दी |
@@ -10138,10 +10139,11 @@ Please check, Lalubhai:
 | `settings.save` | Save settings | सेटिंग सेव करें |
 | `settings.saved` | Saved | सेव हुआ |
 | `settings.saveFailed` | Could not save. Check the numbers and try again. | सेव नहीं हुआ। संख्याएं जांचें और फिर कोशिश करें। |
+| `settings.conflict` | Someone else changed these settings first. They are open again now; check them and save. | किसी और ने ये सेटिंग पहले बदल दीं। अब वे फिर से खुली हैं; जांचें और सेव करें। |
 | `settings.badNumber` | Enter a whole number | पूरी संख्या लिखें |
 | `settings.badPercent` | Enter a percent, such as 8 or 12.5 | प्रतिशत लिखें, जैसे 8 या 12.5 |
 | `settings.ratesTitle` | Stage rates | स्टेज रेट |
-| `settings.ratesHint` | Rates apply from a date. A change adds a version, so past runs keep their rates. Casting is per kg of billets, the others per good kg. Extrusion by the hour uses the run's press time. | रेट एक तारीख़ से लागू होते हैं। बदलाव से नया वर्ज़न जुड़ता है, इसलिए पुराने रन अपने रेट रखते हैं। कास्टिंग billet के हर kg पर, बाकी हर अच्छे kg पर। घंटे वाला एक्सट्रूज़न रन का प्रेस समय लेता है। |
+| `settings.ratesHint` | Rates apply from a date. Costs are worked out when you look: rates from a later date leave past runs alone, but removing rates, or adding rates from a date on or before a past run, changes that run's cost. Casting is per kg of billets, the others per good kg. Extrusion by the hour uses the run's press time. | रेट एक तारीख़ से लागू होते हैं। लागत देखते समय निकाली जाती है: बाद की तारीख़ के रेट पुराने रन नहीं बदलते, पर रेट हटाने से, या किसी पुराने रन की तारीख़ या उससे पहले से रेट जोड़ने से, उस रन की लागत बदलती है। कास्टिंग billet के हर kg पर, बाकी हर अच्छे kg पर। घंटे वाला एक्सट्रूज़न रन का प्रेस समय लेता है। |
 | `settings.from` | From date | किस तारीख़ से |
 | `settings.basis` | Basis | आधार |
 | `settings.basisKg` | Rupees per kg | रुपये प्रति kg |
@@ -10153,7 +10155,7 @@ Please check, Lalubhai:
 | `settings.versions` | Versions | वर्ज़न |
 | `settings.inUse` | In use today | आज लागू |
 | `settings.remove` | Remove | हटाएं |
-| `settings.removeConfirm` | Remove the rates from {date}? | {date} से लागू रेट हटाएं? |
+| `settings.removeConfirm` | Remove the rates from {date}? Runs from that date are costed again with the rates before it. | {date} से लागू रेट हटाएं? उस तारीख़ से आगे के रन पहले वाले रेट से फिर गिने जाएंगे। |
 | `settings.noVersions` | No rates yet. Stages without a rate are counted as 0. | अभी कोई रेट नहीं। बिना रेट वाले स्टेज 0 गिने जाते हैं। |
 | `settings.versionLine` | {stage}: {amount} {basis} | {stage}: {amount} {basis} |
 | `settings.needThroughput` | An hourly rate for {stage} needs the kg made in an hour. | {stage} के घंटे वाले रेट के लिए एक घंटे में बना kg चाहिए। |

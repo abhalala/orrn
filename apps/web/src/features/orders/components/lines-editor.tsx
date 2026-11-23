@@ -67,6 +67,8 @@ export function LinesEditor({
         queryClient.invalidateQueries({ queryKey: trpc.orders.get.queryKey({ id: order.id }) }),
         queryClient.invalidateQueries({ queryKey: trpc.orders.list.queryKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.orders.timeline.queryKey() }),
+        // The cost panel lists the lines too (costing module); a line added or removed shows at once.
+        queryClient.invalidateQueries({ queryKey: trpc.costing.orderLines.queryKey({ orderId: order.id }) }),
       ]);
       onDone();
     },

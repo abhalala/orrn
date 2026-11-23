@@ -12,6 +12,7 @@ import {
   masterBilletPaise,
   median,
   minutesFor,
+  nextPageOffset,
   pickCost,
   putRateVersion,
   ratesOn,
@@ -131,6 +132,23 @@ describe("row 16: cost per kg of a run", () => {
     expect(b.totalPaisePerKg).toBeNull();
   });
 
+  test("a section speed that rounded to 0 kg/h does not block the typed throughput", () => {
+    const base = { inputG: 1_000_000, goodG: 900_000, discardG: 100_000, endsG: 0, rejectG: 0, runMinutes: null, metal: { basis: "cast" as const, paisePerBilletKg: 20_000 } };
+    const typed: StageRateVersion = { from: "2026-01-01", stages: { extrusion: { basis: "hour", paise: 100_000, kgPerHour: 500 } } };
+    const c = runCost({ ...base, rates: typed, fallbackKgPerHour: 0 });
+    expect(c.stages.find((s) => s.stage === "extrusion")).toMatchObject({ paisePerKg: 200, note: "section_speed" });
+    expect(c.totalPaisePerKg).not.toBeNull();
+    // A positive section speed still comes first.
+    expect(runCost({ ...base, rates: typed, fallbackKgPerHour: 250 }).stages.find((s) => s.stage === "extrusion")!.paisePerKg).toBe(400);
+  });
+
+  test("fractional press minutes are kept: a 90 s run is 1.5 min, not 2", () => {
+    const only: StageRateVersion = { from: "2026-01-01", stages: { extrusion: { basis: "hour", paise: 120_000, kgPerHour: null } } };
+    const c = runCost({ inputG: 12_000, goodG: 10_000, discardG: 2_000, endsG: 0, rejectG: 0, runMinutes: 1.5, metal: { basis: "cast", paisePerBilletKg: 20_000 }, rates: only });
+    // 1200 Rs/h × 1.5 min ÷ 60 ÷ 10 kg = 3 Rs/kg
+    expect(c.stages.find((s) => s.stage === "extrusion")!.paisePerKg).toBe(300);
+  });
+
   const RUN_MASTER = {
     discardG: 0,
     endsG: 0,
@@ -183,6 +201,15 @@ describe("row 16: cost per kg of a run", () => {
   test("weighted per kg skips unknowns", () => {
     expect(weightedPerKg([{ goodG: 1000, paisePerKg: 100 }, { goodG: 3000, paisePerKg: 200 }, { goodG: 5000, paisePerKg: null }])).toBe(175);
     expect(weightedPerKg([{ goodG: 0, paisePerKg: 100 }])).toBeNull();
+  });
+});
+
+describe("paging", () => {
+  test("never returns an offset the endpoint refuses", () => {
+    expect(nextPageOffset(0, 50, true, 5000)).toEqual({ nextOffset: 50, capped: false });
+    expect(nextPageOffset(4950, 50, true, 5000)).toEqual({ nextOffset: 5000, capped: false });
+    expect(nextPageOffset(5000, 50, true, 5000)).toEqual({ nextOffset: null, capped: true });
+    expect(nextPageOffset(5000, 50, false, 5000)).toEqual({ nextOffset: null, capped: false });
   });
 });
 
@@ -290,6 +317,22 @@ describe("row 52: forecast", () => {
     expect(march).toBeGreaterThan(april);
   });
 
+  test("a month with no orders in either year (index 0) gives finite figures, never NaN", () => {
+    // Feb 2024 .. Jan 2026; January is a shutdown month (0 kg) both years.
+    const series = months("2024-02", Array.from({ length: 24 }, (_, i) => (i === 11 || i === 23 ? 0 : 100 + (i % 12) * 5)));
+    const r = forecastMonths(series, "2026-02", 6);
+    expect(r.method).toBe("ma3_seasonal");
+    expect(r.seasonBp!["01"]).toBe(0);
+    for (const f of r.forecast) expect(Number.isFinite(f.g)).toBe(true);
+    for (const b of r.backtest) expect(Number.isFinite(b.forecastG)).toBe(true);
+    // February is forecast from Nov, Dec and the zero January: the January is left out, not divided by.
+    expect(r.forecast[0]!.g).toBeGreaterThan(0);
+    // The next January stays a shutdown month.
+    const toJan = forecastMonths(months("2024-01", Array.from({ length: 34 }, (_, i) => (i % 12 === 0 ? 0 : 100))), "2026-11", 3);
+    expect(toJan.forecast.find((f) => f.month === "2027-01")!.g).toBe(0);
+    expect(Number.isFinite(toJan.errorBp ?? 0)).toBe(true);
+  });
+
   test("a scenario scales grams by percent", () => {
     expect(scaleByPct(1000, 20)).toBe(1200);
     expect(scaleByPct(1000, -150)).toBe(0);
@@ -326,5 +369,17 @@ describe("row 61: die maintenance", () => {
     expect(p).toMatchObject({ state: "toward_max", slopeMilliPerT: 10, nowMilli: 1030, leftG: 2_000_000 });
     const flat = driftProjection(pts.map((x) => ({ ...x, milli: 1000 })), { minMilli: 950, maxMilli: 1050 }, 3_000_000);
     expect(flat).toMatchObject({ state: "flat", leftG: null });
+  });
+
+  test("drift: a fitted weight already outside the band is 0 left, whichever way the line runs", () => {
+    // Rising slope, but already under the minimum: CodeRabbit's case.
+    const low = driftProjection([{ cumG: 0, milli: 900 }, { cumG: 1_000_000, milli: 910 }, { cumG: 2_000_000, milli: 920 }], { minMilli: 950, maxMilli: 1050 }, 2_000_000);
+    expect(low).toMatchObject({ state: "toward_max", nowMilli: 920, leftG: 0 });
+    // Falling slope, already over the maximum.
+    const high = driftProjection([{ cumG: 0, milli: 1100 }, { cumG: 1_000_000, milli: 1090 }, { cumG: 2_000_000, milli: 1080 }], { minMilli: 950, maxMilli: 1050 }, 2_000_000);
+    expect(high).toMatchObject({ state: "toward_min", leftG: 0 });
+    // Flat but outside the band.
+    const flatOut = driftProjection([0, 1, 2].map((t) => ({ cumG: t * 1_000_000, milli: 1100 })), { minMilli: 950, maxMilli: 1050 }, 2_000_000);
+    expect(flatOut).toMatchObject({ state: "flat", leftG: 0 });
   });
 });
