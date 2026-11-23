@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { OverflowMenu } from "@/features/catalog/overflow-menu";
+import { LabResultsCard } from "@/features/devices/flags";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -276,6 +277,9 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
         </Card>
 
         <ToolRoomBlock copyId={copyId} code={instance.code} />
+
+        {/* XE parity lane DEVICES: scanner and tensile results on this copy. Nothing without the module. */}
+        <LabResultsCard dieInstanceId={copyId} />
 
         <Tabs items={tabItems} value={tab} onValueChange={(id) => onTab(id as CardTab)} label={t("dieRoom.card.title")}>
           {tab === "readings" ? <ReadingsPanel card={card} onAdd={() => setPadOpen(true)} /> : null}

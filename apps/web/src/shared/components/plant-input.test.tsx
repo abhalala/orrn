@@ -136,7 +136,7 @@ describe("the forms that take a weight, length or section weight", () => {
     if (/<BigNumberField[^>]*spec=\{/s.test(s) || /<QtyBox\b/.test(s)) used.set(f.slice(ROOT.length + 1), (used.get(f.slice(ROOT.length + 1)) ?? new Set()).add("MASS_KG"));
   }
   const FORMS = [
-    "features/ageing/batch-sheets.tsx", "features/ageing/masters-pages.tsx", "features/dies/die-form.tsx", "features/die-room/band-form.tsx",
+    "features/ageing/batch-sheets.tsx", "features/ageing/masters-pages.tsx", "features/devices/settings-tab.tsx", "features/devices/weigh-card.tsx", "features/dies/die-form.tsx", "features/die-room/band-form.tsx",
     "features/die-room/card-edit.tsx", "features/die-room/card-maker.tsx", "features/die-room/card-nitriding.tsx", "features/die-room/reading-pad.tsx",
     "features/dispatch/transport-fields.tsx", "features/foundry/close-sheet.tsx", "features/foundry/masters-view.tsx", "features/foundry/melt-steps.tsx",
     "features/foundry/billets-view.tsx", "features/foundry/charge-mix-panel.tsx", "features/foundry/homog-batch-view.tsx", "features/foundry/logs-view.tsx",

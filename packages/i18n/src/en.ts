@@ -29,6 +29,7 @@ import { priceMasterEn } from "./price/master.en";
 import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
+import { dev3En } from "./dev3/dev3.en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
@@ -231,6 +232,7 @@ export const en = {
   },
 
   nav: {
+    devices: "Plant devices",
     qa: "Quality",
     storeBuying: "Buying",
     ageing: "Ageing",
@@ -6545,6 +6547,7 @@ export const en = {
   qa: qaEn,
   store2: store2En,
   maint: maintEn,
+  dev3: dev3En,
 
   reasons: {
     kinds: {

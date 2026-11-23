@@ -34,6 +34,7 @@ import { readKantaG, type KantaReading } from "./kanta";
 import { CancelLotDialog, NoteSheet, StoreSheet, WeightsSheet, useInvalidatePurchase } from "./lot-sheets";
 import { useLotPerms } from "./lot-ui";
 import { LOT_TONE, formatRate, lotNextStep, maxWeightDebitG, type LotStatus } from "./lot-view";
+import { WeighCard } from "@/features/devices/weigh-card";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
 
@@ -317,6 +318,8 @@ function LotDetail({ data }: { data: LotData }) {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <FactsCard data={data} />
         <div className="flex min-w-0 flex-col gap-4">
+          {/* XE parity lane DEVICES: the bridge ticket for this lot. Nothing without the module and a weighing role. */}
+          <WeighCard subjectType="purchase_lot" subjectId={lot.id} closed={status === "ok" || status === "cancelled"} />
           <NotesCard notes={notes} />
           <StockCard ledger={ledger} lot={lot} status={status} />
         </div>

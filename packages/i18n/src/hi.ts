@@ -13,6 +13,7 @@ import { priceMasterHi } from "./price/master.hi";
 import { priceDocsHi } from "./price/docs.hi";
 import { ingestHi } from "./ingest/hi";
 import { admHi } from "./adm/hi";
+import { dev3Hi } from "./dev3/dev3.hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
@@ -223,6 +224,7 @@ export const hi = {
   },
 
   nav: {
+    devices: "प्लांट डिवाइस",
     qa: "गुणवत्ता",
     storeBuying: "स्टोर खरीद",
     ageing: "एजिंग",
@@ -6526,6 +6528,7 @@ export const hi = {
   qa: qaHi,
   store2: store2Hi,
   maint: maintHi,
+  dev3: dev3Hi,
 
   reasons: {
     kinds: {
