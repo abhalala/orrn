@@ -13,6 +13,7 @@ import { priceMasterHi } from "./price/master.hi";
 import { priceDocsHi } from "./price/docs.hi";
 import { ingestHi } from "./ingest/hi";
 import { admHi } from "./adm/hi";
+import { dev3Hi } from "./dev3/dev3.hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
@@ -223,6 +224,7 @@ export const hi = {
   },
 
   nav: {
+    devices: "प्लांट डिवाइस",
     qa: "गुणवत्ता",
     storeBuying: "स्टोर खरीद",
     ageing: "एजिंग",
@@ -3800,6 +3802,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस और भुगतान",
         einvoice: "ई-इनवॉइस और ई-वे बिल",
         maintenance: "मेंटेनेंस",
+        devices: "प्लांट डिवाइस",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3818,6 +3821,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद",
         einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
         maintenance: "एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग",
+        devices: "धर्मकांटा, स्कैनर और टेन्साइल टेस्टर से सीधे रीडिंग, डिवाइस की हालत। चालू करने तक बंद",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6524,6 +6528,7 @@ export const hi = {
   qa: qaHi,
   store2: store2Hi,
   maint: maintHi,
+  dev3: dev3Hi,
 
   reasons: {
     kinds: {
@@ -6704,6 +6709,7 @@ export const hi = {
         billing: "टैक्स इनवॉइस",
         einvoice: "ई-इनवॉइस",
         maintenance: "मेंटेनेंस",
+        devices: "प्लांट डिवाइस",
       },
     },
     letterhead: {
@@ -7231,6 +7237,17 @@ export const hi = {
       portal__user__accept: "पार्टी लॉगिन स्वीकार हुआ",
       portal__user__grant: "पार्टी को लॉगिन दिया",
       portal__user__revoke: "पार्टी लॉगिन बंद किया",
+      plant_device__capture: "डिवाइस का नतीजा गुणवत्ता जांच में लिया",
+      plant_device__enrol: "प्लांट डिवाइस जोड़ा",
+      plant_device__import: "डिवाइस फ़ाइल आयात की",
+      plant_device__revoke: "प्लांट डिवाइस बंद किया",
+      plant_device__set_aside: "डिवाइस रीडिंग अलग रखी",
+      plant_device__settings: "प्लांट डिवाइस सेटिंग बदली",
+      plant_device__token: "प्लांट डिवाइस टोकन बदला",
+      plant_device__update: "प्लांट डिवाइस बदला",
+      plant_device__weigh: "धर्मकांटा टिकट लिया",
+      plant_device__weigh_flagged: "टाइप किया वज़न धर्मकांटे से अलग है",
+      plant_device__weigh_typed: "धर्मकांटे की जगह वज़न टाइप किया",
       qa__check__record: "गुणवत्ता जांच दर्ज",
       qa__hold: "बंडल गुणवत्ता होल्ड पर रखा",
       qa__release: "बंडल गुणवत्ता होल्ड से छोड़ा",

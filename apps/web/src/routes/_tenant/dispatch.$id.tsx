@@ -40,6 +40,7 @@ import { SuggestSheet } from "@/features/dispatch/suggest-sheet";
 import { useFreshSerials } from "@/features/dispatch/use-fresh";
 import { useScan, type AddBundlesReport } from "@/features/scan/scan-context";
 import { addOutcome, renderScanMessage } from "@/features/scan/scan-outcome";
+import { WeighCard } from "@/features/devices/weigh-card";
 import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
@@ -343,6 +344,9 @@ function DispatchDetail({ data }: { data: DetailData }) {
       {status !== "completed" ? <CapacityBanner capacity={data.capacity} /> : null}
 
       {truckData ? <TruckPanel truck={truckData} currentId={d.id} canAdd={editable} /> : null}
+
+      {/* XE parity lane DEVICES: the truck's bridge ticket. Nothing without the module and a weighing role. */}
+      <WeighCard subjectType="dispatch" subjectId={d.id} closed={status === "cancelled" || status === "completed"} />
 
       {data.salesOrder && status !== "cancelled" ? <OrderPanel order={data.salesOrder} items={items} editable={editable} /> : null}
 

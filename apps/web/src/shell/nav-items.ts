@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   BookOpen,
   BookMarked,
+  Cable,
   Boxes,
   Building2,
   FileText,
@@ -39,7 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "devices";
 
 export type NavItem = {
   key: string;
@@ -96,6 +97,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
   // XE parity lane QA: what waits for a check, quality holds, registers and instruments.
   { key: "qa", to: "/qa", labelKey: "nav.qa", icon: BadgeCheck, requires: QA_PEOPLE, module: "qa" },
+  // XE parity lane DEVICES: weighbridge, scanner and tensile tester connections. Opt-in module, hidden while it is off.
+  { key: "devices", to: "/devices", labelKey: "nav.devices", icon: Cable, requires: ["device.view", "device.manage"], module: "devices" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   // XE parity REG: the complaint register and the owner's morning page.

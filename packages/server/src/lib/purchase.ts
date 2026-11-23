@@ -2,6 +2,10 @@
  * Scrap purchase helpers (spec P14): name keys for vendor/alias lookup, the D/C tolerance rule,
  * the ledger item reference for scrap, and the default scrap masters.
  */
+import { sql, type SQL } from "drizzle-orm";
+
+import { dcNote } from "@orrn/db/schema/purchase";
+
 import { DEFAULT_TIMEZONE, isValidTimezone, zonedYmd } from "./dayWindow";
 
 /** D/C tolerance when `settings.dcTolerancePct` is not set: 50 bp = 0.5 % of the party weight. */
@@ -92,3 +96,10 @@ export const DEFAULT_SCRAP_ITEMS: readonly string[] = [
 
 /** GSTIN shape: 2-digit state, PAN (5 letters, 4 digits, letter), entity, Z, checksum. */
 export const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+/** SQL over the outer `purchase_lot` row: the write-time form of `hasWeightLockingNote`. */
+export function lotHasWeightLockingNote(): SQL {
+  const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
+  return sql`exists (select 1 from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
+    and n.status in ('pending', 'approved') and ((n.type = 'debit' and n.reason = 'weight') or n.bori_deduction_g > 0))`;
+}

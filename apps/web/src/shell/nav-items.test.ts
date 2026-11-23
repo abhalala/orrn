@@ -102,10 +102,12 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // Billing is opt-in: a plant with no modules named has it off, and naming it turns it on without touching the rest.
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 1);
+    // Billing and plant devices are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 2);
     expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
-    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length);
+    expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("devices");
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - 1);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "devices"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
@@ -119,6 +121,20 @@ describe("visibleItems", () => {
     expect(more("packer")).not.toContain("purchase");
     expect(more("packer")).not.toContain("approvals");
     expect(more("press")).not.toContain("purchase");
+  });
+
+  test("Plant devices for the roles that read or manage devices, hidden unless the devices module is named (XE-DEVICES)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("devices");
+    for (const role of ["owner", "admin", "manager", "supervisor", "office", "storekeeper"] as const) {
+      expect({ role, devices: has(role, ["devices"]) }).toEqual({ role, devices: true });
+    }
+    for (const role of ["operator", "viewer", "packer", "press", "foundry", "die_room", "accountant"] as const) {
+      expect({ role, devices: has(role, ["devices"]) }).toEqual({ role, devices: false });
+    }
+    // Opt-in: an empty module list means off, and naming other modules does not turn it on.
+    expect(has("owner")).toBe(false);
+    expect(has("owner", ["qa"])).toBe(false);
+    expect(has("owner", ["devices"])).toBe(true);
   });
 
   test("Prices for people who read prices or run enquiries, hidden when the pricing module is off (XE-PRICE)", () => {

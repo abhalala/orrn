@@ -12,6 +12,7 @@ import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { TodayFoundryTile } from "@/features/foundry/today-tile";
 import { TodayStoreLowTile } from "@/features/store-buy/today-tile";
 import { TodayAgeingTile } from "@/features/ageing/today-tile";
+import { TodayDevicesTile } from "@/features/devices/flags";
 import { TodayQaTile } from "@/features/qa/flags";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { TodayOldStockTile } from "@/features/reports/today-old-stock";
@@ -211,6 +212,8 @@ export function TodayScreen() {
       {/* XE parity lane QA: quality holds and instruments overdue; nothing without a quality role or the module. */}
       <TodayQaTile />
       <TodayMaintTile />
+      {/* XE parity lane DEVICES: how many plant devices are live; nothing without the module or device.view. */}
+      <TodayDevicesTile />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>

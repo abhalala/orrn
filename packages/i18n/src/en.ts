@@ -29,6 +29,7 @@ import { priceMasterEn } from "./price/master.en";
 import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
+import { dev3En } from "./dev3/dev3.en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
@@ -231,6 +232,7 @@ export const en = {
   },
 
   nav: {
+    devices: "Plant devices",
     qa: "Quality",
     storeBuying: "Buying",
     ageing: "Ageing",
@@ -3813,6 +3815,7 @@ export const en = {
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
         maintenance: "Maintenance",
+        devices: "Plant devices",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3831,6 +3834,7 @@ export const en = {
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
         maintenance: "Assets, preventive plans, work orders and machine readings",
+        devices: "Weighbridge, scanner and tensile tester capture, device health. Off until switched on",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6543,6 +6547,7 @@ export const en = {
   qa: qaEn,
   store2: store2En,
   maint: maintEn,
+  dev3: dev3En,
 
   reasons: {
     kinds: {
@@ -6723,6 +6728,7 @@ export const en = {
         billing: "Tax invoices",
         einvoice: "E-invoice",
         maintenance: "Maintenance",
+        devices: "Plant devices",
       },
     },
     letterhead: {
@@ -7250,6 +7256,17 @@ export const en = {
       portal__user__accept: "Party login accepted",
       portal__user__grant: "Party login given",
       portal__user__revoke: "Party login turned off",
+      plant_device__capture: "Device result taken into a quality check",
+      plant_device__enrol: "Plant device enrolled",
+      plant_device__import: "Device file imported",
+      plant_device__revoke: "Plant device revoked",
+      plant_device__set_aside: "Device reading set aside",
+      plant_device__settings: "Plant device settings changed",
+      plant_device__token: "Plant device token changed",
+      plant_device__update: "Plant device changed",
+      plant_device__weigh: "Weighbridge ticket taken",
+      plant_device__weigh_flagged: "Typed weight differs from the weighbridge",
+      plant_device__weigh_typed: "Weight typed instead of the weighbridge",
       qa__check__record: "Quality check recorded",
       qa__hold: "Bundle put on quality hold",
       qa__release: "Bundle released from quality hold",

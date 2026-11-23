@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
+Counts: 12390 screen strings in 60 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,10 +191,11 @@ Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (96)
+### nav (97)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `devices` | Plant devices | प्लांट डिवाइस |
 | `qa` | Quality | गुणवत्ता |
 | `storeBuying` | Buying | स्टोर खरीद |
 | `ageing` | Ageing | एजिंग |
@@ -3163,7 +3164,7 @@ Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (396)
+### admin (398)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3382,6 +3383,7 @@ Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
 | `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
+| `plan.moduleNames.devices` | Plant devices | प्लांट डिवाइस |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3398,6 +3400,7 @@ Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
 | `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
+| `plan.moduleHints.devices` | Weighbridge, scanner and tensile tester capture, device health. Off until switched on | धर्मकांटा, स्कैनर और टेन्साइल टेस्टर से सीधे रीडिंग, डिवाइस की हालत। चालू करने तक बंद |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -10989,6 +10992,265 @@ Please check, Lalubhai:
 | `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
 | `reports.rate.loadFailed` | Could not load the labour rate. | मजदूरी का रेट नहीं खुला। |
 
+### dev3 (254)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Plant devices | प्लांट डिवाइस |
+| `subtitle` | Weighbridge, scanner and tensile tester connections, and what they sent. | वेब्रिज, स्कैनर और टेंसाइल टेस्टर के कनेक्शन, और उन्होंने क्या भेजा। |
+| `moduleOff` | Plant devices are off for this plant. Ask orrn support to turn them on. | इस प्लांट के लिए प्लांट डिवाइस बंद हैं। orrn सपोर्ट से चालू करवाएँ। |
+| `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर कोशिश करें। |
+| `failed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
+| `saved` | Saved | सेव हुआ |
+| `required` | Fill this in. | इसे भरें। |
+| `errors.conflict` | This changed, or it already exists. Open it again and check. | यह बदल गया है, या पहले से मौजूद है। इसे फिर से खोलकर देखें। |
+| `errors.notFound` | Not found. It may have been removed. | नहीं मिला। हो सकता है इसे हटा दिया गया हो। |
+| `errors.forbidden` | You don't have permission to do that. | आपको यह करने की अनुमति नहीं है। |
+| `tabs.devices` | Devices | डिवाइस |
+| `tabs.readings` | Readings | रीडिंग |
+| `tabs.weigh` | Weigh checks | तौल की जाँच |
+| `tabs.lab` | Lab | लैब |
+| `tabs.import` | Import file | फ़ाइल लाएँ |
+| `tabs.settings` | Settings | सेटिंग |
+| `health.live` | Live | चालू |
+| `health.late` | Late | देर से |
+| `health.silent` | Silent | चुप |
+| `health.never` | Never seen | कभी नहीं दिखा |
+| `health.revoked` | Revoked | रद्द |
+| `sim` | Sim | सिम |
+| `simTitle` | Simulated. This is not a real machine. | नकली (सिम्युलेटेड)। यह असली मशीन नहीं है। |
+| `kind.weighbridge` | Weighbridge | वेब्रिज |
+| `kind.profile_scanner` | Profile scanner | प्रोफ़ाइल स्कैनर |
+| `kind.utm` | Tensile tester | टेंसाइल टेस्टर |
+| `kind.spectro` | Spectrometer | स्पेक्ट्रोमीटर |
+| `kind.scale` | Scale | कांटा |
+| `kind.plc` | Press controller | प्रेस कंट्रोलर |
+| `kind.oven` | Ageing oven | एजिंग ओवन |
+| `protocol.modbus_tcp` | Modbus TCP | Modbus TCP |
+| `protocol.opc_ua` | OPC UA | OPC UA |
+| `protocol.serial` | Serial port | सीरियल पोर्ट |
+| `protocol.file` | File drop | फ़ाइल ड्रॉप |
+| `protocol.sim` | Simulator | सिम्युलेटर |
+| `devices.title` | Enrolled devices | जुड़े हुए डिवाइस |
+| `devices.hint` | Each device has its own token. A device that stops calling in shows Late, then Silent. | हर डिवाइस का अपना टोकन है। जो डिवाइस संदेश भेजना बंद कर दे वह पहले देर से, फिर चुप दिखता है। |
+| `devices.empty` | No devices enrolled yet. | अभी कोई डिवाइस नहीं जुड़ा। |
+| `devices.enrol` | Enrol a device | डिवाइस जोड़ें |
+| `devices.strip.total` | Devices | डिवाइस |
+| `devices.strip.live` | Live | चालू |
+| `devices.strip.late` | Late | देर से |
+| `devices.strip.silent` | Silent | चुप |
+| `devices.strip.never` | Never seen | कभी नहीं दिखा |
+| `devices.strip.simulated` | Simulated | नकली |
+| `devices.cols.code` | Code | कोड |
+| `devices.cols.label` | Name | नाम |
+| `devices.cols.kind` | Kind | किस्म |
+| `devices.cols.protocol` | Connection | कनेक्शन |
+| `devices.cols.box` | Edge box | एज बॉक्स |
+| `devices.cols.health` | State | हालत |
+| `devices.cols.seen` | Last seen | आखिरी बार दिखा |
+| `devices.cols.token` | Token | टोकन |
+| `devices.cols.actions` | Actions | काम |
+| `devices.never` | Never | कभी नहीं |
+| `devices.noBox` | Not set | तय नहीं |
+| `devices.tokenEnds` | ends {hint} | अंत {hint} |
+| `devices.edit` | Edit | बदलें |
+| `devices.rotate` | New token | नया टोकन |
+| `devices.revoke` | Revoke | रद्द करें |
+| `devices.revokedWhy` | Revoked: {reason} | रद्द: {reason} |
+| `devices.connected.title` | Already connected | पहले से जुड़े |
+| `devices.connected.hint` | Edge boxes and collectors that were on the plant before. You can only read these. | एज बॉक्स और कलेक्टर जो पहले से प्लांट में लगे हैं। इन्हें सिर्फ़ देखा जा सकता है। |
+| `devices.connected.empty` | Nothing else is connected yet. | और कुछ अभी जुड़ा नहीं है। |
+| `devices.connected.cols.source` | Source | स्रोत |
+| `devices.connected.cols.kind` | Kind | किस्म |
+| `devices.connected.cols.health` | State | हालत |
+| `devices.connected.cols.seen` | Last seen | आखिरी बार दिखा |
+| `devices.connected.kind.edge_node` | Edge box | एज बॉक्स |
+| `devices.connected.kind.scale` | Scale | कांटा |
+| `devices.connected.kind.press_frames` | Press readings | प्रेस रीडिंग |
+| `devices.connected.kind.spectro` | Spectro files | स्पेक्ट्रो फ़ाइलें |
+| `devices.connected.kind.oven` | Oven readings | ओवन रीडिंग |
+| `enrol.title` | Enrol a device | डिवाइस जोड़ें |
+| `enrol.hint` | You get a token once. Copy it to the edge box right after this. | टोकन एक ही बार मिलता है। इसके तुरंत बाद उसे एज बॉक्स पर कॉपी कर लें। |
+| `enrol.code` | Device code | डिवाइस कोड |
+| `enrol.codeHint` | 2 to 24 letters, digits or dashes, like WB-1. | 2 से 24 अक्षर, अंक या डैश, जैसे WB-1। |
+| `enrol.codeBad` | Use 2 to 24 letters, digits or dashes. | 2 से 24 अक्षर, अंक या डैश डालें। |
+| `enrol.label` | Name | नाम |
+| `enrol.kind` | Kind | किस्म |
+| `enrol.protocol` | Connection | कनेक्शन |
+| `enrol.box` | Edge box | एज बॉक्स |
+| `enrol.boxNone` | No edge box yet | अभी कोई एज बॉक्स नहीं |
+| `enrol.simulated` | This is a simulated device, for trying things out | यह नकली डिवाइस है, आज़माने के लिए |
+| `enrol.heartbeat` | Heartbeat in seconds | हार्टबीट (सेकंड) |
+| `enrol.heartbeatHint` | How often the device should call in. 10 to 3600. | डिवाइस कितनी देर में संदेश भेजे। 10 से 3600। |
+| `enrol.heartbeatBad` | Use a whole number from 10 to 3600. | 10 से 3600 के बीच पूरी संख्या डालें। |
+| `enrol.submit` | Enrol device | डिवाइस जोड़ें |
+| `token.title` | Token for {code} | {code} का टोकन |
+| `token.shownOnce` | Shown once. Copy it to the edge box now. It cannot be shown again. | यह एक ही बार दिखता है। अभी इसे एज बॉक्स पर कॉपी कर लें। दोबारा नहीं दिखेगा। |
+| `token.copy` | Copy token | टोकन कॉपी करें |
+| `token.copied` | Copied | कॉपी हो गया |
+| `token.done` | I have copied it | मैंने कॉपी कर लिया |
+| `token.rotated` | The old token has stopped working. | पुराना टोकन चलना बंद हो गया है। |
+| `edit.title` | Edit {code} | {code} बदलें |
+| `edit.hint` | Kind and connection cannot change. Enrol a new device for that. | किस्म और कनेक्शन नहीं बदलते। उसके लिए नया डिवाइस जोड़ें। |
+| `edit.save` | Save | सेव करें |
+| `rotate.title` | New token for {code} | {code} का नया टोकन |
+| `rotate.body` | The old token stops working at once. Put the new one on the edge box. | पुराना टोकन उसी पल चलना बंद हो जाता है। नया टोकन एज बॉक्स पर लगाएँ। |
+| `rotate.confirm` | Make new token | नया टोकन बनाएँ |
+| `revoke.title` | Revoke {code} | {code} रद्द करें |
+| `revoke.body` | The device is no longer accepted. Its readings stay. | डिवाइस अब मंज़ूर नहीं होगा। उसकी रीडिंग रहेंगी। |
+| `revoke.reason` | Why | क्यों |
+| `revoke.reasonHint` | At least 3 letters. | कम से कम 3 अक्षर। |
+| `revoke.confirm` | Revoke device | डिवाइस रद्द करें |
+| `revoke.done` | Revoked | रद्द हुआ |
+| `readings.title` | Readings | रीडिंग |
+| `readings.hint` | What the devices sent, newest first. Simulated readings are marked Sim. | डिवाइसों ने जो भेजा, नया ऊपर। नकली रीडिंग पर सिम लिखा है। |
+| `readings.all` | All | सब |
+| `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
+| `readings.show` | Show | दिखाएँ |
+| `readings.cols.when` | When | कब |
+| `readings.cols.kind` | Kind | किस्म |
+| `readings.cols.ticket` | Ticket | टिकट |
+| `readings.cols.vehicle` | Truck | ट्रक |
+| `readings.cols.gross` | Gross | ग्रॉस |
+| `readings.cols.tare` | Tare | टेयर |
+| `readings.cols.net` | Net | नेट |
+| `readings.cols.sample` | Sample | सैंपल |
+| `readings.cols.source` | From | कहाँ से |
+| `readings.source.push` | Device | डिवाइस |
+| `readings.source.file` | File | फ़ाइल |
+| `readings.unconfirmed` | Time not confirmed | समय पक्का नहीं |
+| `readings.unconfirmedHint` | The device clock was off, so this time is a best guess. | डिवाइस की घड़ी गलत थी, इसलिए यह समय अंदाज़े का है। |
+| `readings.points` | {count} points | {count} बिंदु |
+| `readings.tensile` | Tensile {tensile}, yield {yield}, elongation {elong} | टेंसाइल {tensile}, यील्ड {yield}, एलॉन्गेशन {elong} |
+| `weigh.title` | Weights that differ from the bridge | ब्रिज से अलग वज़न |
+| `weigh.hint` | A scrap lot or a truck where the weight on record is not what the bridge ticket says, beyond the allowed difference. | वह स्क्रैप लॉट या ट्रक जिसका दर्ज वज़न ब्रिज टिकट से तय सीमा से ज़्यादा अलग है। |
+| `weigh.empty` | Nothing differs from the bridge. | कुछ भी ब्रिज से अलग नहीं है। |
+| `weigh.cols.number` | Number | नंबर |
+| `weigh.cols.kind` | On | किस पर |
+| `weigh.cols.bridge` | Bridge | ब्रिज |
+| `weigh.cols.record` | On record | दर्ज |
+| `weigh.cols.reason` | Reason | वजह |
+| `weigh.cols.when` | When | कब |
+| `weigh.lot` | Scrap lot | स्क्रैप लॉट |
+| `weigh.dispatch` | Dispatch | डिस्पैच |
+| `weigh.typed` | Typed | हाथ से भरा |
+| `lab.title` | Lab inbox | लैब इनबॉक्स |
+| `lab.hint` | Scanner and tensile results that are not on a check yet. Attach each to a run, bundle or batch, or set it aside. | स्कैनर और टेंसाइल के नतीजे जो अभी किसी जाँच पर नहीं हैं। हर एक को रन, बंडल या बैच से जोड़ें, या अलग रख दें। |
+| `lab.empty` | Nothing waiting. | कुछ इंतज़ार में नहीं। |
+| `lab.cols.when` | When | कब |
+| `lab.cols.kind` | Kind | किस्म |
+| `lab.cols.sample` | Sample | सैंपल |
+| `lab.cols.result` | Result | नतीजा |
+| `lab.cols.actions` | Actions | काम |
+| `lab.kind.dimension` | Dimensions | नाप |
+| `lab.kind.mechanical` | Tensile test | टेंसाइल टेस्ट |
+| `lab.noSample` | No code | कोड नहीं |
+| `lab.attach` | Attach | जोड़ें |
+| `lab.attachTitle` | Attach to a check | जाँच से जोड़ें |
+| `lab.attachHint` | Type a press run, bundle or ageing batch number. The reading becomes a quality check. | प्रेस रन, बंडल या एजिंग बैच का नंबर लिखें। रीडिंग गुणवत्ता जाँच बन जाती है। |
+| `lab.code` | Run, bundle or batch number | रन, बंडल या बैच का नंबर |
+| `lab.attached` | Attached | जोड़ दिया |
+| `lab.setAside` | Set aside | अलग रखें |
+| `lab.asideTitle` | Set this reading aside | इस रीडिंग को अलग रखें |
+| `lab.asideHint` | A test piece or a wrong code. It leaves the inbox and stays on record. | टेस्ट पीस या गलत कोड। यह इनबॉक्स से हट जाती है और रिकॉर्ड में रहती है। |
+| `lab.reason` | Reason | वजह |
+| `lab.reasonHint` | At least 3 letters. | कम से कम 3 अक्षर। |
+| `lab.asideDone` | Set aside | अलग रखा |
+| `lab.spectro.title` | Spectro files waiting | इंतज़ार में स्पेक्ट्रो फ़ाइलें |
+| `lab.spectro.hint` | A person attaches each spectro file to a cast. It is not done here. | हर स्पेक्ट्रो फ़ाइल को कोई व्यक्ति कास्ट से जोड़ता है। यह यहाँ नहीं होता। |
+| `lab.spectro.empty` | No spectro files waiting. | कोई स्पेक्ट्रो फ़ाइल इंतज़ार में नहीं। |
+| `lab.spectro.open` | Open the spectro inbox | स्पेक्ट्रो इनबॉक्स खोलें |
+| `lab.spectro.file` | File | फ़ाइल |
+| `lab.spectro.sample` | Sample | सैंपल |
+| `lab.spectro.added` | Came in | आई |
+| `import.title` | Import a file | फ़ाइल लाएँ |
+| `import.hint` | For a device PC that cannot call in. Load the same file twice and nothing is added twice. | उस डिवाइस PC के लिए जो खुद संदेश नहीं भेज सकता। एक ही फ़ाइल दो बार लाने पर कुछ दोबारा नहीं जुड़ता। |
+| `import.weighbridge.title` | Weighbridge tickets | वेब्रिज टिकट |
+| `import.weighbridge.hint` | The ticket export from the bridge PC. | ब्रिज PC से निकाली टिकट फ़ाइल। |
+| `import.lab.title` | Lab results | लैब नतीजे |
+| `import.lab.hint` | A scanner dimension export or a tensile tester export. Rows that name a run become quality checks. | स्कैनर की नाप फ़ाइल या टेंसाइल टेस्टर की फ़ाइल। जिन पंक्तियों में रन का नाम है वे गुणवत्ता जाँच बन जाती हैं। |
+| `import.lab.kind` | What is in the file | फ़ाइल में क्या है |
+| `import.lab.dimension` | Dimensions from the scanner | स्कैनर से नाप |
+| `import.lab.mechanical` | Tensile test results | टेंसाइल टेस्ट के नतीजे |
+| `import.unit` | Weights in the file are in | फ़ाइल में वज़न इसमें है |
+| `import.unitHint` | Pick the unit the file uses. There is no default. | फ़ाइल जिस इकाई में है वही चुनें। कोई डिफ़ॉल्ट नहीं है। |
+| `import.unitPick` | Pick a unit | इकाई चुनें |
+| `import.unitKg` | Kilograms | किलोग्राम |
+| `import.unitT` | Tonnes | टन |
+| `import.unitNeeded` | Pick the unit first. | पहले इकाई चुनें। |
+| `import.device` | Device | डिवाइस |
+| `import.deviceHint` | Optional. Leave empty if no device is enrolled for this PC. | वैकल्पिक। इस PC का डिवाइस जुड़ा न हो तो खाली छोड़ें। |
+| `import.deviceRequired` | Pick the weighbridge this file came from. | जिस वेब्रिज की यह फ़ाइल है उसे चुनें। |
+| `import.deviceNone` | No weighbridge is enrolled yet. Enrol one on the Devices tab first. | अभी कोई वेब्रिज नहीं जुड़ा। पहले डिवाइस टैब में एक जोड़ें। |
+| `import.devicePick` | Pick a weighbridge | वेब्रिज चुनें |
+| `import.deviceNeeded` | Pick the weighbridge first. | पहले वेब्रिज चुनें। |
+| `import.anyDevice` | No device | कोई डिवाइस नहीं |
+| `import.file` | File | फ़ाइल |
+| `import.fileHint` | A CSV file, up to 512 KB. | CSV फ़ाइल, 512 KB तक। |
+| `import.tooBig` | That file is over 512 KB. Split it and import in parts. | फ़ाइल 512 KB से बड़ी है। उसे बाँटकर हिस्सों में लाएँ। |
+| `import.noFile` | Pick a file first. | पहले फ़ाइल चुनें। |
+| `import.readFailed` | The file could not be read. | फ़ाइल पढ़ी नहीं जा सकी। |
+| `import.run` | Import | लाएँ |
+| `import.result` | Added {added}. Already held {duplicate}. | जुड़े {added}। पहले से थे {duplicate}। |
+| `import.resultLab` | Added {added}. Already held {duplicate}. On a check {captured}. Waiting in the inbox {waiting}. | जुड़े {added}। पहले से थे {duplicate}। जाँच पर लगे {captured}। इनबॉक्स में इंतज़ार {waiting}। |
+| `import.errorsTitle` | Lines that were not read | जो पंक्तियाँ पढ़ी नहीं गईं |
+| `import.line` | Line {line} | पंक्ति {line} |
+| `import.codes.bad_number` | A number could not be read | कोई संख्या पढ़ी नहीं जा सकी |
+| `import.codes.bad_time` | The date or time could not be read | तारीख या समय पढ़ा नहीं जा सका |
+| `import.codes.missing` | A needed column is empty | ज़रूरी कॉलम खाली है |
+| `import.codes.net_mismatch` | Gross minus tare is not the net | ग्रॉस में से टेयर घटाने पर नेट नहीं बनता |
+| `import.codes.tare_above_gross` | Tare is more than gross | टेयर ग्रॉस से ज़्यादा है |
+| `import.codes.too_many` | More than 500 rows in the file | फ़ाइल में 500 से ज़्यादा पंक्तियाँ हैं |
+| `import.codes.other` | This line could not be read | यह पंक्ति पढ़ी नहीं जा सकी |
+| `settings.title` | Device settings | डिवाइस सेटिंग |
+| `settings.tolerance` | Weigh tolerance in percent | तौल की छूट, प्रतिशत में |
+| `settings.toleranceHint` | A typed weight may differ from the bridge ticket by this share of the net. | हाथ से भरा वज़न ब्रिज टिकट के नेट से इतने हिस्से तक अलग हो सकता है। |
+| `settings.toleranceBad` | Use a number from 0 to 10, with up to 2 decimals. | 0 से 10 तक की संख्या डालें, दशमलव के 2 अंक तक। |
+| `settings.min` | Smallest difference allowed | कम से कम अलग हो सकने वाला वज़न |
+| `settings.minHint` | Or this weight, whichever is larger. | या यह वज़न, जो भी ज़्यादा हो। |
+| `settings.minBad` | Enter a weight. | वज़न डालें। |
+| `settings.heartbeat` | Heartbeat in seconds | हार्टबीट (सेकंड) |
+| `settings.heartbeatHint` | A device not heard from in 2 beats is Late, in 10 beats Silent. | 2 बीट तक न सुनाई दे तो देर से, 10 बीट तक न सुनाई दे तो चुप। |
+| `settings.heartbeatBad` | Use a whole number from 10 to 3600. | 10 से 3600 के बीच पूरी संख्या डालें। |
+| `settings.save` | Save | सेव करें |
+| `settings.readOnly` | Only a manager or admin can change these. | इन्हें सिर्फ़ मैनेजर या एडमिन बदल सकता है। |
+| `card.lot` | Weighbridge | वेब्रिज |
+| `card.truck` | Truck weight | ट्रक का वज़न |
+| `card.ticketNet` | Ticket {ticket}, net {kg} {massUnit} | टिकट {ticket}, नेट {kg} {massUnit} |
+| `card.typedLine` | Typed: {kg} {massUnit}, reason: {reason} | हाथ से भरा: {kg} {massUnit}, वजह: {reason} |
+| `card.none` | No weight from the bridge yet. | ब्रिज से अभी कोई वज़न नहीं आया। |
+| `card.kanta` | Differs from the bridge by {diff} {massUnit}, more than the allowed {allowed} {massUnit} | ब्रिज से {diff} {massUnit} अलग है, तय सीमा {allowed} {massUnit} से ज़्यादा |
+| `card.kantaOk` | Matches the bridge, inside the allowed {allowed} {massUnit} | ब्रिज से मेल खाता है, तय सीमा {allowed} {massUnit} के भीतर |
+| `card.loadTitle` | Truck net against the bundles on it | ट्रक का नेट और उस पर लदे बंडल |
+| `card.loadFlag` | Differs by {diff} {massUnit}, more than the allowed {allowed} {massUnit} | {diff} {massUnit} का फ़र्क़ है, तय सीमा {allowed} {massUnit} से ज़्यादा |
+| `card.loadOk` | Inside the allowed {allowed} {massUnit} | तय सीमा {allowed} {massUnit} के भीतर |
+| `card.pick` | Pick a ticket | टिकट चुनें |
+| `card.sameTruck` | Same truck | यही ट्रक |
+| `card.others` | Other tickets | दूसरे टिकट |
+| `card.noTickets` | No tickets from the last day. | पिछले एक दिन का कोई टिकट नहीं। |
+| `card.use` | Use this ticket | यह टिकट लें |
+| `card.simNoUse` | A simulated ticket is not a weight | नकली टिकट वज़न नहीं माना जाता |
+| `card.typeInstead` | Type the weight instead | वज़न हाथ से भरें |
+| `card.typeTitle` | Type the weight | वज़न भरें |
+| `card.typeHint` | Use this when the bridge is down or the ticket is missing. A reason is kept on record. | ब्रिज बंद हो या टिकट न मिले तब इसे इस्तेमाल करें। वजह रिकॉर्ड में रहती है। |
+| `card.weight` | Weight | वज़न |
+| `card.reason` | Reason | वजह |
+| `card.reasonHint` | At least 3 letters. | कम से कम 3 अक्षर। |
+| `card.save` | Save weight | वज़न सेव करें |
+| `card.saved` | Weight saved | वज़न सेव हुआ |
+| `card.ticketPair` | {ticket}, {vehicle} | {ticket}, {vehicle} |
+| `card.truckNo` | Truck {vehicle} | ट्रक {vehicle} |
+| `labCard.title` | Scanner and tensile results | स्कैनर और टेंसाइल के नतीजे |
+| `labCard.empty` | No device results on this yet. | इस पर अभी डिवाइस का कोई नतीजा नहीं। |
+| `labCard.outOfTolerance` | {count} out of tolerance | {count} सीमा से बाहर |
+| `labCard.allIn` | All inside tolerance | सब सीमा के भीतर |
+| `labCard.deviceBy` | from {code} | {code} से |
+| `labCard.flagged` | Out: {names} | बाहर: {names} |
+| `today.title` | Plant devices | प्लांट डिवाइस |
+| `today.open` | Open plant devices | प्लांट डिवाइस खोलें |
+| `today.meta` | {live} live, {late} late, {silent} silent | {live} चालू, {late} देर से, {silent} चुप |
+| `today.simulated` | {count} simulated | {count} नकली |
+
 ### reasons (93)
 
 | Key | English | हिंदी |
@@ -11087,7 +11349,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (56)
+### plantSettings (57)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11133,6 +11395,7 @@ Please check, Lalubhai:
 | `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `modules.names.maintenance` | Maintenance | मेंटेनेंस |
+| `modules.names.devices` | Plant devices | प्लांट डिवाइस |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -11272,7 +11535,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (479)
+### audit (490)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11642,6 +11905,17 @@ Please check, Lalubhai:
 | `actions.portal__user__accept` | Party login accepted | पार्टी लॉगिन स्वीकार हुआ |
 | `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
 | `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
+| `actions.plant_device__capture` | Device result taken into a quality check | डिवाइस का नतीजा गुणवत्ता जांच में लिया |
+| `actions.plant_device__enrol` | Plant device enrolled | प्लांट डिवाइस जोड़ा |
+| `actions.plant_device__import` | Device file imported | डिवाइस फ़ाइल आयात की |
+| `actions.plant_device__revoke` | Plant device revoked | प्लांट डिवाइस बंद किया |
+| `actions.plant_device__set_aside` | Device reading set aside | डिवाइस रीडिंग अलग रखी |
+| `actions.plant_device__settings` | Plant device settings changed | प्लांट डिवाइस सेटिंग बदली |
+| `actions.plant_device__token` | Plant device token changed | प्लांट डिवाइस टोकन बदला |
+| `actions.plant_device__update` | Plant device changed | प्लांट डिवाइस बदला |
+| `actions.plant_device__weigh` | Weighbridge ticket taken | धर्मकांटा टिकट लिया |
+| `actions.plant_device__weigh_flagged` | Typed weight differs from the weighbridge | टाइप किया वज़न धर्मकांटे से अलग है |
+| `actions.plant_device__weigh_typed` | Weight typed instead of the weighbridge | धर्मकांटे की जगह वज़न टाइप किया |
 | `actions.qa__check__record` | Quality check recorded | गुणवत्ता जांच दर्ज |
 | `actions.qa__hold` | Bundle put on quality hold | बंडल गुणवत्ता होल्ड पर रखा |
 | `actions.qa__release` | Bundle released from quality hold | बंडल गुणवत्ता होल्ड से छोड़ा |

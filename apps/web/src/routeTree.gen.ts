@@ -22,6 +22,7 @@ import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantQaRouteImport } from './routes/_tenant/qa'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantOwnerRouteImport } from './routes/_tenant/owner'
+import { Route as TenantDevicesRouteImport } from './routes/_tenant/devices'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
 import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
@@ -284,6 +285,11 @@ const TenantPrintingRoute = TenantPrintingRouteImport.update({
 const TenantOwnerRoute = TenantOwnerRouteImport.update({
   id: '/owner',
   path: '/owner',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDevicesRoute = TenantDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
@@ -1361,6 +1367,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/devices': typeof TenantDevicesRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
   '/qa': typeof TenantQaRoute
@@ -1574,6 +1581,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/devices': typeof TenantDevicesRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
   '/qa': typeof TenantQaRoute
@@ -1792,6 +1800,7 @@ export interface FileRoutesById {
   '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
+  '/_tenant/devices': typeof TenantDevicesRoute
   '/_tenant/owner': typeof TenantOwnerRoute
   '/_tenant/printing': typeof TenantPrintingRouteWithChildren
   '/_tenant/qa': typeof TenantQaRoute
@@ -2008,6 +2017,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/audit'
     | '/dashboard'
+    | '/devices'
     | '/owner'
     | '/printing'
     | '/qa'
@@ -2221,6 +2231,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/audit'
     | '/dashboard'
+    | '/devices'
     | '/owner'
     | '/printing'
     | '/qa'
@@ -2438,6 +2449,7 @@ export interface FileRouteTypes {
     | '/_tenant/approvals'
     | '/_tenant/audit'
     | '/_tenant/dashboard'
+    | '/_tenant/devices'
     | '/_tenant/owner'
     | '/_tenant/printing'
     | '/_tenant/qa'
@@ -2735,6 +2747,13 @@ declare module '@tanstack/react-router' {
       path: '/owner'
       fullPath: '/owner'
       preLoaderRoute: typeof TenantOwnerRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/devices': {
+      id: '/_tenant/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof TenantDevicesRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/dashboard': {
@@ -4300,6 +4319,7 @@ interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
   TenantAuditRoute: typeof TenantAuditRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
+  TenantDevicesRoute: typeof TenantDevicesRoute
   TenantOwnerRoute: typeof TenantOwnerRoute
   TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
   TenantQaRoute: typeof TenantQaRoute
@@ -4473,6 +4493,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
   TenantAuditRoute: TenantAuditRoute,
   TenantDashboardRoute: TenantDashboardRoute,
+  TenantDevicesRoute: TenantDevicesRoute,
   TenantOwnerRoute: TenantOwnerRoute,
   TenantPrintingRoute: TenantPrintingRouteWithChildren,
   TenantQaRoute: TenantQaRoute,
