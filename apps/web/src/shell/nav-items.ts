@@ -18,6 +18,7 @@ import {
   ListChecks,
   PackagePlus,
   Printer,
+  Tags,
   Rocket,
   Scale,
   ScrollText,
@@ -34,7 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing";
 
 export type NavItem = {
   key: string;
@@ -98,6 +99,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
+  // XE-PRICE: the price master, quotes and enquiries. People who read prices or run enquiries.
+  { key: "pricing", to: "/pricing", labelKey: "nav.pricing", icon: Tags, requires: ["price.view", "enquiry.manage"], module: "pricing" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
   { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },

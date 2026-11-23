@@ -42,6 +42,10 @@ export const approvalKinds = [
   // arch 52: a dispatch completed later at the time the truck left (line down); subject = dispatch id;
   // meta { dispatchId, dispatchCode, occurredAt, reason }. No applier: dispatch.complete reads it.
   "dispatch_late_entry",
+  // XE-PRICE (0058): a price master change or a line override below the computed rate; subject =
+  // the price_rate row; meta { rateKind, key, effectiveFrom } only (no money: approval.list is open
+  // to every role). Applier: activates or rejects the row (lib/pricing.ts).
+  "price_change",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

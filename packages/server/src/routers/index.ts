@@ -69,6 +69,8 @@ export const appRouter = router({
   docs: lazy(() => import("./plantDocs").then((m) => m.plantDocsRouter)),
   // XE parity lane QA.
   qa: lazy(() => import("./qa").then((m) => m.qaRouter)),
+  // XE-PRICE: price master, quotes, proforma, works order, enquiries (module `pricing`).
+  pricing: lazy(() => import("./pricing").then((m) => m.pricingRouter)),
 });
 export type AppRouter = typeof appRouter;
 

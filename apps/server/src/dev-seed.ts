@@ -42,6 +42,7 @@ import {
   type VendorStatus,
 } from "@orrn/db/schema/purchase";
 import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { enquiry, priceRate, proforma, quote, quoteLine, worksOrder } from "@orrn/db/schema/pricing";
 import {
   dieBand,
   dieFile,
@@ -1856,6 +1857,13 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(dispatch).where(eq(dispatch.companyId, COMPANY_ID)),
     db.delete(transporter).where(eq(transporter.companyId, COMPANY_ID)),
     // Order lines and orders reference die and customer (RESTRICT): they go first (PL-8 spec S-3).
+    // XE-PRICE (0058): pricing rows reference orders, customers, sections and approvals.
+    db.delete(enquiry).where(eq(enquiry.companyId, COMPANY_ID)),
+    db.delete(proforma).where(eq(proforma.companyId, COMPANY_ID)),
+    db.delete(worksOrder).where(eq(worksOrder.companyId, COMPANY_ID)),
+    db.delete(quoteLine).where(eq(quoteLine.companyId, COMPANY_ID)),
+    db.delete(quote).where(eq(quote.companyId, COMPANY_ID)),
+    db.delete(priceRate).where(eq(priceRate.companyId, COMPANY_ID)),
     db.delete(salesOrderLine).where(eq(salesOrderLine.companyId, COMPANY_ID)),
     db.delete(salesOrder).where(eq(salesOrder.companyId, COMPANY_ID)),
     // Die room rows hold keys to the section (and copies to bands and makers): children first.

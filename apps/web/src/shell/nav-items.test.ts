@@ -38,6 +38,7 @@ describe("visibleItems", () => {
       "approvals",
       "dies",
       "customers",
+      "pricing",
       "store",
       "printing",
       "masters",
@@ -113,6 +114,18 @@ describe("visibleItems", () => {
     expect(more("packer")).not.toContain("purchase");
     expect(more("packer")).not.toContain("approvals");
     expect(more("press")).not.toContain("purchase");
+  });
+
+  test("Prices for people who read prices or run enquiries, hidden when the pricing module is off (XE-PRICE)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("pricing");
+    for (const role of ["owner", "admin", "manager", "office", "accountant"] as const) {
+      expect({ role, pricing: has(role) }).toEqual({ role, pricing: true });
+    }
+    for (const role of ["operator", "viewer", "storekeeper", "packer", "supervisor", "press", "foundry", "die_room"] as const) {
+      expect({ role, pricing: has(role) }).toEqual({ role, pricing: false });
+    }
+    expect(has("owner", ["customers"])).toBe(false);
+    expect(has("owner", ["pricing"])).toBe(true);
   });
 
   test("Masters for the people who publish or draft masters (PL-W1)", () => {

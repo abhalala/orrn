@@ -7,6 +7,7 @@ import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle, bundleGroup, bundleStatuses, type BundleStatus } from "@orrn/db/schema/inventory";
 import { printLog, printerProfile } from "@orrn/db/schema/printing";
 import { pressRun } from "@orrn/db/schema/press";
+import { enquiry } from "@orrn/db/schema/pricing";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company, type CompanyRole } from "@orrn/db/schema/tenant";
 import { isModuleOn, readFloorSettings } from "@orrn/domain";
@@ -21,6 +22,7 @@ import { kindsRoleMayDecide, loadApprovalRules } from "../lib/approverRules";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
 import { pressAlertsToday } from "../lib/pressCollector";
 import { STOCK_STATUS } from "../lib/stockFilters";
+import { companyToday } from "../lib/purchase";
 import { todayTileKeys, type TodayTileKey } from "../lib/todayTiles";
 
 const LIST_LIMIT = 10;
@@ -350,7 +352,7 @@ async function roleTiles(ctx: TileCtx, keys: readonly TodayTileKey[], openDispat
   const zero = Promise.resolve([{ n: 0 }]);
   // XE ADM #78: the kinds this role decides under the plant's approver rules (none set = APPROVER_ROLES).
   const approverKinds = has("approvals") ? kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, companyId)) : [];
-  const [orders, toIssue, pressQueue, approvals] = await Promise.all([
+  const [orders, toIssue, pressQueue, approvals, enquiriesDue] = await Promise.all([
     has("orders")
       ? ctx.db
           .select({ n: sql<number>`count(*)` })
@@ -383,12 +385,32 @@ async function roleTiles(ctx: TileCtx, keys: readonly TodayTileKey[], openDispat
             ),
           )
       : zero,
+    // XE-PRICE: open enquiries whose follow-up date is before today (company wall clock).
+    has("enquiries")
+      ? ctx.db
+          .select({ settings: company.settings })
+          .from(company)
+          .where(eq(company.id, companyId))
+          .then(([co]) =>
+            ctx.db
+              .select({ n: sql<number>`count(*)` })
+              .from(enquiry)
+              .where(
+                and(
+                  eq(enquiry.companyId, companyId),
+                  inArray(enquiry.status, ["open", "quoted"]),
+                  lt(enquiry.followUpDate, companyToday((co?.settings ?? {}) as Record<string, unknown>, now())),
+                ),
+              ),
+          )
+      : zero,
   ]);
   const counts: Partial<Record<TodayTileKey, number>> = {
     orders: num(orders[0]?.n),
     dieRoom: num(toIssue[0]?.n),
     press: num(pressQueue[0]?.n),
     approvals: num(approvals[0]?.n),
+    enquiries: num(enquiriesDue[0]?.n),
     dispatch: openDispatches,
   };
   return keys.map((key) => ({ key, count: counts[key] ?? null }));

@@ -81,6 +81,10 @@ export const BUDDY_DECISIONS = {
     // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
+    // XE-PRICE: the price master, quotes, proformas, works orders and enquiries. Reads run under the
+    // person's grant (the same `price.view` / `order.price` gates). No pricing change is in `changes`,
+    // so every pricing mutation is denied to the buddy until it is decided by name.
+    pricing: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -202,6 +206,18 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE-PRICE: every pricing change is denied by default (fix round 1 of PR #15); decide each by name to allow it.
+    "pricing.rates.propose": deny("Proposes a master rate or a customer term; prices go through a person (XE-PRICE default deny)."),
+    "pricing.settings.update": deny("Changes which metal list prices every order and the GST estimate (XE-PRICE default deny)."),
+    "pricing.lines.requestOverride": deny("Writes or asks for an order-line rate (XE-PRICE default deny)."),
+    "pricing.quotes.create": deny("Makes a numbered quote with prices (XE-PRICE default deny)."),
+    "pricing.quotes.update": deny("Changes a quote's lines and prices (XE-PRICE default deny)."),
+    "pricing.quotes.setStatus": deny("Sends or cancels a quote to a buyer (XE-PRICE default deny)."),
+    "pricing.quotes.convert": deny("Turns a quote into a sales order with its prices (XE-PRICE default deny)."),
+    "pricing.proforma.create": deny("Numbers a proforma with prices for a buyer (XE-PRICE default deny)."),
+    "pricing.worksOrder.issue": deny("Numbers a works order for the floor (XE-PRICE default deny)."),
+    "pricing.enquiries.create": deny("Writes an enquiry (XE-PRICE default deny until reviewed)."),
+    "pricing.enquiries.update": deny("Changes an enquiry (XE-PRICE default deny until reviewed)."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

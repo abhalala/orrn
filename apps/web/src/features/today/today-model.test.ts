@@ -301,7 +301,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   const keys = (m: Me) => todayTiles(m).map((t) => t.key);
 
   test("owner and manager: every station, in plant-flow order", () => {
-    const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"];
+    const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides", "enquiries"];
     expect(keys(me("owner"))).toEqual(all);
     expect(keys(me("manager"))).toEqual(all);
   });
@@ -314,8 +314,8 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
     expect(keys(me("accountant"))).toEqual([]);
   });
 
-  test("office: orders, dispatch, stock, approvals (four fill a row)", () => {
-    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals"]);
+  test("office: orders, dispatch, stock, approvals, enquiries", () => {
+    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals", "enquiries"]);
   });
 
   test("foundry approves cast close-outs; the storekeeper works the store; the supervisor keeps approvals", () => {
@@ -334,6 +334,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   test("company modules hide tiles for switched-off areas", () => {
     expect(keys(me("owner", ["customers"]))).toEqual(["approvals", "guides"]);
     expect(keys(me("owner", ["bundles"]))).toEqual(["pack", "stock", "approvals", "guides"]);
+    expect(keys(me("owner", ["pricing"]))).toEqual(["approvals", "guides", "enquiries"]);
     expect(keys(me("die_room", ["bundles"]))).toEqual([]);
   });
 
@@ -354,6 +355,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
       store: "/store",
       approvals: "/approvals",
       guides: "/guides",
+      enquiries: "/pricing/enquiries",
     });
   });
 });
@@ -378,6 +380,9 @@ describe("tileHint", () => {
     expect(tileHint(tile("orders"), 12, dflt())).toEqual({ key: "today.floor.ordersHint", vars: { count: "12" } });
     expect(tileHint(tile("approvals"), 1, dflt())).toEqual({ key: "today.floor.approvalsHint", vars: { count: "1" } });
     expect(tileHint(tile("approvals"), 0, dflt())).toEqual({ key: "today.floor.approvalsHintNone" });
+    expect(tileHint(tile("enquiries"), 3, dflt())).toEqual({ key: "today.floor.enquiriesHint", vars: { count: "3" } });
+    expect(tileHint(tile("enquiries"), 0, dflt())).toEqual({ key: "today.floor.enquiriesHintNone" });
+    expect(tileHint(tile("enquiries"), undefined, dflt())).toEqual({ key: "today.floor.enquiriesHintAny" });
   });
 
   test("other tiles keep their own hint", () => {

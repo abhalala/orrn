@@ -25,6 +25,8 @@ import { stockEn } from "./native/stock.en";
 import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
+import { priceMasterEn } from "./price/master.en";
+import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
@@ -302,6 +304,7 @@ export const en = {
     purchase: "Purchase",
     approvals: "Approvals",
     audit: "Audit log",
+    pricing: "Prices",
     adminReleases: "App builds",
     adminBackups: "Backups",
     adminSupport: "Support",
@@ -752,6 +755,10 @@ export const en = {
       approvalsHint: "{count} waiting",
       approvalsHintNone: "Nothing waiting",
       approvalsHintAny: "Requests waiting",
+      enquiries: "Enquiries to follow up",
+      enquiriesHint: "{count} overdue",
+      enquiriesHintNone: "None overdue",
+      enquiriesHintAny: "Follow-up dates",
       store: "Store",
       storeHint: "Chemicals, fuel and spares",
     },
@@ -3792,6 +3799,7 @@ export const en = {
         qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        pricing: "Prices and quotes",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3806,6 +3814,7 @@ export const en = {
         qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
         complaints: "Customer complaints on a bundle, with the trace and the reply",
+        pricing: "Price master, quotes, proformas and enquiries",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -4641,6 +4650,7 @@ export const en = {
       melt_correct: "Correct a locked melt",
       dispatch_off_band: "Bundle off the order weight",
       dispatch_late_entry: "Packing list entered late",
+      price_change: "Price change",
     },
     subject: {
       ageingOverride: "Release {number} on approval",
@@ -6498,6 +6508,9 @@ export const en = {
 
   ageing: ageingEn.ageing,
 
+  // XE-PRICE (lane PRICE): price master, quotes, proforma, works order, enquiries.
+  price: { ...priceMasterEn, ...priceDocsEn },
+
   ingest: ingestEn,
 
   adm: admEn,
@@ -6664,6 +6677,7 @@ export const en = {
         qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        pricing: "Prices and quotes",
       },
     },
     letterhead: {
@@ -6886,6 +6900,10 @@ export const en = {
       qa_station: "Inspection point",
       qa_alloy_substitute: "Alloy substitute",
       qa_instrument: "Instrument",
+      price_rate: "Price rate",
+      quote: "Quote",
+      proforma: "Proforma invoice",
+      enquiry: "Enquiry",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -6911,6 +6929,21 @@ export const en = {
       ageing__oven__create: "Oven added",
       ageing__oven__update: "Oven changed",
       ageing__override__request: "Ageing release sent for approval",
+      price__settings__update: "Price settings changed",
+      price__rate__propose: "Rate change sent for approval",
+      price__rate__activate: "Rate change approved",
+      price__rate__reject: "Rate change rejected",
+      price__override__request: "Line rate change asked",
+      order__rate__correct: "Fixed line rate corrected on the order",
+      quote__create: "Quote made",
+      quote__update: "Quote changed",
+      quote__send: "Quote marked as sent",
+      quote__cancel: "Quote cancelled",
+      quote__convert: "Quote made into an order",
+      proforma__create: "Proforma invoice made",
+      works_order__issue: "Works order issued",
+      enquiry__create: "Enquiry noted",
+      enquiry__update: "Enquiry changed",
       ageing__readings: "Oven readings received",
       ageing__recipe__create: "Cycle recipe added",
       ageing__recipe__update: "Cycle recipe changed",

@@ -20,6 +20,7 @@ export * from "./platform";
 export * from "./portal";
 export * from "./press";
 export * from "./printing";
+export * from "./pricing";
 export * from "./purchase";
 export * from "./qa";
 export * from "./reasons";

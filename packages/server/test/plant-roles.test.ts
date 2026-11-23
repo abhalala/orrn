@@ -117,6 +117,11 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE-PRICE (lane PRICE).
+  "price.view": ["admin", "office", "manager", "accountant"],
+  "price.manage": ["admin", "office", "manager"],
+  "quote.manage": ["office", "manager"],
+  "enquiry.manage": ["office", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -349,6 +354,7 @@ describe("approvals", () => {
       melt_correct: ["owner", "admin", "manager"],
       dispatch_off_band: ["owner", "admin", "manager"],
       dispatch_late_entry: ["owner", "admin", "manager"],
+      price_change: ["owner", "admin", "manager"],
     });
   });
 
