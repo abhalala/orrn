@@ -1897,5 +1897,5 @@ export const gu = mergeGu(
   typeof guIngest &
   typeof guBuddy &
   typeof guReg &
-  typeof guQa satisfies GuMessages;
+  typeof guQa &
   typeof guStore2 satisfies GuMessages;
