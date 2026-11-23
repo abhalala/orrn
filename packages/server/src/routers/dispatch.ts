@@ -32,14 +32,13 @@ import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { assertDispatchAgeing, dispatchAgeingGuardStatements, isAgeingAbort } from "../lib/ageing";
-import { assertNotInProcess, explainProcessAbort, processHoldGuardStatements } from "../lib/process";
+import { assertNotInProcess, explainProcessAbort, isProcessAbort as isTaggedAbort, processHoldGuardStatements } from "../lib/process";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema } from "../lib/importReplay";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import {
   atomicBatch,
   chunk,
-  isBatchAbort as isTaggedAbort,
   mapInChunks,
   pushChunkedInserts,
   type OrrnDb,

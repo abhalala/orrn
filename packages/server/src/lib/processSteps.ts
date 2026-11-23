@@ -11,10 +11,10 @@ import { bundle } from "@orrn/db/schema/inventory";
 import { processHold, processInput } from "@orrn/db/schema/process";
 import { location, stockLedger, type LedgerVoucherType } from "@orrn/db/schema/stock";
 
-import { abortBatchUnless, chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { sqlUuid } from "./ledger";
 import { jobworkRefusal } from "./processRefusals";
-import { openProcessHolds } from "./process";
+import { openProcessHolds, processAbortUnless } from "./process";
 import { openBundleRows } from "./ageing";
 import { ageingRefusal } from "./ageingRefusals";
 
@@ -73,15 +73,16 @@ export async function readStepBundles(db: OrrnDb, companyId: string, ids: readon
  * already on a step, or on a trolley in ageing. Order: the plainest reason first.
  */
 export async function assertSendable(db: OrrnDb, companyId: string, rows: readonly StepBundle[]): Promise<void> {
-  for (const b of rows) {
-    if (b.status === "reserved" || b.currentDispatchId || b.onOpenDispatch) throw jobworkRefusal("bundle_on_dispatch", { serial: b.serial });
-    if (b.status !== "available" || b.locationKind !== "yard") throw jobworkRefusal("bundle_not_in_stock", { serial: b.serial });
-    if (!b.onLedger) throw jobworkRefusal("bundle_off_ledger", { serial: b.serial });
-  }
+  // Already on a step first: a bundle at a vendor is also "not in the yard", and this says where it is.
   const held = await openProcessHolds(db, companyId, rows.map((b) => b.id));
   for (const b of rows) {
     const h = held.get(b.id);
     if (h) throw jobworkRefusal(h.reason === "jobwork" ? "bundle_at_vendor" : "bundle_in_process", { serial: b.serial, step: h.stepNumber });
+  }
+  for (const b of rows) {
+    if (b.status === "reserved" || b.currentDispatchId || b.onOpenDispatch) throw jobworkRefusal("bundle_on_dispatch", { serial: b.serial });
+    if (b.status !== "available" || b.locationKind !== "yard") throw jobworkRefusal("bundle_not_in_stock", { serial: b.serial });
+    if (!b.onLedger) throw jobworkRefusal("bundle_off_ledger", { serial: b.serial });
   }
   const trolley = await openBundleRows(db, companyId, rows.map((b) => b.id));
   for (const b of rows) {
@@ -106,7 +107,7 @@ export function onStepSql(companyId: string, stepId: string): SQL {
 /** Fails the batch unless exactly `ids.length` of these bundles carry this request's seq (every bundle write landed). */
 export function allLandedAborts(db: OrrnDb, companyId: string, ids: readonly string[], seq: number, extra?: SQL): SqliteBatchItem[] {
   return chunk([...ids], STEP_IN_CHUNK).map((part) =>
-    abortBatchUnless(
+    processAbortUnless(
       db,
       sql`(select count(*) from bundle b where b.company_id = ${companyId} and b.server_seq = ${seq}
         and b.id in (${sql.join(part.map((i) => sql`${i}`), sql`, `)})${extra ? sql` and ${extra}` : sql``}) = ${part.length}`,
@@ -137,7 +138,7 @@ export function closeInputStatements(db: OrrnDb, companyId: string, stepId: stri
       .set({ returnId })
       .where(and(eq(processInput.companyId, companyId), eq(processInput.stepId, stepId), inArray(processInput.bundleId, part), isNull(processInput.returnId))),
   );
-  out.push(abortBatchUnless(db, sql`(select count(*) from process_input pi where pi.company_id = ${companyId} and pi.step_id = ${stepId} and pi.return_id = ${returnId}) = ${ids.length}`));
+  out.push(processAbortUnless(db, sql`(select count(*) from process_input pi where pi.company_id = ${companyId} and pi.step_id = ${stepId} and pi.return_id = ${returnId}) = ${ids.length}`));
   return out;
 }
 
@@ -164,8 +165,7 @@ type BalanceRowOpts = {
 export function balanceRows(db: OrrnDb, ids: readonly string[], o: BalanceRowOpts): SqliteBatchItem[] {
   return chunk([...ids], STEP_IN_CHUNK).map(
     (part, partIdx) =>
-      db.run(sql`insert into ${stockLedger} (id, company_id, server_seq, voucher_type, voucher_id, line, item_kind, item_ref, location_id, qty_g, posted_at, reversal_of, reason, created_by, created_at)
-      select id, company_id, server_seq, voucher_type, voucher_id, line, item_kind, item_ref, location_id, qty_g, posted_at, reversal_of, reason, created_by, created_at from (
+      db.insert(stockLedger).select(sql`select id, company_id, server_seq, voucher_type, voucher_id, line, item_kind, item_ref, location_id, qty_g, posted_at, reversal_of, reason, created_by, created_at from (
         select ${sqlUuid} as id, ${o.companyId} as company_id, ${o.seq} as server_seq, ${o.voucherType} as voucher_type, ${o.voucherId} as voucher_id,
           ${o.lineOffset + partIdx * STEP_IN_CHUNK} + row_number() over (order by b.serial) as line,
           'bundle' as item_kind, b.id as item_ref, b.location_id as location_id,
@@ -177,7 +177,7 @@ export function balanceRows(db: OrrnDb, ids: readonly string[], o: BalanceRowOpt
           and b.id in (${sql.join(part.map((i) => sql`${i}`), sql`, `)})
           and exists (select 1 from stock_ledger l where l.company_id = b.company_id and l.item_kind = 'bundle' and l.item_ref = b.id)
           and (${o.where})
-      ) r where r.qty_g <> 0`) as unknown as SqliteBatchItem,
+      ) r where r.qty_g <> 0`),
   );
 }
 

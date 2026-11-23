@@ -81,6 +81,9 @@ export const BUDDY_DECISIONS = {
     // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
+    // XE parity lane JOBWORK: reads (register, pending at vendors, challan snapshot, finish per line). No
+    // process write is listed in `changes`, so the buddy cannot send, receive or cancel a step.
+    process: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -202,6 +205,12 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE parity lane JOBWORK: material leaves the plant or is used up; a person at the gate or the line decides. Not reviewed for the buddy.
+    "process.vendors.save": deny("A job-work vendor and its stock place (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.send": deny("Sends bundles out of the plant on a job-work challan (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.start": deny("Puts bundles on an in-house process step (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.receive": deny("Weighs a return and writes stock and loss (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.cancel": deny("Brings bundles back from a step (XE JOBWORK); not reviewed for the buddy."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

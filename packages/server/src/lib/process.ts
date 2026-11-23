@@ -8,13 +8,34 @@
  * - "on a process step" (open `process_hold`): not dispatchable, not movable (both reasons).
  * - "at a vendor" (the bundle's location is of kind `vendor`): not plant stock (`notAtVendorSql`).
  */
-import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, isNull, sql, type SQL } from "drizzle-orm";
 
 import { bundle } from "@orrn/db/schema/inventory";
+import { company } from "@orrn/db/schema/tenant";
 import { processHold, processStep } from "@orrn/db/schema/process";
 
-import { abortBatchUnless, chunk, IN_LIST_CHUNK, isBatchAbort, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { chunk, IN_LIST_CHUNK, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { jobworkRefusal } from "./processRefusals";
+
+/**
+ * A statement that fails the whole batch unless `landed` holds when it runs: it inserts a row of NULLs
+ * into `process_hold` (NOT NULL on its id), the pattern of `batchAbortUnless` in `lib/orders.ts`. Catch
+ * with `isProcessAbort`.
+ */
+export function processAbortUnless(db: OrrnDb, landed: SQL): SqliteBatchItem {
+  const nulls = Object.fromEntries(Object.entries(getTableColumns(processHold)).map(([key, column]) => [key, sql`null`.as(column.name)]));
+  const from = db.select({ one: sql`1` }).from(company).limit(1).as("abort_src");
+  return db.insert(processHold).select(db.select(nulls).from(from).where(sql`not (${landed})`) as never);
+}
+
+/** True when `e` (or its cause chain) is a batch refused by `processAbortUnless`. */
+export function isProcessAbort(e: unknown): boolean {
+  for (let cur: unknown = e, depth = 0; cur && depth < 6; depth += 1) {
+    if ((cur instanceof Error ? cur.message : String(cur)).includes("NOT NULL constraint failed: process_hold.id")) return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
 
 export type OpenProcessHold = { stepId: string; stepNumber: string; reason: "jobwork" | "process" };
 
@@ -54,7 +75,7 @@ export async function assertNotInProcess(db: OrrnDb, companyId: string, bundleId
  */
 export function processHoldGuardStatements(db: OrrnDb, companyId: string, bundleIds: readonly string[]): SqliteBatchItem[] {
   return chunk([...new Set(bundleIds)], IN_LIST_CHUNK - 5).map((ids) =>
-    abortBatchUnless(
+    processAbortUnless(
       db,
       sql`not exists (select 1 from process_hold ph where ph.company_id = ${companyId} and ph.released_at is null
         and ph.bundle_id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}))`,
@@ -64,7 +85,7 @@ export function processHoldGuardStatements(db: OrrnDb, companyId: string, bundle
 
 /** After a failed batch: the process refusal when a hold landed in between, else the original error. */
 export async function explainProcessAbort(db: OrrnDb, companyId: string, bundleIds: readonly string[], e: unknown): Promise<never> {
-  if (isBatchAbort(e)) await assertNotInProcess(db, companyId, bundleIds);
+  if (isProcessAbort(e)) await assertNotInProcess(db, companyId, bundleIds);
   throw e;
 }
 

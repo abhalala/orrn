@@ -1173,7 +1173,7 @@ export const bundleRouter = router({
         const pattern = `%${input.search}%`;
         filters.push(sql`(${bundle.serial} LIKE ${pattern} OR ${bundle.poNumber} LIKE ${pattern} OR ${bundle.partyNo} LIKE ${pattern})`);
       }
-      filters.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input)));
+      filters.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input, { plantOnly: false })));
       const conditions = [eq(bundle.companyId, ctx.companyId), ...(input.status ? [eq(bundle.status, input.status)] : []), ...filters];
 
       const items = await ctx.db

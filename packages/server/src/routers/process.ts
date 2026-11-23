@@ -53,7 +53,8 @@ import {
 } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
-import { abortBatchUnless, atomicBatch, chunk, isBatchAbort, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, chunk, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { isProcessAbort as isBatchAbort, processAbortUnless as abortBatchUnless } from "../lib/process";
 import { auditInsert } from "../lib/audit";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
