@@ -68,6 +68,17 @@ export function issueValuePaise(held: RatedHolding, issueMilli: number): number 
 }
 
 /**
+ * The new leg of an exchange (old part out, new part in). Value follows units: the new leg carries the
+ * old leg's money on as many units as came back, exactly as if the new units were an issue of `qtyInMilli`
+ * from what the old leg took out. Fewer in than out: rated = qty in, value = old value x in / old rated,
+ * and the rest of the old leg's value is spent (like an issue), so the average does not move. As many or
+ * more in than out: all the old leg's rated part and value come back, and any extra units are unrated.
+ */
+export function exchangeInTake(oldLeg: RatedHolding, qtyInMilli: number): { ratedMilli: number; valuePaise: number } {
+  return issueTake(oldLeg, qtyInMilli);
+}
+
+/**
  * A GRN taken in with its rate pending: valued at the item's current average, so the average does not
  * move. With nothing rated held there is no average to borrow, and it comes in unrated (value 0).
  */

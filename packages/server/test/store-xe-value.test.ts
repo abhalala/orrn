@@ -14,8 +14,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, te
 
 import { auditLog, storeIndent, storeOpeningRate, storeTxn } from "@orrn/db/schema";
 import { monthValuation } from "@orrn/domain";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
+import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 setDefaultTimeout(30_000);
@@ -339,5 +340,142 @@ describe("finding 7: the month report adds up", () => {
     // September: the old stock shows as rate not set.
     const sep = await p.office.store.valuation.month({ month: "2026-09" });
     expect(sep.items.find((i) => i.itemId === p.fluxId)).toMatchObject({ closingMilli: 40 * U, closingPaise: 0, closingUnratedMilli: 40 * U });
+  });
+});
+
+/**
+ * Fix round 3 (re-check RECHECK-STORE): an unrated GRN still cancels after later issues; exchange value
+ * follows units; a storekeeper's `ratePaise: null` means pending; `storeIssueValuePaise` says whether an
+ * issue was fully rated; a backup restore keeps the rowid order the cancel guard compares.
+ */
+describe("fix round 3", () => {
+  test("re-check 1, unrated: old GRN, typo GRN, rated GRN, issue; the unrated typo still cancels and the value stays exact", async () => {
+    const p = await plant();
+    // Old stock as migration 0062 leaves it (rate NULL, value 0, not pending).
+    const old = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 90 * U });
+    await env.db.update(storeTxn).set({ ratePending: false }).where(eq(storeTxn.id, old.id));
+    // A storekeeper typo with no average to borrow: unrated, pending, no money.
+    const typo = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 100 * U });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, typo.id)))[0]).toMatchObject({ valuePaise: 0, ratedMilli: 0, ratePending: true });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    // 30 kg out takes the rated 10 kg (₹1,000) and 20 kg with no rate (₹0).
+    const out = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 30 * U, purpose: "maintenance" });
+    expect(await rawHeld(p, p.fluxId)).toEqual({ qty: 170 * U, rated: 0, value: 0 });
+
+    await p.storekeeper.store.cancel({ txnId: typo.id, reason: "typed twice" });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, typo.id)))[0]!.cancelledAt).not.toBeNull();
+    expect(await rawHeld(p, p.fluxId)).toEqual({ qty: 70 * U, rated: 0, value: 0 });
+    // The issue's frozen value did not move.
+    expect(await storeIssueValuePaise(env.db, p.companyId, out.id)).toBe(100_000);
+    // The old GRN cannot come out: only 70 kg is held (the short-balance rule, not the money rule).
+    await expect(p.storekeeper.store.cancel({ txnId: old.id, reason: "x" })).rejects.toThrow(/Cannot cancel/);
+
+    // An opening rate then values the 70 kg; a new unrated GRN after it still cancels and the value stays.
+    await p.office.store.valuation.setOpeningRate({ itemId: p.fluxId, ratePaise: 8_000 });
+    expect(await rawHeld(p, p.fluxId)).toEqual({ qty: 70 * U, rated: 70 * U, value: 560_000 });
+  });
+
+  test("re-check 1, rated: a GRN with a rate, or one that borrowed the average, is still refused after an issue", async () => {
+    const p = await plant();
+    const rated = await p.owner.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    const borrowed = await p.storekeeper.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, borrowed.id)))[0]).toMatchObject({ ratePending: true, valuePaise: 100_000, ratedMilli: 10 * U });
+    await p.storekeeper.store.issue({ itemId: p.ldoId, qtyMilli: U, purpose: "melt" });
+    await expect(p.storekeeper.store.cancel({ txnId: rated.id, reason: "x" })).rejects.toMatchObject({ message: ISSUED });
+    await expect(p.storekeeper.store.cancel({ txnId: borrowed.id, reason: "x" })).rejects.toMatchObject({ message: ISSUED });
+    expect(await rawHeld(p, p.ldoId)).toEqual({ qty: 19 * U, rated: 19 * U, value: 190_000 });
+  });
+
+  test("nit 5: an exchange with fewer in than out keeps the average; its cancel restores exactly", async () => {
+    const p = await plant();
+    await p.owner.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    const ex = await p.storekeeper.store.exchange({ itemId: p.ldoId, qtyOutMilli: 5 * U, qtyInMilli: 2 * U });
+    const legs = await env.db.select().from(storeTxn).where(eq(storeTxn.exchangeId, ex.exchangeId));
+    expect(legs.find((l) => l.kind === "mrs")).toMatchObject({ valuePaise: 50_000, ratedMilli: 5 * U });
+    expect(legs.find((l) => l.kind === "grn")).toMatchObject({ valuePaise: 20_000, ratedMilli: 2 * U });
+    expect(await value(p, p.ldoId)).toMatchObject({ heldMilli: 7 * U, valuePaise: 70_000, avgRatePaise: 10_000 });
+    await p.storekeeper.store.cancel({ txnId: ex.grnId, reason: "wrong part" });
+    expect(await rawHeld(p, p.ldoId)).toEqual({ qty: 10 * U, rated: 10 * U, value: 100_000 });
+    // More in than out: all the old leg's money comes back, the extra unit is unrated.
+    const ex2 = await p.storekeeper.store.exchange({ itemId: p.ldoId, qtyOutMilli: 2 * U, qtyInMilli: 3 * U });
+    const legs2 = await env.db.select().from(storeTxn).where(eq(storeTxn.exchangeId, ex2.exchangeId));
+    expect(legs2.find((l) => l.kind === "grn")).toMatchObject({ valuePaise: 20_000, ratedMilli: 2 * U });
+    expect(await value(p, p.ldoId)).toMatchObject({ heldMilli: 11 * U, valuePaise: 100_000, avgRatePaise: 10_000, unratedMilli: U });
+  });
+
+  test("nit 7: a storekeeper's ratePaise null is pending without a PO and the order's rate with one", async () => {
+    const p = await plant();
+    const g = await p.storekeeper.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U, ratePaise: null });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, g.id)))[0]).toMatchObject({ ratePaise: null, ratePending: true });
+    const po = await p.office.store.po.create({ vendorId: p.vendorId, lines: [{ itemId: p.ldoId, qtyMilli: 50 * U, ratePaise: 15_000, gstBp: 0 }] });
+    await p.office.store.po.issue({ id: po.id });
+    const lineId = (await p.office.store.po.get({ id: po.id })).lines[0]!.id;
+    const onPo = await p.storekeeper.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U, poLineId: lineId, ratePaise: null });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, onPo.id)))[0]).toMatchObject({ ratePaise: 15_000, ratePending: false });
+    // An owner's (store.rate) null against an order still means "rate pending".
+    const ownerNull = await p.owner.store.receive({ itemId: p.ldoId, qtyMilli: 5 * U, poLineId: lineId, ratePaise: null });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, ownerNull.id)))[0]).toMatchObject({ ratePaise: null, ratePending: true });
+    // Any other rate is still refused.
+    await expect(p.storekeeper.store.receive({ itemId: p.ldoId, qtyMilli: U, ratePaise: 100 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  test("nit 6: storeIssueValuePaise with { detail: true } says whether the issue was fully rated", async () => {
+    const p = await plant();
+    const old = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 90 * U });
+    await env.db.update(storeTxn).set({ ratePending: false }).where(eq(storeTxn.id, old.id));
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    const small = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 4 * U, purpose: "maintenance" });
+    const big = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 30 * U, purpose: "maintenance" });
+    expect(await storeIssueValuePaise(env.db, p.companyId, small.id, { detail: true })).toEqual({
+      valuePaise: 40_000, qtyMilli: 4 * U, ratedMilli: 4 * U, fullyRated: true,
+    });
+    expect(await storeIssueValuePaise(env.db, p.companyId, big.id, { detail: true })).toEqual({
+      valuePaise: 60_000, qtyMilli: 30 * U, ratedMilli: 6 * U, fullyRated: false,
+    });
+    // The plain call still returns the number.
+    expect(await storeIssueValuePaise(env.db, p.companyId, big.id)).toBe(60_000);
+    const other = await plant();
+    expect(await storeIssueValuePaise(env.db, other.companyId, big.id, { detail: true })).toEqual({ valuePaise: 0, qtyMilli: 0, ratedMilli: 0, fullyRated: false });
+    expect(await storeIssueValuePaise(env.db, p.companyId, old.id, { detail: true })).toMatchObject({ fullyRated: false, valuePaise: 0 });
+  });
+
+  test("re-check 2: export and restore keep the GRN / issue order the cancel guard compares", async () => {
+    const p = await plant();
+    const po = await p.office.store.po.create({ vendorId: p.vendorId, lines: [{ itemId: p.ldoId, qtyMilli: 50 * U, ratePaise: 10_000, gstBp: 0 }] });
+    await p.office.store.po.issue({ id: po.id });
+    const lineId = (await p.office.store.po.get({ id: po.id })).lines[0]!.id;
+    const g1 = await p.storekeeper.store.receive({ itemId: p.ldoId, qtyMilli: 10 * U, poLineId: lineId });
+    const m1 = await p.storekeeper.store.issue({ itemId: p.ldoId, qtyMilli: U, purpose: "melt" });
+    const g2 = await p.owner.store.receive({ itemId: p.ldoId, qtyMilli: 5 * U, ratePaise: 10_000 });
+    const want = [g1.id, m1.id, g2.id];
+    const numbers = new Map((await env.db.select().from(storeTxn).where(eq(storeTxn.companyId, p.companyId))).map((r) => [r.id, r.number]));
+
+    const objects = new Map<string, string>();
+    workersEnv.BACKUPS = {
+      async put(key: string, v: string) { objects.set(key, v); return { key }; },
+      async get(key: string) { const v = objects.get(key); return v === undefined ? null : { text: async () => v }; },
+    };
+    try {
+      const staff = env.caller({ platformRole: "admin" });
+      await staff.platform.backup.run({ companyId: p.companyId });
+      const [key] = [...objects.keys()];
+      const payload = JSON.parse(objects.get(key!)!) as { tables: Record<string, { columns: string[]; rows: unknown[][] }> };
+      const t = payload.tables.store_txn!;
+      const idIdx = t.columns.indexOf("id");
+      expect(t.rows.map((r) => r[idIdx])).toEqual(want);
+
+      const drill = await env.caller({ platformRole: "super_admin" }).platform.backup.drill({ companyId: p.companyId });
+      expect(drill.status).toBe("ok");
+      const restored = await env.db.all<{ number: string; kind: string; out_since: number }>(sql`
+        select g.number, g.kind,
+          (case when exists (select 1 from store_txn os where os.company_id = g.company_id and os.item_id = g.item_id
+            and os.kind = 'mrs' and os.cancelled_at is null and os.rowid > g.rowid) then 1 else 0 end) as out_since
+        from store_txn g where g.company_id = ${drill.scratchCompanyId} order by g.rowid`);
+      expect(restored.map((r) => r.number)).toEqual(want.map((id) => numbers.get(id)!));
+      // The PO GRN still has an issue after it; the later GRN does not.
+      expect(restored.map((r) => [r.kind, Number(r.out_since)])).toEqual([["grn", 1], ["mrs", 0], ["grn", 0]]);
+    } finally {
+      delete workersEnv.BACKUPS;
+    }
   });
 });

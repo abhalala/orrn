@@ -351,8 +351,9 @@ function inGroupSql(alias: string, txnId: string, exchangeId: string | null): SQ
 /**
  * XE store (row 73): write-time guards that keep a cancel's valuation exact, group-wide (both legs of
  * an exchange stand or fall together):
- * - no live MRS of the item went out after any GRN of the group (`storeOutSinceSql`): that issue was
- *   valued with the GRN's money, so cancelling it would leave money behind (review STORE finding 1);
+ * - no live MRS of the item went out after any GRN of the group that carries a rate or a value
+ *   (`storeOutSinceSql`): that issue was valued with the GRN's money, so cancelling it would leave money
+ *   behind (review STORE finding 1); an unrated GRN cancels as before;
  * - the unrated quantity held stays >= 0: an opening rate already rated this GRN's old stock.
  * A GRN that accepted nothing (a fully rejected delivery) holds no stock and is never blocked.
  */
@@ -361,11 +362,18 @@ export function storeCancelValueGuardSql(companyId: string, txnId: string, excha
   return sql`not ${outSince} and ${storeUnratedAfterCancelSql(companyId, txnId, exchangeId)} >= 0`;
 }
 
-/** EXISTS a live MRS of the item after any GRN of the group that took stock in (the group's own legs aside). */
+/**
+ * EXISTS a live MRS of the item after any GRN of the group that took stock in AND carries money (a rate
+ * or a value), the group's own legs aside. An unrated GRN (every GRN from before go-live, a pending one
+ * that had no average to borrow) never entered value / rated, so no issue was valued with it: cancelling
+ * it changes no frozen value, and `storeUnratedAfterCancelSql` still keeps the unrated quantity >= 0
+ * (re-check STORE finding 1).
+ */
 function groupOutSinceSql(companyId: string, txnId: string, exchangeId: string | null): SQL {
   return sql`exists (
     select 1 from ${storeTxn} cg
     where cg.company_id = ${companyId} and cg.kind = 'grn' and cg.qty_milli > 0 and cg.cancelled_at is null
+      and (cg.rated_milli > 0 or cg.value_paise > 0)
       and ${inGroupSql("cg", txnId, exchangeId)}
       and ${storeOutSinceSql(companyId, sql.raw("cg"), inGroupSql("os", txnId, exchangeId))}
   )`;

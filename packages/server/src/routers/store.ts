@@ -361,7 +361,8 @@ export const storeRouter = router({
         /**
          * XE store (row 73): paise per unit of the item's unit. Omitted with a PO line = the line's rate;
          * a different rate needs `store.rate`. Without a PO line, a rate needs `store.rate`; omitted or
-         * null = rate pending (valued at the item's average until a `store.rate` holder sets it).
+         * null = rate pending (valued at the item's average until a `store.rate` holder sets it). From
+         * someone without `store.rate`, null is the same as omitted (with a PO line: the line's rate).
          */
         ratePaise: z.number().int().min(0).max(STORE_MAX_RATE_PAISE).nullable().optional(),
         /** XE store (row 71): the purchase order line this delivery is against. */
@@ -404,14 +405,17 @@ export const storeRouter = router({
       // rate holds; typing another, or a rate with no order, needs store.rate. With no rate the GRN is
       // valued at the item's average and its rate stays pending for the office.
       const setsRates = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "store.rate");
-      const typedRate = input.ratePaise !== undefined && (!poLine || input.ratePaise !== poLine.ratePaise);
+      // `ratePaise: null` from someone who does not set rates means "no rate from me", the same as leaving
+      // it out: pending with no PO, the order's rate against a PO line (re-check STORE nit 7).
+      const sentRate = input.ratePaise === null && !setsRates ? undefined : input.ratePaise;
+      const typedRate = sentRate !== undefined && (!poLine || sentRate !== poLine.ratePaise);
       if (typedRate && !setsRates) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: poLine ? "Only the office can change the order's rate" : "Only the office can set a rate; leave it empty and it stays pending",
         });
       }
-      const ratePaise = input.ratePaise !== undefined ? input.ratePaise : (poLine?.ratePaise ?? null);
+      const ratePaise = sentRate !== undefined ? sentRate : (poLine?.ratePaise ?? null);
       if (ratePaise !== null && !rateFitsQty(input.qtyMilli, ratePaise)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Quantity times rate is too large for one GRN" });
       }
@@ -577,10 +581,16 @@ export const storeRouter = router({
         purpose: null, refId: null, grnRef: null, guardBalance: false,
         // The new comes in only if the old went out.
         and: sql`exists (select 1 from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId})`,
-        // XE store (row 73): old for new keeps the store's value; the new leg carries what the old took out.
-        valueSql: sql<number>`coalesce((select o.value_paise from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
-        // ...and the old leg's rated part, at most its own quantity, so the average holds.
-        ratedSql: sql<number>`coalesce((select min(o.rated_milli, ${input.qtyInMilli}) from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
+        // XE store (row 73): value follows units (`exchangeInTake`): the new leg carries the old leg's
+        // money on as many units as came back. Fewer in than out takes old value x in / old rated, the
+        // rest is spent like an issue, so the average holds; as many or more in brings all of it back.
+        valueSql: sql<number>`coalesce((select case
+            when o.rated_milli <= 0 or o.value_paise <= 0 then 0
+            when ${input.qtyInMilli} >= o.rated_milli then o.value_paise
+            else max(0, cast(round(o.value_paise * 1.0 * ${input.qtyInMilli} / o.rated_milli) as integer))
+          end from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
+        // ...and the old leg's rated part, at most the quantity that came in.
+        ratedSql: sql<number>`coalesce((select case when o.rated_milli <= 0 then 0 else min(o.rated_milli, ${input.qtyInMilli}) end from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
       };
       const ledger = { companyId: ctx.companyId, seq, userId, at };
       try {

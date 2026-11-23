@@ -740,13 +740,24 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   closes any pending GRN it covered. Held qty/value/rated sum live txns plus opening rates; nothing is
   clamped and the month report adds up (opening + in - out + rated = closing).
 - Cancel keeps values exact: `storeCancelRows` also requires, group-wide, that no live MRS of the item was
-  written after the group's GRN (commit order by `rowid`: `created_at` and `server_seq` are read before the
-  batch), and that the unrated quantity held stays >= 0 (an opening rate already rated it). Refusal, read
-  time and after a lost write (`diagnoseStoreCancel`): "Stock from this delivery has already been issued.
-  Record a return to the vendor instead." A GRN that accepted 0 is never blocked.
-- MAINT and others read an issue's value with `storeIssueValuePaise(db, companyId, storeTxnId)` (0 for a
-  non-MRS, cancelled, missing or other plant's entry). Rates are always per store unit (per kg, never
-  converted to the plant's weight unit).
+  written after a group GRN that carries a rate or a value (commit order by `rowid`: `created_at` and
+  `server_seq` are read before the batch), and that the unrated quantity held stays >= 0 (an opening rate
+  already rated it). An unrated GRN (every GRN from before 0062, a pending one with no average to borrow)
+  holds no money, so it still cancels after later issues. Refusal, read time and after a lost write
+  (`diagnoseStoreCancel`): "Stock from this delivery has already been issued. Record a return to the vendor
+  instead." A GRN that accepted 0 is never blocked. The rowid order survives a backup restore because
+  `exportCompanyPayload` reads every table `order by rowid` and the restore inserts in payload order.
+- Exchange: value follows units (`exchangeInTake` = `issueTake` over the old leg): the new leg carries the
+  old leg's money on as many units as came back; with fewer in than out the rest is spent, so the average
+  does not move.
+- GRN rate from someone without `store.rate`: `ratePaise: null` is the same as omitted (pending with no PO,
+  the order's rate against a PO line); any other rate that differs from the PO line is FORBIDDEN.
+- MAINT and others read an issue's value with `storeIssueValuePaise(db, companyId, storeTxnId)` (a number;
+  0 for a non-MRS, cancelled, missing or other plant's entry). Issues take rated stock first, so an issue
+  bigger than the rated stock is only partly valued (the unrated part counts at 0). Pass `{ detail: true }`
+  as a 4th argument for `{ valuePaise, qtyMilli, ratedMilli, fullyRated }`; show a spares cost as complete
+  only when `fullyRated`. Rates are always per store unit (per kg, never converted to the plant's weight
+  unit).
 - Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
   rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
   line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`

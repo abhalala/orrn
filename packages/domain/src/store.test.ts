@@ -4,6 +4,7 @@ import {
   averageRatePaise,
   belowMinimum,
   DEFAULT_PO_OVER_RECEIPT_BP,
+  exchangeInTake,
   grnValuePaise,
   issueTake,
   issueValuePaise,
@@ -56,6 +57,16 @@ describe("store valuation (row 73)", () => {
     valuePaise -= out2;
     // The last issue takes everything left, so nothing is held at a value.
     expect(issueTake({ ratedMilli, valuePaise }, ratedMilli)).toEqual({ ratedMilli, valuePaise });
+  });
+
+  test("exchange: value follows units, so fewer in than out does not move the average", () => {
+    // Old leg took 5 kg at ₹100 (₹500). 2 kg back: 2 kg rated, ₹200; the other ₹300 is spent.
+    expect(exchangeInTake({ ratedMilli: 5 * U, valuePaise: 50_000 }, 2 * U)).toEqual({ ratedMilli: 2 * U, valuePaise: 20_000 });
+    // As many or more back: all of the old leg's rated part and value; extra units come in unrated.
+    expect(exchangeInTake({ ratedMilli: 5 * U, valuePaise: 50_000 }, 5 * U)).toEqual({ ratedMilli: 5 * U, valuePaise: 50_000 });
+    expect(exchangeInTake({ ratedMilli: 2 * U, valuePaise: 20_000 }, 3 * U)).toEqual({ ratedMilli: 2 * U, valuePaise: 20_000 });
+    // An old leg from stock with no rate brings no money back.
+    expect(exchangeInTake({ ratedMilli: 0, valuePaise: 0 }, 2 * U)).toEqual({ ratedMilli: 0, valuePaise: 0 });
   });
 
   test("old stock with no rate does not pull the average down; issues take rated stock first", () => {

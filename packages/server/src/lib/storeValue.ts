@@ -14,8 +14,9 @@
  *   `issueTakeSql`), so the melt's and the nitriding log's draws, MAINT's issues and the store screen's
  *   issues are valued the same way and a racing GRN cannot misvalue an issue.
  *
- * A GRN cannot be cancelled, nor its pending rate set, once anything went out of the item after it
- * (`storeOutSinceSql`), so no frozen issue value is ever left pointing at money that is gone: held value
+ * A GRN that carries a rate or a value cannot be cancelled, nor its pending rate set, once anything went
+ * out of the item after it (`storeOutSinceSql`), so no frozen issue value is ever left pointing at money
+ * that is gone (an unrated GRN holds no money, so it still cancels; the unrated quantity stays >= 0): held value
  * never goes below 0 and nothing is clamped. Held figures are plain sums over live (not cancelled) rows.
  * The formulas are the ones in `@orrn/domain` (`issueTake`, `pendingGrnTake`); `store-xe.test.ts` runs
  * both on the same examples.
@@ -101,17 +102,51 @@ export function storeOutSinceSql(companyId: string, grnSql: SQL, notIn?: SQL): S
 /** The plain refusal when stock went out after a GRN (cancel, or setting its pending rate). */
 export const ISSUED_SINCE_MESSAGE = "Stock from this delivery has already been issued. Record a return to the vendor instead.";
 
+/** An issue's value with how much of it was rated (`storeIssueValuePaise(..., { detail: true })`). */
+export type StoreIssueValue = {
+  /** Paise the issue took out of the store (0 when it is not a live issue of this plant). */
+  valuePaise: number;
+  /** The issue's quantity and its rated part, milli-units (0 and 0 when it is not a live issue). */
+  qtyMilli: number;
+  ratedMilli: number;
+  /**
+   * True when every unit of the issue came from rated stock, so `valuePaise` is its full cost. False when
+   * part (or all) of it came from stock with no rate yet: that part counts at 0, so `valuePaise` is only
+   * the rated part's cost. False too when it is not a live issue.
+   */
+  fullyRated: boolean;
+};
+
 /**
  * CONTRACTS-W2 item 1, for MAINT's spares cost: the money a store entry took out of the store, in paise.
  * 0 for an entry that is not an issue (MRS), was cancelled, has no value (issued from stock that had no
- * rate) or belongs to another plant. `db` comes first, like every other lib helper.
+ * rate) or belongs to another plant. Issues take rated stock first, so an issue larger than the rated
+ * stock held is only PARTLY valued (the unrated part counts at 0). Pass `{ detail: true }` to get
+ * `StoreIssueValue`, whose `fullyRated` says whether the number is the whole cost. `db` comes first,
+ * like every other lib helper.
  */
-export async function storeIssueValuePaise(db: OrrnDb, companyId: string, storeTxnId: string): Promise<number> {
+export async function storeIssueValuePaise(db: OrrnDb, companyId: string, storeTxnId: string): Promise<number>;
+export async function storeIssueValuePaise(db: OrrnDb, companyId: string, storeTxnId: string, opts: { detail: true }): Promise<StoreIssueValue>;
+export async function storeIssueValuePaise(
+  db: OrrnDb,
+  companyId: string,
+  storeTxnId: string,
+  opts?: { detail: true },
+): Promise<number | StoreIssueValue> {
   const [row] = await db
-    .select({ kind: storeTxn.kind, valuePaise: storeTxn.valuePaise, cancelledAt: storeTxn.cancelledAt })
+    .select({
+      kind: storeTxn.kind,
+      valuePaise: storeTxn.valuePaise,
+      qtyMilli: storeTxn.qtyMilli,
+      ratedMilli: storeTxn.ratedMilli,
+      cancelledAt: storeTxn.cancelledAt,
+    })
     .from(storeTxn)
     .where(and(eq(storeTxn.id, storeTxnId), eq(storeTxn.companyId, companyId)))
     .limit(1);
-  if (!row || row.kind !== "mrs" || row.cancelledAt !== null) return 0;
-  return row.valuePaise;
+  const live = !!row && row.kind === "mrs" && row.cancelledAt === null;
+  const detail: StoreIssueValue = live
+    ? { valuePaise: row.valuePaise, qtyMilli: row.qtyMilli, ratedMilli: row.ratedMilli, fullyRated: row.ratedMilli >= row.qtyMilli }
+    : { valuePaise: 0, qtyMilli: 0, ratedMilli: 0, fullyRated: false };
+  return opts?.detail ? detail : detail.valuePaise;
 }
