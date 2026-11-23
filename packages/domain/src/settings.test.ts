@@ -40,6 +40,8 @@ describe("reason codes (C39: one master with a kind)", () => {
       "die_work",
       "melt_correct",
       "cast_tail",
+      "log_reject", // XE FOUNDRY #43
+      "billet_reject",
     ]);
     expect(isReasonCodeKind("downtime")).toBe(true);
     expect(isReasonCodeKind("threshold")).toBe(false);

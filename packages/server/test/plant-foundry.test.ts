@@ -803,6 +803,41 @@ describe("melts.cancel: reversal rows, never edits", () => {
     expect((await meltsOf(p.companyId))[0]!.cancelledAt).toBeNull();
   });
 
+  test("XE FOUNDRY r1: refused once cuts left the billet store short of the melt's logs, even when the cast total covers it", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 25_000);
+    const c = await openCast(p);
+    const m1 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
+    await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p, { timestamps: times(T0 - 7 * H), ldoTenthIn: { start: 455, end: 430 } }));
+    await p.owner.stock.locations.create({ code: "RACK", name: "Billet rack", kind: "billet_rack" });
+    // 20,900 kg of logs; 14,000 kg cut (13,300 kg of billets on the rack): the store keeps 6,900 kg.
+    await p.foundry.foundry.billets.cut({ castId: c.id, machine: "saw", logPcs: 25, logG: 14_000 * KG, billetLengthMm: 600, billetPcs: 200, billetG: 13_300 * KG });
+    await expect(p.supervisor.foundry.melts.cancel({ meltId: m1.id, reason: "Entered twice" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: `Only 6,900 kg of ${c.number} logs is left at BILLET; this melt can no longer be cancelled`,
+    });
+    expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
+  });
+
+  test("XE FOUNDRY r2: a correction is refused the same way once cuts left the billet store short of the melt's logs", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 25_000);
+    const c = await openCast(p);
+    const m1 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
+    await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p, { timestamps: times(T0 - 7 * H), ldoTenthIn: { start: 455, end: 430 } }));
+    await p.owner.stock.locations.create({ code: "RACK", name: "Billet rack", kind: "billet_rack" });
+    await p.foundry.foundry.billets.cut({ castId: c.id, machine: "saw", logPcs: 25, logG: 14_000 * KG, billetLengthMm: 600, billetPcs: 200, billetG: 13_300 * KG });
+    const code = (await p.viewer.reasonCodes.list({ kind: "melt_correct" })).find((r) => r.code === "wrong_weight")!.id;
+    const { approvalId } = await p.foundry.foundry.melts.requestCorrection({ meltId: m1.id, reasonCodeId: code, note: "Logs were lighter" });
+    await p.manager.approval.decide({ id: approvalId, decision: "approved" });
+    await expect(p.foundry.foundry.melts.correct({ meltId: m1.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: `Only 6,900 kg of ${c.number} logs is left at BILLET; this melt can no longer be corrected`,
+    });
+    expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
+    expect((await meltsOf(p.companyId)).find((m) => m.id === m1.id)!.status).toBe("locked");
+  });
+
   test("never returns a draw onto a retired store item: reactivate it first (ruling PL7RR)", async () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);

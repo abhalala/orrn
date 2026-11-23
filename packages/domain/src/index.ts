@@ -20,6 +20,7 @@ export * from "./planView";
 export * from "./dispatchVehicle";
 export * from "./dispatchLate";
 export * from "./ageing";
+export * from "./foundryDepth";
 export * from "./invites";
 export * from "./units/index";
 export * from "./reg";

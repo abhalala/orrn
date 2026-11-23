@@ -168,6 +168,13 @@ export const PLANT_ACTIONS = [
   "maint.view",
   "maint.manage",
   "maint.workorder",
+  // XE parity lane FOUNDRY (rows 41-47, 50).
+  "foundry.homog", // homogenizing batches: load logs, start, readings, take out
+  "foundry.homogRelease", // homogenizing verdict: release, release a held batch with a reason, void
+  "foundry.logs", // receive bought-in logs from a vendor, with the mill test certificate
+  "foundry.billets", // cut logs into billets, issue billets to a press floor
+  "foundry.reject", // log and billet reject registers
+  "foundry.plan", // casting plan: accept, edit, drop, open a cast from a line
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -351,6 +358,14 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
   "maint.manage": ["admin", "manager", "supervisor"],
   "maint.workorder": ["admin", "manager", "supervisor", "operator", "press", "foundry"],
+  // XE FOUNDRY: the foundry floor and the supervisor run batches, cuts, issues and rejects; the verdict is a
+  // supervisor's or manager's; bought-in logs come in through the store; the casting plan is the planner's.
+  "foundry.homog": ["foundry", "supervisor"],
+  "foundry.homogRelease": ["supervisor", "manager"],
+  "foundry.logs": ["foundry", "supervisor", "storekeeper"],
+  "foundry.billets": ["foundry", "supervisor"],
+  "foundry.reject": ["foundry", "supervisor"],
+  "foundry.plan": ["supervisor", "office", "manager"],
   "support.request": [
     "admin",
     "manager",

@@ -22,6 +22,7 @@ import {
   type LengthDraft,
   type MeltForm } from "./melt-form";
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
+import { ChargeMixPanel } from "./charge-mix-panel";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
@@ -129,7 +130,7 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
 
 // --- 2. Charge -----------------------------------------------------------------------------------------------
 
-export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: StepProps & { lots: Lot[]; streams: Stream[]; capacityG: number | null }) {
+export function ChargeStep({ form, patch, issue, lots, streams, capacityG, castAlloyId }: StepProps & { lots: Lot[]; streams: Stream[]; capacityG: number | null; castAlloyId?: string }) {
   const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
@@ -232,6 +233,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
         </div>
       </section>
 
+      <ChargeMixPanel alloyId={form.alloyId || castAlloyId || ""} capacityG={capacityG} />
       <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="charge-total">
         {t("foundry.melt.charge.total", { kg: kgGrouped1(fmt, fig.balance.metalInG) })}
       </p>

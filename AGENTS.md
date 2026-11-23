@@ -928,6 +928,70 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   across the range, biggest first), and `lotsG` / `streamsG` on every row and in the total; the report shows
   "Metal in by source" and the CSV carries "From lots kg" / "From return streams kg".
 
+## Foundry depth (XE parity lane FOUNDRY, rows 41-47 and 50; migration 0063)
+
+Rides the `foundry` module (no new module key; ROUTER_MODULE `foundry` gates every mutation). Tables in
+`packages/db/src/schema/foundryDepth.ts`, routers `routers/foundryDepth.ts` (`foundry.homog`, `foundry.logs`,
+`foundry.billets`, `foundry.rejects`) and `routers/foundryPlan.ts` (`foundry.chargeMix`, `foundry.casts.dataSheet`),
+shared SQL in `lib/foundryDepth.ts`, pure rules in `@orrn/domain` `foundryDepth.ts`. Actions (append-only in
+PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundry.billets`, `foundry.reject`, `foundry.plan`.
+
+- **Logs vs billets are told apart by location kind**, not by item: the `billet` item (item_ref = cast id) sits at
+  `billet_store` (logs as cast), `billet_rack` (cut billets) or `press_floor` (one press's billets; `location.press_line_id`
+  is required for that kind, another plant's press is Not found). Voucher types `log_receipt`, `billet_cut`, `billet_issue`,
+  `foundry_reject`. A cut debits the store and credits the rack (billets) and the end-cut stream (scrap, default PLANT-SCRAP);
+  an issue moves rack to a press floor; a reject debits a place and credits a return stream (scrap).
+- **Cast tail** = melt logs + bought-in receipts - on hand - press credited - foundry out (`castFoundryOutSql`: the net of
+  `billet_cut` and `foundry_reject` billet rows). `castCloseCheck` counts foundry out as credited. Never post a cut or a
+  reject without its paired credit, or the tail drifts.
+- **Press close draws where the billets are** (`pressDraws`): from the run's press floor when an active `press_floor`
+  exists for the line, whatever it holds (floor reality wins: a short floor goes negative, `press.runs.preview` and `close`
+  return `floorShort` and the screen warns, never blocks; a count corrects it). With no floor: the cast's kg on the active
+  racks first (each rack row guards its own kg at write time), then the billet store for the rest; a plant with no rack
+  stock of the cast draws everything from the store as before. No setting: making a press floor is the switch. A floor that
+  holds any cast (negative included) cannot move to another press (`stock.locations.update`).
+- **Melt cancel and correction** reverse the melt's logs at the billet store, so they also need the store (not only the cast
+  total) to hold the melt's logs after cuts or issues (`meltLogsPlace`, read and in the UPDATE).
+- **Bought-in logs (#42):** `logs.receive` makes a closed `cast` with `source = 'bought_in'` (number = the receipt number `OL-n`,
+  doc type `log_receipt`), the `log_receipt` row and a + ledger row at the billet store, in one batch. Melts, close and cancel
+  refuse it because it is closed. The mill test certificate rides the die-files R2 bucket ticket flow
+  (`{co}/dies/mtc-{receiptId}/{fileId}`, purged with the plant by `dieFilesPurge.ts`); `mtcUrl` mints the signed link.
+- **Homogenizing (#41):** `homog_batch` (doc type `homog`, `HB-n`) on a furnace of `kind = 'homogenizing'` (melts refuse that
+  kind; `seedDefaults` only checks melting furnaces). One `in_furnace` batch per furnace (partial unique index). Soak is ageing's
+  `soakCompliance` with a 60 min reading hold and 30 min over-temperature grace (`homogSoak`). `out` freezes the verdict;
+  `release` passes an ok soak, holds a failed one unless a note is given. No ledger rows. Plant setting
+  `settings.foundry.requireHomogenizing` (default off; off is fully off): one allowance per cast for every way logs leave the
+  billet store. Pieces: a cut and a whole-log issue from the store use released pieces (`homogPcsUsedSql`, re-checked in the
+  batch by `homogPcsAbort`). Kg: a press with no floor taking logs from the store is the close gate `billets_not_homogenized`
+  (released kg + `homogToleranceBp` of it, default 200 = 2 %, ≥ kg used by cuts, store issues and store press draws;
+  re-checked in the close batch). Switching the setting on stamps `requireHomogenizingSince` (epoch ms,
+  `applyFoundrySettingsEdit`): only cuts, issues and press draws from then on count as used (a reopen counts by the time of the
+  row it reverses); null = count everything. Released pieces and kg have no time bound (lenient). The way out of a wrong batch
+  (`settings.update`, owner/admin): switch the setting off and on (forgets earlier use, not a too-light released kg), turn it off for
+  the close, or raise `homogToleranceBp` (API only, no field on the card yet). 6xxx = a code that starts
+  with four digits from 6, optionally behind `AA`, `AW` or `EN AW` (`alloyNeedsHomogenizing`; the alloy master has no series).
+  A load re-checks pieces on batches against the cast's logs in its batch.
+- **Reject registers (#43):** reason kinds `log_reject`, `billet_reject` (seeded per plant; "other" needs a note).
+- **Charge mix (#47):** `suggestChargeMix` is a two-phase simplex (`solveLp`) on typical chemistry per scrap item and per
+  return stream (`charge_chemistry`, edited with masters.publish at `/foundry/chemistry`). It never writes a melt; the web
+  panel on the charge step is display only. Cost (lot rates; streams cost 0) is sent only to reports.read or purchase.receipt.
+- **Casting plan (#46):** `routers/foundryCastPlan.ts` (`foundry.castPlan`). `propose` sums REG's `planBilletNeed` per
+  production press plan (draft or released, window starting in the range, at most 40 plans and 31 days) on the plan's first
+  plant day, less the billets the plan's logged runs already used (they left the stock too), then `castingPlan` takes off
+  billet-item stock by alloy and metal to come (accepted lines in full; an opened line less what its cast MADE: billet rows of
+  voucher `melt`, `melt_cancel`, `log_receipt`, never cuts or issues, which only move billets). Cast size = the largest active melting furnace. `accept`/`update`/`drop` are
+  `foundry.plan` (`accept` takes a `clientRequestId`); `open` is `cast.enter` and opens the cast (doc series, return streams, `cast.open` audit) in the batch that
+  marks the line opened, aborting if the line is no longer accepted. Lines with no alloy are reported, never planned.
+- **Replay keys:** `logs.receive`, `billets.cut`, `billets.issue`, `rejects.create` and `castPlan.accept` take a
+  `clientRequestId` (audit-row record, `openFloorReplay` before any check or doc number, `keyedBatch` answers the first result
+  even when a duplicate trips a stock abort). The web forms send `useRequestKey` keys (`features/foundry/request-key.ts`). A
+  bought-in cast (`source = 'bought_in'`) never blocks the cast book's start for its month.
+- **Buddy:** every foundry-depth write is a `paths` deny in `lib/buddy/decisions.ts` until reviewed for drafts.
+- **Web:** `/foundry/homog`, `/foundry/homog/$id`, `/foundry/logs`, `/foundry/billets` (`tab=stock|cut|issue`),
+  `/foundry/rejects` (`kind=log|billet`, `from`, `to`), `/foundry/chemistry`, `/casts/$id/sheet` (A4 data sheet, a paper:
+  `paper-guard.test.ts`), linked from the `/casts` header. Strings in the `fdy2` namespace (`packages/i18n/src/fdy2`, en+hi).
+  Refusals go through `ErrorLine` and `@orrn/i18n/refusal-foundry` like every foundry screen.
+
 ## Ageing (contracts W3-AG-C, server W3-AG-S, web W3-AG-W)
 
 D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky` @1ebdd0d7 (and `wt/W2-FD-S-omafranky` @ddf3bd9c for the foundry); both are superseded, not merged (D32: the hub's lanes win; 8 satellite test cases were ported into W2-FD-S). Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).
@@ -1017,7 +1081,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 
 - Floor writes that a bad network retries take an optional
   `clientRequestId` (`clientRequestIdSchema`): `bundle.createReceipt`, `dispatch.scan`,
-  `dispatch.addBundlesBySerial`, `stock.move`, `orders.create`, `count.start`, the store's receive / issue / exchange, and the
+  `dispatch.addBundlesBySerial`, `stock.move`, `orders.create`, `count.start`, the store's receive / issue / exchange, the
+  foundry's `logs.receive`, `billets.cut`, `billets.issue`, `rejects.create` and `castPlan.accept` (XE FOUNDRY), and the
   `dispatch.create` / `dieInstance.addReading` pair below. The write's own audit row is the record
   (`lib/requestReplay.ts`): its id comes from (company, kind, key), its meta carries the request
   fingerprint and the first answer. A repeat answers the first result with `replayed: true` and writes

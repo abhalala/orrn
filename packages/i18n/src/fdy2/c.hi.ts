@@ -1,0 +1,78 @@
+/**
+ * XE FOUNDRY screens, part c (hi): the casting plan. Merged into the `fdy2` namespace by ./hi.ts.
+ * Units are never written as bare words: use {massUnit}, which the plant's formatter fills.
+ */
+export const fdy2CHi = {
+  plan: {
+    nav: "कास्टिंग प्लान",
+    title: "कास्टिंग प्लान",
+    subtitle: "यह प्रेस प्लान की बिलेट ज़रूरत से बना है, जिसमें से स्टॉक के लॉग और बिलेट और पहले मंज़ूर की गई लाइनें घटाई गई हैं।",
+    loadFailed: "कास्टिंग प्लान नहीं खुला।",
+    from: "इस दिन से",
+    to: "इस दिन तक",
+    backwards: "आख़िरी दिन शुरू के दिन से पहले है।",
+    tooLong: "एक बार में 31 दिन या कम देखें।",
+    furnaceSize: "फर्नेस का साइज़: एक कास्ट में {kg} {massUnit}।",
+    furnaceNone: "फर्नेस का साइज़ नहीं भरा है, इसलिए हर पंक्ति में एक कास्ट मानी गई है।",
+    kgLine: "{kg} {massUnit}",
+    proposed: {
+      title: "सुझाव",
+      empty: "इन दिनों में कास्ट करने को कुछ नहीं है। स्टॉक और मंज़ूर लाइनें प्रेस प्लान पूरे कर देती हैं।",
+      col: { day: "दिन", alloy: "अलॉय", need: "ज़रूरत", covered: "पूरा", cast: "कास्ट करना", casts: "कास्ट" },
+      accept: "मंज़ूर करें",
+      noAlloy: "यह अलॉय मास्टर में नहीं है। मंज़ूर करने से पहले जोड़ें।",
+      nothing: "कास्ट करने को कुछ नहीं",
+    },
+    plans: {
+      title: "इस्तेमाल हुए प्रेस प्लान",
+      empty: "इन दिनों में कोई प्रेस प्लान शुरू नहीं होता।",
+      line: "{number} · {day} · बिलेट {kg} {massUnit}",
+      noAlloy: "इस प्लान के {kg} {massUnit} की लाइनों में अलॉय नहीं है, इसलिए वह प्लान में नहीं आया।",
+      truncated: "इन दिनों में जितने प्रेस प्लान पढ़े जाते हैं उससे ज़्यादा शुरू होते हैं। कम दिन देखें।",
+    },
+    lines: {
+      title: "मंज़ूर लाइनें",
+      empty: "इन दिनों में कोई लाइन मंज़ूर नहीं हुई।",
+      col: { day: "दिन", alloy: "अलॉय", kg: "वज़न", status: "हालत", note: "नोट", actions: "काम" },
+      status: { accepted: "मंज़ूर", opened: "खुली", dropped: "छोड़ी" },
+      edit: "बदलें",
+      drop: "छोड़ें",
+      open: "कास्ट खोलें",
+      cast: "कास्ट {number}",
+      proposedWas: "सुझाव {kg} {massUnit}",
+    },
+    totals: {
+      title: "अलॉय के हिसाब से कुल",
+      line: "ज़रूरत {need} {massUnit}, पूरा {covered} {massUnit}, कास्ट करना {cast} {massUnit}, {casts} कास्ट",
+    },
+    accept: {
+      title: "{day} के लिए {alloy} मंज़ूर करें",
+      editTitle: "{alloy} की लाइन बदलें",
+      dropTitle: "{alloy} की लाइन छोड़ें",
+      proposedHint: "सुझाव: {kg} {massUnit}",
+      kg: "कास्ट करने का वज़न",
+      day: "दिन",
+      note: "नोट",
+      save: "मंज़ूर करें",
+      saveEdit: "सेव करें",
+      confirmDrop: "लाइन छोड़ें",
+      saved: "लाइन मंज़ूर हुई।",
+      updated: "लाइन सेव हुई।",
+      dropped: "लाइन छोड़ दी गई।",
+      opened: "कास्ट {number} खुली।",
+      issue: {
+        kg: "1 {massUnit} या उससे ज़्यादा वज़न भरें।",
+        day: "एक दिन चुनें।",
+      },
+    },
+  },
+  trace: {
+    title: "बाहर से खरीदे लॉग",
+    receipt: "रसीद {number}, {day} को आई",
+    vendor: "वेंडर {vendor}",
+    vendorCast: "वेंडर कास्ट {cast}",
+    challan: "चालान {challan}",
+    qty: "{pcs} पीस, {kg} {massUnit}",
+    mtc: "मिल टेस्ट सर्टिफ़िकेट फ़ाइल में है",
+  },
+};

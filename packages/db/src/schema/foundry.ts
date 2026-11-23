@@ -63,6 +63,10 @@ export const returnStream = sqliteTable(
 
 export const foundryMasterStatuses = ["active", "retired"] as const;
 
+/** XE FOUNDRY (#41, 0063): a melting furnace takes melts; a homogenizing furnace takes log batches. */
+export const furnaceKinds = ["melting", "homogenizing"] as const;
+export type FurnaceKind = (typeof furnaceKinds)[number];
+
 /** A furnace (FourCubes: one, F1, 6 t, 127 mm billets, Q-FD-8). A melt refuses metal_in > capacity. */
 export const furnace = sqliteTable(
   "furnace",
@@ -78,6 +82,8 @@ export const furnace = sqliteTable(
     /** Billet (log) diameter cast here, mm (127 = 5 inch). */
     billetDiaMm: integer("billet_dia_mm"),
     status: text("status", { enum: foundryMasterStatuses }).notNull().default("active"),
+    /** XE FOUNDRY (0063): melting (default) or homogenizing. */
+    kind: text("kind", { enum: furnaceKinds }).notNull().default("melting"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
@@ -164,6 +170,10 @@ export const alloyLimit = sqliteTable(
 export const castStatuses = ["open", "closing", "closed", "cancelled"] as const;
 export type CastStatus = (typeof castStatuses)[number];
 
+/** XE FOUNDRY (#42, 0063): `melt` = cast here; `bought_in` = logs received from a vendor (log_receipt), closed at once. */
+export const castSources = ["melt", "bought_in"] as const;
+export type CastSource = (typeof castSources)[number];
+
 /** Figures behind a close-out, frozen on the cast when it was asked (grams). */
 export type CastCloseSummary = {
   /**
@@ -245,6 +255,8 @@ export const cast = sqliteTable(
     tailReasonCodeId: text("tail_reason_code_id"),
     /** FINAL-FIXES-4 (0042, FP-FD-02): the code an old cast carried on paper (upper case, free text), unique per plant. */
     legacyCode: text("legacy_code"),
+    /** XE FOUNDRY (0063): where the metal came from (`bought_in` casts take no melts and never close). */
+    source: text("source", { enum: castSources }).notNull().default("melt"),
   },
   (table) => [
     uniqueIndex("cast_company_period_seq_unique").on(table.companyId, table.period, table.seq),

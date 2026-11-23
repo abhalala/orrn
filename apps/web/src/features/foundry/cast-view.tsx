@@ -95,6 +95,11 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
                 {t("foundry.cast.certificate")}
               </UiLink>
             </Button>
+            <Button asChild variant="secondary">
+              <UiLink to={`/casts/${c.id}/sheet`} data-testid="data-sheet-link">
+                {t("fdy2.sheet.link")}
+              </UiLink>
+            </Button>
             <Can do="cast.close">
               {c.status === "open" ? (
                 <Button variant="secondary" onClick={() => setClosing(true)} disabled={block !== null} data-testid="close-cast">

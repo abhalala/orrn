@@ -217,10 +217,22 @@ export type FloorSettings = {
    * truck, each with its own packing list under the same vehicle.
    */
   packingList: { kgPerPiece: boolean; scope: PackingListScope };
+  /**
+   * XE FOUNDRY (#41, default off): 6xxx logs are cut into billets only after a released homogenizing batch.
+   * `requireHomogenizingSince` (epoch ms, fix round 2) is when the switch went on: only logs cut, issued or
+   * pressed from then on use up homogenized logs, so a cast half used before the switch stays usable
+   * (null = count everything). `homogToleranceBp` lets a press's weighed kg run past the homogenized kg
+   * by that much (default 200 bp = 2 %, the press balance warning band).
+   */
+  foundry: { requireHomogenizing: boolean; requireHomogenizingSince: number | null; homogToleranceBp: number };
 };
 
 export const PACKING_LIST_SCOPES = ["one_so", "one_customer", "per_truck"] as const;
 export type PackingListScope = (typeof PACKING_LIST_SCOPES)[number];
+
+/** The weighing gap a floor-less press may run past the homogenized kg by (2 %, as `PRESS_BALANCE_WARN_BP`). */
+export const HOMOG_TOLERANCE_BP_DEFAULT = 200;
+export const HOMOG_TOLERANCE_BP_MAX = 2_000;
 
 /** Lead time a new sales order's expected date starts from (OWNER_QUESTIONS Q8 A: 15 days). */
 export const ORDER_LEAD_DAYS_DEFAULT = 15;
@@ -249,6 +261,7 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   castSeriesStart: null,
   orderLeadDays: ORDER_LEAD_DAYS_DEFAULT,
   packingList: { kgPerPiece: false, scope: "one_customer" },
+  foundry: { requireHomogenizing: false, requireHomogenizingSince: null, homogToleranceBp: HOMOG_TOLERANCE_BP_DEFAULT },
 };
 
 // ---------------------------------------------------------------------------
@@ -381,7 +394,39 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
         ? (obj(s.packingList).scope as PackingListScope)
         : d.packingList.scope,
     },
+    foundry: readFoundrySettings(obj(s.foundry), d.foundry),
   };
+}
+
+function readFoundrySettings(f: Record<string, unknown>, d: FloorSettings["foundry"]): FloorSettings["foundry"] {
+  const requireHomogenizing = bool(f.requireHomogenizing, d.requireHomogenizing);
+  const since = f.requireHomogenizingSince;
+  const tol = f.homogToleranceBp;
+  return {
+    requireHomogenizing,
+    requireHomogenizingSince: requireHomogenizing && typeof since === "number" && Number.isFinite(since) && since >= 0 ? Math.floor(since) : null,
+    homogToleranceBp:
+      typeof tol === "number" && Number.isInteger(tol) && tol >= 0 && tol <= HOMOG_TOLERANCE_BP_MAX ? tol : d.homogToleranceBp,
+  };
+}
+
+/**
+ * Merge a foundry settings edit (fix round 2). Turning homogenizing on stamps `nowMs` as its start, so
+ * logs cut, issued or pressed earlier never count against the homogenized logs; turning it off clears
+ * it, and turning it off and on again starts afresh (the supervisor's way out of a wrong batch).
+ */
+export function applyFoundrySettingsEdit(
+  was: FloorSettings["foundry"],
+  edit: { requireHomogenizing?: boolean; homogToleranceBp?: number },
+  nowMs: number,
+): FloorSettings["foundry"] {
+  const next = { ...was };
+  if (edit.requireHomogenizing !== undefined) {
+    next.requireHomogenizing = edit.requireHomogenizing;
+    next.requireHomogenizingSince = edit.requireHomogenizing ? (was.requireHomogenizing ? (was.requireHomogenizingSince ?? nowMs) : nowMs) : null;
+  }
+  if (edit.homogToleranceBp !== undefined) next.homogToleranceBp = edit.homogToleranceBp;
+  return next;
 }
 
 /** `requireCastOnBundle` in effect: the plant's choice, else on once a melt has been locked. */

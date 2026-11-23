@@ -162,7 +162,7 @@ export function unpackedCsv(data: UnpackedData, dateOf: (ms: number) => string, 
 }
 
 export const MATERIAL_CLASS_KEYS = ["metal", "billet", "bundle"] as const;
-const MATERIAL_GROUPS = ["opening", "pack", "void", "dispatch", "purchase", "melt", "pack_reject", "press", "cast_tail", "move"] as const;
+const MATERIAL_GROUPS = ["opening", "pack", "void", "dispatch", "purchase", "melt", "pack_reject", "press", "cast_tail", "move", "log_receipt", "billet_cut", "foundry_reject"] as const;
 
 /** The plain word of a ledger document kind; an unknown kind shows as the server wrote it. */
 export function materialGroupText(group: string, t: T): string {

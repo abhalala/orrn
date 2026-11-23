@@ -46,6 +46,12 @@ export type ImportReplayKind =
   | "ageing.out"
   | "ageing.hardness"
   | "ageing.release"
+  // XE FOUNDRY fix round 1: new floor stock writes and the casting plan's accept (lib/requestReplay.ts).
+  | "foundry.logs.receive"
+  | "foundry.billets.cut"
+  | "foundry.billets.issue"
+  | "foundry.reject"
+  | "foundry.castPlan.accept"
   // Final fixes 5 (M4): links handed out once; see lib/replayToken.ts.
   | "die_share.create"
   | "invite.create"

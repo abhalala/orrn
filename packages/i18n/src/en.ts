@@ -34,6 +34,7 @@ import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
 import { store2En } from "./store2/en";
 import { maintEn } from "./maint/en";
+import { fdy2En } from "./fdy2/en";
 
 export const en = {
   common: {
@@ -3257,6 +3258,8 @@ export const en = {
         scrap_store: "Scrap store",
         store: "Central store",
         wip: "Work in progress",
+        billet_rack: "Billet rack",
+        press_floor: "Press floor",
       },
       holdsEmpty: "Empty",
       holdsBundles: "{count} {count:bundle|bundles}",
@@ -6053,6 +6056,7 @@ export const en = {
         late_entry_unapproved: "This late entry is waiting for approval",
         downtime_open: "Stop the open downtime first",
         trial_result_missing: "Say whether the die trial passed or failed",
+        billets_not_homogenized: "Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first",
       },
       errors: {
         generic: "The server did not accept this.",
@@ -6145,6 +6149,7 @@ export const en = {
       billetsOnce: "One cast on a run. A second cast is a new run.",
       shortStock: "The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short.",
       shortStockNoFigure: "The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show the billets short. Say why the stock is short.",
+      floorShort: "{cast}: {floor} holds {have} {massUnit} and the run used {need} {massUnit}. The run is logged; the floor will show less than nothing until billets are issued or counted.",
       pressedLength: "Pressed length",
       pressedLengthHint: "Optional. Pieces times cut length are checked only when this is set.",
       pcsOrdered: "Released {pcs} pcs",
@@ -6532,6 +6537,7 @@ export const en = {
   adm: admEn,
 
   buddy: buddyEn,
+  fdy2: fdy2En,
 
   reg: regEn,
   qa: qaEn,
@@ -6553,6 +6559,8 @@ export const en = {
       die_work: "Die work",
       melt_correct: "Correct a locked melt",
       cast_tail: "Cast close-out",
+      log_reject: "Log reject",
+      billet_reject: "Billet reject",
     },
     downtime: {
       die_change: "Die change",
@@ -6644,6 +6652,22 @@ export const en = {
       scale_difference: "Scale difference",
       remelted: "Billets sent back to the furnace",
       scrapped: "Billets scrapped",
+      other: "Other",
+    },
+    log_reject: {
+      crack: "Crack",
+      inclusion: "Inclusion",
+      size: "Wrong size",
+      chemistry: "Chemistry out",
+      bend: "Bent log",
+      other: "Other",
+    },
+    billet_reject: {
+      crack: "Crack",
+      inclusion: "Inclusion",
+      size: "Wrong size",
+      chemistry: "Chemistry out",
+      short_length: "Short length",
       other: "Other",
     },
   },
@@ -7136,6 +7160,25 @@ export const en = {
       foundry__castSeries__set: "Cast number series moved",
       foundry__furnace__create: "Furnace added",
       foundry__furnace__update: "Furnace changed",
+      foundry__castPlan__accept: "Casting plan line accepted",
+      foundry__castPlan__drop: "Casting plan line dropped",
+      foundry__castPlan__open: "Cast opened from the casting plan",
+      foundry__castPlan__update: "Casting plan line changed",
+      foundry__billets__cut: "Logs cut into billets",
+      foundry__billets__issue: "Billets issued to a press",
+      foundry__chemistry__set: "Typical chemistry set",
+      foundry__homog__create: "Homogenizing batch opened",
+      foundry__homog__hold: "Homogenizing batch held",
+      foundry__homog__load: "Logs loaded for homogenizing",
+      foundry__homog__out: "Homogenizing batch taken out",
+      foundry__homog__release: "Homogenizing batch released",
+      foundry__homog__start: "Homogenizing started",
+      foundry__homog__unload: "Logs taken off a homogenizing batch",
+      foundry__homog__void: "Homogenizing batch voided",
+      foundry__logs__mtc: "Mill test certificate added",
+      foundry__logs__receive: "Bought-in logs received",
+      foundry__reject__billet: "Billets rejected",
+      foundry__reject__log: "Logs rejected",
       foundry__melt__correct: "Melt corrected",
       foundry__melt__correct_request: "Melt correction sent for approval",
       foundry__melt__discard: "Draft melt thrown away",

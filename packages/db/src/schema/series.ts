@@ -40,6 +40,9 @@ export const docTypes = [
   "store_po",
   // XE parity (lane MAINT, #65): maintenance work orders MWO-n per financial year.
   "maint_wo",
+  // XE FOUNDRY: homogenizing batches HB-, bought-in log receipts OL- (per FY).
+  "homog",
+  "log_receipt",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

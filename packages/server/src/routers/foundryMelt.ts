@@ -75,6 +75,7 @@ import {
 } from "../lib/foundryKit";
 import { assertLotsInspected, isQaAbort, lotsInspectedGuardStatements } from "../lib/qa";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
+import { castAt, castAtSql, meltLogsPlace } from "../lib/foundryDepth";
 import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, MAX_STORE_DRAWS, MAX_STORE_QTY_MILLI, prepareStoreDraws, type PreparedStoreDraws } from "../lib/store";
 
@@ -374,9 +375,11 @@ async function draftMasters(ctx: Ctx, input: Pick<SaveInput, "furnaceId" | "allo
     furnaceRow = (await ctx.db.select().from(furnace).where(and(eq(furnace.id, input.furnaceId), eq(furnace.companyId, ctx.companyId))).limit(1))[0] ?? null;
     if (!furnaceRow) throw new TRPCError({ code: "NOT_FOUND", message: "Furnace not found" });
     if (furnaceRow.status !== "active") bad(`${furnaceRow.code} is retired`);
+    // XE FOUNDRY (#41): a homogenizing furnace takes log batches, never a melt.
+    if (furnaceRow.kind === "homogenizing") bad(`${furnaceRow.code} is a homogenizing furnace; pick a melting furnace`);
   } else if (input.furnaceId === undefined) {
-    // One active furnace (FourCubes: F1): it is the default.
-    const rows = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"))).limit(2);
+    // One active melting furnace (FourCubes: F1): it is the default.
+    const rows = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, ctx.companyId), eq(furnace.status, "active"), eq(furnace.kind, "melting"))).limit(2);
     if (rows.length === 1) furnaceRow = rows[0]!;
   }
   let alloyRow: typeof alloy.$inferSelect | null = null;
@@ -970,6 +973,11 @@ export const meltStepperProcedures = {
       const [onHand] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
       const used = () => bad(`The press has already used billets of ${c.number}; this melt can no longer be corrected`);
       if (Number(onHand?.g ?? 0) < m.logsG) used();
+      // XE FOUNDRY (fix round 1): the reversal posts at the billet store, which must still hold the logs.
+      const logsAt = await meltLogsPlace(ctx.db, companyId, m.id, c.id);
+      const storeShort = (haveG: number): never =>
+        bad(`Only ${fmtKg(Math.max(0, haveG))} kg of ${c.number} logs is left at ${logsAt!.code}; this melt can no longer be corrected`);
+      if (logsAt && logsAt.haveG < m.logsG) storeShort(logsAt.haveG);
       const txns = await liveMeltDraws(ctx, m.id);
       const blocked = storeReturnBlock(txns);
       if (blocked) bad(blocked);
@@ -1002,6 +1010,7 @@ export const meltStepperProcedures = {
               isNull(melt.cancelledAt),
               sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open' and oc.server_seq = ${seq})`,
               sql`${billetsSql} >= ${melt.logsG}`,
+              logsAt ? sql`${castAtSql(companyId, c.id, logsAt.id)} >= ${melt.logsG}` : undefined,
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} mm where mm.id = ${m.id} and mm.company_id = ${companyId} and mm.server_seq = ${seq} and mm.cancelled_at is not null)`),
@@ -1071,6 +1080,10 @@ export const meltStepperProcedures = {
           if (castNow.status !== "open") bad(castStateMessage(castNow));
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) used();
+          if (logsAt) {
+            const haveNow = await castAt(ctx.db, companyId, c.id, logsAt.id);
+            if (haveNow < m.logsG) storeShort(haveNow);
+          }
           bad("This melt changed; open it again");
         }
         throw e;

@@ -408,6 +408,13 @@ export const VOUCHER_ROLE: Readonly<Record<LedgerVoucherType, { role: LedgerPost
   press_run: { role: "flow", group: "press" },
   press_run_reopen: { role: "flow", group: "press" },
   cast_tail: { role: "adjust", group: "cast_tail" },
+  // XE FOUNDRY: bought-in logs come in; a cut turns log weight into billets plus end-cut scrap (the billet
+  // class nets the end cut out, the scrap class takes it in); an issue only moves billets to a press floor;
+  // a reject takes logs or billets out to a return stream.
+  log_receipt: { role: "flow", group: "log_receipt" },
+  billet_cut: { role: "flow", group: "billet_cut" },
+  billet_issue: { role: "move", group: "move" },
+  foundry_reject: { role: "flow", group: "foundry_reject" },
 };
 
 export async function materialReconciliation(db: OrrnDb, companyId: string, f: { from: string; to: string }) {

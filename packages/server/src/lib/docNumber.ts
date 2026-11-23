@@ -45,6 +45,8 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
   store_po: "PO",
   // Maintenance work orders: MWO, so they never read like a works order WO- (XE-PRICE).
   maint_wo: "MWO",
+  homog: "HB",
+  log_receipt: "OL",
 };
 
 /**

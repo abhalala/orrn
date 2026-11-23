@@ -139,6 +139,8 @@ describe("the forms that take a weight, length or section weight", () => {
     "features/ageing/batch-sheets.tsx", "features/ageing/masters-pages.tsx", "features/dies/die-form.tsx", "features/die-room/band-form.tsx",
     "features/die-room/card-edit.tsx", "features/die-room/card-maker.tsx", "features/die-room/card-nitriding.tsx", "features/die-room/reading-pad.tsx",
     "features/dispatch/transport-fields.tsx", "features/foundry/close-sheet.tsx", "features/foundry/masters-view.tsx", "features/foundry/melt-steps.tsx",
+    "features/foundry/billets-view.tsx", "features/foundry/charge-mix-panel.tsx", "features/foundry/homog-batch-view.tsx", "features/foundry/logs-view.tsx",
+    "features/foundry/rejects-view.tsx", "features/foundry/cast-plan-view.tsx",
     "features/foundry/stock-view.tsx", "features/masters/die-copy-sheet.tsx", "features/orders/components/die-block.tsx", "features/orders/components/line-editor.tsx",
     "features/orders/plan-board-page.tsx", "features/orders/plan-trial-form.tsx", "features/pack/bundles-step.tsx", "features/pack/die-step.tsx",
     "features/pack/rejects-panel.tsx", "features/portal/new-order-page.tsx", "features/pricing/docs/enquiry-sheet.tsx", "features/pricing/docs/quote-form.tsx", "features/press/station-count.tsx", "features/purchase/lot-sheets.tsx",

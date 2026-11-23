@@ -8,10 +8,11 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 /**
  * Where stock physically sits (spec P6, digest Stage 13): yard 1-6, billet store, scrap store,
- * central store and the plant-scrap bin (wip, for returns). There is no default location and no
+ * central store and the plant-scrap bin (wip, for returns). XE FOUNDRY (0063): `billet_rack` holds billets
+ * cut to length, `press_floor` holds billets issued to one press (`press_line_id`). There is no default location and no
  * "location 0"; legacy stock whose place is unknown has `location_id` NULL until it is moved.
  */
-export const locationKinds = ["yard", "billet_store", "scrap_store", "store", "wip"] as const;
+export const locationKinds = ["yard", "billet_store", "scrap_store", "store", "wip", "billet_rack", "press_floor"] as const;
 export type LocationKind = (typeof locationKinds)[number];
 
 export const location = sqliteTable(
@@ -35,6 +36,8 @@ export const location = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /** XE FOUNDRY (0063): the press line a `press_floor` location serves (app-enforced id). */
+    pressLineId: text("press_line_id"),
   },
   (table) => [
     uniqueIndex("location_company_code_unique").on(table.companyId, table.code),
@@ -111,6 +114,14 @@ export const ledgerVoucherTypes = [
    * the `cast_close` approval when the tail needed a second person. At most one per cast.
    */
   "cast_tail",
+  /** XE FOUNDRY (#42): + billet (item_ref = the bought-in cast) at the billet store; voucher = log_receipt.id. */
+  "log_receipt",
+  /** XE FOUNDRY (#44): −log kg at the billet store, +billet kg at the rack, +end cuts to a return stream; voucher = billet_cut.id. */
+  "billet_cut",
+  /** XE FOUNDRY (#50): −kg at the store or rack, +kg at a press floor; voucher = billet_issue.id. */
+  "billet_issue",
+  /** XE FOUNDRY (#43): −kg of a rejected log or billet where it lay, +kg to a return stream; voucher = foundry_reject.id. */
+  "foundry_reject",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

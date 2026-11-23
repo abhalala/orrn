@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 11530 screen strings in 58 groups, 45 guides with 866 strings.
+Counts: 12121 screen strings in 59 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2762,7 +2762,7 @@ Counts: 11530 screen strings in 58 groups, 45 guides with 866 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row was already imported from an earlier copy of this file. Its row number and values match, so orrn won't add it again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (253)
+### masters (255)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2883,6 +2883,8 @@ Counts: 11530 screen strings in 58 groups, 45 guides with 866 strings.
 | `locations.kind.scrap_store` | Scrap store | स्क्रैप स्टोर |
 | `locations.kind.store` | Central store | सेंट्रल स्टोर |
 | `locations.kind.wip` | Work in progress | काम चालू |
+| `locations.kind.billet_rack` | Billet rack | बिलेट रैक |
+| `locations.kind.press_floor` | Press floor | प्रेस फ़्लोर |
 | `locations.holdsEmpty` | Empty | खाली |
 | `locations.holdsBundles` | {count} {count:bundle\|bundles} | {count} bundle |
 | `locations.holdsKg` | {kg} {massUnit} | {kg} {massUnit} |
@@ -5586,7 +5588,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (505)
+### press (507)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5721,6 +5723,7 @@ Please check, Lalubhai:
 | `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
 | `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
 | `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
+| `console.gates.billets_not_homogenized` | Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first | 6xxx cast के बिना होमोजेनाइज़ किए लॉग प्रेस में नहीं जा सकते; पहले उन्हें होमोजेनाइज़ करें |
 | `console.errors.generic` | The server did not accept this. | सर्वर ने इसे स्वीकार नहीं किया। |
 | `console.errors.conflict` | This changed on the server while you were working. Reload and try again. | काम करते समय सर्वर पर यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
 | `console.errors.downtimeRunning` | A stoppage is already running on this press. Stop it first. | इस प्रेस पर एक स्टॉपेज पहले से चल रहा है। पहले उसे रोकें। |
@@ -5808,6 +5811,7 @@ Please check, Lalubhai:
 | `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
 | `console.shortStock` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट {short} {massUnit} कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.shortStockNoFigure` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.floorShort` | {cast}: {floor} holds {have} {massUnit} and the run used {need} {massUnit}. The run is logged; the floor will show less than nothing until billets are issued or counted. | {cast}: {floor} पर {have} {massUnit} है और रन में {need} {massUnit} लगे। रन दर्ज होगा; बिलेट देने या गिनती होने तक फ़्लोर पर स्टॉक शून्य से कम दिखेगा। |
 | `console.pressedLength` | Pressed length | प्रेस की लंबाई |
 | `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
 | `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
@@ -6096,7 +6100,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
 | `summary.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 
-### foundry (604)
+### foundry (647)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6158,6 +6162,7 @@ Please check, Lalubhai:
 | `refusal.correctionApproved` | A correction for this melt is approved. Correct it now. | इस मेल्ट का सुधार मंज़ूर है। अब सुधारें। |
 | `refusal.giveBundle` | Scan or type the bundle. | बंडल स्कैन करें या लिखें। |
 | `refusal.simulatorOff` | The furnace simulator is off. | फ़र्नेस सिम्युलेटर बंद है। |
+| `refusal.homogFurnace` | {furnace} is a homogenizing furnace. Pick a melting furnace. | {furnace} होमोजेनाइज़िंग फ़र्नेस है। मेल्टिंग फ़र्नेस चुनें। |
 | `refusal.dayOrder` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
 | `refusal.maxDays` | Pick at most 92 days. | ज़्यादा से ज़्यादा 92 दिन चुनें। |
 | `refusal.addStream` | Add the dross and Fe return streams first in Masters, Return streams. | पहले ड्रॉस और Fe रिटर्न स्ट्रीम जोड़ें (मास्टर्स में, रिटर्न स्ट्रीम)। |
@@ -6186,6 +6191,48 @@ Please check, Lalubhai:
 | `refusal.legacyReserved` | A legacy code cannot be a cast series code or bundle number. To continue the cast book, set its start number. | पुराना कोड कास्ट सीरीज़ का कोड या बंडल नंबर नहीं हो सकता। कास्ट की बही आगे चलाने के लिए उसका शुरुआती नंबर तय करें। |
 | `refusal.legacyTaken` | The legacy code {code} is already on cast {cast}. | पुराना कोड {code} कास्ट {cast} पर पहले से लगा है। |
 | `refusal.castBookMonthUsed` | That month already has a cast. The book can only be continued before the first cast. | उस महीने में कास्ट बन चुकी है। बही सिर्फ़ पहली कास्ट से पहले आगे बढ़ाई जा सकती है। |
+| `refusal.notFoundDepth` | Not found. Refresh the list and try again. | नहीं मिला। सूची रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.addScrapStream` | Add the plant scrap return stream first. It is under Foundry, Stock. | पहले प्लांट का स्क्रैप रिटर्न स्ट्रीम जोड़ें। यह फ़ाउंड्री, स्टॉक में है। |
+| `refusal.streamNotTakenBack` | {name} is not a stream the furnace takes back. | {name} ऐसा स्ट्रीम नहीं है जो फ़र्नेस में वापस लिया जाए। |
+| `refusal.meltingFurnace` | {furnace} is a melting furnace. Pick a homogenizing furnace. | {furnace} मेल्टिंग फ़र्नेस है। होमोजेनाइज़िंग फ़र्नेस चुनें। |
+| `refusal.soakTemp` | Soak temperature must be 300 to 650 °C. | सोक तापमान 300 से 650 °C के बीच होना चाहिए। |
+| `refusal.soakBand` | The band must be 1 to 50 °C. | बैंड 1 से 50 °C के बीच होना चाहिए। |
+| `refusal.soakTime` | Soak time must be 10 minutes to 48 hours. | सोक समय 10 मिनट से 48 घंटे के बीच होना चाहिए। |
+| `refusal.batchNotLoading` | {batch} is not loading now. Open it again. | {batch} में अब लोडिंग नहीं हो रही। इसे फिर खोलें। |
+| `refusal.castCancelled` | {cast} is cancelled. | {cast} रद्द हो चुका है। |
+| `refusal.alloyOther` | {cast} is {alloy}. This batch is {batchAlloy}. | {cast} {alloy} है। यह बैच {batchAlloy} है। |
+| `refusal.logsLeft` | {cast} has {left} logs left to homogenize. | {cast} के {left} लॉग होमोजेनाइज़ करने बाकी हैं। |
+| `refusal.alreadyOnBatch` | {cast} is already on {batch}. | {cast} पहले से {batch} पर है। |
+| `refusal.loadLogsFirst` | Load logs before the batch goes in. | बैच अंदर डालने से पहले लॉग लोड करें। |
+| `refusal.furnaceBusy` | Another batch is in this furnace. Take it out first. | इस फ़र्नेस में दूसरा बैच है। पहले उसे बाहर निकालें। |
+| `refusal.batchNotIn` | {batch} is not in the furnace. | {batch} फ़र्नेस में नहीं है। |
+| `refusal.readingFuture` | A reading cannot be in the future. | रीडिंग आने वाले समय की नहीं हो सकती। |
+| `refusal.readingBefore` | A reading cannot be before the batch went in. | रीडिंग बैच अंदर जाने से पहले की नहीं हो सकती। |
+| `refusal.batchNotOut` | {batch} is not out of the furnace. | {batch} फ़र्नेस से बाहर नहीं निकला है। |
+| `refusal.heldNote` | Write why a held batch is released. | रोके हुए बैच को छोड़ने का कारण लिखें। |
+| `refusal.batchDone` | {batch} is already released or void. | {batch} पहले ही छोड़ा या रद्द किया जा चुका है। |
+| `refusal.vendorInactive` | {name} is not an active vendor. | {name} चालू वेंडर नहीं है। |
+| `refusal.receiptFuture` | The receipt date cannot be in the future. | रसीद की तारीख आने वाले दिन की नहीं हो सकती। |
+| `refusal.certKind` | The certificate must be a PDF or a photo. | सर्टिफ़िकेट PDF या फ़ोटो होना चाहिए। |
+| `refusal.uploadUnfinished` | The upload did not finish. Try again. | अपलोड पूरा नहीं हुआ। फिर कोशिश करें। |
+| `refusal.addBilletRack` | Add a billet rack location first. It is under Masters, Locations. | पहले बिलेट रैक की जगह जोड़ें। यह मास्टर्स, लोकेशन में है। |
+| `refusal.pickBilletRack` | Pick the billet rack the billets go to. | जिस बिलेट रैक में बिलेट जाएँ, उसे चुनें। |
+| `refusal.billetsOver` | Billets cannot weigh more than the logs they were cut from. | बिलेट का वज़न उन लॉग से ज़्यादा नहीं हो सकता जिनसे वे कटे हैं। |
+| `refusal.billetLength` | Billet length is outside the allowed range. | बिलेट की लंबाई तय सीमा से बाहर है। |
+| `refusal.enterLogsCut` | Enter the logs cut and their {massUnit}. | कटे हुए लॉग और उनका {massUnit} लिखें। |
+| `refusal.enterBillets` | Enter the billets and their {massUnit}. | बिलेट और उनका {massUnit} लिखें। |
+| `refusal.homogBeforeCut` | Homogenize the logs of {cast} before cutting them. | {cast} के लॉग काटने से पहले उन्हें होमोजेनाइज़ करें। |
+| `refusal.logsHomogLeft` | Only {pcs} logs of {cast} have been homogenized and not cut. | {cast} के सिर्फ़ {pcs} लॉग होमोजेनाइज़ हुए हैं और कटे नहीं हैं। |
+| `refusal.homogBeforeIssue` | Homogenize the logs of {cast} before issuing them. | {cast} के लॉग प्रेस को देने से पहले उन्हें होमोजेनाइज़ करें। |
+| `refusal.logsHomogLeftIssue` | Only {pcs} logs of {cast} have been homogenized and not cut or issued. | {cast} के सिर्फ़ {pcs} लॉग होमोजेनाइज़ हुए हैं जो अभी कटे या दिए नहीं गए। |
+| `refusal.meltStoreCancel` | Only {kg} {massUnit} of {cast} logs is left at {place}. The rest was cut or issued, so this melt can no longer be cancelled. | {place} पर {cast} के सिर्फ़ {kg} {massUnit} लॉग बचे हैं। बाकी काटे या प्रेस को दिए जा चुके हैं, इसलिए यह मेल्ट अब रद्द नहीं हो सकता। |
+| `refusal.meltStoreCorrect` | Only {kg} {massUnit} of {cast} logs is left at {place}. The rest was cut or issued, so this melt can no longer be corrected. | {place} पर {cast} के सिर्फ़ {kg} {massUnit} लॉग बचे हैं। बाकी काटे या प्रेस को दिए जा चुके हैं, इसलिए यह मेल्ट अब सुधारा नहीं जा सकता। |
+| `refusal.kgAtPlace` | Only {kg} {massUnit} of {cast} is at {place}. | {place} पर {cast} का सिर्फ़ {kg} {massUnit} है। |
+| `refusal.pressFloor` | Add a press floor location for {line} first. It is under Masters, Locations. | पहले {line} के लिए प्रेस फ़्लोर की जगह जोड़ें। यह मास्टर्स, लोकेशन में है। |
+| `refusal.reasonNote` | Add a note for this reason. | इस कारण के लिए नोट जोड़ें। |
+| `refusal.noHold` | {code} cannot hold this item. | {code} में यह सामान नहीं रखा जा सकता। |
+| `refusal.planRange` | Look at 31 days or fewer at a time. | एक बार में 31 दिन या कम देखें। |
+| `refusal.planLineState` | This plan line is no longer accepted. It was opened or dropped. | यह प्लान लाइन अब मानी हुई नहीं है। इसका कास्ट खुल गया या यह हट गई। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
@@ -9014,7 +9061,520 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
-### reg (335)
+### fdy2 (508)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `nav.homog` | Homogenizing | होमोजनाइज़िंग |
+| `nav.logs` | Bought-in logs | बाहर से आए लॉग |
+| `nav.billets` | Billets and logs | बिलेट और लॉग |
+| `nav.rejects` | Reject registers | रिजेक्ट रजिस्टर |
+| `nav.chemistry` | Typical chemistry | सामान्य केमिस्ट्री |
+| `furnaceKind.label` | Kind | प्रकार |
+| `furnaceKind.melting` | Melting | मेल्टिंग |
+| `furnaceKind.homogenizing` | Homogenizing | होमोजनाइज़िंग |
+| `settings.title` | Foundry | फाउंड्री |
+| `settings.intro` | How the foundry cuts logs. | फाउंड्री में लॉग कैसे कटते हैं। |
+| `settings.requireHomogenizing` | Homogenize 6xxx logs before cutting | कटाई से पहले 6xxx लॉग होमोजनाइज़ करें |
+| `settings.requireHomogenizingHint` | On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch. Logs used before you switch it on do not count. | चालू: 6xxx अलॉय के लॉग उतने ही पीस कटते हैं जितने रिलीज़ हुए होमोजनाइज़िंग बैच से निकले। चालू करने से पहले इस्तेमाल हुए लॉग नहीं गिने जाते। |
+| `settings.saved` | Foundry setting saved | फाउंड्री सेटिंग सेव हो गई |
+| `settings.saveFailed` | Could not save the foundry setting | फाउंड्री सेटिंग सेव नहीं हुई |
+| `homog.title` | Homogenizing | होमोजनाइज़िंग |
+| `homog.subtitle` | Logs soaked in the furnace before they are cut. | कटाई से पहले भट्ठी में भिगोए गए लॉग। |
+| `homog.new` | New batch | नया बैच |
+| `homog.empty` | No homogenizing batches yet | अभी कोई होमोजनाइज़िंग बैच नहीं |
+| `homog.emptyBody` | Open a batch, load logs and put it in the furnace. | बैच खोलें, लॉग लोड करें और भट्ठी में डालें। |
+| `homog.loadFailed` | Could not load the homogenizing batches | होमोजनाइज़िंग बैच नहीं खुले |
+| `homog.notFound` | Batch not found | बैच नहीं मिला |
+| `homog.filterAll` | All | सभी |
+| `homog.filterLabel` | Status | स्थिति |
+| `homog.noFurnace` | No homogenizing furnace | होमोजनाइज़िंग भट्ठी नहीं है |
+| `homog.noFurnaceBody` | Add a furnace of kind homogenizing first. | पहले होमोजनाइज़िंग प्रकार की भट्ठी जोड़ें। |
+| `homog.goFurnaces` | Open furnaces | भट्ठियाँ खोलें |
+| `homog.status.loading` | Loading | लोडिंग |
+| `homog.status.in_furnace` | In furnace | भट्ठी में |
+| `homog.status.out` | Out, to decide | बाहर, फ़ैसला बाकी |
+| `homog.status.released` | Released | रिलीज़ |
+| `homog.status.held` | Held | रोका हुआ |
+| `homog.status.void` | Void | रद्द |
+| `homog.stage.load` | Load | लोड |
+| `homog.stage.furnace` | In furnace | भट्ठी में |
+| `homog.stage.out` | Out | बाहर |
+| `homog.stage.release` | Release | रिलीज़ |
+| `homog.verdict.ok` | Soak met | सोक पूरा |
+| `homog.verdict.short` | Soak short | सोक कम |
+| `homog.verdict.over` | Too hot | बहुत गरम |
+| `homog.verdict.no_readings` | No readings | रीडिंग नहीं |
+| `homog.col.number` | Batch | बैच |
+| `homog.col.furnace` | Furnace | भट्ठी |
+| `homog.col.alloy` | Alloy | अलॉय |
+| `homog.col.status` | Status | स्थिति |
+| `homog.col.pieces` | Pieces | पीस |
+| `homog.col.weight` | Weight | वज़न |
+| `homog.col.soak` | Soak | सोक |
+| `homog.recipe` | {temp} °C, plus or minus {tol} °C, {min} min | {temp} °C, ऊपर नीचे {tol} °C, {min} मिनट |
+| `homog.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} पीस, {kg} {massUnit} |
+| `homog.form.title` | New homogenizing batch | नया होमोजनाइज़िंग बैच |
+| `homog.form.furnace` | Furnace | भट्ठी |
+| `homog.form.furnacePick` | Pick a furnace | भट्ठी चुनें |
+| `homog.form.alloy` | Alloy | अलॉय |
+| `homog.form.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `homog.form.temp` | Temperature (°C) | तापमान (°C) |
+| `homog.form.tolerance` | Band, plus or minus (°C) | बैंड, ऊपर नीचे (°C) |
+| `homog.form.soak` | Soak (minutes) | सोक (मिनट) |
+| `homog.form.soakHint` | Time the logs must stay inside the band. | लॉग को बैंड के अंदर कितनी देर रहना है। |
+| `homog.form.note` | Note | नोट |
+| `homog.form.create` | Open batch | बैच खोलें |
+| `homog.form.created` | Batch {number} opened | बैच {number} खुल गया |
+| `homog.form.err.furnace` | Pick a furnace. | भट्ठी चुनें। |
+| `homog.form.err.alloy` | Pick an alloy. | अलॉय चुनें। |
+| `homog.form.err.temp` | Temperature is 300 to 650 °C, one decimal at most. | तापमान 300 से 650 °C, दशमलव के बाद एक अंक तक। |
+| `homog.form.err.band` | Band is 1 to 50 °C, one decimal at most. | बैंड 1 से 50 °C, दशमलव के बाद एक अंक तक। |
+| `homog.form.err.soak` | Soak is 10 to 2880 minutes. | सोक 10 से 2880 मिनट। |
+| `homog.batch.lines` | Logs on this batch | इस बैच के लॉग |
+| `homog.batch.cast` | Cast | कास्ट |
+| `homog.batch.pieces` | Pieces | पीस |
+| `homog.batch.weight` | Weight | वज़न |
+| `homog.batch.noLines` | No logs loaded yet. | अभी कोई लॉग लोड नहीं हुआ। |
+| `homog.batch.addLine` | Add logs | लॉग जोड़ें |
+| `homog.batch.castPick` | Pick a cast | कास्ट चुनें |
+| `homog.batch.castNone` | No cast of {alloy} to pick. | {alloy} की कोई कास्ट नहीं है। |
+| `homog.batch.castOption` | {number}, {kg} {massUnit} in store | {number}, स्टोर में {kg} {massUnit} |
+| `homog.batch.pcs` | Pieces | पीस |
+| `homog.batch.weightLabel` | Weight | वज़न |
+| `homog.batch.lineAdded` | Logs added | लॉग जुड़ गए |
+| `homog.batch.lineRemoved` | Logs removed | लॉग हट गए |
+| `homog.batch.lineErr.cast` | Pick a cast. | कास्ट चुनें। |
+| `homog.batch.lineErr.pcs` | Type the number of pieces. | पीस की गिनती लिखें। |
+| `homog.batch.lineErr.kg` | Type the weight. | वज़न लिखें। |
+| `homog.batch.remove` | Remove | हटाएँ |
+| `homog.batch.start` | Put in furnace | भट्ठी में डालें |
+| `homog.batch.started` | Batch is in the furnace | बैच भट्ठी में है |
+| `homog.batch.startNeedsLines` | Load logs before the batch goes in. | बैच डालने से पहले लॉग लोड करें। |
+| `homog.batch.furnaceLine` | Furnace {code} | भट्ठी {code} |
+| `homog.batch.inLabel` | Went in | अंदर गया |
+| `homog.batch.outLabel` | Came out | बाहर आया |
+| `homog.batch.soakTitle` | Soak | सोक |
+| `homog.batch.soakNeeded` | Needed | ज़रूरी |
+| `homog.batch.inBand` | In band | बैंड में |
+| `homog.batch.unknown` | Unknown | पता नहीं |
+| `homog.batch.above` | Above band | बैंड से ऊपर |
+| `homog.batch.minMax` | Lowest and highest | सबसे कम और सबसे ज़्यादा |
+| `homog.batch.minutes` | {min} min | {min} मिनट |
+| `homog.batch.readings` | Temperature readings | तापमान रीडिंग |
+| `homog.batch.readingAt` | Time | समय |
+| `homog.batch.readingTemp` | Temperature (°C) | तापमान (°C) |
+| `homog.batch.addReading` | Add reading | रीडिंग जोड़ें |
+| `homog.batch.readingSaved` | Reading saved | रीडिंग सेव हुई |
+| `homog.batch.readingInvalid` | Type 0 to 800 °C, one decimal at most. | 0 से 800 °C लिखें, दशमलव के बाद एक अंक तक। |
+| `homog.batch.out` | Take out | बाहर निकालें |
+| `homog.batch.outDone` | Batch is out. {verdict}. | बैच बाहर है। {verdict}। |
+| `homog.batch.outConfirm` | Take {number} out of the furnace now? The soak is judged from the readings. | {number} अभी भट्ठी से निकालें? सोक रीडिंग से जाँचा जाएगा। |
+| `homog.batch.decision` | Decision | फ़ैसला |
+| `homog.batch.decisionBody` | The soak did not meet the recipe. Hold the batch, or release it with a reason. | सोक रेसिपी के हिसाब से पूरा नहीं हुआ। बैच रोकें, या कारण लिखकर रिलीज़ करें। |
+| `homog.batch.heldBody` | This batch is held. Release it only with a reason. | यह बैच रोका हुआ है। कारण लिखकर ही रिलीज़ करें। |
+| `homog.batch.release` | Release | रिलीज़ |
+| `homog.batch.hold` | Hold | रोकें |
+| `homog.batch.releaseWithReason` | Release with a reason | कारण लिखकर रिलीज़ |
+| `homog.batch.released` | Batch released | बैच रिलीज़ हुआ |
+| `homog.batch.held` | Batch held | बैच रोका गया |
+| `homog.batch.reason` | Reason | कारण |
+| `homog.batch.reasonHint` | At least 3 letters. | कम से कम 3 अक्षर। |
+| `homog.batch.reasonRequired` | Write the reason, 3 letters or more. | कारण लिखें, 3 अक्षर या ज़्यादा। |
+| `homog.batch.void` | Void batch | बैच रद्द करें |
+| `homog.batch.voidTitle` | Void {number} | {number} रद्द करें |
+| `homog.batch.voidHint` | The batch is closed and its logs can be cut again. | बैच बंद हो जाता है और उसके लॉग फिर कट सकते हैं। |
+| `homog.batch.voidConfirm` | Void batch | बैच रद्द करें |
+| `homog.batch.voided` | Batch voided | बैच रद्द हुआ |
+| `homog.batch.reasonOnRecord` | Reason on record: {note} | रिकॉर्ड में कारण: {note} |
+| `logs.title` | Bought-in logs | बाहर से आए लॉग |
+| `logs.subtitle` | Logs received from vendors. Each receipt has its own cast number. | वेंडर से आए लॉग। हर रसीद का अपना कास्ट नंबर होता है। |
+| `logs.receive` | Receive logs | लॉग लें |
+| `logs.empty` | No logs received yet | अभी कोई लॉग नहीं आया |
+| `logs.emptyBody` | Receive logs from a vendor to put them in the billet store. | वेंडर से लॉग लें, वे बिलेट स्टोर में चढ़ जाएँगे। |
+| `logs.loadFailed` | Could not load the log receipts | लॉग की रसीदें नहीं खुलीं |
+| `logs.col.number` | Receipt | रसीद |
+| `logs.col.vendor` | Vendor | वेंडर |
+| `logs.col.alloy` | Alloy | अलॉय |
+| `logs.col.day` | Received | आया |
+| `logs.col.size` | Size | साइज़ |
+| `logs.col.pieces` | Pieces | पीस |
+| `logs.col.weight` | Weight | वज़न |
+| `logs.col.vendorCast` | Vendor cast | वेंडर कास्ट |
+| `logs.col.challan` | Challan | चालान |
+| `logs.col.mtc` | MTC | MTC |
+| `logs.sizeBoth` | {dia} x {len} | {dia} x {len} |
+| `logs.sizeNone` | - | - |
+| `logs.castLink` | Open cast {number} | कास्ट {number} खोलें |
+| `logs.form.title` | Receive logs | लॉग लें |
+| `logs.form.vendor` | Vendor | वेंडर |
+| `logs.form.vendorPick` | Search a vendor | वेंडर खोजें |
+| `logs.form.alloy` | Alloy | अलॉय |
+| `logs.form.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `logs.form.day` | Received on | आने का दिन |
+| `logs.form.diameter` | Diameter ({lengthUnit}) | डायमीटर ({lengthUnit}) |
+| `logs.form.length` | Length ({lengthUnit}) | लंबाई ({lengthUnit}) |
+| `logs.form.pcs` | Pieces | पीस |
+| `logs.form.weight` | Weight | वज़न |
+| `logs.form.vendorCast` | Vendor cast no | वेंडर कास्ट नं |
+| `logs.form.challan` | Challan no | चालान नं |
+| `logs.form.note` | Note | नोट |
+| `logs.form.save` | Receive | लें |
+| `logs.form.received` | {number} received | {number} ले लिया |
+| `logs.form.err.vendor` | Pick a vendor. | वेंडर चुनें। |
+| `logs.form.err.alloy` | Pick an alloy. | अलॉय चुनें। |
+| `logs.form.err.day` | Pick the day. | दिन चुनें। |
+| `logs.form.err.future` | The day cannot be in the future. | आगे का दिन नहीं चलेगा। |
+| `logs.form.err.diameter` | Diameter is outside what a log can be. | डायमीटर लॉग के हिसाब से ठीक नहीं है। |
+| `logs.form.err.length` | Length is outside what a log can be. | लंबाई लॉग के हिसाब से ठीक नहीं है। |
+| `logs.form.err.pcs` | Type the number of pieces. | पीस की गिनती लिखें। |
+| `logs.form.err.kg` | Type the weight. | वज़न लिखें। |
+| `logs.mtc.title` | Mill test certificate | मिल टेस्ट सर्टिफिकेट |
+| `logs.mtc.afterReceive` | {number} received. Add the mill test certificate now? | {number} ले लिया। अभी मिल टेस्ट सर्टिफिकेट जोड़ें? |
+| `logs.mtc.add` | Add MTC | MTC जोड़ें |
+| `logs.mtc.replace` | Replace MTC | MTC बदलें |
+| `logs.mtc.view` | View MTC | MTC देखें |
+| `logs.mtc.none` | No MTC yet | अभी MTC नहीं है |
+| `logs.mtc.pick` | Pick a PDF or a photo | PDF या फ़ोटो चुनें |
+| `logs.mtc.badFile` | Pick a PDF or a photo. | PDF या फ़ोटो चुनें। |
+| `logs.mtc.uploading` | Uploading | अपलोड हो रहा है |
+| `logs.mtc.saved` | MTC saved | MTC सेव हुआ |
+| `logs.mtc.failed` | The upload did not finish. Try again. | अपलोड पूरा नहीं हुआ। फिर कोशिश करें। |
+| `logs.mtc.later` | Later | बाद में |
+| `logs.mtc.openFailed` | Could not open the MTC | MTC नहीं खुला |
+| `billets.title` | Billets and logs | बिलेट और लॉग |
+| `billets.subtitle` | Logs in the store, cut billets on the rack, and billets on each press floor. | स्टोर में लॉग, रैक पर कटे बिलेट, और हर प्रेस फ़्लोर पर बिलेट। |
+| `billets.loadFailed` | The billet stock did not load. | बिलेट स्टॉक नहीं खुला। |
+| `billets.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `billets.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} नग, {kg} {massUnit} |
+| `billets.total` | Total on hand: {kg} {massUnit} | कुल स्टॉक: {kg} {massUnit} |
+| `billets.other` | {kg} {massUnit} is at a place that is not a billet place. | {kg} {massUnit} ऐसी जगह है जो बिलेट की जगह नहीं है। |
+| `billets.boughtIn` | Bought in | बाहर से ख़रीदा |
+| `billets.placeEmpty` | Nothing here now. | अभी यहां कुछ नहीं है। |
+| `billets.negative` | A press logged more than was issued to this floor. Check the issues. | प्रेस ने इस फ़्लोर पर आए बिलेट से ज़्यादा दर्ज किया है। इश्यू जांचें। |
+| `billets.noPlaces` | No billet places yet. Add a billet store, a billet rack and a press floor under Masters, Locations. | अभी कोई बिलेट जगह नहीं है। मास्टर्स, लोकेशन में बिलेट स्टोर, बिलेट रैक और प्रेस फ़्लोर जोड़ें। |
+| `billets.noStore` | No billet store yet. | अभी कोई बिलेट स्टोर नहीं है। |
+| `billets.noRack` | No billet rack yet. Add one under Masters, Locations before the first cut. | अभी कोई बिलेट रैक नहीं है। पहली कटाई से पहले मास्टर्स, लोकेशन में एक जोड़ें। |
+| `billets.noFloor` | No press floor yet. | अभी कोई प्रेस फ़्लोर नहीं है। |
+| `billets.noFloorForPress` | No press floor for this press yet. Add one under Masters, Locations. | इस प्रेस का फ़्लोर अभी नहीं है। मास्टर्स, लोकेशन में जोड़ें। |
+| `billets.pressTitle` | Press {press} | प्रेस {press} |
+| `billets.pressNone` | Floors with no press | बिना प्रेस वाले फ़्लोर |
+| `billets.tabs.label` | Billets | बिलेट |
+| `billets.tabs.stock` | Stock | स्टॉक |
+| `billets.tabs.cut` | Cut | कटाई |
+| `billets.tabs.issue` | Issue | इश्यू |
+| `billets.group.store` | Billet store (logs) | बिलेट स्टोर (लॉग) |
+| `billets.group.storeHint` | Logs from the casthouse, before they are cut. | कास्टहाउस से आए लॉग, कटने से पहले। |
+| `billets.group.rack` | Billet rack (cut billets) | बिलेट रैक (कटे बिलेट) |
+| `billets.group.rackHint` | Billets cut to length, waiting for a press. | नाप पर कटे बिलेट, प्रेस का इंतज़ार करते हुए। |
+| `billets.group.floor` | Press floors | प्रेस फ़्लोर |
+| `billets.group.floorHint` | Billets issued to each press, by press. | हर प्रेस को दिए गए बिलेट, प्रेस के हिसाब से। |
+| `billets.machine.saw` | Saw | आरी |
+| `billets.machine.hot_shear` | Hot shear | हॉट शियर |
+| `billets.cut.title` | Cuts | कटाई |
+| `billets.cut.button` | Cut logs | लॉग काटें |
+| `billets.cut.empty` | No cuts yet. | अभी कोई कटाई नहीं हुई। |
+| `billets.cut.loadFailed` | The cuts did not load. | कटाई की सूची नहीं खुली। |
+| `billets.cut.totals` | Logs {logs} {massUnit}, billets {billets} {massUnit}, end cuts {end} {massUnit}, yield {yield} % | लॉग {logs} {massUnit}, बिलेट {billets} {massUnit}, एंड कट {end} {massUnit}, यील्ड {yield} % |
+| `billets.cut.col.at` | When | कब |
+| `billets.cut.col.cast` | Cast | कास्ट |
+| `billets.cut.col.machine` | Machine | मशीन |
+| `billets.cut.col.logs` | Logs in | लॉग लिए |
+| `billets.cut.col.length` | Billet length | बिलेट की लंबाई |
+| `billets.cut.col.billets` | Billets out | बिलेट निकले |
+| `billets.cut.col.end` | End cuts | एंड कट |
+| `billets.cut.col.yield` | Yield | यील्ड |
+| `billets.cut.sheetTitle` | Cut logs | लॉग काटें |
+| `billets.cut.cast` | Cast | कास्ट |
+| `billets.cut.castPick` | Pick a cast | कास्ट चुनें |
+| `billets.cut.inStore` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `billets.cut.noLogs` | No logs in the billet store. Receive logs or finish a melt first. | बिलेट स्टोर में कोई लॉग नहीं है। पहले लॉग लें या मेल्ट पूरी करें। |
+| `billets.cut.machine` | Machine | मशीन |
+| `billets.cut.logPcs` | Log pieces | लॉग के नग |
+| `billets.cut.logKg` | Log weight | लॉग का वज़न |
+| `billets.cut.length` | Billet length | बिलेट की लंबाई |
+| `billets.cut.billetPcs` | Billet pieces | बिलेट के नग |
+| `billets.cut.billetKg` | Billet weight | बिलेट का वज़न |
+| `billets.cut.preview` | End cuts {end} {massUnit}. Yield {yield} %. | एंड कट {end} {massUnit}। यील्ड {yield} %। |
+| `billets.cut.previewHint` | Type both weights to see the end cuts and the yield. | दोनों वज़न लिखें, एंड कट और यील्ड दिख जाएगी। |
+| `billets.cut.save` | Save cut | कटाई सेव करें |
+| `billets.cut.saved` | Cut saved. | कटाई सेव हो गई। |
+| `billets.cut.homogNeeded` | These logs must be homogenized before they are cut. | इन लॉग को काटने से पहले होमोजनाइज़ करना ज़रूरी है। |
+| `billets.cut.issue.cast` | Pick the cast. | कास्ट चुनें। |
+| `billets.cut.issue.logPcs` | Type the log pieces, a whole number. | लॉग के नग लिखें, पूरी संख्या। |
+| `billets.cut.issue.logKg` | Type the log weight. | लॉग का वज़न लिखें। |
+| `billets.cut.issue.lengthMm` | Type the billet length. | बिलेट की लंबाई लिखें। |
+| `billets.cut.issue.billetPcs` | Type the billet pieces, a whole number. | बिलेट के नग लिखें, पूरी संख्या। |
+| `billets.cut.issue.billetKg` | Type the billet weight. | बिलेट का वज़न लिखें। |
+| `billets.cut.issue.more_out_than_in` | Billets cannot weigh more than the logs. | बिलेट का वज़न लॉग से ज़्यादा नहीं हो सकता। |
+| `billets.cut.issue.length_range` | Billet length must be between {min} and {max}. | बिलेट की लंबाई {min} से {max} के बीच होनी चाहिए। |
+| `billets.cut.issue.more_than_stock` | Only {kg} {massUnit} of this cast is in the store. | स्टोर में इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `billets.issue.title` | Issues to press | प्रेस को इश्यू |
+| `billets.issue.button` | Issue to press | प्रेस को दें |
+| `billets.issue.empty` | No billets issued yet. | अभी कोई बिलेट इश्यू नहीं हुआ। |
+| `billets.issue.loadFailed` | The issues did not load. | इश्यू की सूची नहीं खुली। |
+| `billets.issue.col.press` | Press | प्रेस |
+| `billets.issue.col.from` | From | कहां से |
+| `billets.issue.col.pcs` | Pieces | नग |
+| `billets.issue.col.kg` | Weight | वज़न |
+| `billets.issue.sheetTitle` | Issue billets to a press | प्रेस को बिलेट दें |
+| `billets.issue.cast` | Cast on the rack | रैक पर कास्ट |
+| `billets.issue.castPick` | Pick a cast | कास्ट चुनें |
+| `billets.issue.onRack` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `billets.issue.noRack` | No cut billets on the rack. Cut logs first. | रैक पर कटे बिलेट नहीं हैं। पहले लॉग काटें। |
+| `billets.issue.noPress` | No press has a floor yet. Add a press floor under Masters, Locations. | किसी प्रेस का फ़्लोर अभी नहीं है। मास्टर्स, लोकेशन में प्रेस फ़्लोर जोड़ें। |
+| `billets.issue.press` | Press | प्रेस |
+| `billets.issue.pressPick` | Pick a press | प्रेस चुनें |
+| `billets.issue.pcs` | Pieces | नग |
+| `billets.issue.kg` | Weight | वज़न |
+| `billets.issue.save` | Issue | इश्यू करें |
+| `billets.issue.saved` | Billets issued. | बिलेट इश्यू हो गए। |
+| `billets.issue.issue.cast` | Pick the cast. | कास्ट चुनें। |
+| `billets.issue.issue.press` | Pick the press. | प्रेस चुनें। |
+| `billets.issue.issue.pcs` | Type the pieces, a whole number. | नग लिखें, पूरी संख्या। |
+| `billets.issue.issue.kg` | Type the weight. | वज़न लिखें। |
+| `billets.issue.issue.more_than_stock` | Only {kg} {massUnit} of this cast is on the rack. | रैक पर इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `rejects.title` | Reject registers | रिजेक्ट रजिस्टर |
+| `rejects.subtitle` | Logs and billets thrown out, with the reason. The weight goes back as scrap. | फेंके गए लॉग और बिलेट, कारण के साथ। वज़न स्क्रैप बनकर वापस जाता है। |
+| `rejects.loadFailed` | The rejects did not load. | रिजेक्ट की सूची नहीं खुली। |
+| `rejects.kindLabel` | Register | रजिस्टर |
+| `rejects.kind.log` | Log rejects | लॉग रिजेक्ट |
+| `rejects.kind.billet` | Billet rejects | बिलेट रिजेक्ट |
+| `rejects.button` | Reject | रिजेक्ट करें |
+| `rejects.from` | From day | इस दिन से |
+| `rejects.to` | To day | इस दिन तक |
+| `rejects.backwards` | The last day is before the first day. | आख़िरी दिन पहले दिन से पहले है। |
+| `rejects.emptyLog` | No log rejects in this range. | इस अवधि में कोई लॉग रिजेक्ट नहीं। |
+| `rejects.emptyBillet` | No billet rejects in this range. | इस अवधि में कोई बिलेट रिजेक्ट नहीं। |
+| `rejects.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `rejects.col.day` | When | कब |
+| `rejects.col.cast` | Cast | कास्ट |
+| `rejects.col.place` | Place | जगह |
+| `rejects.col.reason` | Reason | कारण |
+| `rejects.col.note` | Note | नोट |
+| `rejects.col.pcs` | Pieces | नग |
+| `rejects.col.kg` | Weight | वज़न |
+| `rejects.col.stream` | Return stream | रिटर्न स्ट्रीम |
+| `rejects.totals.title` | By reason | कारण के हिसाब से |
+| `rejects.totals.sum` | {entries} entries, {pcs} pcs, {kg} {massUnit} | {entries} एंट्री, {pcs} नग, {kg} {massUnit} |
+| `rejects.totals.line` | {pcs} pcs, {kg} {massUnit}, {share} % | {pcs} नग, {kg} {massUnit}, {share} % |
+| `rejects.sheetTitle.log` | Reject logs | लॉग रिजेक्ट करें |
+| `rejects.sheetTitle.billet` | Reject billets | बिलेट रिजेक्ट करें |
+| `rejects.pick` | Cast and place | कास्ट और जगह |
+| `rejects.pickNone` | Pick a cast and place | कास्ट और जगह चुनें |
+| `rejects.onHand` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `rejects.noStockLog` | No logs in the billet store. | बिलेट स्टोर में कोई लॉग नहीं है। |
+| `rejects.noStockBillet` | No billets on a rack or a press floor. | रैक या प्रेस फ़्लोर पर कोई बिलेट नहीं है। |
+| `rejects.reason` | Reason | कारण |
+| `rejects.reasonNone` | Pick a reason | कारण चुनें |
+| `rejects.note` | Note | नोट |
+| `rejects.noteRequired` | Note (needed for this reason) | नोट (इस कारण के लिए ज़रूरी) |
+| `rejects.pcs` | Pieces | नग |
+| `rejects.kg` | Weight | वज़न |
+| `rejects.stream` | Return stream | रिटर्न स्ट्रीम |
+| `rejects.streamHint` | Leave this alone and the metal goes to plant scrap. | इसे छोड़ दें तो धातु प्लांट स्क्रैप में जाएगी। |
+| `rejects.streamDefault` | Plant scrap | प्लांट स्क्रैप |
+| `rejects.save` | Save reject | रिजेक्ट सेव करें |
+| `rejects.saved` | Reject saved. | रिजेक्ट सेव हो गया। |
+| `rejects.issue.pick` | Pick the cast and place. | कास्ट और जगह चुनें। |
+| `rejects.issue.reason` | Pick the reason. | कारण चुनें। |
+| `rejects.issue.note` | Write a note for this reason. | इस कारण के लिए नोट लिखें। |
+| `rejects.issue.pcs` | Type the pieces, a whole number. | नग लिखें, पूरी संख्या। |
+| `rejects.issue.kg` | Type the weight. | वज़न लिखें। |
+| `rejects.issue.more_than_stock` | Only {kg} {massUnit} of this cast is at that place. | उस जगह इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `sheet.title` | Cast data sheet | कास्ट डेटा शीट |
+| `sheet.subtitle` | One cast from melt to billet, on one A4 page. | एक कास्ट, मेल्ट से बिलेट तक, एक A4 पन्ने पर। |
+| `sheet.link` | Data sheet | डेटा शीट |
+| `sheet.loadFailed` | The data sheet did not load. | डेटा शीट नहीं खुली। |
+| `sheet.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `sheet.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} नग, {kg} {massUnit} |
+| `sheet.celsius` | {temp} °C | {temp} °C |
+| `sheet.minutes` | {done} of {plan} min | {plan} मिनट में से {done} |
+| `sheet.yes` | Yes | हां |
+| `sheet.no` | No | नहीं |
+| `sheet.opened` | Opened | खोली गई |
+| `sheet.closed` | Closed | बंद हुई |
+| `sheet.openedBy` | Opened by | खोलने वाला |
+| `sheet.source` | Source | स्रोत |
+| `sheet.sourceMelt` | Melted here | यहीं गलाई |
+| `sheet.sourceBought` | Bought in | बाहर से ख़रीदी |
+| `sheet.noMelts` | No melts on this cast yet. | इस कास्ट पर अभी कोई मेल्ट नहीं है। |
+| `sheet.lockedBy` | by {name} | {name} द्वारा |
+| `sheet.charge` | Charge | चार्ज |
+| `sheet.logsOut` | Logs out | निकले लॉग |
+| `sheet.temps` | Furnace temperature | फर्नेस का तापमान |
+| `sheet.tempsLine` | {n} readings, {min} to {max} °C | {n} रीडिंग, {min} से {max} °C |
+| `sheet.noTemps` | No readings | कोई रीडिंग नहीं |
+| `sheet.chemistry` | Chemistry against the alloy limits | केमिस्ट्री, अलॉय की सीमा के सामने |
+| `sheet.inLimits` | Inside limits | सीमा के अंदर |
+| `sheet.outside` | {count} outside limits | {count} सीमा से बाहर |
+| `sheet.noSpectro` | No spectro result for this melt. | इस मेल्ट का स्पेक्ट्रो नतीजा नहीं है। |
+| `sheet.w.in` | Metal in | धातु डाली |
+| `sheet.w.logs` | Logs | लॉग |
+| `sheet.w.dross` | Dross | ड्रॉस |
+| `sheet.w.loss` | Burn loss | बर्न लॉस |
+| `sheet.w.yield` | Yield | यील्ड |
+| `sheet.event.preheat` | Preheat start | प्रीहीट शुरू |
+| `sheet.event.chargingStart` | Charging start | चार्जिंग शुरू |
+| `sheet.event.chargingEnd` | Charging end | चार्जिंग ख़त्म |
+| `sheet.event.castingStart` | Casting start | कास्टिंग शुरू |
+| `sheet.event.castingEnd` | Casting end | कास्टिंग ख़त्म |
+| `sheet.event.reading` | Furnace reading | फर्नेस रीडिंग |
+| `sheet.event.homogIn` | Into homogenizing | होमोजनाइज़िंग में गए |
+| `sheet.event.homogOut` | Out of homogenizing | होमोजनाइज़िंग से निकले |
+| `sheet.event.cut` | Logs cut | लॉग कटे |
+| `sheet.event.reject` | Reject | रिजेक्ट |
+| `sheet.receipt.title` | Bought-in receipt | बाहर से ख़रीद की रसीद |
+| `sheet.receipt.number` | Receipt | रसीद |
+| `sheet.receipt.vendor` | Vendor | वेंडर |
+| `sheet.receipt.on` | Received on | मिली तारीख |
+| `sheet.receipt.vendorCast` | Vendor cast no | वेंडर कास्ट नंबर |
+| `sheet.receipt.challan` | Challan | चालान |
+| `sheet.receipt.logs` | Logs | लॉग |
+| `sheet.receipt.size` | Size | साइज़ |
+| `sheet.receipt.sizeLine` | Diameter {dia} {lengthUnit}, length {len} | व्यास {dia} {lengthUnit}, लंबाई {len} |
+| `sheet.receipt.mtc` | Mill certificate | मिल सर्टिफिकेट |
+| `sheet.homog.title` | Homogenizing | होमोजनाइज़िंग |
+| `sheet.homog.col.batch` | Batch | बैच |
+| `sheet.homog.col.temp` | Temperature | तापमान |
+| `sheet.homog.col.soak` | Soak | सोक |
+| `sheet.homog.col.in` | In | अंदर |
+| `sheet.homog.col.out` | Out | बाहर |
+| `sheet.homog.col.pcs` | Logs | लॉग |
+| `sheet.homog.col.by` | Released by | रिलीज़ किया |
+| `sheet.cuts.title` | Cutting | कटाई |
+| `sheet.cuts.col.at` | When | कब |
+| `sheet.cuts.col.machine` | Machine | मशीन |
+| `sheet.cuts.col.logs` | Logs in | लॉग लिए |
+| `sheet.cuts.col.length` | Billet length | बिलेट की लंबाई |
+| `sheet.cuts.col.billets` | Billets out | बिलेट निकले |
+| `sheet.cuts.col.end` | End cuts | एंड कट |
+| `sheet.cuts.col.yield` | Yield | यील्ड |
+| `sheet.cuts.col.by` | By | किसने |
+| `sheet.rejects.title` | Rejects | रिजेक्ट |
+| `sheet.rejects.col.at` | When | कब |
+| `sheet.rejects.col.kind` | Kind | किस्म |
+| `sheet.rejects.col.reason` | Reason | कारण |
+| `sheet.rejects.col.pcs` | Rejected | रिजेक्ट |
+| `sheet.rejects.col.by` | By | किसने |
+| `sheet.who.title` | Who did what | किसने क्या किया |
+| `mix.title` | Suggest a mix | मिक्स सुझाएं |
+| `mix.hint` | Shows the cheapest mix of lots and return streams that keeps the alloy inside its limits. It does not fill the melt. | लॉट और रिटर्न स्ट्रीम का सबसे सस्ता मिक्स दिखाता है जो अलॉय को सीमा के अंदर रखे। यह मेल्ट में कुछ नहीं भरता। |
+| `mix.alloy` | Alloy | अलॉय |
+| `mix.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `mix.target` | Charge weight | चार्ज का वज़न |
+| `mix.targetInvalid` | Type the charge weight. | चार्ज का वज़न लिखें। |
+| `mix.ask` | Suggest | सुझाएं |
+| `mix.loading` | Working out a mix. | मिक्स निकाल रहे हैं। |
+| `mix.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `mix.forTarget` | {alloy}, {kg} {massUnit} charge | {alloy}, {kg} {massUnit} चार्ज |
+| `mix.status.ok` | Inside limits | सीमा के अंदर |
+| `mix.status.outside_limits` | Outside limits | सीमा से बाहर |
+| `mix.status.short_metal` | Not enough metal | धातु कम है |
+| `mix.status.no_sources` | Nothing to mix | मिलाने को कुछ नहीं |
+| `mix.closest` | No mix keeps every element inside its limits. This is the closest one. Outside: {elements}. | कोई मिक्स हर एलिमेंट को सीमा के अंदर नहीं रखता। यह सबसे नज़दीकी है। बाहर: {elements}। |
+| `mix.short` | Only {kg} {massUnit} of metal with a known chemistry is on hand. | जिसकी केमिस्ट्री पता है ऐसी धातु सिर्फ़ {kg} {massUnit} है। |
+| `mix.noSources` | No lot or return stream with a typical chemistry is on hand. | कोई लॉट या रिटर्न स्ट्रीम नहीं है जिसकी सामान्य केमिस्ट्री तय हो। |
+| `mix.lines` | Suggested mix | सुझाया मिक्स |
+| `mix.predicted` | Expected chemistry | अनुमानित केमिस्ट्री |
+| `mix.stream` | return stream | रिटर्न स्ट्रीम |
+| `mix.col.source` | Lot or stream | लॉट या स्ट्रीम |
+| `mix.col.kg` | Weight | वज़न |
+| `mix.col.share` | Share | हिस्सा |
+| `mix.col.reading` | Against limit | सीमा के सामने |
+| `mix.cost` | Cost of this mix: {amount} | इस मिक्स की लागत: {amount} |
+| `mix.skipped` | {count} lots or streams left out because their typical chemistry is not set. | {count} लॉट या स्ट्रीम छोड़े गए, क्योंकि उनकी सामान्य केमिस्ट्री तय नहीं है। |
+| `mix.setChemistry` | Set typical chemistry | सामान्य केमिस्ट्री तय करें |
+| `mix.enterYourself` | Enter these yourself. Nothing is filled in for you. | इन्हें ख़ुद दर्ज करें। आपके लिए कुछ नहीं भरा जाता। |
+| `chemistry.title` | Typical chemistry | सामान्य केमिस्ट्री |
+| `chemistry.subtitle` | The usual make-up of each scrap item and return stream, for the mix suggestion. | हर स्क्रैप आइटम और रिटर्न स्ट्रीम की आम बनावट, मिक्स सुझाव के लिए। |
+| `chemistry.hint` | Values are percent. A blank box means the element is not set. The mix suggestion leaves out anything with no chemistry. | वैल्यू प्रतिशत में हैं। ख़ाली डिब्बे का मतलब एलिमेंट तय नहीं है। जिसकी केमिस्ट्री नहीं है उसे मिक्स सुझाव छोड़ देता है। |
+| `chemistry.loadFailed` | The typical chemistry did not load. | सामान्य केमिस्ट्री नहीं खुली। |
+| `chemistry.group.item` | Scrap items | स्क्रैप आइटम |
+| `chemistry.group.stream` | Return streams | रिटर्न स्ट्रीम |
+| `chemistry.empty.item` | No scrap items yet. | अभी कोई स्क्रैप आइटम नहीं है। |
+| `chemistry.empty.stream` | No return streams yet. | अभी कोई रिटर्न स्ट्रीम नहीं है। |
+| `chemistry.retired` | Retired | बंद |
+| `chemistry.notSet` | Not set | तय नहीं |
+| `chemistry.edit` | Edit | बदलें |
+| `chemistry.sheetTitle` | Typical chemistry: {name} | सामान्य केमिस्ट्री: {name} |
+| `chemistry.sheetHint` | Type the percent of each element. Leave a box blank to clear it. | हर एलिमेंट का प्रतिशत लिखें। मिटाने के लिए डिब्बा ख़ाली छोड़ें। |
+| `chemistry.save` | Save chemistry | केमिस्ट्री सेव करें |
+| `chemistry.saved` | Chemistry saved. | केमिस्ट्री सेव हो गई। |
+| `location.press` | Press | प्रेस |
+| `location.pressHint` | The press this floor serves. Billets issued to the press land here. | यह फ़्लोर किस प्रेस का है। प्रेस को दिए बिलेट यहीं आते हैं। |
+| `location.pressPick` | Pick a press | प्रेस चुनें |
+| `location.pressRequired` | Pick the press this floor serves. | यह फ़्लोर जिस प्रेस का है, उसे चुनें। |
+| `plan.nav` | Casting plan | कास्टिंग प्लान |
+| `plan.title` | Casting plan | कास्टिंग प्लान |
+| `plan.subtitle` | Built from the billet need of the press plans, less the logs and billets in stock and the lines already accepted. | यह प्रेस प्लान की बिलेट ज़रूरत से बना है, जिसमें से स्टॉक के लॉग और बिलेट और पहले मंज़ूर की गई लाइनें घटाई गई हैं। |
+| `plan.loadFailed` | The casting plan did not load. | कास्टिंग प्लान नहीं खुला। |
+| `plan.from` | From day | इस दिन से |
+| `plan.to` | To day | इस दिन तक |
+| `plan.backwards` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
+| `plan.tooLong` | Look at 31 days or fewer at a time. | एक बार में 31 दिन या कम देखें। |
+| `plan.furnaceSize` | Furnace size: {kg} {massUnit} a cast. | फर्नेस का साइज़: एक कास्ट में {kg} {massUnit}। |
+| `plan.furnaceNone` | No furnace size is set, so one cast per row is assumed. | फर्नेस का साइज़ नहीं भरा है, इसलिए हर पंक्ति में एक कास्ट मानी गई है। |
+| `plan.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `plan.proposed.title` | Proposed | सुझाव |
+| `plan.proposed.empty` | Nothing to cast in these days. The stock and accepted lines cover the press plans. | इन दिनों में कास्ट करने को कुछ नहीं है। स्टॉक और मंज़ूर लाइनें प्रेस प्लान पूरे कर देती हैं। |
+| `plan.proposed.col.day` | Day | दिन |
+| `plan.proposed.col.alloy` | Alloy | अलॉय |
+| `plan.proposed.col.need` | Need | ज़रूरत |
+| `plan.proposed.col.covered` | Covered | पूरा |
+| `plan.proposed.col.cast` | To cast | कास्ट करना |
+| `plan.proposed.col.casts` | Casts | कास्ट |
+| `plan.proposed.accept` | Accept | मंज़ूर करें |
+| `plan.proposed.noAlloy` | This alloy is not in the masters. Add it before accepting. | यह अलॉय मास्टर में नहीं है। मंज़ूर करने से पहले जोड़ें। |
+| `plan.proposed.nothing` | Nothing to cast | कास्ट करने को कुछ नहीं |
+| `plan.plans.title` | Press plans used | इस्तेमाल हुए प्रेस प्लान |
+| `plan.plans.empty` | No press plans start in these days. | इन दिनों में कोई प्रेस प्लान शुरू नहीं होता। |
+| `plan.plans.line` | {number} · {day} · billets {kg} {massUnit} | {number} · {day} · बिलेट {kg} {massUnit} |
+| `plan.plans.noAlloy` | {kg} {massUnit} of this plan is on lines with no alloy, so it is not in the plan. | इस प्लान के {kg} {massUnit} की लाइनों में अलॉय नहीं है, इसलिए वह प्लान में नहीं आया। |
+| `plan.plans.truncated` | More press plans start in these days than are read. Look at fewer days. | इन दिनों में जितने प्रेस प्लान पढ़े जाते हैं उससे ज़्यादा शुरू होते हैं। कम दिन देखें। |
+| `plan.lines.title` | Accepted lines | मंज़ूर लाइनें |
+| `plan.lines.empty` | No lines accepted in these days. | इन दिनों में कोई लाइन मंज़ूर नहीं हुई। |
+| `plan.lines.col.day` | Day | दिन |
+| `plan.lines.col.alloy` | Alloy | अलॉय |
+| `plan.lines.col.kg` | Weight | वज़न |
+| `plan.lines.col.status` | Status | हालत |
+| `plan.lines.col.note` | Note | नोट |
+| `plan.lines.col.actions` | Actions | काम |
+| `plan.lines.status.accepted` | Accepted | मंज़ूर |
+| `plan.lines.status.opened` | Opened | खुली |
+| `plan.lines.status.dropped` | Dropped | छोड़ी |
+| `plan.lines.edit` | Edit | बदलें |
+| `plan.lines.drop` | Drop | छोड़ें |
+| `plan.lines.open` | Open a cast | कास्ट खोलें |
+| `plan.lines.cast` | Cast {number} | कास्ट {number} |
+| `plan.lines.proposedWas` | Proposed {kg} {massUnit} | सुझाव {kg} {massUnit} |
+| `plan.totals.title` | Totals by alloy | अलॉय के हिसाब से कुल |
+| `plan.totals.line` | need {need} {massUnit}, covered {covered} {massUnit}, to cast {cast} {massUnit}, {casts} casts | ज़रूरत {need} {massUnit}, पूरा {covered} {massUnit}, कास्ट करना {cast} {massUnit}, {casts} कास्ट |
+| `plan.accept.title` | Accept {alloy} for {day} | {day} के लिए {alloy} मंज़ूर करें |
+| `plan.accept.editTitle` | Change the line for {alloy} | {alloy} की लाइन बदलें |
+| `plan.accept.dropTitle` | Drop the line for {alloy} | {alloy} की लाइन छोड़ें |
+| `plan.accept.proposedHint` | Proposed: {kg} {massUnit} | सुझाव: {kg} {massUnit} |
+| `plan.accept.kg` | Weight to cast | कास्ट करने का वज़न |
+| `plan.accept.day` | Day | दिन |
+| `plan.accept.note` | Note | नोट |
+| `plan.accept.save` | Accept | मंज़ूर करें |
+| `plan.accept.saveEdit` | Save | सेव करें |
+| `plan.accept.confirmDrop` | Drop the line | लाइन छोड़ें |
+| `plan.accept.saved` | Line accepted. | लाइन मंज़ूर हुई। |
+| `plan.accept.updated` | Line saved. | लाइन सेव हुई। |
+| `plan.accept.dropped` | Line dropped. | लाइन छोड़ दी गई। |
+| `plan.accept.opened` | Cast {number} opened. | कास्ट {number} खुली। |
+| `plan.accept.issue.kg` | Enter a weight of 1 {massUnit} or more. | 1 {massUnit} या उससे ज़्यादा वज़न भरें। |
+| `plan.accept.issue.day` | Pick a day. | एक दिन चुनें। |
+| `trace.title` | Bought-in logs | बाहर से खरीदे लॉग |
+| `trace.receipt` | Receipt {number}, received {day} | रसीद {number}, {day} को आई |
+| `trace.vendor` | Vendor {vendor} | वेंडर {vendor} |
+| `trace.vendorCast` | Vendor cast {cast} | वेंडर कास्ट {cast} |
+| `trace.challan` | Challan {challan} | चालान {challan} |
+| `trace.qty` | {pcs} pcs, {kg} {massUnit} | {pcs} पीस, {kg} {massUnit} |
+| `trace.mtc` | Mill test certificate on file | मिल टेस्ट सर्टिफ़िकेट फ़ाइल में है |
+
+### reg (338)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9134,6 +9694,9 @@ Please check, Lalubhai:
 | `reports.materials.group.pack_reject` | Pack rejects | पैक रिजेक्ट |
 | `reports.materials.group.press` | Press close | प्रेस क्लोज़ |
 | `reports.materials.group.cast_tail` | Billet count at cast close | कास्ट बंद होने पर billet गिनती |
+| `reports.materials.group.log_receipt` | Bought-in logs | बाहर से खरीदे लॉग |
+| `reports.materials.group.billet_cut` | Logs cut into billets | लॉग से बिलेट कटाई |
+| `reports.materials.group.foundry_reject` | Log and billet rejects | लॉग और बिलेट रिजेक्ट |
 | `reports.materials.group.move` | Moves not netted | जो मूव नेट नहीं हुए |
 | `complaints.title` | Complaints | शिकायतें |
 | `complaints.subtitle` | What customers reported about a bundle, and what the plant did about it. | ग्राहक ने बंडल के बारे में क्या बताया और प्लांट ने उस पर क्या किया। |
@@ -10426,7 +10989,7 @@ Please check, Lalubhai:
 | `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
 | `reports.rate.loadFailed` | Could not load the labour rate. | मजदूरी का रेट नहीं खुला। |
 
-### reasons (79)
+### reasons (93)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -10443,6 +11006,8 @@ Please check, Lalubhai:
 | `kinds.die_work` | Die work | Die का काम |
 | `kinds.melt_correct` | Correct a locked melt | लॉक मेल्ट का सुधार |
 | `kinds.cast_tail` | Cast close-out | कास्ट क्लोज़-आउट |
+| `kinds.log_reject` | Log reject | लॉग रिजेक्ट |
+| `kinds.billet_reject` | Billet reject | बिलेट रिजेक्ट |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -10509,6 +11074,18 @@ Please check, Lalubhai:
 | `cast_tail.remelted` | Billets sent back to the furnace | बिलेट फ़र्नेस में वापस गए |
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
+| `log_reject.crack` | Crack | दरार |
+| `log_reject.inclusion` | Inclusion | इन्क्लूज़न |
+| `log_reject.size` | Wrong size | गलत साइज़ |
+| `log_reject.chemistry` | Chemistry out | केमिस्ट्री बाहर |
+| `log_reject.bend` | Bent log | टेढ़ा लॉग |
+| `log_reject.other` | Other | अन्य |
+| `billet_reject.crack` | Crack | दरार |
+| `billet_reject.inclusion` | Inclusion | इन्क्लूज़न |
+| `billet_reject.size` | Wrong size | गलत साइज़ |
+| `billet_reject.chemistry` | Chemistry out | केमिस्ट्री बाहर |
+| `billet_reject.short_length` | Short length | छोटी लंबाई |
+| `billet_reject.other` | Other | अन्य |
 
 ### plantSettings (56)
 
@@ -10695,7 +11272,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (460)
+### audit (479)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -10975,6 +11552,25 @@ Please check, Lalubhai:
 | `actions.foundry__castSeries__set` | Cast number series moved | कास्ट नंबर सीरीज़ बदली |
 | `actions.foundry__furnace__create` | Furnace added | फर्नेस जोड़ी |
 | `actions.foundry__furnace__update` | Furnace changed | फर्नेस बदली |
+| `actions.foundry__castPlan__accept` | Casting plan line accepted | कास्टिंग प्लान लाइन मानी |
+| `actions.foundry__castPlan__drop` | Casting plan line dropped | कास्टिंग प्लान लाइन हटाई |
+| `actions.foundry__castPlan__open` | Cast opened from the casting plan | कास्टिंग प्लान से कास्ट खोला |
+| `actions.foundry__castPlan__update` | Casting plan line changed | कास्टिंग प्लान लाइन बदली |
+| `actions.foundry__billets__cut` | Logs cut into billets | लॉग से बिलेट काटे |
+| `actions.foundry__billets__issue` | Billets issued to a press | बिलेट प्रेस को दिए |
+| `actions.foundry__chemistry__set` | Typical chemistry set | सामान्य केमिस्ट्री तय की |
+| `actions.foundry__homog__create` | Homogenizing batch opened | होमोजेनाइज़िंग बैच खोला |
+| `actions.foundry__homog__hold` | Homogenizing batch held | होमोजेनाइज़िंग बैच रोका |
+| `actions.foundry__homog__load` | Logs loaded for homogenizing | होमोजेनाइज़िंग के लिए लॉग लोड किए |
+| `actions.foundry__homog__out` | Homogenizing batch taken out | होमोजेनाइज़िंग बैच बाहर निकाला |
+| `actions.foundry__homog__release` | Homogenizing batch released | होमोजेनाइज़िंग बैच पास किया |
+| `actions.foundry__homog__start` | Homogenizing started | होमोजेनाइज़िंग शुरू |
+| `actions.foundry__homog__unload` | Logs taken off a homogenizing batch | होमोजेनाइज़िंग बैच से लॉग हटाए |
+| `actions.foundry__homog__void` | Homogenizing batch voided | होमोजेनाइज़िंग बैच रद्द |
+| `actions.foundry__logs__mtc` | Mill test certificate added | मिल टेस्ट सर्टिफ़िकेट जोड़ा |
+| `actions.foundry__logs__receive` | Bought-in logs received | बाहर से खरीदे लॉग आए |
+| `actions.foundry__reject__billet` | Billets rejected | बिलेट रिजेक्ट किए |
+| `actions.foundry__reject__log` | Logs rejected | लॉग रिजेक्ट किए |
 | `actions.foundry__melt__correct` | Melt corrected | मेल्ट सुधारा |
 | `actions.foundry__melt__correct_request` | Melt correction sent for approval | मेल्ट सुधारने की मंज़ूरी मांगी |
 | `actions.foundry__melt__discard` | Draft melt thrown away | ड्राफ्ट मेल्ट हटाया |

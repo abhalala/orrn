@@ -1,15 +1,19 @@
 import { useT } from "@orrn/i18n";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { LOCATION_KINDS, locationCodeProblem, parseWholeNumber, type LocationKind } from "./masters-model";
+import { LOCATION_KINDS, locationCodeProblem, parseWholeNumber, type LocationKind as BaseKind } from "./masters-model";
 import { MasterSheet } from "./masters-ui";
 import { useInvalidate, type LocationRow } from "./use-masters";
+
+/** The billet rack and press floor kinds (XE FOUNDRY) join the older kinds the masters model lists. */
+type LocationKind = BaseKind | "billet_rack" | "press_floor";
+const ALL_KINDS: readonly LocationKind[] = [...LOCATION_KINDS, "billet_rack", "press_floor"];
 
 /**
  * Add or edit a location (masters.publish): code, name, kind, position in lists; when editing,
@@ -37,7 +41,10 @@ export function LocationSheet({
   const [name, setName] = useState("");
   const [kind, setKind] = useState<LocationKind>("yard");
   const [order, setOrder] = useState("");
-  const [errors, setErrors] = useState<{ code?: string; name?: string; order?: string }>({});
+  const [pressLineId, setPressLineId] = useState("");
+  const [errors, setErrors] = useState<{ code?: string; name?: string; order?: string; press?: string }>({});
+  const pressId = `location-press-${uid}`;
+  const lines = useQuery({ ...trpc.press.lines.list.queryOptions({ includeRetired: false }), enabled: open && kind === "press_floor" });
 
   const create = useMutation(trpc.stock.locations.create.mutationOptions());
   const update = useMutation(trpc.stock.locations.update.mutationOptions());
@@ -49,6 +56,7 @@ export function LocationSheet({
     setName(location?.name ?? "");
     setKind((location?.kind as LocationKind) ?? "yard");
     setOrder(location ? String(location.sortOrder) : "");
+    setPressLineId(location?.pressLineId ?? "");
     setErrors({});
     create.reset();
     update.reset();
@@ -75,11 +83,13 @@ export function LocationSheet({
         : undefined,
       name: name.trim() ? undefined : t("masters.locations.form.nameRequired"),
       order: sort.ok ? undefined : t("masters.orderInvalid"),
+      press: kind === "press_floor" && !pressLineId ? t("fdy2.location.pressRequired") : undefined,
     };
     setErrors(next);
     if (next.code) return codeRef.current?.focus();
     if (next.name) return nameRef.current?.focus();
     if (next.order || !sort.ok) return;
+    if (next.press) return;
     const finalCode = code.trim().toUpperCase();
     try {
       if (location) {
@@ -88,6 +98,7 @@ export function LocationSheet({
           ...(finalCode !== location.code ? { code: finalCode } : {}),
           ...(name.trim() !== location.name ? { name: name.trim() } : {}),
           ...(kind !== location.kind ? { kind } : {}),
+          ...(kind === "press_floor" && pressLineId !== (location.pressLineId ?? "") ? { pressLineId } : {}),
           ...(sort.value !== null && sort.value !== location.sortOrder ? { sortOrder: sort.value } : {}),
         });
         toast.success(t("masters.saved", { name: finalCode }));
@@ -96,6 +107,7 @@ export function LocationSheet({
           code: finalCode,
           name: name.trim(),
           kind,
+          ...(kind === "press_floor" ? { pressLineId } : {}),
           ...(sort.value !== null ? { sortOrder: sort.value } : {}),
         });
         toast.success(t("masters.added", { name: finalCode }));
@@ -177,13 +189,33 @@ export function LocationSheet({
           value={kind}
           onChange={(e) => setKind(e.currentTarget.value as LocationKind)}
         >
-          {LOCATION_KINDS.map((k) => (
+          {ALL_KINDS.map((k) => (
             <option key={k} value={k}>
               {t(`masters.locations.kind.${k}`)}
             </option>
           ))}
         </NativeSelect>
       </Field>
+      {kind === "press_floor" ? (
+        <Field label={t("fdy2.location.press")} hint={t("fdy2.location.pressHint")} id={pressId} error={errors.press}>
+          <NativeSelect
+            id={pressId}
+            value={pressLineId}
+            onChange={(e) => {
+              setPressLineId(e.currentTarget.value);
+              if (errors.press) setErrors((x) => ({ ...x, press: undefined }));
+            }}
+            data-testid="location-press"
+          >
+            <option value="">{t("fdy2.location.pressPick")}</option>
+            {(lines.data ?? []).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.code} · {l.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+      ) : null}
       <Field label={t("masters.order")} hint={t("masters.orderHint")} error={errors.order}>
         <NumberInput value={order} onValueChange={setOrder} decimal={false} />
       </Field>
