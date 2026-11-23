@@ -182,13 +182,50 @@ export const leaveRequestDecision: ApprovalApplier = (ctx, row, decision, prepar
   if (decision !== "approved" || !p) return out;
   const at = ctx.decidedAt.getTime();
   for (const day of p.days) {
+    // Keys follow hr_attendance's column order (insert-select rule). Never over a day the person worked.
     out.push(
-      ctx.db.run(sql`insert into hr_attendance (id, company_id, employee_id, day, status, overtime_min, source, leave_request_id, paid_leave, late_entry, marked_by, marked_at)
-        select ${crypto.randomUUID()}, ${ctx.companyId}, ${p.employeeId}, ${day}, 'leave', 0, 'leave', ${row.subjectId}, ${p.paid ? 1 : 0}, 0, ${ctx.userId}, ${at}
-        where ${landed} and exists (select 1 from hr_leave_request l where l.id = ${row.subjectId} and l.company_id = ${ctx.companyId} and l.status = 'approved')
-        on conflict (company_id, employee_id, day) do update set status = 'leave', source = 'leave', leave_request_id = excluded.leave_request_id,
-          paid_leave = excluded.paid_leave, in_at = null, out_at = null, worked_min = null, overtime_min = 0, marked_by = excluded.marked_by, marked_at = excluded.marked_at
-        where hr_attendance.status not in ('present', 'half_day')`) as unknown as SqliteBatchItem,
+      ctx.db
+        .insert(hrAttendance)
+        .select(
+          ctx.db
+            .select({
+              id: sql<string>`${crypto.randomUUID()}`.as("id"),
+              companyId: hrLeaveRequest.companyId,
+              employeeId: hrLeaveRequest.employeeId,
+              day: sql<string>`${day}`.as("day"),
+              status: sql<string>`'leave'`.as("status"),
+              shiftId: sql<string | null>`null`.as("shift_id"),
+              inAt: sql<number | null>`null`.as("in_at"),
+              outAt: sql<number | null>`null`.as("out_at"),
+              workedMin: sql<number | null>`null`.as("worked_min"),
+              overtimeMin: sql<number>`0`.as("overtime_min"),
+              source: sql<string>`'leave'`.as("source"),
+              leaveRequestId: hrLeaveRequest.id,
+              paidLeave: sql<number>`${p.paid ? 1 : 0}`.as("paid_leave"),
+              lateEntry: sql<number>`0`.as("late_entry"),
+              note: sql<string | null>`null`.as("note"),
+              markedBy: sql<string>`${ctx.userId}`.as("marked_by"),
+              markedAt: sql<number>`${at}`.as("marked_at"),
+            })
+            .from(hrLeaveRequest)
+            .where(and(eq(hrLeaveRequest.companyId, ctx.companyId), eq(hrLeaveRequest.id, row.subjectId), eq(hrLeaveRequest.status, "approved"), landed)),
+        )
+        .onConflictDoUpdate({
+          target: [hrAttendance.companyId, hrAttendance.employeeId, hrAttendance.day],
+          set: {
+            status: sql`'leave'`,
+            source: sql`'leave'`,
+            leaveRequestId: sql`excluded.leave_request_id`,
+            paidLeave: sql`excluded.paid_leave`,
+            inAt: sql`null`,
+            outAt: sql`null`,
+            workedMin: sql`null`,
+            overtimeMin: sql`0`,
+            markedBy: sql`excluded.marked_by`,
+            markedAt: sql`excluded.marked_at`,
+          },
+          setWhere: sql`${hrAttendance.status} not in ('present', 'half_day')`,
+        }),
     );
   }
   return out;

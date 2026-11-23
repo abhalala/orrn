@@ -150,11 +150,24 @@ const roster = router({
       const to = addDaysYmd(start, -1);
       const createdAt = now().getTime();
       await atomicBatch(ctx.db, [
-        ctx.db.run(sql`insert into hr_roster (id, company_id, employee_id, day, shift_id, created_at)
-          select lower(hex(randomblob(16))), r.company_id, r.employee_id, date(r.day, '+7 days'), r.shift_id, ${createdAt}
-          from hr_roster r join hr_employee e on e.id = r.employee_id and e.company_id = r.company_id and e.status = 'active'
-          where r.company_id = ${ctx.companyId} and r.day >= ${from} and r.day <= ${to}
-          on conflict (company_id, employee_id, day) do nothing`) as unknown as SqliteBatchItem,
+        // Keys follow hr_roster's column order (insert-select rule).
+        ctx.db
+          .insert(hrRoster)
+          .select(
+            ctx.db
+              .select({
+                id: sql<string>`lower(hex(randomblob(16)))`.as("id"),
+                companyId: hrRoster.companyId,
+                employeeId: hrRoster.employeeId,
+                day: sql<string>`date(${hrRoster.day}, '+7 days')`.as("day"),
+                shiftId: hrRoster.shiftId,
+                createdAt: sql<number>`${createdAt}`.as("created_at"),
+              })
+              .from(hrRoster)
+              .innerJoin(hrEmployee, and(eq(hrEmployee.id, hrRoster.employeeId), eq(hrEmployee.companyId, hrRoster.companyId), eq(hrEmployee.status, "active")))
+              .where(and(eq(hrRoster.companyId, ctx.companyId), gte(hrRoster.day, from), lte(hrRoster.day, to))),
+          )
+          .onConflictDoNothing({ target: [hrRoster.companyId, hrRoster.employeeId, hrRoster.day] }),
         audit(ctx, "hr.roster.copy", "hr_roster", start, { weekStart: start }),
       ]);
       const [{ n } = { n: 0 }] = await ctx.db

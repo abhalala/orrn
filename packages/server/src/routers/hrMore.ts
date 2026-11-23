@@ -149,7 +149,7 @@ const training = router({
         return { employeeId: r.employeeId, code: r.code, name: r.name, course: r.course, lastOn: r.day, expiresOn, state: trainingState(expiresOn, clock.today) };
       })
       .filter((r) => r.state === "expired" || r.state === "due_soon")
-      .sort((a, b) => (a.expiresOn ?? "").localeCompare(b.expiresOn ?? ""));
+      .sort((a, b) => (a.expiresOn ?? "").localeCompare(b.expiresOn ?? "") || a.code.localeCompare(b.code));
   }),
 
   save: hrProcedure("hr.manage")
