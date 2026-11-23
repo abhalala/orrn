@@ -25,3 +25,4 @@ export * from "./units/index";
 export * from "./reg";
 export * from "./admin";
 export * from "./qa";
+export * from "./store";

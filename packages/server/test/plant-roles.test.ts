@@ -117,6 +117,12 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE store (rows 69 to 73).
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

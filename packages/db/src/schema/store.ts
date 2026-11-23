@@ -37,6 +37,13 @@ export const storeItem = sqliteTable(
     unit: text("unit", { enum: storeUnits }).notNull(),
     category: text("category", { enum: storeCategories }).notNull().default("other"),
     /**
+     * XE store (row 72): the minimum and the reorder quantity in milli-units of the item's unit. NULL =
+     * no reorder level. Below the minimum, Today asks the storekeeper to raise an indent for the reorder
+     * quantity.
+     */
+    minMilli: integer("min_milli"),
+    reorderMilli: integer("reorder_milli"),
+    /**
      * Retired items take no new movements and can only be retired at a balance of 0. `retired_at`
      * is set exactly when `active` is false; the name is unique among items with no `retired_at`.
      */
@@ -106,6 +113,21 @@ export const storeTxn = sqliteTable(
     sourceId: text("source_id"),
     /** GRN only: the vendor's challan or bill number. */
     grnRef: text("grn_ref"),
+    /**
+     * XE store (row 73). GRN: the rate in paise per unit of the item's unit, NULL = no rate (old GRNs,
+     * or none given), which values the stock at 0 and shows "no rate".
+     */
+    ratePaise: integer("rate_paise"),
+    /**
+     * XE store (row 73): the money this entry moved, frozen at write time, always >= 0; the sign comes
+     * from `kind`. GRN: quantity x rate (0 without a rate; an exchange's new leg carries the old leg's
+     * value). MRS: valued at the item's weighted average when it was written (`storeTxnInsert`).
+     */
+    valuePaise: integer("value_paise").notNull().default(0),
+    /** XE store (row 71): GRN only, the purchase order line this delivery is against (NULL = no PO). */
+    poLineId: text("po_line_id"),
+    /** XE store (row 71): GRN only, what inspection turned back; never enters stock. NULL = not recorded. */
+    rejectedMilli: integer("rejected_milli"),
     /** Both legs of one exchange carry the same id. */
     exchangeId: text("exchange_id"),
     note: text("note"),
@@ -135,6 +157,7 @@ export const storeTxn = sqliteTable(
     index("store_txn_company_created_idx").on(table.companyId, table.createdAt),
     index("store_txn_company_exchange_idx").on(table.companyId, table.exchangeId),
     index("store_txn_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    index("store_txn_company_po_line_idx").on(table.companyId, table.poLineId),
   ],
 );
 

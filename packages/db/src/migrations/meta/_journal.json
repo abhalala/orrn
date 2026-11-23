@@ -407,6 +407,13 @@
       "when": 1795397982233,
       "tag": "0058_xe_qa",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1795393570410,
+      "tag": "0062_xe_store2",
+      "breakpoints": true
     }
   ]
 }

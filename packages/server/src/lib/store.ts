@@ -15,8 +15,11 @@ import {
 import { company } from "@orrn/db/schema/tenant";
 
 import type { Context } from "../context";
+import { grnValuePaise } from "@orrn/domain";
+
 import { allocateDocNumbers } from "./docNumber";
 import { auditInsertGuarded } from "./audit";
+import { issueValueSql } from "./storeValue";
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 
 const sqlUuid = sql<string>`lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))`;
@@ -201,6 +204,17 @@ export type StoreTxnInput = {
   guardBalance: boolean;
   /** Extra write-time condition (the incoming leg of an exchange needs its outgoing leg). */
   and?: SQL;
+  /** XE store (row 73): GRN rate in paise per unit; null / omitted = no rate (valued at 0). */
+  ratePaise?: number | null;
+  /**
+   * XE store (row 73): a GRN's value when it is not quantity x rate (an exchange's new leg carries the
+   * old leg's value). Ignored for an MRS, which is always valued at the average inside the INSERT.
+   */
+  valueSql?: SQL<number>;
+  /** XE store (row 71): the PO line a GRN is against. */
+  poLineId?: string | null;
+  /** XE store (row 71): what a GRN's inspection turned back (not stocked). */
+  rejectedMilli?: number | null;
 };
 
 /**
@@ -227,6 +241,13 @@ export function storeTxnInsert(db: OrrnDb, input: StoreTxnInput): SqliteBatchIte
         sourceType: sql<string | null>`${input.source?.type ?? null}`.as("source_type"),
         sourceId: sql<string | null>`${input.source?.id ?? null}`.as("source_id"),
         grnRef: sql<string | null>`${input.grnRef}`.as("grn_ref"),
+        ratePaise: sql<number | null>`${input.kind === "grn" ? (input.ratePaise ?? null) : null}`.as("rate_paise"),
+        valuePaise: (input.kind === "mrs"
+          ? issueValueSql(companyId, sql`${storeItem.id}`, input.qtyMilli)
+          : (input.valueSql ?? sql<number>`${grnValuePaise(input.qtyMilli, input.ratePaise ?? null)}`)
+        ).as("value_paise"),
+        poLineId: sql<string | null>`${input.kind === "grn" ? (input.poLineId ?? null) : null}`.as("po_line_id"),
+        rejectedMilli: sql<number | null>`${input.kind === "grn" ? (input.rejectedMilli ?? null) : null}`.as("rejected_milli"),
         exchangeId: sql<string | null>`${input.exchangeId}`.as("exchange_id"),
         note: sql<string | null>`${input.note}`.as("note"),
         clientRequestId: sql<string | null>`${input.clientRequestId ?? null}`.as("client_request_id"),
@@ -524,6 +545,10 @@ export function storeDrawAbort(db: OrrnDb, companyId: string, ids: string[]): Sq
         sourceType: sql<string | null>`null`.as("source_type"),
         sourceId: sql<string | null>`null`.as("source_id"),
         grnRef: sql<string | null>`null`.as("grn_ref"),
+        ratePaise: sql<number | null>`null`.as("rate_paise"),
+        valuePaise: sql<number>`0`.as("value_paise"),
+        poLineId: sql<string | null>`null`.as("po_line_id"),
+        rejectedMilli: sql<number | null>`null`.as("rejected_milli"),
         exchangeId: sql<string | null>`null`.as("exchange_id"),
         note: sql<string | null>`null`.as("note"),
         clientRequestId: sql<string | null>`null`.as("client_request_id"),

@@ -26,6 +26,9 @@ export const docTypes = [
   "party_bundle",
   // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
   "complaint",
+  // XE store (rows 69, 70): store indents IND- and store purchase orders PO- (per FY).
+  "indent",
+  "store_po",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 
