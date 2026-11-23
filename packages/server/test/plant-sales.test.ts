@@ -800,11 +800,9 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
       driverName: "Ramesh",
       driverPhone: "9825011111",
       transporter: "Shree",
-      // XE ADM #21/#76: empty until the plant sets a packing mode or transit insurance.
-      transitInsurance: null,
+      // PROD-GATE: back to the pre-XE header; packingMode / transitInsurance come only with `masters_plus`.
       poNumbers: ["OLD-PO-9", "PO-778"],
       invoiceNumber: null,
-      packingMode: null,
       invoiceDate: null,
       // Review round 1 (I1): the PL prints the ENTERED ship date only; none was entered, and it prints its own issue date.
       shipDate: null,

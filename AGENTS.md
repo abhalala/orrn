@@ -1441,8 +1441,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
   you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
   inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
-- **Opt-in modules (XE CONTRACTS).** `OPT_IN_MODULES` (`billing`, `einvoice`, `payroll`, `costing`) are on only when
-  named: `[]` still means every STANDARD module on, but no opt-in one. A list that names only opt-in keys
+- **Opt-in modules (XE CONTRACTS; PROD-GATE).** Every key of `OPT_IN_MODULES` is on only when named:
+  `[]` still means every STANDARD module on, but no opt-in one. See "XE modules are opt-in" below. A list that names only opt-in keys
   keeps every standard module on (`isModuleOn` in `@orrn/domain` is the one rule; web nav, settings and
   Godseye all call it). Opt-in routers also gate their READS (`lib/billing/gate.ts`), since they carry money.
   Clients get the EFFECTIVE list (`effectiveModules`: every module that is on, spelled out) from `auth.me` and
@@ -1609,7 +1609,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   - `numberFormats` and `approvalRules`, described below.
   - `people.assign`: `membership.department_id` and `designation_id`, under `users.manage`.
   - `packing.setForLine` and `packing.setForDispatch`.
-- Permission prefixes are `masters.*`, `docs.manage`, `approvalRule.manage` and `refFormat.manage`. The last two are admin and owner only. Rows of kind `die_category` and the router `toolRoom` ride the `dies` module. There is no new module key.
+- Permission prefixes are `masters.*`, `docs.manage`, `approvalRule.manage` and `refFormat.manage`. The last two are admin and owner only. Module keys (PROD-GATE): the routers `masters` and `toolRoom` are the opt-in `masters_plus`, `docs` is the opt-in `docs`; rows of kind `die_category` also need `dies`. With `masters_plus` off, stored `approvalRules` and `docFormats` are ignored (built-in approvers, numbers as before), the PL header carries no `packingMode` / `transitInsurance` keys and `dashboard.today` has no `toolingShort` key.
 - **Printed papers read the plant from `lib/plantPrint.ts`, never the tables directly.**
   - `getPlantBankForPrint(db: OrrnDb, companyId: string): Promise<{ bankName, branch, accountName, accountNo, ifsc } | null>` returns the live default account. It returns null when no default is set.
   - `plantPlExtras` gives the packing list its mode of packing and its transit insurance, and both go into the PL snapshot header. The mode is the dispatch's own if it has one; otherwise it is the distinct modes of its order lines. The insurance appears only when `printOnPl` is set and the PL date falls inside the policy dates.
@@ -1628,6 +1628,34 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   - Minimum stock lives in `settings.toolingMinStock`. Shortfalls appear on `dashboard.today.toolingShort`.
 - **Documents (#80).** `plant_document` is the register (`routers/plantDocs.ts`, router `docs`). Its files reuse the die upload ticket with `sectionId "_docs"`, and its R2 keys are `{companyId}/dies/_docs/{fileId}`. The die file purge keeps any key a document references.
 - The buddy registry denies `masters`, `toolRoom` and `docs` until they have been reviewed. The tests are `xe-adm-masters`, `xe-adm-formats-approvals` and `xe-adm-toolroom-docs` in `packages/server/test`, plus `packages/domain/src/admin.test.ts`.
+
+# 12a. XE modules are opt-in (PROD-GATE, owner rule 2026-11-23)
+
+- XE code ships to prod, but every XE module is OFF for a real plant (the Fourcubes tenant included) until
+  the owner ticks it per plant in Godseye (Plan and modules, "Extra modules"). Dev's demo plant names every
+  key (`apps/server/src/dev-seed.ts` writes `[...COMPANY_MODULES]` to the demo company only). No migration
+  or seed may change a real tenant's `company.modules`.
+- `STANDARD_MODULES` is the pinned list of the ten pre-XE keys. Every other key in `COMPANY_MODULES` is
+  opt-in and must be in `OPT_IN_MODULES` (`packages/domain/src/settings.test.ts` fails otherwise). Keys today:
+  `complaints`, `qa`, `pricing`, `billing`, `einvoice`, `masters_plus` (plant lists, bank, insurance, number
+  formats, approver rules, packing mode, people's department and designation, tool room extras), `docs`
+  (document register), `mis` (office registers, owner page and mail, billet need, recut reason, portal order
+  progress). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `maintenance`,
+  `costing`, `jobwork`.
+- Server: `companyProcedure` asserts an opt-in module on READS as well as writes (`ROUTER_MODULE` /
+  `PROCEDURE_MODULE`); `portalProcedure` paths call `assertModule` themselves. A feature that rides a core
+  router or answer (a key in `orders.get`, the PL header, `dashboard.today`, `portal.*`) adds its key only
+  when its module is on, so a plant without it gets the pre-XE shape. The buddy hides paths of a module that
+  is off (`lib/buddy/mcp.ts` `hiddenByModule`).
+- Web: XE cards, columns and queries on core screens render through `useModuleOn` (`shared/lib/modules.ts`)
+  and ask nothing while off; nav entries carry `module`; Masters entries carry `module`; Settings > Modules
+  lists an opt-in module only when it is on.
+- Tests: the server harness's `createTestEnv({ defaultModules })` names an XE file's keys; core files keep
+  `[]`. `packages/server/test/prod-gate.test.ts` and `apps/web/src/shell/prod-gate.test.ts` prove a plant on
+  `[]` or on the standard list sees no XE procedure, key, row, nav entry, tile or portal entry.
+- A new XE lane: add its key to `COMPANY_MODULES` and `OPT_IN_MODULES`, register its router, gate every
+  surface on a core screen, and add its names to `admin.plan.moduleNames|moduleHints` and
+  `plantSettings.modules.names` (en, hi).
 
 # 12b. Billing (XE-BILL)
 
@@ -1717,6 +1745,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Material reconciliation: in and out are document postings (pack, dispatch, purchase, melt, press, pack rejects); the gap holds corrections (opening balances, cast tails, bundle void and restore, unnetted moves). Every `LedgerVoucherType` must have a row in `VOUCHER_ROLE`, typed so a new voucher type fails the type check.
 - `recut_reason` on `bundle` is kept only when the bundle is shorter than its trolley line (`bundle.createReceipt` row field `recutReason`).
 - `portal.orders.get` lines carry `progress` (kg per stage and the headline stage) from `lineWip`; no plan or run ids reach the party.
+- **Opt-in `mis` (PROD-GATE)**: the registers (`reports.rejections|recuts|wip|planActual|unpacked|materials|billetNeed|morning`, `PROCEDURE_MODULE`), the owner page, the morning mail (setting refused, cron skips the plant), the recut reason on pack (not kept) and `portal.orders.get` `progress` (key absent) all need `mis`.
 - **Owner page and morning mail**: `reports.morning` and `/owner` need `mis.view` (admin; the owner holds every action). `settings.morningSummary {enabled, hour}` (off by default, 07:00 plant time) is saved through `company.updateSettings`. The worker has a second cron, `5 * * * *`; `scheduled` in `apps/server/src/index.ts` branches on `controller.cron` and calls `runMorningSummaries` (`lib/morningSummary.ts`). It claims the plant-local day with an audit row whose id is `morning-summary:<company>:<date>` (action `mis.morning.sent`) before sending, so a plant gets at most one mail a day; one plant failing never stops the others. Tests inject the sender; never call `sendEmail` from a test. The two cron strings in `alchemy.run.ts` and `HOURLY_CRON` in `index.ts` must match.
 
 ## Customer portal (FP-PF-01..04, W3)
