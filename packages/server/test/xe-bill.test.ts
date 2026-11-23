@@ -659,6 +659,7 @@ describe("procedure coverage (review round)", () => {
     const refused = { ...fake, generateIrn: async () => ({ ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) };
     lib.setAdapter(refused);
     const two = await issued(p, [(await completedPl(p, [200])).plId]);
+    lib.setClock(null); // the approval on the same clock as the calls (completedPl pins OCT)
     const bp = await p.as("office").billing.invoices.requestCancel({ id: two.id, reason: "Wrong party" });
     await p.as("manager").approval.decide({ id: bp.approvalId, decision: "approved" });
     const down = { ...fake, irnByDocument: async () => ({ ok: false as const, code: "relay_unknown_gstin", message: "no", retryable: false }) };
@@ -681,16 +682,66 @@ describe("procedure coverage (review round)", () => {
     const due = await issued(b, [(await completedPl(b, [200])).plId]);
     expect(due.status).toBe("irn_pending");
     const fake = lib.fakeAdapter(() => OCT);
-    const out = await lib.runIrnCron(env.db, fake, Date.now());
-    expect(out.tried).toBe(1);
+    const generatedOf = async (companyId: string) =>
+      (await env.db.select().from(invoice).where(and(eq(invoice.companyId, companyId), eq(invoice.irnStatus, "generated")))).length;
+    await lib.runIrnCron(env.db, fake, Date.now());
+    // (Other tests' rows share this database, so count per plant, not the run's total.)
     expect((await env.db.select().from(invoice).where(eq(invoice.id, due.id)))[0]).toMatchObject({ status: "issued", irnStatus: "generated" });
+    expect(await generatedOf(a.companyId)).toBe(0);
     // Plant A back on: at most 5 of its rows per run, so a third plant still gets its turn.
     await env.db.update(company).set({ modules: ["billing", "einvoice"] }).where(eq(company.id, a.companyId));
     const c = await billingPlant(["billing", "einvoice"]);
     const third = await issued(c, [(await completedPl(c, [100])).plId]);
-    const run = await lib.runIrnCron(env.db, lib.fakeAdapter(() => OCT), Date.now());
-    expect(run.tried).toBe(6);
+    await lib.runIrnCron(env.db, lib.fakeAdapter(() => OCT), Date.now());
+    expect(await generatedOf(a.companyId)).toBe(5);
     expect((await env.db.select().from(invoice).where(eq(invoice.id, third.id)))[0]).toMatchObject({ irnStatus: "generated" });
+  }, SLOW);
+
+  test("S1: a cancel days after the last IRN call asks the IRP first (not a bounce); a refused IRN cancels at once", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => new Date());
+    lib.setAdapter({ ...fake, generateIrn: async () => ({ ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) });
+    const pl = await completedPl(p, [300]);
+    const inv = await issued(p, [pl.plId]);
+    const later = Date.now() + 25 * 3600_000;
+    lib.setClock(new Date(later));
+    lib.setAdapter(null);
+    const ap = await p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong party" });
+    await p.as("manager").approval.decide({ id: ap.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ status: "cancel_pending" });
+    await lib.runIrnCron(env.db, fake, later + 60_000);
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "none" });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).toContain(pl.plId);
+
+    // The IRP itself refused the document: no IRN can exist, so the approval cancels at once.
+    lib.setClock(OCT);
+    lib.setAdapter(lib.fakeAdapter(() => OCT, { calls: [], failGenerate: { times: 1, response: { ok: false, code: "2172", message: "Invalid buyer pincode", retryable: false } } }));
+    const two = await issued(p, [(await completedPl(p, [200])).plId]);
+    expect(two).toMatchObject({ status: "irn_pending", irnStatus: "failed" });
+    const bp = await p.as("office").billing.invoices.requestCancel({ id: two.id, reason: "Wrong party" });
+    await p.as("manager").approval.decide({ id: bp.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, two.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "none" });
+  }, SLOW);
+
+  test("S4: a row that throws in the cron is pushed back and the run goes on to the next plant", async () => {
+    const a = await billingPlant(["billing", "einvoice"]);
+    const b = await billingPlant(["billing", "einvoice"]);
+    lib.setAdapter(null);
+    const ia = await issued(a, [(await completedPl(a, [300])).plId]);
+    const ib = await issued(b, [(await completedPl(b, [300])).plId]);
+    const fake = lib.fakeAdapter(() => OCT);
+    const flaky = {
+      ...fake,
+      generateIrn: async (to: { companyId: string; gstin: string }, payload: Record<string, unknown>) => {
+        if (to.companyId === a.companyId) throw new Error("boom");
+        return fake.generateIrn(to, payload);
+      },
+    };
+    await lib.runIrnCron(env.db, flaky, Date.now());
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, ib.id)))[0]).toMatchObject({ irnStatus: "generated" });
+    const rowA = (await env.db.select().from(invoice).where(eq(invoice.id, ia.id)))[0]!;
+    expect(rowA.irnStatus).toBe("pending");
+    expect(rowA.irnNextTryAt!.getTime()).toBeGreaterThan(Date.now());
   }, SLOW);
 
   test("S6: a PL regenerated after issue loses the cancelled number too", async () => {

@@ -1463,8 +1463,10 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   generate call ever sent (`irn_call_at` null) the applier cancels at once; otherwise the invoice goes to
   `cancel_pending` and keeps its packing lists and dispatch number. `settleCancel` (`lib/billing/einvoiceFlow.ts`;
   run right after the decision, by `einvoice.cancelIrn` and by the cron) cancels the IRN at the IRP, or, with
-  no IRN known, waits `IRN_CALL_SETTLE_MS` after the last call and looks the document up (only 2283 means "none";
-  a found IRN is kept, then cancelled). Only then does the invoice become `cancelled`, and
+  no IRN known, waits `IRN_CALL_SETTLE_MS` after the last call and looks the document up (only 2283 within 2 days
+  of the call means "none", since the IRP serves details for 2 days; a found IRN is kept, then cancelled). A
+  call the IRP itself refused clears `irn_call_at` (no IRN can exist), so such a document cancels at once. With no
+  answer it gives up 24 h after the approval. A cron row that throws is pushed back one retry step. Only then does the invoice become `cancelled`, and
   `releaseCancelledStatements` frees the sources and clears the number from the dispatch and from EVERY packing
   list of those dispatches (a revision made after issue too). Past 24 h it goes back to `issued` (or
   `irn_pending`) with "issue a credit note instead". `cancel_pending` still counts as live for receivables, the

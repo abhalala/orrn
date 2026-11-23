@@ -55,10 +55,11 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
   });
   const cancel = useMutation({
     ...trpc.einvoice.cancelIrn.mutationOptions(),
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       setCancelOpen(false);
       await refresh();
-      toast.success(t("bill.irn.cancelled"));
+      if (r.outcome === "cancelled") toast.success(t("bill.irn.cancelled"));
+      else toast.message(t("bill.irn.cancelNotYet"));
     },
     onError: (e) => toast.error(errorText(e, t("errors.generic"))),
   });

@@ -7634,6 +7634,7 @@ export const en = {
       cancelTitle: "Cancel the IRN?",
       cancelHint: "Only within 24 hours of making it, and only with no e-way bill.",
       cancelled: "IRN cancelled",
+      cancelNotYet: "The IRP has not answered yet. It will be tried again.",
       reasonCode: "Why",
       codes: {
         "1": "Duplicate",

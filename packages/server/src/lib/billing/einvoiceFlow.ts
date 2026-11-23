@@ -148,10 +148,14 @@ export async function generateIrn(db: OrrnDb, companyId: string, invoiceId: stri
   }
   const attempts = row.irnAttempts + 1;
   const retry = res.retryable && attempts < IRN_MAX_AUTO_TRIES;
+  // The IRP itself refused the document (a validation answer, not the relay, not the network, not a duplicate):
+  // no IRN was made by this call, so a cancel need not look it up.
+  const irpRefused = !res.retryable && res.code !== "2150" && !/^(relay_|upstream_)/.test(res.code);
   await atomicBatch(db, [
     db
       .update(invoice)
       .set({
+        ...(irpRefused ? { irnCallAt: null } : {}),
         irnStatus: retry ? "auto_retry" : "failed",
         irnAttempts: attempts,
         irnNextTryAt: retry ? new Date(at + IRN_RETRY_EVERY_MS) : null,
@@ -193,7 +197,9 @@ export async function refreshFailedIrn(db: OrrnDb, companyId: string, invoiceId:
       await persistIrn(db, companyId, row.id, { ...found.data, Irn: facts.irn, AckNo: found.data.AckNo ?? facts.ackNo, AckDt: found.data.AckDt ?? facts.ackDt }, at, "found_on_retry");
       return { ok: true, recovered: true };
     }
-    if (!IRN_NOT_FOUND_CODES.has(found.code)) return { ok: false, message: "The IRP could not be checked for this document: try again in a few minutes" };
+    if (!IRN_NOT_FOUND_CODES.has(found.code) || at - row.irnCallAt.getTime() > IRP_DETAILS_MS) {
+      return { ok: false, message: "The IRP could not be checked for this document: try again in a few minutes, or cancel it and issue it again" };
+    }
   }
   const [plantRes, partyRes] = await Promise.all([loadPlantGst(db, companyId), loadPartyGst(db, companyId, row.customerId)]);
   const missing = [...plantRes.missing, ...partyRes.missing];
@@ -235,9 +241,11 @@ export const IRN_CALL_SETTLE_MS = 2 * 60 * 1000;
 export const IRN_CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** IRP answers to "IRN by document" that confirm no IRN exists for it. Anything else proves nothing. */
 const IRN_NOT_FOUND_CODES = new Set(["2283"]);
+/** The IRP serves IRN details for 2 days only: an older "not found" proves nothing. */
+export const IRP_DETAILS_MS = 2 * 24 * 60 * 60 * 1000;
 
 export const CANCEL_TOO_LATE = "The IRN could not be cancelled within 24 hours: issue a credit note instead";
-const CANCEL_UNCHECKED = "The IRP could not be checked within 24 hours: the invoice stays. Issue a credit note if its IRN was made";
+const CANCEL_UNCHECKED = "The IRP could not be checked within 24 hours of the cancel: the invoice stays. Issue a credit note if its IRN was made";
 
 /**
  * Free what an invoice held once it is really cancelled: the dispatch number, the number on every packing
@@ -303,6 +311,7 @@ async function revertCancel(db: OrrnDb, companyId: string, invoiceId: string, at
       .update(invoice)
       .set({
         status: sql`case when ${invoice.irn} is not null then 'issued' else 'irn_pending' end`,
+        irnStatus: sql`case when ${invoice.irn} is null and ${invoice.irnStatus} = 'auto_retry' then 'pending' else ${invoice.irnStatus} end`,
         cancelApprovalId: null,
         cancelReason: null,
         cancelledBy: null,
@@ -347,13 +356,17 @@ export async function settleCancel(
   if (!row.irn) {
     const calledAt = row.irnCallAt?.getTime() ?? null;
     if (calledAt === null) return finishCancel(db, companyId, row.id, at, false);
-    if (at - calledAt >= IRN_CANCEL_WINDOW_MS) return revertCancel(db, companyId, row.id, at, CANCEL_UNCHECKED);
+    // Give up only 24 h after the CANCEL with no answer from the IRP (an old refused call is no reason to).
+    const giveUp = (row.cancelledAt?.getTime() ?? at) + IRN_CANCEL_WINDOW_MS <= at;
     // A call may still be on its way to the IRP: look only once it must have answered.
-    if (at - calledAt < IRN_CALL_SETTLE_MS || !adapter || !row.number || !row.invoiceDate) return { outcome: "waiting" };
+    if (at - calledAt < IRN_CALL_SETTLE_MS) return { outcome: "waiting" };
+    if (!adapter || !row.number || !row.invoiceDate) return giveUp ? revertCancel(db, companyId, row.id, at, CANCEL_UNCHECKED) : { outcome: "waiting" };
     const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
     const found = await adapter.irnByDocument({ companyId, gstin: snap.plant.gstin }, doc);
     if (!found.ok) {
-      if (IRN_NOT_FOUND_CODES.has(found.code)) return finishCancel(db, companyId, row.id, at, false);
+      // "Not found" proves nothing once the IRP has stopped serving that call's details (2 days).
+      if (IRN_NOT_FOUND_CODES.has(found.code) && at - calledAt <= IRP_DETAILS_MS) return finishCancel(db, companyId, row.id, at, false);
+      if (giveUp) return revertCancel(db, companyId, row.id, at, CANCEL_UNCHECKED);
       return backOff(db, companyId, row.id, at, "irn.lookup", found.code, found.message);
     }
     const facts = decodeSignedInvoice(found.data.SignedInvoice);
@@ -470,6 +483,23 @@ export async function cancelEwb(
   return { ok: true };
 }
 
+/** A row that threw in the cron moves back by one retry step, so it cannot hold the head of the queue. */
+async function pushBack(db: OrrnDb, companyId: string, invoiceId: string, at: number, action: string, e: unknown): Promise<void> {
+  const message = e instanceof Error ? e.message : String(e);
+  console.error(`irn cron: ${action} ${invoiceId} failed`, message);
+  try {
+    await atomicBatch(db, [
+      db
+        .update(invoice)
+        .set({ irnNextTryAt: new Date(at + IRN_RETRY_EVERY_MS), updatedAt: new Date(at) })
+        .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId))),
+      event(db, companyId, invoiceId, action, "failed", at, "error", message),
+    ]);
+  } catch {
+    // The run goes on with the next row either way.
+  }
+}
+
 const CRON_BATCH = 25;
 /** At most this many rows of one plant per run (review S4): one plant's backlog never starves the others. */
 const CRON_PER_COMPANY = 5;
@@ -496,12 +526,16 @@ export async function runIrnCron(db: OrrnDb, adapter: IrpAdapter | null, at: num
           row_number() over (partition by i.company_id order by coalesce(i.irn_next_try_at, 0), i.id) as rn
         from invoice i
         where i.needs_irn = 1 and i.irn is null and i.status in ('irn_pending', 'issued')
-          and (i.irn_status = 'pending' or (i.irn_status = 'auto_retry' and i.irn_next_try_at <= ${at}))
+          and ((i.irn_status = 'pending' and coalesce(i.irn_next_try_at, 0) <= ${at}) or (i.irn_status = 'auto_retry' and i.irn_next_try_at <= ${at}))
           and ${einvoiceOnSql}
       ) where rn <= ${CRON_PER_COMPANY} order by next_at, id limit ${CRON_BATCH}`);
     for (const r of due) {
       tried += 1;
-      await generateIrn(db, r.company_id, r.id, adapter, at);
+      try {
+        await generateIrn(db, r.company_id, r.id, adapter, at);
+      } catch (e) {
+        await pushBack(db, r.company_id, r.id, at, "irn.generate", e);
+      }
     }
   }
   const pending = await db.all<{ id: string; company_id: string; on_: number }>(sql`
@@ -512,8 +546,12 @@ export async function runIrnCron(db: OrrnDb, adapter: IrpAdapter | null, at: num
       where i.status = 'cancel_pending' and coalesce(i.irn_next_try_at, 0) <= ${at}
     ) where rn <= ${CRON_PER_COMPANY} order by next_at, id limit ${CRON_BATCH}`);
   for (const r of pending) {
-    const out = await settleCancel(db, r.company_id, r.id, Number(r.on_) ? adapter : null, at);
-    if (out.outcome === "cancelled") cancelled += 1;
+    try {
+      const out = await settleCancel(db, r.company_id, r.id, Number(r.on_) ? adapter : null, at);
+      if (out.outcome === "cancelled") cancelled += 1;
+    } catch (e) {
+      await pushBack(db, r.company_id, r.id, at, "invoice.cancel", e);
+    }
   }
   return { tried, cancelled };
 }

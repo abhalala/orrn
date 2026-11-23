@@ -7614,6 +7614,7 @@ export const hi = {
       cancel: "IRN रद्द करें",
       cancelTitle: "IRN रद्द करें?",
       cancelHint: "बनने के 24 घंटे के अंदर ही, और ई-वे बिल न हो तभी।",
+      cancelNotYet: "IRP से अभी जवाब नहीं आया। फिर से कोशिश होगी।",
       cancelled: "IRN रद्द हुआ",
       reasonCode: "क्यों",
       codes: {
