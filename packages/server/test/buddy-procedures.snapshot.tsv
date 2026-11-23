@@ -83,6 +83,13 @@ company.membersUpdateRole	mutation	deny	reversible
 company.standards	query	allow	reversible
 company.switch	mutation	deny	reversible
 company.updateSettings	mutation	deny	reversible
+complaints.close	mutation	deny	irreversible
+complaints.forBundle	query	allow	reversible
+complaints.get	query	allow	reversible
+complaints.investigate	mutation	deny	reversible
+complaints.list	query	allow	reversible
+complaints.open	mutation	deny	reversible
+complaints.reply	mutation	deny	reversible
 count.cancel	mutation	allow	irreversible
 count.close	mutation	allow	irreversible
 count.get	query	allow	reversible
@@ -397,6 +404,9 @@ portal.access	query	deny	reversible
 portal.certificate.get	query	deny	reversible
 portal.certificates.forDispatch	query	deny	reversible
 portal.certificates.issue	mutation	deny	reversible
+portal.complaints.create	mutation	deny	reversible
+portal.complaints.get	query	deny	reversible
+portal.complaints.list	query	deny	reversible
 portal.dispatches.get	query	deny	reversible
 portal.dispatches.list	query	deny	reversible
 portal.me	query	deny	reversible
@@ -482,7 +492,15 @@ reasonCodes.setActive	mutation	allow	reversible
 release.check	query	deny	reversible
 release.notes	query	deny	reversible
 reports.ageing	query	allow unless format=csv	reversible
+reports.billetNeed	query	allow	reversible
+reports.materials	query	allow	reversible
+reports.morning	query	allow	reversible
+reports.planActual	query	allow	reversible
+reports.recuts	query	allow	reversible
+reports.rejections	query	allow	reversible
 reports.salesRegisterCsv	query	deny	reversible
+reports.unpacked	query	allow	reversible
+reports.wip	query	allow	reversible
 resolve.byCode	query	allow	reversible
 resolve.publicBundle	query	allow	reversible
 scale.reading	query	deny	reversible

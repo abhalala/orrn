@@ -35,6 +35,7 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
   press_plan: "PP",
   ageing: "AG",
   die_maker_job: "DM",
+  complaint: "CMP",
 };
 
 const DEFAULT_PL_PREFIX = "PL/";

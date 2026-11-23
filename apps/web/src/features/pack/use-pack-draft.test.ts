@@ -313,3 +313,35 @@ describe("W3-AG-W: the trolley line in the draft and the receipt", () => {
     expect(readDraft(s, "co-1")).toBeNull();
   });
 });
+
+describe("recut reason", () => {
+  const base = draftWith({ defaults: { lengthMm: 3000, ageingRowId: "row-9", trolleyCutMm: 3658 } });
+  const rows = (d: PackDraft) => toReceiptInput(d, "mm")!.rows;
+
+  test("sent only for a row shorter than the trolley line, and only when not blank", () => {
+    let d = addBundle(base, { weightG: 1000, pieces: 1, recutReason: "  Bend at one end " });
+    d = addBundle(d, { weightG: 1000, pieces: 1, lengthMm: 3658, recutReason: "stale" });
+    d = addBundle(d, { weightG: 1000, pieces: 1, recutReason: "   " });
+    d = addBundle(d, { weightG: 1000, pieces: 1 });
+    const r = rows(d);
+    expect(r[0]?.recutReason).toBe("Bend at one end");
+    expect(r[1]).not.toHaveProperty("recutReason");
+    expect(r[2]).not.toHaveProperty("recutReason");
+    expect(r[3]).not.toHaveProperty("recutReason");
+  });
+
+  test("never sent without a trolley line", () => {
+    const d = addBundle(draftWith({ defaults: { lengthMm: 3000 } }), { weightG: 1000, pieces: 1, recutReason: "x" });
+    expect(rows(d)[0]).not.toHaveProperty("recutReason");
+  });
+
+  test("a stored draft from before the field loads, and a new one round-trips", () => {
+    const s = memoryStorage();
+    const old = addBundle(draftWith({ defaults: { lengthMm: 3000, ageingRowId: "row-9" } }), { weightG: 1000, pieces: 1 });
+    s.setItem("orrn.packDraft", JSON.stringify(old));
+    expect(readDraft(s, "co-1")?.bundles[0]?.recutReason).toBeUndefined();
+    writeDraft(s, addBundle(base, { weightG: 1000, pieces: 1, recutReason: "Bend" }));
+    expect(readDraft(s, "co-1")?.bundles[0]?.recutReason).toBe("Bend");
+    expect(readDraft(s, "co-1")?.defaults.trolleyCutMm).toBe(3658);
+  });
+});

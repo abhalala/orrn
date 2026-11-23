@@ -28,6 +28,8 @@ export type DraftBundle = {
   scaleReadingG?: number;
   /** Why the weight was typed while a scale is connected. */
   weightOverrideReason?: string;
+  /** Why this bundle was cut shorter than its trolley line (optional; only kept for a real recut). */
+  recutReason?: string;
 };
 
 /** Pieces rejected at pack (FP-PK-14): they leave the trolley or the pile and are not a bundle. */
@@ -88,6 +90,8 @@ export type PackDefaults = {
   overridePin?: boolean;
   /** W3-AG-W: a released trolley line the pieces come from (`ageing.packSource`); none = packed by hand. */
   ageingRowId?: string;
+  /** The picked trolley line's cut length, kept so a shorter bundle can say why. */
+  trolleyCutMm?: number;
 };
 
 export function emptyDraft(companyId: string, userId?: string): PackDraft {
@@ -116,7 +120,8 @@ function isDraftBundle(b: unknown): b is DraftBundle {
     (r.po === undefined || typeof r.po === "string") &&
     (r.weightSource === undefined || r.weightSource === "scale" || r.weightSource === "manual") &&
     (r.scaleReadingG === undefined || isPosInt(r.scaleReadingG)) &&
-    (r.weightOverrideReason === undefined || typeof r.weightOverrideReason === "string")
+    (r.weightOverrideReason === undefined || typeof r.weightOverrideReason === "string") &&
+    (r.recutReason === undefined || typeof r.recutReason === "string")
   );
 }
 
@@ -161,6 +166,7 @@ function parseDraft(raw: string): PackDraft | null {
     !optionalString(defaults.dieInstanceId) ||
     !optionalString(defaults.castId) ||
     !optionalString(defaults.ageingRowId) ||
+    !(defaults.trolleyCutMm === undefined || (typeof defaults.trolleyCutMm === "number" && defaults.trolleyCutMm > 0)) ||
     !optionalString(defaults.salesOrderLineId) ||
     !optionalString(defaults.approvalId) ||
     !(defaults.showLogo === undefined || typeof defaults.showLogo === "boolean") ||
@@ -264,6 +270,7 @@ export type ReceiptRow = {
   weightSource?: "scale" | "manual";
   scaleReadingG?: number;
   weightOverrideReason?: string;
+  recutReason?: string;
 };
 
 export type ReceiptInput = {
@@ -315,7 +322,7 @@ function sessionYard(d: PackDraft, yards: YardContext | undefined): string | und
 export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardContext): ReceiptInput | null {
   if (!d.dieId || !(d.defaults.lengthMm > 0) || d.bundles.length === 0) return null;
   const locationId = sessionYard(d, yards);
-  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin, ageingRowId } = d.defaults;
+  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin, ageingRowId, trolleyCutMm } = d.defaults;
   const rejects = d.rejects ?? [];
   return {
     dieId: d.dieId,
@@ -331,15 +338,20 @@ export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardConte
     ...(ageingRowId ? { ageingRowId } : {}),
     ...(showLogo === false ? { showLogo: false } : {}),
     ...(approvalId ? { approvalId } : {}),
-    rows: d.bundles.map((b) => ({
+    rows: d.bundles.map((b) => {
+      const lengthMm = b.lengthMm ?? d.defaults.lengthMm;
+      const recut = ageingRowId && trolleyCutMm && lengthMm < trolleyCutMm ? b.recutReason?.trim() : "";
+      return {
       quantity: b.pieces,
       weightG: b.weightG,
-      lengthMm: b.lengthMm ?? d.defaults.lengthMm,
+      lengthMm,
       poNumber: b.po === undefined ? null : cleanPo(b.po),
       ...(b.weightSource ? { weightSource: b.weightSource } : {}),
       ...(b.scaleReadingG ? { scaleReadingG: b.scaleReadingG } : {}),
       ...(b.weightOverrideReason?.trim() ? { weightOverrideReason: b.weightOverrideReason.trim() } : {}),
-    })),
+      ...(recut ? { recutReason: recut } : {}),
+      };
+    }),
     ...(rejects.length > 0
       ? {
           rejects: rejects.map((r) => ({

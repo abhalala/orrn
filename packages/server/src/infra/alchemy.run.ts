@@ -303,7 +303,8 @@ export const server = await Worker("server", {
   // Invocation records would keep every signed ticket in the query string (item 20); console lines stay.
   observability: SERVER_OBSERVABILITY,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
-  crons: ["30 21 * * *"],
+  // Hourly at :05 (XE parity REG #82): each plant's morning mail goes out in its chosen local hour.
+  crons: ["30 21 * * *", "5 * * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
   // Purelymail SMTP is the sender until then (packages/auth/src/smtp.ts).
   // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.

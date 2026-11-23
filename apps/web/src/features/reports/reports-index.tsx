@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { ActionTile } from "@orrn/ui/components/action-tile";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { CalendarClock, Cylinder, Factory, Flame, ListChecks } from "lucide-react";
+import { Boxes, CalendarClock, ClipboardList, Cylinder, Factory, Flame, Layers, ListChecks, PackageOpen, Scissors, Target } from "lucide-react";
 
 import { useMe } from "@/shared/lib/me";
 
@@ -20,6 +20,12 @@ export function ReportsIndex() {
     { module: "bundles", to: "/reports/stock-age", title: t("reports.list.stockAge"), hint: t("reports.list.stockAgeBody"), icon: <CalendarClock aria-hidden="true" className="size-5" />, accent: "amber" as const },
     { module: "foundry", to: "/reports/foundry-yield", title: t("reports.list.foundryYield"), hint: t("reports.list.foundryYieldBody"), icon: <Flame aria-hidden="true" className="size-5" />, accent: "red" as const },
     { module: null, to: "/reports/orders", title: t("reports.list.orders"), hint: t("reports.list.ordersBody"), icon: <ListChecks aria-hidden="true" className="size-5" />, accent: "blue" as const },
+    { module: "press", to: "/reports/rejections", title: t("reg.reports.list.rejections"), hint: t("reg.reports.list.rejectionsBody"), icon: <ClipboardList aria-hidden="true" className="size-5" />, accent: "red" as const },
+    { module: "ageing", to: "/reports/recuts", title: t("reg.reports.list.recuts"), hint: t("reg.reports.list.recutsBody"), icon: <Scissors aria-hidden="true" className="size-5" />, accent: "amber" as const },
+    { module: null, to: "/reports/wip", title: t("reg.reports.list.wip"), hint: t("reg.reports.list.wipBody"), icon: <Layers aria-hidden="true" className="size-5" />, accent: "blue" as const },
+    { module: "press", to: "/reports/plan-actual", title: t("reg.reports.list.planActual"), hint: t("reg.reports.list.planActualBody"), icon: <Target aria-hidden="true" className="size-5" />, accent: "green" as const },
+    { module: "ageing", to: "/reports/unpacked", title: t("reg.reports.list.unpacked"), hint: t("reg.reports.list.unpackedBody"), icon: <PackageOpen aria-hidden="true" className="size-5" />, accent: "amber" as const },
+    { module: null, to: "/reports/materials", title: t("reg.reports.list.materials"), hint: t("reg.reports.list.materialsBody"), icon: <Boxes aria-hidden="true" className="size-5" />, accent: "blue" as const },
   ].filter((i) => on(i.module));
   return (
     <>

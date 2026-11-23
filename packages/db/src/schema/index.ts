@@ -6,6 +6,7 @@ export * from "./audit";
 export * from "./buddy";
 export * from "./catalog";
 export * from "./collector";
+export * from "./complaint";
 export * from "./count";
 export * from "./customers";
 export * from "./dies";
