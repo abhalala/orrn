@@ -2,8 +2,9 @@
  * Ageing server helpers (W3-AG-C contracts; the router and the pack draw/restore land with W3-AG-S).
  *
  * - `ageingReopenBlocker`: `press.runs.reopen` is refused while a non-void ageing row points at the run
- *   (spec §6 "Pieces"). Not registered here: `routers/ageing.ts` calls
- *   `registerReopenBlocker(ageingReopenBlocker)` at module load so every worker has it.
+ *   (spec §6 "Pieces"). Not registered here: `routers/ageing.ts` and `routers/pressRun.ts` both call
+ *   `registerReopenBlocker(ageingReopenBlocker)` at module load (routers load lazily, so the press
+ *   router cannot count on the ageing router having loaded first).
  * - `openBundleRows`: the bundle rows on unfinished batches, for the derived bundle ageing state that
  *   dispatch reads (`bundleAgeingState` / `dispatchAgeingRefusal` in `@orrn/domain`).
  */

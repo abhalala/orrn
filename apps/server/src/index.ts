@@ -1,7 +1,6 @@
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@orrn/server/context";
 import { appRouter } from "@orrn/server/routers/index";
-import { createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
@@ -11,19 +10,14 @@ import { requestLogger } from "@orrn/server/lib/requestLog";
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { trpcCsrfRefusal } from "@orrn/server/lib/trpcCsrf";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
-import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 import { handleIngestRead, handleIngestUpload } from "@orrn/server/lib/ingest/vault";
 import { handleIngestPart } from "@orrn/server/lib/ingest/upload-parts";
 import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
-import { handleBuddyChat } from "@orrn/server/lib/buddy/chat";
-import { handleMcpRequest } from "@orrn/server/lib/buddy/mcp";
 
-import { clearDevInviteThrottle, createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput, devResetTokenInput, readDevResetToken } from "./dev-front-door";
-import { devIngestBotInput, runDevIngestBot } from "./dev-ingest-bot";
-import { devSpectroInput, runDevSpectro } from "./dev-spectro";
-import { seedDevData } from "./dev-seed";
+// The dev-only routes below import their modules (and `@orrn/auth`) on first call, so none of it
+// evaluates at Worker startup (Cloudflare 10021 startup CPU cap; see routers/index.ts).
 import { collectorRoutes } from "./collector-routes";
 import { spoolRoutes } from "./spool-routes";
 import { edgeV1Routes } from "./edge-v1-routes";
@@ -64,7 +58,10 @@ app.use(
   }),
 );
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const { createAuth } = await import("@orrn/auth");
+  return createAuth(c.env).handler(c.req.raw);
+});
 
 // Spool webhook and activation routes (non-tRPC)
 app.route("/", spoolRoutes);
@@ -78,6 +75,7 @@ if (env.NODE_ENV === "development") {
     // password binding and a loopback host. Anything else looks like the route does not exist.
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
     try {
+      const { seedDevData } = await import("./dev-seed");
       const result = await seedDevData(createDb(), { password: env.ORRN_LOCAL_PASSWORD ?? "" });
       return c.json(result, result.status);
     } catch (error) {
@@ -93,6 +91,7 @@ if (env.NODE_ENV === "development") {
   // otherwise leave the server only by email. Same gate as /dev/seed.
   app.post("/dev/invite", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { createDevInvite, devInviteInput } = await import("./dev-front-door");
     const input = devInviteInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await createDevInvite(createDb(), input.data));
@@ -101,6 +100,7 @@ if (env.NODE_ENV === "development") {
   // Collectors e2e (BACKLOG 97): add or remove a spectro inbox file of the demo plant.
   app.post("/dev/spectro-file", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { devSpectroInput, runDevSpectro } = await import("./dev-spectro");
     const input = devSpectroInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await runDevSpectro(createDb(), input.data));
@@ -109,6 +109,7 @@ if (env.NODE_ENV === "development") {
   // Infinity Portal e2e: a scripted shape client instead of the real model. Same gate as /dev/seed.
   app.post("/dev/ingest-bot", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { devIngestBotInput, runDevIngestBot } = await import("./dev-ingest-bot");
     const input = devIngestBotInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(runDevIngestBot(input.data));
@@ -117,6 +118,7 @@ if (env.NODE_ENV === "development") {
   // Invite onboarding e2e (plan 2026-11-18, Task 8): the token of the reset link an invitee was emailed.
   app.post("/dev/reset-token", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { devResetTokenInput, readDevResetToken } = await import("./dev-front-door");
     const input = devResetTokenInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await readDevResetToken(createDb(), input.data));
@@ -125,11 +127,13 @@ if (env.NODE_ENV === "development") {
   // Invite e2e: every local request has one IP, so clear the invite throttle rows between tests.
   app.post("/dev/invite-throttle", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { clearDevInviteThrottle } = await import("./dev-front-door");
     return c.json(await clearDevInviteThrottle(createDb()));
   });
 
   app.post("/dev/magic-link", async (c) => {
     if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const { createDevMagicLink, devMagicLinkInput } = await import("./dev-front-door");
     const input = devMagicLinkInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await createDevMagicLink(input.data));
@@ -187,9 +191,16 @@ app.use("/trpc/*", async (c, next) => {
 
 // orrn buddy (design 2026-11-18, §4). The tool leg: Hermes calls orrn with a grant token (JSON-RPC 2.0,
 // MCP streamable HTTP). The token is the authority; no cookie is read (lib/buddy/grantContext.ts).
-app.on(["POST", "GET", "DELETE"], "/mcp", (c) => handleMcpRequest(c.req.raw, { db: createDb() }));
+// Both legs import their module on first call, keeping the buddy and better-auth off Worker startup (10021).
+app.on(["POST", "GET", "DELETE"], "/mcp", async (c) => {
+  const { handleMcpRequest } = await import("@orrn/server/lib/buddy/mcp");
+  return handleMcpRequest(c.req.raw, { db: createDb() });
+});
 // The chat leg: the bubble's turn, proxied to Hermes as SSE (lib/buddy/chat.ts). 403/404 with no body.
-app.post("/buddy/chat", async (c) => handleBuddyChat(c.req.raw, await createContext({ context: c })));
+app.post("/buddy/chat", async (c) => {
+  const { handleBuddyChat } = await import("@orrn/server/lib/buddy/chat");
+  return handleBuddyChat(c.req.raw, await createContext({ context: c }));
+});
 
 app.use(
   "/trpc/*",
@@ -223,7 +234,7 @@ async function scheduled(controller: ScheduledController, _env: unknown, ctx: Ex
     );
     return;
   }
-  ctx.waitUntil(runDailyCron(createDb(), new Date()));
+  ctx.waitUntil(import("@orrn/server/lib/dailyCron").then(({ runDailyCron }) => runDailyCron(createDb(), new Date())));
 }
 
 /** Must match the second entry of `crons` in packages/server/src/infra/alchemy.run.ts. */

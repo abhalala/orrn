@@ -93,9 +93,14 @@ import {
   LATE_ENTRY_MAX_DAYS,
   type LoadedRun,
 } from "../lib/press";
-import { reopenBlockers } from "../lib/press/reopenBlockers";
+import { registerReopenBlocker, reopenBlockers } from "../lib/press/reopenBlockers";
+import { ageingReopenBlocker } from "../lib/ageing";
 import { hasStandardWording } from "../lib/reasonCodes";
 import { nextCompanySeq } from "../lib/sequence";
+
+// Routers load lazily (routers/index.ts), so the ageing router may not have loaded in this isolate when
+// `press.runs.reopen` runs. Register its blocker here too; registering the same function twice is a no-op.
+registerReopenBlocker(ageingReopenBlocker);
 
 const id = z.string().min(1).max(64);
 const clientMutationId = z.string().trim().min(8).max(64).optional();
