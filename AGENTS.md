@@ -869,6 +869,12 @@ PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundr
 - **Charge mix (#47):** `suggestChargeMix` is a two-phase simplex (`solveLp`) on typical chemistry per scrap item and per
   return stream (`charge_chemistry`, edited with masters.publish at `/foundry/chemistry`). It never writes a melt; the web
   panel on the charge step is display only. Cost (lot rates; streams cost 0) is sent only to reports.read or purchase.receipt.
+- **Casting plan (#46):** `routers/foundryCastPlan.ts` (`foundry.castPlan`). `propose` sums REG's `planBilletNeed` per
+  production press plan (draft or released, window starting in the range, at most 40 plans and 31 days) on the plan's first
+  plant day, then `castingPlan` takes off billet-item stock by alloy and metal to come (accepted lines in full; an opened
+  line until its cast puts logs on the ledger). Cast size = the largest active melting furnace. `accept`/`update`/`drop` are
+  `foundry.plan`; `open` is `cast.enter` and opens the cast (doc series, return streams, `cast.open` audit) in the batch that
+  marks the line opened, aborting if the line is no longer accepted. Lines with no alloy are reported, never planned.
 - **Buddy:** every foundry-depth write is a `paths` deny in `lib/buddy/decisions.ts` until reviewed for drafts.
 - **Web:** `/foundry/homog`, `/foundry/homog/$id`, `/foundry/logs`, `/foundry/billets` (`tab=stock|cut|issue`),
   `/foundry/rejects` (`kind=log|billet`, `from`, `to`), `/foundry/chemistry`, `/casts/$id/sheet` (A4 data sheet, a paper:

@@ -115,6 +115,7 @@ import { Route as TenantMastersAlloysRouteImport } from './routes/_tenant/master
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
 import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
 import { Route as TenantFoundryRejectsRouteImport } from './routes/_tenant/foundry.rejects'
+import { Route as TenantFoundryPlanRouteImport } from './routes/_tenant/foundry.plan'
 import { Route as TenantFoundryLogsRouteImport } from './routes/_tenant/foundry.logs'
 import { Route as TenantFoundryChemistryRouteImport } from './routes/_tenant/foundry.chemistry'
 import { Route as TenantFoundryBilletsRouteImport } from './routes/_tenant/foundry.billets'
@@ -728,6 +729,11 @@ const TenantFoundryRejectsRoute = TenantFoundryRejectsRouteImport.update({
   path: '/foundry/rejects',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantFoundryPlanRoute = TenantFoundryPlanRouteImport.update({
+  id: '/foundry/plan',
+  path: '/foundry/plan',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantFoundryLogsRoute = TenantFoundryLogsRouteImport.update({
   id: '/foundry/logs',
   path: '/foundry/logs',
@@ -1241,6 +1247,7 @@ export interface FileRoutesByFullPath {
   '/foundry/billets': typeof TenantFoundryBilletsRoute
   '/foundry/chemistry': typeof TenantFoundryChemistryRoute
   '/foundry/logs': typeof TenantFoundryLogsRoute
+  '/foundry/plan': typeof TenantFoundryPlanRoute
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
@@ -1430,6 +1437,7 @@ export interface FileRoutesByTo {
   '/foundry/billets': typeof TenantFoundryBilletsRoute
   '/foundry/chemistry': typeof TenantFoundryChemistryRoute
   '/foundry/logs': typeof TenantFoundryLogsRoute
+  '/foundry/plan': typeof TenantFoundryPlanRoute
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
@@ -1625,6 +1633,7 @@ export interface FileRoutesById {
   '/_tenant/foundry/billets': typeof TenantFoundryBilletsRoute
   '/_tenant/foundry/chemistry': typeof TenantFoundryChemistryRoute
   '/_tenant/foundry/logs': typeof TenantFoundryLogsRoute
+  '/_tenant/foundry/plan': typeof TenantFoundryPlanRoute
   '/_tenant/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
@@ -1816,6 +1825,7 @@ export interface FileRouteTypes {
     | '/foundry/billets'
     | '/foundry/chemistry'
     | '/foundry/logs'
+    | '/foundry/plan'
     | '/foundry/rejects'
     | '/foundry/stock'
     | '/guides/$slug'
@@ -2005,6 +2015,7 @@ export interface FileRouteTypes {
     | '/foundry/billets'
     | '/foundry/chemistry'
     | '/foundry/logs'
+    | '/foundry/plan'
     | '/foundry/rejects'
     | '/foundry/stock'
     | '/guides/$slug'
@@ -2199,6 +2210,7 @@ export interface FileRouteTypes {
     | '/_tenant/foundry/billets'
     | '/_tenant/foundry/chemistry'
     | '/_tenant/foundry/logs'
+    | '/_tenant/foundry/plan'
     | '/_tenant/foundry/rejects'
     | '/_tenant/foundry/stock'
     | '/_tenant/guides/$slug'
@@ -3093,6 +3105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantFoundryRejectsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/foundry/plan': {
+      id: '/_tenant/foundry/plan'
+      path: '/foundry/plan'
+      fullPath: '/foundry/plan'
+      preLoaderRoute: typeof TenantFoundryPlanRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/foundry/logs': {
       id: '/_tenant/foundry/logs'
       path: '/foundry/logs'
@@ -3859,6 +3878,7 @@ interface TenantRouteChildren {
   TenantFoundryBilletsRoute: typeof TenantFoundryBilletsRoute
   TenantFoundryChemistryRoute: typeof TenantFoundryChemistryRoute
   TenantFoundryLogsRoute: typeof TenantFoundryLogsRoute
+  TenantFoundryPlanRoute: typeof TenantFoundryPlanRoute
   TenantFoundryRejectsRoute: typeof TenantFoundryRejectsRoute
   TenantFoundryStockRoute: typeof TenantFoundryStockRoute
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
@@ -4008,6 +4028,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantFoundryBilletsRoute: TenantFoundryBilletsRoute,
   TenantFoundryChemistryRoute: TenantFoundryChemistryRoute,
   TenantFoundryLogsRoute: TenantFoundryLogsRoute,
+  TenantFoundryPlanRoute: TenantFoundryPlanRoute,
   TenantFoundryRejectsRoute: TenantFoundryRejectsRoute,
   TenantFoundryStockRoute: TenantFoundryStockRoute,
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,

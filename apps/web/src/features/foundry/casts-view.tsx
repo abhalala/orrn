@@ -80,6 +80,9 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
           <Button asChild variant="secondary">
             <UiLink to="/foundry/chemistry">{t("fdy2.nav.chemistry")}</UiLink>
           </Button>
+          <Button asChild variant="secondary">
+            <UiLink to="/foundry/plan">{t("fdy2.plan.nav")}</UiLink>
+          </Button>
         </div>
       }
     />
