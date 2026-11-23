@@ -290,6 +290,8 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
     ["Vehicle", view.vehicleNo],
     ["Driver", [view.driverName, view.driverPhone].filter(Boolean).join(" ") || null],
     ["Transporter", view.transporter],
+    ["Packing", view.packingMode],
+    ["Transit insurance", view.transitInsurance ? `${view.transitInsurance.policyNo}, ${view.transitInsurance.insurer}` : null],
     ["PO", view.poNumbers.length ? view.poNumbers.join(", ") : null],
     ["Invoice", view.invoiceNumber ? [view.invoiceNumber, view.invoiceDate].filter(Boolean).join(" ") : null],
   ];

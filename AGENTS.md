@@ -1394,6 +1394,35 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   Hermes (`lib/buddy/fakeHermes.ts`); never call a real Hermes from tests. e2e uses the `buddy-owner` dev account only.
 - **Tables** `buddy_link`, `buddy_grant`, `buddy_call`, `buddy_draft` (migration 0054) are left out of plant backups.
 
+## Plant masters, tool room and documents (XE ADM)
+
+- The Masters area is the single home for the plant's shared lists (XE "common services" #85). The router `masters` (`routers/plantMasters.ts`) has these parts:
+  - `lists`: `plant_master` rows of kind `department`, `designation`, `packing_mode` and `die_category`. A die category may carry `expected_life_g`. Names are unique per kind among live rows. Retire a row with `active: false`; never delete it.
+  - `bank`: `plant_bank_account`. One live default per plant, enforced by a partial unique index. Readers are `masters.publish`, `order.price`, `export.accounts` and `invoice.link`. The audit logs only the last 4 digits of an account number.
+  - `insurance`: the settings key `transitInsurance`.
+  - `numberFormats` and `approvalRules`, described below.
+  - `people.assign`: `membership.department_id` and `designation_id`, under `users.manage`.
+  - `packing.setForLine` and `packing.setForDispatch`.
+- Permission prefixes are `masters.*`, `docs.manage`, `approvalRule.manage` and `refFormat.manage`. The last two are admin and owner only. Rows of kind `die_category` and the router `toolRoom` ride the `dies` module. There is no new module key.
+- **Printed papers read the plant from `lib/plantPrint.ts`, never the tables directly.**
+  - `getPlantBankForPrint(db: OrrnDb, companyId: string): Promise<{ bankName, branch, accountName, accountNo, ifsc } | null>` returns the live default account. It returns null when no default is set.
+  - `plantPlExtras` gives the packing list its mode of packing and its transit insurance, and both go into the PL snapshot header. The mode is the dispatch's own if it has one; otherwise it is the distinct modes of its order lines. The insurance appears only when `printOnPl` is set and the PL date falls inside the policy dates.
+- **Number formats (#77).** `settings.docFormats[docType] = { prefix, fy, pad }` changes only the text of a number. The counter stays one per (company, doc type, period), so a new format never repeats or resets a number, and the financial-year restart is unchanged.
+  - Formattable types are `FORMATTABLE_DOC_TYPES` in `packages/domain/src/admin.ts`. Bundle and cast numbers are not formattable.
+  - A prefix may hold letters and `/ - _ .` only, with no digits. `pl`, `cert` and `ageing` must show the year (`DOC_TYPES_NEEDING_FY`).
+  - With no format set, `formatNumber` prints exactly what it printed before, and `plSeries` still applies.
+- **Approver rules (#78).** `settings.approvalRules[kind] = { roles, above?: { value, roles } }`. The server always adds the owner back. A missing rule means `APPROVER_ROLES`, which a test pins.
+  - Every decision check goes through `lib/approverRules.ts`: `mayDecide` for a request and `kindsRoleMayDecide` for early refusals and the Today count. Never call `canApprove` for a decision.
+  - A threshold reads the request's own figure (`APPROVAL_MEASURES`): `dispatch_overdraw` uses the worst line over ordered, in basis points; `dispatch_off_band` uses the band difference in g per 12 ft.
+  - `approval.list` returns `canDecide` for each row. The Approvals nav and the Today role tiles are still static.
+- **Tool room (#57 to #62).**
+  - `tooling_item` holds non-die tooling, with its status set by `TOOLING_STATUSES`. `tool_inspection` holds receive inspections. `die_copy_extra` holds a copy's cost and its latest inspection; it is a side table, so `die_instance` carries no money.
+  - A copy whose latest inspection is `fail` is refused by `dieIssue.issue`, both in `canIssueDie` and inside the INSERT guard.
+  - Cost and cost per kg (`dieCostPerKgPaise`) are visible only to `masters.publish` and `analytics.view`.
+  - Minimum stock lives in `settings.toolingMinStock`. Shortfalls appear on `dashboard.today.toolingShort`.
+- **Documents (#80).** `plant_document` is the register (`routers/plantDocs.ts`, router `docs`). Its files reuse the die upload ticket with `sectionId "_docs"`, and its R2 keys are `{companyId}/dies/_docs/{fileId}`. The die file purge keeps any key a document references.
+- The buddy registry denies `masters`, `toolRoom` and `docs` until they have been reviewed. The tests are `xe-adm-masters`, `xe-adm-formats-approvals` and `xe-adm-toolroom-docs` in `packages/server/test`, plus `packages/domain/src/admin.test.ts`.
+
 # 13. Customer portal
 
 ## Complaints, office registers and the owner's morning page (XE parity lane REG)

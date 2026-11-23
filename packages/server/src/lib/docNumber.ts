@@ -1,5 +1,9 @@
 import {
   castSeriesFirstSeq,
+  formatDocNumberWith,
+  isFormattableDocType,
+  readDocFormats,
+  type DocFormats,
   formatBundleNo,
   formatCastCode,
   formatPartyBundleNo,
@@ -37,7 +41,14 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
 const DEFAULT_PL_PREFIX = "PL/";
 const MAX_PL_PREFIX_LENGTH = 20;
 
-type SeriesSettings = { timezone: string; plPrefix: string; plStart: number; castSeriesStart: CastSeriesStart | null };
+type SeriesSettings = {
+  timezone: string;
+  plPrefix: string;
+  plStart: number;
+  castSeriesStart: CastSeriesStart | null;
+  /** XE ADM #77: the plant's own number formats (`settings.docFormats`); a missing type prints as today. */
+  docFormats: DocFormats;
+};
 
 /** Read the tenant's numbering settings, falling back to defaults for anything malformed. */
 function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
@@ -51,7 +62,7 @@ function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
     if (typeof prefix === "string" && prefix.length <= MAX_PL_PREFIX_LENGTH) plPrefix = prefix;
     if (typeof start === "number" && Number.isInteger(start) && start >= 1) plStart = start;
   }
-  return { timezone, plPrefix, plStart, castSeriesStart: readCastSeriesStart(raw?.castSeriesStart) };
+  return { timezone, plPrefix, plStart, castSeriesStart: readCastSeriesStart(raw?.castSeriesStart), docFormats: readDocFormats(raw?.docFormats) };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -72,6 +83,10 @@ export function docPeriod(docType: DocType, at: Date, timezone: string = DEFAULT
 }
 
 function formatNumber(docType: DocType, period: string, seq: number, settings: SeriesSettings): string {
+  // XE ADM #77: only the text changes. The sequence still comes from the one counter per (company,
+  // doc type, period), so a format set mid-year continues the count and the year still restarts it.
+  const own = isFormattableDocType(docType) ? settings.docFormats[docType] : undefined;
+  if (own) return formatDocNumberWith(own, period, seq);
   switch (docType) {
     case "bundle": {
       const [y, m] = period.split("-").map(Number);

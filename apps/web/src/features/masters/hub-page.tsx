@@ -5,7 +5,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Cylinder, Flame, FlaskConical, Layers, ListChecks, MapPin, Recycle, Store, Thermometer, Timer, Truck, Container, type LucideIcon } from "lucide-react";
+import { ChevronRight, Cylinder, Flame, FlaskConical, Layers, ListChecks, MapPin, Recycle, Store, Thermometer, Timer, Truck, Container, Landmark, FileText, Wrench, SlidersHorizontal, List, type LucideIcon } from "lucide-react";
 
 import { useFmt } from "@/shared/lib/fmt";
 import { countText } from "@/shared/lib/fmt-text";
@@ -28,6 +28,11 @@ const ICONS: Record<MasterKey, LucideIcon> = {
   ovens: Thermometer,
   trolleys: Container,
   recipes: Timer,
+  plantLists: List,
+  bank: Landmark,
+  rules: SlidersHorizontal,
+  documents: FileText,
+  tooling: Wrench,
 };
 
 const NOUNS: Record<MasterKey, MessageKey> = {
@@ -43,10 +48,15 @@ const NOUNS: Record<MasterKey, MessageKey> = {
   ovens: "masters.hub.ovensNoun",
   trolleys: "masters.hub.trolleysNoun",
   recipes: "masters.hub.recipesNoun",
+  plantLists: "adm.masters.hub.listsNoun",
+  bank: "adm.masters.hub.bankNoun",
+  rules: "adm.masters.hub.rulesNoun",
+  documents: "adm.masters.hub.documentsNoun",
+  tooling: "adm.masters.hub.toolingNoun",
 };
 
 /** How many entries each list holds (live ones), for the count beside it. Undefined while loading. */
-function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: boolean; ageing: boolean }) {
+function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: boolean; ageing: boolean; bank: boolean }) {
   const vendors = useQuery({ ...trpc.vendor.list.queryOptions({ limit: 1, offset: 0 }), enabled: enabled.vendors });
   const drafts = useQuery({
     ...trpc.vendor.list.queryOptions({ status: "draft", limit: 1, offset: 0 }),
@@ -63,6 +73,10 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: bo
   const ovens = useQuery({ ...trpc.ageing.ovens.list.queryOptions({}), enabled: enabled.ageing });
   const trolleys = useQuery({ ...trpc.ageing.trolleys.list.queryOptions({}), enabled: enabled.ageing });
   const recipes = useQuery({ ...trpc.ageing.recipes.list.queryOptions({}), enabled: enabled.ageing });
+  const plantLists = useQuery(trpc.masters.lists.list.queryOptions());
+  const bank = useQuery({ ...trpc.masters.bank.list.queryOptions(), enabled: enabled.bank });
+  const docs = useQuery(trpc.docs.list.queryOptions());
+  const tooling = useQuery(trpc.toolRoom.tooling.list.queryOptions());
   const counts: Partial<Record<MasterKey, number>> = {
     vendors: vendors.data?.total,
     scrap: scrap.data?.items.filter((i) => i.active).length,
@@ -76,6 +90,10 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean; foundry: bo
     ovens: ovens.data?.items.length,
     trolleys: trolleys.data?.items.length,
     recipes: recipes.data?.items.filter((r) => r.status === "active").length,
+    plantLists: plantLists.data?.filter((r) => r.active).length,
+    bank: bank.data?.length,
+    documents: docs.data?.items.filter((d) => d.active).length,
+    tooling: tooling.data?.length,
   };
   return { counts, drafts: drafts.data?.total ?? 0 };
 }
@@ -94,8 +112,9 @@ export function MastersHubPage() {
     storeItems: canAny(access.me, STORE_ITEM_PEOPLE),
     foundry: access.canPublish,
     ageing: canAny(access.me, AGEING_MASTER_PEOPLE),
+    bank: access.canPublish,
   });
-  const groups = (["buying", "floor"] as const)
+  const groups = (["buying", "floor", "plant"] as const)
     .map((g) => ({ id: g, entries: entries.filter((e) => e.group === g) }))
     .filter((g) => g.entries.length > 0);
 
@@ -121,7 +140,7 @@ export function MastersHubPage() {
               id={`masters-${group.id}`}
               className="m-0 font-display text-[20px] font-bold leading-tight tracking-[-0.02em] break-words"
             >
-              {t(group.id === "buying" ? "masters.hub.buying" : "masters.hub.floor")}
+              {t(group.id === "buying" ? "masters.hub.buying" : group.id === "floor" ? "masters.hub.floor" : "adm.masters.hub.group")}
             </h2>
             <ul
               className="animate-rise m-0 list-none divide-y divide-border overflow-hidden rounded-card border border-border bg-card p-0"
@@ -162,7 +181,7 @@ function MasterRow({ entry, count }: { entry: MasterEntry; count: number | undef
         <span className="text-[14px] leading-snug text-muted-foreground break-words">{t(entry.hintKey)}</span>
       </span>
       <span className="flex shrink-0 flex-col items-end text-right">
-        {count === undefined ? (
+        {entry.noCount ? null : count === undefined ? (
           <Skeleton className="h-6 w-8" />
         ) : (
           <>

@@ -155,6 +155,8 @@ export const salesOrderLine = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /** XE ADM #76: mode of packing (`plant_master` kind packing_mode), printed on the PL. */
+    packingModeId: text("packing_mode_id"),
   },
   (table) => [
     uniqueIndex("sales_order_line_order_no_unique").on(table.salesOrderId, table.lineNo),

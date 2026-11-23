@@ -265,15 +265,17 @@ export const DIE_CARD_EDITORS: readonly Action[] = ["die.card", "masters.publish
 /** Who sees the ageing masters: `ageing.recipes.save` and friends take masters.draft (a draft) or masters.publish. */
 export const AGEING_MASTER_PEOPLE: readonly Action[] = ["masters.draft", "masters.publish"];
 
-export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons" | "furnaces" | "alloys" | "ovens" | "trolleys" | "recipes";
+export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons" | "furnaces" | "alloys" | "ovens" | "trolleys" | "recipes" | "plantLists" | "bank" | "rules" | "documents" | "tooling";
 
 export type MasterEntry = {
   key: MasterKey;
-  group: "buying" | "floor";
+  group: "buying" | "floor" | "plant";
   to: string;
   titleKey: MessageKey;
   hintKey: MessageKey;
   requires?: readonly Action[];
+  /** No count beside the row (plant rules hold no list). */
+  noCount?: boolean;
 };
 
 /**
@@ -295,6 +297,12 @@ const ENTRIES: readonly MasterEntry[] = [
   { key: "ovens", group: "floor", to: "/masters/ovens", titleKey: "masters.hub.ovens", hintKey: "masters.hub.ovensHint", requires: AGEING_MASTER_PEOPLE },
   { key: "trolleys", group: "floor", to: "/masters/trolleys", titleKey: "masters.hub.trolleys", hintKey: "masters.hub.trolleysHint", requires: AGEING_MASTER_PEOPLE },
   { key: "recipes", group: "floor", to: "/masters/recipes", titleKey: "masters.hub.recipes", hintKey: "masters.hub.recipesHint", requires: AGEING_MASTER_PEOPLE },
+  // XE ADM: the plant's own lists, bank accounts, rules, document register and tooling.
+  { key: "plantLists", group: "plant", to: "/masters/lists", titleKey: "adm.masters.hub.lists", hintKey: "adm.masters.hub.listsHint" },
+  { key: "bank", group: "plant", to: "/masters/bank", titleKey: "adm.masters.hub.bank", hintKey: "adm.masters.hub.bankHint", requires: ["masters.publish"] },
+  { key: "rules", group: "plant", to: "/masters/rules", titleKey: "adm.masters.hub.rules", hintKey: "adm.masters.hub.rulesHint", requires: ["masters.publish"], noCount: true },
+  { key: "documents", group: "plant", to: "/masters/documents", titleKey: "adm.masters.hub.documents", hintKey: "adm.masters.hub.documentsHint" },
+  { key: "tooling", group: "plant", to: "/masters/tooling", titleKey: "adm.masters.hub.tooling", hintKey: "adm.masters.hub.toolingHint" },
 ];
 
 export function masterEntries(me: Me | null | undefined): MasterEntry[] {

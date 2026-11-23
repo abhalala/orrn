@@ -76,6 +76,9 @@ export const membership = sqliteTable(
      * welcome steps are still open for them ("Setup pending" in the plant picker).
      */
     onboardedAt: integer("onboarded_at", { mode: "timestamp_ms" }),
+    /** XE ADM #75: department and designation (`plant_master`), read by HR in wave 3. */
+    departmentId: text("department_id"),
+    designationId: text("designation_id"),
   },
   (table) => [
     // Many plants per person (spec P10, ruling RP1): one membership per (user, company).

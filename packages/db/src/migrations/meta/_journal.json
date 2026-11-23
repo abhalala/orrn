@@ -393,6 +393,13 @@
       "when": 1795387132417,
       "tag": "0056_xe_reg",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1795387281727,
+      "tag": "0057_xe_adm",
+      "breakpoints": true
     }
   ]
 }

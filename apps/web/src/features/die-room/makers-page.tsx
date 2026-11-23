@@ -13,6 +13,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { CostByMaker } from "./cost-by-maker";
 import { ConfirmDialog } from "./confirm-dialog";
 import { shortDate } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
@@ -126,6 +127,7 @@ export function MakersPage() {
           )}
         </section>
       </div>
+      <CostByMaker />
       <AddMakerSheet open={adding} onOpenChange={setAdding} />
       <ConfirmDialog
         open={archiving !== null}

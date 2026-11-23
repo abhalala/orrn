@@ -10,6 +10,7 @@ import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
+import { admHi } from "./adm/hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
 import { stockHi } from "./native/stock.hi";
@@ -6477,6 +6478,8 @@ export const hi = {
 
   ingest: ingestHi,
 
+  adm: admHi,
+
   buddy: buddyHi,
 
   reg: regHi,
@@ -7141,6 +7144,28 @@ export const hi = {
       vendor__create: "वेंडर जोड़ा",
       vendor__merge: "वेंडर मिलाए",
       vendor__update: "वेंडर बदला",
+      plant_master__create: "प्लांट की सूची में विकल्प जोड़ा",
+      plant_master__starters: "प्लांट की सूची में मानक विकल्प जोड़े",
+      plant_master__update: "प्लांट की सूची का विकल्प बदला",
+      bank_account__create: "बैंक खाता जोड़ा",
+      bank_account__update: "बैंक खाता बदला",
+      bank_account__default: "मुख्य बैंक खाता तय किया",
+      bank_account__restore: "बैंक खाता वापस चालू किया",
+      bank_account__retire: "बैंक खाता बंद किया",
+      company__insurance__update: "ट्रांज़िट बीमा बदला",
+      company__number_format__update: "कागज़ों की नंबरिंग बदली",
+      company__approval_rule__update: "रिक्वेस्ट कौन मंज़ूर करे, यह बदला",
+      membership__assign: "टीम मेंबर का विभाग या पद बदला",
+      order_line__packing_mode: "ऑर्डर लाइन का पैकिंग तरीका तय किया",
+      dispatch__packing_mode: "लोड का पैकिंग तरीका तय किया",
+      tooling__create: "टूलिंग पीस जोड़ा",
+      tooling__update: "टूलिंग पीस की हालत बदली",
+      die_copy__cost: "डाई कॉपी की लागत बदली",
+      tooling__min_stock: "टूलिंग कम से कम कितनी रखनी है, यह बदला",
+      die__category: "डाई की श्रेणी तय की",
+      plant_document__create: "दस्तावेज़ जोड़ा",
+      plant_document__update: "दस्तावेज़ बदला",
+      plant_document__file: "दस्तावेज़ की फ़ाइल लगाई",
     },
   },
 

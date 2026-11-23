@@ -73,6 +73,11 @@ export const BUDDY_DECISIONS = {
     transporter: allow,
     // XE parity lane REG: the complaint register's reads; its writes are named in `paths` (denied).
     complaints: allow,
+    // XE parity lane ADM (wave 1). Kept from the buddy until the owner reviews them: bank accounts,
+    // approver rules and number formats are plant settings, die cost is money, documents mint file links.
+    masters: deny("XE wave 1: bank accounts, approver rules and number formats are plant settings (§4.2), not yet reviewed for the buddy."),
+    toolRoom: deny("XE wave 1: tooling and die cost (money), not yet reviewed for the buddy."),
+    docs: deny("XE wave 1: the document register mints signed file links, which would leave orrn through the chat."),
   } satisfies Record<string, RouterDecision>,
 
   paths: {

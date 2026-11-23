@@ -135,6 +135,10 @@ export const PLANT_ACTIONS = [
   "complaint.manage",
   // The owner's morning summary on screen and its mail settings (#81, #82): owner and plant admin.
   "mis.view",
+  // XE parity lane ADM (wave 1): the document register, approver rules per kind, number formats.
+  "docs.manage", // add, edit, retire plant documents and their files (#80)
+  "approvalRule.manage", // who may approve each approval kind, and thresholds (#78)
+  "refFormat.manage", // number formats per doc type (#77)
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -281,6 +285,11 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "complaint.open": ["office", "supervisor", "manager", "admin", "packer"],
   "complaint.manage": ["office", "supervisor", "manager", "admin"],
   "mis.view": ["admin"],
+  // XE ADM: documents are kept by the office and managers; approver rules and number formats are the
+  // plant admin's (as settings are).
+  "docs.manage": ["admin", "manager", "office"],
+  "approvalRule.manage": ["admin"],
+  "refFormat.manage": ["admin"],
   "support.request": [
     "admin",
     "manager",
@@ -400,6 +409,23 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   // arch 52: a dispatch completed later at the time the truck left (line down). Never the requester.
   dispatch_late_entry: ["owner", "admin", "manager"],
 };
+
+/** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */
+export const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
+
+/**
+ * Roles a plant's approver rule may name (XE ADM #78, review B1). Floor roles and the read-only viewer
+ * never decide a request; the owner is always an approver anyway.
+ */
+export const APPROVAL_CAPABLE_ROLES: readonly CompanyRole[] = ["owner", "admin", "manager", "supervisor", "foundry", "accountant", "office", "storekeeper", "die_room"];
+
+/** The roles a rule for this kind may name: approval-capable, and able to read what the kind decides. */
+export function approvalRuleRoles(kind: string): readonly CompanyRole[] {
+  if (kind === "dc_note") {
+    return APPROVAL_CAPABLE_ROLES.filter((role) => PURCHASE_READ_ACTIONS.some((a) => ROLE_ACTIONS[role].has(a)));
+  }
+  return APPROVAL_CAPABLE_ROLES;
+}
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {
   return Boolean(role && APPROVER_ROLES[kind].includes(role));

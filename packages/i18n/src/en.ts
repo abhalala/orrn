@@ -26,6 +26,7 @@ import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
+import { admEn } from "./adm/en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
 
@@ -6495,6 +6496,8 @@ export const en = {
 
   ingest: ingestEn,
 
+  adm: admEn,
+
   buddy: buddyEn,
 
   reg: regEn,
@@ -7159,6 +7162,28 @@ export const en = {
       vendor__create: "Vendor added",
       vendor__merge: "Vendors merged",
       vendor__update: "Vendor changed",
+      plant_master__create: "Plant list choice added",
+      plant_master__starters: "Standard choices added to a plant list",
+      plant_master__update: "Plant list choice changed",
+      bank_account__create: "Bank account added",
+      bank_account__update: "Bank account changed",
+      bank_account__default: "Default bank account set",
+      bank_account__restore: "Bank account brought back",
+      bank_account__retire: "Bank account retired",
+      company__insurance__update: "Transit insurance changed",
+      company__number_format__update: "Document numbering changed",
+      company__approval_rule__update: "Who approves a request changed",
+      membership__assign: "Team member's department or designation changed",
+      order_line__packing_mode: "Mode of packing set on an order line",
+      dispatch__packing_mode: "Mode of packing set on a load",
+      tooling__create: "Tooling piece added",
+      tooling__update: "Tooling piece status changed",
+      die_copy__cost: "Die copy cost changed",
+      tooling__min_stock: "Tooling minimum to keep changed",
+      die__category: "Die category set",
+      plant_document__create: "Document added",
+      plant_document__update: "Document changed",
+      plant_document__file: "Document file attached",
     },
   },
 

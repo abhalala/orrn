@@ -108,6 +108,10 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "complaint.open": ["office", "supervisor", "manager", "admin", "packer"],
   "complaint.manage": ["office", "supervisor", "manager", "admin"],
   "mis.view": ["admin"],
+  // XE parity lane ADM.
+  "docs.manage": ["admin", "manager", "office"],
+  "approvalRule.manage": ["admin"],
+  "refFormat.manage": ["admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

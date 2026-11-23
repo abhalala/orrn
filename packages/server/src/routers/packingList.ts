@@ -24,6 +24,7 @@ import { companyTimezone, zonedYmd } from "../lib/dayWindow";
 import { nextDocNumber } from "../lib/docNumber";
 import { buildPlSnapshotV2, type PlBuildInput, type PlSnapshotV2 } from "../lib/packingListSnapshot";
 import { nextCompanySeq } from "../lib/sequence";
+import { plantPlExtras } from "../lib/plantPrint";
 import { actionProcedure, companyProcedure, router } from "../index";
 
 /** The dispatch fields a packing list snapshot reads (a full `dispatch` row satisfies it). */
@@ -211,7 +212,10 @@ export async function packingListWriteBatch(
     at: clockNow(),
     extra: opts.extraDispatches,
   });
-  const snapshot = buildPlSnapshotV2({ ...input, revision, showBranding, showOriginalSo });
+  const built = buildPlSnapshotV2({ ...input, revision, showBranding, showOriginalSo });
+  // XE ADM #21, #76: mode of packing and transit insurance from the plant masters, frozen on the snapshot.
+  const extras = await plantPlExtras(db, opts.companyId, [opts.dispatchRow.id, ...(opts.extraDispatches ?? []).map((x) => x.id)], built.header.date, input.company.settings);
+  const snapshot: PlSnapshotV2 = { ...built, header: { ...built.header, packingMode: extras.packingMode, transitInsurance: extras.transitInsurance } };
   const code = opts.plNumber;
 
   const statements: BatchItem<"sqlite">[] = [

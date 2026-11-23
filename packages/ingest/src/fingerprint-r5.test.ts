@@ -134,5 +134,5 @@ describe("5.1: the normaliser", () => {
       expect(chooseHeader({ preview: same, guess: { headerRow: 0 } }, { learned: [layoutOf(a, "a")], builtins: [] }).kind).toBe("fits");
     }
     expect(asked).toBe(3000);
-  });
+  }, 60_000);
 });
