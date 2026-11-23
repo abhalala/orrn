@@ -40,6 +40,8 @@ export const COMPANY_MODULES = [
   // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
   "billing",
   "einvoice",
+  // XE parity lane DEVICES (opt-in): weighbridge, profile scanner and tensile tester capture, device enrolment.
+  "devices",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
@@ -47,7 +49,7 @@ export type CompanyModule = (typeof COMPANY_MODULES)[number];
  * Statutory modules: on only when `company.modules` names them (never by an empty list). `payroll` is
  * reserved here for wave 3: it joins `COMPANY_MODULES` when its lane builds it, and is opt-in from then.
  */
-export const OPT_IN_MODULES = ["billing", "einvoice", "payroll"] as const;
+export const OPT_IN_MODULES = ["billing", "einvoice", "payroll", "devices"] as const;
 export type OptInModule = (typeof OPT_IN_MODULES)[number];
 
 /** The modules an empty list switches on (every module but the opt-in ones). */

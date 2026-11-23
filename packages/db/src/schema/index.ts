@@ -10,6 +10,7 @@ export * from "./collector";
 export * from "./complaint";
 export * from "./count";
 export * from "./customers";
+export * from "./devices";
 export * from "./dies";
 export * from "./dispatch";
 export * from "./foundry";
