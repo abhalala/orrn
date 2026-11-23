@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createI18n } from "@orrn/i18n";
 
-import { bpText, costBasisNote, costedG, csvFile, driftLine, dueLines, emptyRateForm, fullestWeek, hoursText, lowMarginShareBp, rateVersion, rupeesToPaise, scenarioPct, settingsForm, settingsUpdate, wholeIn } from "./model";
+import { addScenario, bpText, costBasisNote, costedG, csvFile, driftLine, dueLines, emptyRateForm, fullestWeek, hoursText, isConflict, lowMarginShareBp, MAX_SCENARIO, nextRunsLimit, rateVersion, RUNS_MAX, rupeesToPaise, scenarioPct, settingsForm, settingsUpdate, wholeIn } from "./model";
 import { parseCostingSearch } from "./search";
 
 const { t } = createI18n("en");
@@ -49,6 +49,8 @@ describe("die lines", () => {
     expect(driftLine({ state: "toward_max", leftG: 3_000_000 } as never, s)).toBe("About 3000 kg left before it leaves the weight band");
     expect(driftLine({ state: "toward_max", leftG: 0 } as never, s)).toBe("Already outside the weight band");
     expect(driftLine({ state: "flat" } as never, s)).toBe("Weight is steady");
+    // A flat line already outside the band reads as out, not steady.
+    expect(driftLine({ state: "flat", leftG: 0 } as never, s)).toBe("Already outside the weight band");
   });
 });
 
@@ -110,5 +112,30 @@ describe("costing search", () => {
     expect(parseCostingSearch({ tab: "settings" })).toEqual({ tab: "settings" });
     expect(parseCostingSearch({ tab: "nope" })).toEqual({});
     expect(parseCostingSearch({ tab: 3 })).toEqual({});
+  });
+});
+
+describe("COST-FIX: what-if limit, runs cap, stale save", () => {
+  const c = (i: number, pct = 10) => ({ customerId: `c${i}`, name: `C${i}`, pct });
+  test("an eleventh customer is refused, not dropped; one already on the list can still change", () => {
+    const ten = Array.from({ length: MAX_SCENARIO }, (_, i) => c(i));
+    const eleventh = addScenario(ten, c(99));
+    expect(eleventh.full).toBe(true);
+    expect(eleventh.list).toEqual(ten);
+    const changed = addScenario(ten, c(3, -20));
+    expect(changed.full).toBe(false);
+    expect(changed.list).toHaveLength(MAX_SCENARIO);
+    expect(changed.list.find((w) => w.customerId === "c3")!.pct).toBe(-20);
+    expect(addScenario([], c(1))).toEqual({ list: [c(1)], full: false });
+  });
+  test("load more never asks past the server's 200", () => {
+    expect(nextRunsLimit(20)).toBe(40);
+    expect(nextRunsLimit(180)).toBe(RUNS_MAX);
+    expect(nextRunsLimit(200)).toBe(RUNS_MAX);
+  });
+  test("a stale settings save is told apart by its code", () => {
+    expect(isConflict({ data: { code: "CONFLICT" } })).toBe(true);
+    expect(isConflict({ data: { code: "BAD_REQUEST" } })).toBe(false);
+    expect(isConflict(null)).toBe(false);
   });
 });

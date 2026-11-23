@@ -81,9 +81,11 @@ export function dueLines(e: DieRow["nitride"], say: Say): string[] {
 export function driftLine(d: DieRow["drift"], say: Say, needG = 2_000_000, needReadings = 3): string {
   const { t, kg } = say;
   if (d.state === "too_few") return t("cost.dies.driftFew", { n: needReadings, kg: kg(needG), have: d.readings });
+  // Outside the band first: a flat line outside it is still out.
+  if (d.leftG != null && d.leftG <= 0) return t("cost.dies.driftOut");
   if (d.state === "flat") return t("cost.dies.driftFlat");
   if (d.leftG == null) return t("cost.dies.driftNoLimit");
-  return d.leftG <= 0 ? t("cost.dies.driftOut") : t("cost.dies.driftLeft", { kg: kg(d.leftG) });
+  return t("cost.dies.driftLeft", { kg: kg(d.leftG) });
 }
 
 /** The metal of a run in one line: cast cost with its cast numbers, or the price master rate with its date and factors. */
@@ -156,8 +158,8 @@ export function profitCsv(data: ProfitView, t: T, months: readonly string[], mon
     r.lines,
     csvKg(r.kgG),
     csvRs(r.revenuePaise),
-    csvRs(r.costPaise),
-    csvRs(r.marginPaise),
+    r.costPaise == null ? "" : csvRs(r.costPaise),
+    r.marginPaise == null ? "" : csvRs(r.marginPaise),
     r.marginBp == null ? "" : (r.marginBp / 100).toFixed(2),
     csvKg(r.lowKgG),
   ];
@@ -347,4 +349,31 @@ export function versionRows(v: CostSettingsView["rates"][number], t: T, money: (
     out.push({ stage: s, text });
   }
   return out;
+}
+
+/* ------------------------------ what-if and paging ------------------------------ */
+
+export type ScenarioCustomer = { customerId: string; name: string; pct: number };
+
+/** The server takes at most this many customers in one what-if. */
+export const MAX_SCENARIO = 10;
+
+/**
+ * Add or change one customer's percent. At the limit a new customer is refused (`full`), never
+ * dropped; a customer already on the list can still be changed.
+ */
+export function addScenario(list: readonly ScenarioCustomer[], next: ScenarioCustomer): { list: ScenarioCustomer[]; full: boolean } {
+  const known = list.some((w) => w.customerId === next.customerId);
+  if (!known && list.length >= MAX_SCENARIO) return { list: [...list], full: true };
+  return { list: known ? list.map((w) => (w.customerId === next.customerId ? next : w)) : [...list, next], full: false };
+}
+
+/** The runs list grows 20 at a time up to the server's page limit (200). */
+export const RUNS_STEP = 20;
+export const RUNS_MAX = 200;
+export const nextRunsLimit = (limit: number) => Math.min(RUNS_MAX, limit + RUNS_STEP);
+
+/** A stale save (someone else saved the settings first): the server answers CONFLICT. */
+export function isConflict(error: unknown): boolean {
+  return (error as { data?: { code?: string } } | null | undefined)?.data?.code === "CONFLICT";
 }

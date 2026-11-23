@@ -1,3 +1,4 @@
+import { Button } from "@orrn/ui/components/button";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Chip } from "@orrn/ui/components/chip";
 import { useQuery } from "@tanstack/react-query";
@@ -11,45 +12,67 @@ import { driftLine, dueLines, dueTone } from "./model";
 import { Loaded, Note, useCostSay } from "./ui";
 
 type Show = "attention" | "all";
+const PAGE = 100;
 
-/** Row 61: each die copy's nitriding and correction estimate, and its weight drift. */
+/** Row 61: each die copy's nitriding and correction estimate, and its weight drift. "Show more" pages through every match. */
 export function DiesTab() {
   const say = useCostSay();
   const { t } = say;
   const [show, setShow] = useState<Show>("attention");
-  const q = useQuery({ ...trpc.costing.dies.queryOptions({ state: show }), meta: INLINE_ERROR_META });
+  // One query per page; switching the list starts again from the first page.
+  const [offsets, setOffsets] = useState<number[]>([0]);
+  const choose = (next: Show) => {
+    setShow(next);
+    setOffsets([0]);
+  };
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="dies-tab">
       <SegmentedControl<Show>
         label={t("cost.dies.show")}
         value={show}
-        onChange={setShow}
+        onChange={choose}
         options={[
           { value: "attention", label: t("cost.dies.attention") },
           { value: "all", label: t("cost.dies.all") },
         ]}
       />
-      <Loaded query={q}>
-        {(data) => (
-          <>
-            <Note>{t("cost.dies.summary", { due: data.due, soon: data.soon, copies: data.copies })}</Note>
-            {data.items.length === 0 ? (
-              <Note>{t("cost.dies.empty")}</Note>
-            ) : (
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {data.items.map((r) => (
-                  <li key={r.copyId} className="rounded-card border border-border bg-card px-4 py-3" data-testid="die-copy">
-                    <DieCard row={r} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {data.more ? <Note>{t("cost.dies.more")}</Note> : null}
-            {data.copiesTruncated ? <Note>{t("cost.dies.copiesTruncated", { n: data.copies })}</Note> : null}
-          </>
-        )}
-      </Loaded>
+      {offsets.map((offset, i) => (
+        <DiesPage key={`${show}-${offset}`} show={show} offset={offset} first={i === 0} last={i === offsets.length - 1} onMore={(next) => setOffsets([...offsets, next])} />
+      ))}
     </div>
+  );
+}
+
+function DiesPage({ show, offset, first, last, onMore }: { show: Show; offset: number; first: boolean; last: boolean; onMore: (next: number) => void }) {
+  const say = useCostSay();
+  const { t } = say;
+  const q = useQuery({ ...trpc.costing.dies.queryOptions({ state: show, limit: PAGE, offset }), meta: INLINE_ERROR_META });
+  return (
+    <Loaded query={q}>
+      {(data) => (
+        <>
+          {first ? <Note>{t("cost.dies.summary", { due: data.due, soon: data.soon, copies: data.copies })}</Note> : null}
+          {first && data.items.length === 0 ? (
+            <Note>{t("cost.dies.empty")}</Note>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {data.items.map((r) => (
+                <li key={r.copyId} className="rounded-card border border-border bg-card px-4 py-3" data-testid="die-copy">
+                  <DieCard row={r} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {last && data.nextOffset != null ? (
+            <div>
+              <Button variant="secondary" onClick={() => onMore(data.nextOffset!)}>
+                {t("cost.dies.showMore", { shown: Math.min(data.total, offset + data.items.length), total: data.total })}
+              </Button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </Loaded>
   );
 }
 

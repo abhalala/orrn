@@ -84,6 +84,7 @@ export function OrderDetailPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: trpc.orders.timeline.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.orders.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.orders.late.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.costing.orderLines.queryKey({ orderId: id }) }),
     ]);
 
   const reprice = useMutation({

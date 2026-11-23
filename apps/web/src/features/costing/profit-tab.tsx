@@ -78,8 +78,8 @@ function ProfitBody() {
                           <td className={`${TD} ${NUM}`}>{row.lines}</td>
                           <td className={`${TD} ${NUM} whitespace-nowrap`}>{say.kg(row.kgG)}</td>
                           <td className={`${TD} ${NUM} whitespace-nowrap`}>{say.money(row.revenuePaise)}</td>
-                          <td className={`${TD} ${NUM} whitespace-nowrap`}>{say.money(row.costPaise)}</td>
-                          <td className={`${TD} ${NUM} whitespace-nowrap ${row.marginPaise < 0 ? "text-destructive" : ""}`}>{say.money(row.marginPaise)}</td>
+                          <td className={`${TD} ${NUM} whitespace-nowrap`}>{row.costPaise == null ? "-" : say.money(row.costPaise)}</td>
+                          <td className={`${TD} ${NUM} whitespace-nowrap ${row.marginPaise != null && row.marginPaise < 0 ? "text-destructive" : ""}`}>{row.marginPaise == null ? "-" : say.money(row.marginPaise)}</td>
                           <td className={`${TD} ${NUM}`}>{bpText(row.marginBp)}</td>
                           <td className={`${TD} ${NUM} whitespace-nowrap`}>{say.kg(row.lowKgG)}</td>
                         </tr>
