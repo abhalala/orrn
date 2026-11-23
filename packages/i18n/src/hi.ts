@@ -7170,6 +7170,8 @@ export const hi = {
       store__po__close: "परचेज़ ऑर्डर बाकी छोड़कर बंद",
       store__po__cancel: "परचेज़ ऑर्डर रद्द",
       store__settings__update: "ज़्यादा माल की छूट बदली",
+      store__rate__set: "रुके हुए माल का रेट डाला",
+      store__rate__opening: "पुराने स्टॉक का शुरुआती रेट डाला",
       store_item__create: "स्टोर आइटम जोड़ा",
       store_item__update: "स्टोर आइटम बदला",
       support_request__close: "मदद की रिक्वेस्ट बंद की",

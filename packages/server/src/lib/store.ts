@@ -19,7 +19,7 @@ import { grnValuePaise } from "@orrn/domain";
 
 import { allocateDocNumbers } from "./docNumber";
 import { auditInsertGuarded } from "./audit";
-import { issueValueSql } from "./storeValue";
+import { ISSUED_SINCE_MESSAGE, issueTakeSql, pendingGrnSql, storeHeldQtySql, storeOutSinceSql, storeRatedQtySql } from "./storeValue";
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 
 const sqlUuid = sql<string>`lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))`;
@@ -204,13 +204,19 @@ export type StoreTxnInput = {
   guardBalance: boolean;
   /** Extra write-time condition (the incoming leg of an exchange needs its outgoing leg). */
   and?: SQL;
-  /** XE store (row 73): GRN rate in paise per unit; null / omitted = no rate (valued at 0). */
+  /** XE store (row 73): GRN rate in paise per unit; null / omitted = no rate (see `ratePending`). */
   ratePaise?: number | null;
   /**
-   * XE store (row 73): a GRN's value when it is not quantity x rate (an exchange's new leg carries the
-   * old leg's value). Ignored for an MRS, which is always valued at the average inside the INSERT.
+   * XE store (row 73): a GRN with no rate taken in by someone who does not set rates: valued at the
+   * item's average inside the INSERT (`pendingGrnSql`), settable later. Ignored with a rate or qty 0.
+   */
+  ratePending?: boolean;
+  /**
+   * XE store (row 73): a GRN's value and rated part when they are not quantity x rate (an exchange's new
+   * leg carries the old leg's). Ignored for an MRS, which is always valued at the average inside the INSERT.
    */
   valueSql?: SQL<number>;
+  ratedSql?: SQL<number>;
   /** XE store (row 71): the PO line a GRN is against. */
   poLineId?: string | null;
   /** XE store (row 71): what a GRN's inspection turned back (not stocked). */
@@ -224,6 +230,20 @@ export type StoreTxnInput = {
  */
 export function storeTxnInsert(db: OrrnDb, input: StoreTxnInput): SqliteBatchItem {
   const { companyId } = input;
+  const itemSql = sql`${storeItem.id}`;
+  const rate = input.kind === "grn" ? (input.ratePaise ?? null) : null;
+  const pending = input.kind === "grn" && rate === null && input.ratePending === true && input.qtyMilli > 0;
+  // XE store (row 73): what the entry is worth and how much of it is rated, frozen here.
+  const money: { rated: SQL<number>; value: SQL<number> } =
+    input.kind === "mrs"
+      ? issueTakeSql(companyId, itemSql, input.qtyMilli)
+      : input.valueSql
+        ? { value: input.valueSql, rated: input.ratedSql ?? sql<number>`0` }
+        : rate !== null
+          ? { value: sql<number>`${grnValuePaise(input.qtyMilli, rate)}`, rated: sql<number>`${input.qtyMilli}` }
+          : pending
+            ? pendingGrnSql(companyId, itemSql, input.qtyMilli)
+            : { value: sql<number>`0`, rated: sql<number>`0` };
   return db.insert(storeTxn).select(
     db
       .select({
@@ -241,11 +261,10 @@ export function storeTxnInsert(db: OrrnDb, input: StoreTxnInput): SqliteBatchIte
         sourceType: sql<string | null>`${input.source?.type ?? null}`.as("source_type"),
         sourceId: sql<string | null>`${input.source?.id ?? null}`.as("source_id"),
         grnRef: sql<string | null>`${input.grnRef}`.as("grn_ref"),
-        ratePaise: sql<number | null>`${input.kind === "grn" ? (input.ratePaise ?? null) : null}`.as("rate_paise"),
-        valuePaise: (input.kind === "mrs"
-          ? issueValueSql(companyId, sql`${storeItem.id}`, input.qtyMilli)
-          : (input.valueSql ?? sql<number>`${grnValuePaise(input.qtyMilli, input.ratePaise ?? null)}`)
-        ).as("value_paise"),
+        ratePaise: sql<number | null>`${rate}`.as("rate_paise"),
+        valuePaise: money.value.as("value_paise"),
+        ratedMilli: money.rated.as("rated_milli"),
+        ratePending: sql<boolean>`${pending ? 1 : 0}`.as("rate_pending"),
         poLineId: sql<string | null>`${input.kind === "grn" ? (input.poLineId ?? null) : null}`.as("po_line_id"),
         rejectedMilli: sql<number | null>`${input.kind === "grn" ? (input.rejectedMilli ?? null) : null}`.as("rejected_milli"),
         exchangeId: sql<string | null>`${input.exchangeId}`.as("exchange_id"),
@@ -320,6 +339,51 @@ function cancelGroupWhere(txnId: string, exchangeId: string | null): SQL {
     : (sql`${storeTxn.id} = ${txnId}` as SQL);
 }
 
+/**
+ * `alias` is a member of the cancel group (the entry, or either leg of its exchange). Never NULL (a row
+ * with no exchange id compares through coalesce), so `not (…)` keeps the rows outside the group.
+ */
+function inGroupSql(alias: string, txnId: string, exchangeId: string | null): SQL {
+  const a = sql.raw(alias);
+  return exchangeId ? sql`(${a}.id = ${txnId} or coalesce(${a}.exchange_id, '') = ${exchangeId})` : sql`${a}.id = ${txnId}`;
+}
+
+/**
+ * XE store (row 73): write-time guards that keep a cancel's valuation exact, group-wide (both legs of
+ * an exchange stand or fall together):
+ * - no live MRS of the item went out after any GRN of the group (`storeOutSinceSql`): that issue was
+ *   valued with the GRN's money, so cancelling it would leave money behind (review STORE finding 1);
+ * - the unrated quantity held stays >= 0: an opening rate already rated this GRN's old stock.
+ * A GRN that accepted nothing (a fully rejected delivery) holds no stock and is never blocked.
+ */
+export function storeCancelValueGuardSql(companyId: string, txnId: string, exchangeId: string | null): SQL {
+  const outSince = groupOutSinceSql(companyId, txnId, exchangeId);
+  return sql`not ${outSince} and ${storeUnratedAfterCancelSql(companyId, txnId, exchangeId)} >= 0`;
+}
+
+/** EXISTS a live MRS of the item after any GRN of the group that took stock in (the group's own legs aside). */
+function groupOutSinceSql(companyId: string, txnId: string, exchangeId: string | null): SQL {
+  return sql`exists (
+    select 1 from ${storeTxn} cg
+    where cg.company_id = ${companyId} and cg.kind = 'grn' and cg.qty_milli > 0 and cg.cancelled_at is null
+      and ${inGroupSql("cg", txnId, exchangeId)}
+      and ${storeOutSinceSql(companyId, sql.raw("cg"), inGroupSql("os", txnId, exchangeId))}
+  )`;
+}
+
+/** Unrated quantity the item would hold after the group's cancel (held - rated - the group's unrated net). */
+function storeUnratedAfterCancelSql(companyId: string, txnId: string, exchangeId: string | null): SQL<number> {
+  const item = sql`(select ui.item_id from ${storeTxn} ui where ui.id = ${txnId} and ui.company_id = ${companyId})`;
+  return sql<number>`(${storeHeldQtySql(companyId, item)} - ${storeRatedQtySql(companyId, item)} - coalesce((
+    select sum(case when ug.kind = 'grn' then ug.qty_milli - ug.rated_milli else ug.rated_milli - ug.qty_milli end)
+    from ${storeTxn} ug
+    where ug.company_id = ${companyId} and ug.cancelled_at is null and ${inGroupSql("ug", txnId, exchangeId)}
+  ), 0))`;
+}
+
+/** The plain refusal when an opening rate already rated the stock a GRN put in. */
+export const OPENING_RATED_MESSAGE = "This delivery's stock already has an opening rate. Record a return to the vendor instead.";
+
 export type StoreCancelInput = {
   companyId: string;
   seq: number;
@@ -391,6 +455,8 @@ export function storeCancelRows(db: OrrnDb, input: StoreCancelInput): SqliteBatc
           sql`exists (select 1 from ${location} s where s.id = ${storeTxn.locationId} and s.company_id = ${companyId} and s.kind = 'store' and s.active = 1)`,
           // Undoing the group must not take the balance below 0: balance − (what the group added).
           sql`${storeBalanceSql(companyId, sql`${storeTxn.itemId}`, sql`${storeTxn.locationId}`)} - ${groupNet} >= 0`,
+          // XE store (row 73): nothing went out after the group's GRN, so its money is all still held.
+          storeCancelValueGuardSql(companyId, input.txnId, input.exchangeId),
         ),
       ),
   );
@@ -472,6 +538,8 @@ export async function diagnoseStoreCancel(db: OrrnDb, companyId: string, txnId: 
       message: `Cannot cancel ${txn.number}: ${fmtMilli(net)} ${item.unit} of ${item.name} would have to come out, but only ${fmtMilli(Math.max(have, 0))} is in the store`,
     });
   }
+  const blocked = await storeCancelValueBlock(db, companyId, txn.id, txn.exchangeId);
+  if (blocked) return blocked;
   if (!item.active) {
     return new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is retired; reactivate it before cancelling ${txn.number}` });
   }
@@ -486,6 +554,20 @@ export async function diagnoseStoreCancel(db: OrrnDb, companyId: string, txnId: 
       message: `Store location ${loc?.code ?? "?"} of ${txn.number} is retired or no longer a store; reactivate it before cancelling`,
     });
   }
+  return null;
+}
+
+/**
+ * XE store (row 73): the read-time twin of `storeCancelValueGuardSql`, with the plain refusal: stock went
+ * out after the GRN, or an opening rate already rated its stock. Null when the cancel keeps values exact.
+ */
+export async function storeCancelValueBlock(db: OrrnDb, companyId: string, txnId: string, exchangeId: string | null): Promise<TRPCError | null> {
+  const outSince = groupOutSinceSql(companyId, txnId, exchangeId);
+  const [row] = await db.all<{ out_since: number; unrated_after: number }>(
+    sql`select (case when ${outSince} then 1 else 0 end) as out_since, ${storeUnratedAfterCancelSql(companyId, txnId, exchangeId)} as unrated_after`,
+  );
+  if (row && Number(row.out_since) === 1) return new TRPCError({ code: "BAD_REQUEST", message: ISSUED_SINCE_MESSAGE });
+  if (row && Number(row.unrated_after) < 0) return new TRPCError({ code: "BAD_REQUEST", message: OPENING_RATED_MESSAGE });
   return null;
 }
 
@@ -547,6 +629,8 @@ export function storeDrawAbort(db: OrrnDb, companyId: string, ids: string[]): Sq
         grnRef: sql<string | null>`null`.as("grn_ref"),
         ratePaise: sql<number | null>`null`.as("rate_paise"),
         valuePaise: sql<number>`0`.as("value_paise"),
+        ratedMilli: sql<number>`0`.as("rated_milli"),
+        ratePending: sql<boolean>`0`.as("rate_pending"),
         poLineId: sql<string | null>`null`.as("po_line_id"),
         rejectedMilli: sql<number | null>`null`.as("rejected_milli"),
         exchangeId: sql<string | null>`null`.as("exchange_id"),

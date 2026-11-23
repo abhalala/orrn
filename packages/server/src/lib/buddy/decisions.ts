@@ -214,6 +214,8 @@ export const BUDDY_DECISIONS = {
     "store.po.issue": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
     "store.po.update": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
     "store.settings.setPoTolerance": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.valuation.setGrnRate": deny("Sets the money a delivery is worth in the store's value (XE store); the office decides it from the bill."),
+    "store.valuation.setOpeningRate": deny("Sets the money old stock is worth in the store's value (XE store); the office decides it."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

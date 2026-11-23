@@ -150,6 +150,7 @@ export const PLANT_ACTIONS = [
   "po.view", // read store purchase orders (rates included)
   "po.manage", // make, change, issue, close and cancel store purchase orders
   "store.value", // the store's value: average rates and the month-end stock value
+  "store.rate", // set valuation rates: a GRN rate other than the order's, a pending GRN rate, an item's opening rate
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -314,6 +315,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
   "po.manage": ["office", "manager", "admin"],
   "store.value": ["office", "manager", "admin", "accountant"],
+  // The rate is settled by the bill in the office, not at the gate: the storekeeper does not set it.
+  "store.rate": ["office", "manager", "admin", "accountant"],
   "support.request": [
     "admin",
     "manager",

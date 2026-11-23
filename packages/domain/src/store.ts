@@ -36,37 +36,69 @@ export function rateFitsQty(qtyMilli: number, ratePaise: number): boolean {
   return Number.isSafeInteger(qtyMilli * ratePaise);
 }
 
-/** What a GRN adds to the store's value: quantity × rate, or 0 when it has no rate ("no rate"). */
-export function grnValuePaise(qtyMilli: number, ratePaise: number | null): number {
-  return ratePaise === null ? 0 : lineValuePaise(qtyMilli, ratePaise);
+/** What a GRN with a rate adds to the store's value: quantity x rate. */
+export function grnValuePaise(qtyMilli: number, ratePaise: number): number {
+  return lineValuePaise(qtyMilli, ratePaise);
 }
 
 /**
- * What an issue of `issueMilli` takes out, at the weighted average of what is held: value × qty / held,
- * rounded. The issue that takes everything left takes all the value left, so an empty item holds
- * nothing. Never negative (a GRN cancelled after issues can leave the held value below 0). Computed in
- * floating point exactly as the SQL does (`value * 1.0 * qty / held`), so both round the same way.
+ * The weighted average is value held over RATED quantity held. Old stock from before valuation (and a
+ * pending GRN that had no average to borrow) is unrated: it is counted in the balance but not in the
+ * average, so it never pulls the average down. Issues take rated stock first.
  */
-export function issueValuePaise(heldMilli: number, heldValuePaise: number, issueMilli: number): number {
-  if (heldMilli <= 0 || heldValuePaise <= 0) return 0;
-  if (issueMilli >= heldMilli) return heldValuePaise;
-  return Math.max(0, Math.round((heldValuePaise * 1.0 * issueMilli) / heldMilli));
+export type RatedHolding = { ratedMilli: number; valuePaise: number };
+
+/**
+ * What an issue of `issueMilli` takes: the rated part (rated stock first, so at most what is rated) and
+ * its value at the average, value x part / rated, rounded. The issue that takes all the rated stock
+ * takes all the value, so nothing is left behind. Computed in floating point exactly as the SQL does
+ * (`value * 1.0 * part / rated`), so both round the same way.
+ */
+export function issueTake(held: RatedHolding, issueMilli: number): { ratedMilli: number; valuePaise: number } {
+  if (held.ratedMilli <= 0) return { ratedMilli: 0, valuePaise: 0 };
+  const part = Math.min(issueMilli, held.ratedMilli);
+  if (held.valuePaise <= 0) return { ratedMilli: part, valuePaise: 0 };
+  if (part >= held.ratedMilli) return { ratedMilli: part, valuePaise: held.valuePaise };
+  return { ratedMilli: part, valuePaise: Math.max(0, Math.round((held.valuePaise * 1.0 * part) / held.ratedMilli)) };
 }
 
-/** Average rate in paise per unit of what is held; null when nothing is held. */
-export function averageRatePaise(heldMilli: number, heldValuePaise: number): number | null {
-  if (heldMilli <= 0) return null;
-  return Math.round((Math.max(0, heldValuePaise) * 1000) / heldMilli);
+/** An issue's value only (see `issueTake`). */
+export function issueValuePaise(held: RatedHolding, issueMilli: number): number {
+  return issueTake(held, issueMilli).valuePaise;
 }
 
-/** The value shown for a holding: 0 when nothing is held, never below 0. */
-export function heldValueShown(heldMilli: number, heldValuePaise: number): number {
-  return heldMilli > 0 ? Math.max(0, heldValuePaise) : 0;
+/**
+ * A GRN taken in with its rate pending: valued at the item's current average, so the average does not
+ * move. With nothing rated held there is no average to borrow, and it comes in unrated (value 0).
+ */
+export function pendingGrnTake(held: RatedHolding, qtyMilli: number): { ratedMilli: number; valuePaise: number } {
+  if (held.ratedMilli <= 0) return { ratedMilli: 0, valuePaise: 0 };
+  return { ratedMilli: qtyMilli, valuePaise: Math.max(0, Math.round((held.valuePaise * 1.0 * qtyMilli) / held.ratedMilli)) };
+}
+
+/** Average rate in paise per unit of the rated stock held; null when nothing rated is held. */
+export function averageRatePaise(held: RatedHolding): number | null {
+  if (held.ratedMilli <= 0) return null;
+  return Math.round((Math.max(0, held.valuePaise) * 1000) / held.ratedMilli);
+}
+
+/** Held quantity that has no rate yet ("rate not set"): held minus rated, never below 0. */
+export function unratedMilli(heldMilli: number, ratedMilli: number): number {
+  return Math.max(0, heldMilli - ratedMilli);
 }
 
 /** The most a PO line may receive (accepted) under the tolerance: ordered + floor(ordered × bp / 10 000). */
 export function maxReceivableMilli(orderedMilli: number, toleranceBp: number): number {
   return orderedMilli + Math.floor((orderedMilli * toleranceBp) / 10_000);
+}
+
+/**
+ * An order takes deliveries while issued or part received, and also once a full delivery closed it by
+ * itself (not by hand): a late top-up within the over-receipt tolerance is still a delivery against it.
+ * An order closed short by hand, a draft and a cancelled order take none.
+ */
+export function poTakesDeliveries(status: string, closedByHand: boolean): boolean {
+  return status === "issued" || status === "part_received" || (status === "closed" && !closedByHand);
 }
 
 /** A plant's tolerance from its settings value, falling back to the default for anything malformed. */
@@ -165,9 +197,9 @@ export function reorderQtyMilli(item: {
   return Math.min(qty, STORE_MAX_QTY_MILLI);
 }
 
-/** One entry's effect on the month report, frozen on the row. */
+/** One entry's effect on the month report, frozen on the row. `rate` = an opening rate given to old stock. */
 export type ValuationEntry = {
-  kind: "grn" | "mrs";
+  kind: "grn" | "mrs" | "rate";
   qtyMilli: number;
   valuePaise: number;
   createdAt: number;
@@ -181,21 +213,30 @@ export type MonthValuation = {
   inPaise: number;
   outMilli: number;
   outPaise: number;
+  /** Value given this month to old stock that had no rate (opening rates); no quantity moves. */
+  ratedPaise: number;
   closingMilli: number;
   closingPaise: number;
 };
 
 /**
  * The month report for one item over `[from, to)`: what was held at `from`, what came in (GRNs) and
- * went out (MRSs) during the month, and what was held at `to`. An entry counts at its `createdAt`; its
- * cancel undoes it at `cancelledAt`, inside its own column (a GRN cancelled this month lowers this
- * month's "in", so "in" can be negative when the GRN was from an earlier month).
+ * went out (MRSs) during the month, the value opening rates gave old stock, and what was held at `to`.
+ * An entry counts at its `createdAt`; its cancel undoes it at `cancelledAt`, inside its own column (a
+ * GRN cancelled this month lowers this month's "in", so "in" can be negative when the GRN was from an
+ * earlier month). Always opening + in - out + rated = closing, in quantity and in money: nothing is
+ * clamped (a GRN cannot be cancelled once stock went out after it, so no value is left over).
  */
 export function monthValuation(entries: readonly ValuationEntry[], from: number, to: number): MonthValuation {
   const r: MonthValuation = {
-    openingMilli: 0, openingPaise: 0, inMilli: 0, inPaise: 0, outMilli: 0, outPaise: 0, closingMilli: 0, closingPaise: 0,
+    openingMilli: 0, openingPaise: 0, inMilli: 0, inPaise: 0, outMilli: 0, outPaise: 0, ratedPaise: 0, closingMilli: 0, closingPaise: 0,
   };
   const add = (e: ValuationEntry, undo: boolean, at: number) => {
+    if (e.kind === "rate") {
+      if (at < from) r.openingPaise += e.valuePaise;
+      else if (at < to) r.ratedPaise += e.valuePaise;
+      return;
+    }
     const sign = (e.kind === "grn" ? 1 : -1) * (undo ? -1 : 1);
     if (at < from) {
       r.openingMilli += sign * e.qtyMilli;
@@ -216,6 +257,6 @@ export function monthValuation(entries: readonly ValuationEntry[], from: number,
     if (e.cancelledAt !== null) add(e, true, e.cancelledAt);
   }
   r.closingMilli = r.openingMilli + r.inMilli - r.outMilli;
-  r.closingPaise = r.openingPaise + r.inPaise - r.outPaise;
+  r.closingPaise = r.openingPaise + r.inPaise - r.outPaise + r.ratedPaise;
   return r;
 }

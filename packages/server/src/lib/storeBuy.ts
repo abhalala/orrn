@@ -30,18 +30,32 @@ export function poLineReceivedSql(companyId: string, lineIdSql: SQL): SQL<number
   ), 0)`;
 }
 
-/** Any live GRN against any line of the order (correlated on `poIdSql`). */
+/**
+ * Any live GRN that took goods in against any line of the order (correlated on `poIdSql`). A fully
+ * rejected delivery (accepted 0) is a record only: it neither moves the order to part received nor
+ * stops its cancel.
+ */
 export function poHasLiveGrnSql(companyId: string, poIdSql: SQL): SQL {
   return sql`exists (
     select 1 from ${storeTxn} r
     join ${storePoLine} pl on pl.id = r.po_line_id and pl.company_id = r.company_id
     where r.company_id = ${companyId} and pl.po_id = ${poIdSql} and r.kind = 'grn' and r.cancelled_at is null
+      and r.qty_milli > 0
   )`;
 }
 
 /**
+ * The order (alias) takes deliveries: issued, part received, or closed by a full delivery (not by hand),
+ * so a late top-up within the tolerance still lands (`poTakesDeliveries` in @orrn/domain).
+ */
+export function poTakesDeliveriesSql(alias: string): SQL {
+  const a = sql.raw(alias);
+  return sql`(${a}.status in ('issued', 'part_received') or (${a}.status = 'closed' and ${a}.closed_by is null))`;
+}
+
+/**
  * Write-time guard for a GRN against a PO line (the GRN INSERT's own WHERE): the line is this plant's,
- * for this item, its order is issued or part received, and the accepted quantity with this delivery
+ * for this item, its order takes deliveries (`poTakesDeliveriesSql`), and the accepted quantity with this delivery
  * stays within ordered + floor(ordered x tolerance / 10 000) (SQLite integer division floors, as
  * `maxReceivableMilli` does).
  */
@@ -57,7 +71,7 @@ export function poLineReceiveGuard(input: {
     select 1 from ${storePoLine} gl
     join ${storePo} gp on gp.id = gl.po_id and gp.company_id = gl.company_id
     where gl.id = ${input.poLineId} and gl.company_id = ${companyId} and gl.item_id = ${input.itemId}
-      and gp.status in ('issued', 'part_received')
+      and ${poTakesDeliveriesSql("gp")}
       and ${poLineReceivedSql(companyId, sql`gl.id`)} + ${input.qtyMilli}
         <= gl.qty_milli + (gl.qty_milli * ${input.toleranceBp}) / 10000
   )`;
@@ -100,6 +114,8 @@ export type PoLineForReceipt = {
   poId: string;
   poNumber: string;
   poStatus: string;
+  /** Closed short by hand (no more deliveries); an order closed by a full delivery still takes top-ups. */
+  poClosedByHand: boolean;
   line: number;
   itemId: string;
   orderedMilli: number;
@@ -114,6 +130,7 @@ export async function loadPoLineForReceipt(db: OrrnDb, companyId: string, poLine
       poId: storePo.id,
       poNumber: storePo.number,
       poStatus: storePo.status,
+      poClosedBy: storePo.closedBy,
       line: storePoLine.line,
       itemId: storePoLine.itemId,
       orderedMilli: storePoLine.qtyMilli,
@@ -125,7 +142,8 @@ export async function loadPoLineForReceipt(db: OrrnDb, companyId: string, poLine
     .where(and(eq(storePoLine.id, poLineId), eq(storePoLine.companyId, companyId)))
     .limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Purchase order line not found" });
-  return { ...row, receivedMilli: Number(row.receivedMilli) };
+  const { poClosedBy, ...rest } = row;
+  return { ...rest, poClosedByHand: poClosedBy !== null, receivedMilli: Number(row.receivedMilli) };
 }
 
 /** Plant day `YYYY-MM-DD`, checked as a real calendar date. */

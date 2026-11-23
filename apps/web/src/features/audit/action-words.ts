@@ -286,6 +286,8 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "store.po.close",
   "store.po.cancel",
   "store.settings.update",
+  "store.rate.set",
+  "store.rate.opening",
   "store_item.create",
   "store_item.update",
   "support_request.close",

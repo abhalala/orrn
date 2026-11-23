@@ -297,7 +297,8 @@ export const storePoRouter = router({
         .where(
           and(
             eq(storePoLine.companyId, ctx.companyId),
-            inArray(storePo.status, ["issued", "part_received"]),
+            // An order a full delivery closed still offers its tolerance room for a late top-up.
+            sql`(${storePo.status} in ('issued', 'part_received') or (${storePo.status} = 'closed' and ${storePo.closedBy} is null))`,
             input.itemId ? eq(storePoLine.itemId, input.itemId) : undefined,
           ),
         )

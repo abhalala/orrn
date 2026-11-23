@@ -123,6 +123,7 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
   "po.manage": ["office", "manager", "admin"],
   "store.value": ["office", "manager", "admin", "accountant"],
+  "store.rate": ["office", "manager", "admin", "accountant"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

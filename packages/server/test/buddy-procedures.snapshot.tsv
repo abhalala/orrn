@@ -598,6 +598,9 @@ store.settings.setPoTolerance	mutation	deny	reversible
 store.txns	query	allow	reversible
 store.valuation.items	query	allow	reversible
 store.valuation.month	query	allow	reversible
+store.valuation.pending	query	allow	reversible
+store.valuation.setGrnRate	mutation	deny	reversible
+store.valuation.setOpeningRate	mutation	deny	reversible
 support.mine	query	deny	reversible
 support.request	mutation	deny	reversible
 toolRoom.copy	query	deny	reversible

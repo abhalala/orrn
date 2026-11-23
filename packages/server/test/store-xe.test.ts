@@ -252,17 +252,22 @@ describe("GRN against a PO (row 71)", () => {
     // Within tolerance: 45 kg more (105 of 100) is accepted.
     await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 45 * U, poLineId: fluxLine!.id });
     expect((await p.office.store.po.get({ id: po.id })).po.status).toBe("part_received");
-    const g3 = await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U, poLineId: bearingLine!.id, ratePaise: 44_000 });
+    // The storekeeper does not set rates: another rate than the order's is refused; the owner (store.rate) may.
+    await expect(
+      p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U, poLineId: bearingLine!.id, ratePaise: 44_000 }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const g3 = await p.owner.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U, poLineId: bearingLine!.id, ratePaise: 44_000 });
     got = await p.office.store.po.get({ id: po.id });
     expect(got.po.status).toBe("closed");
     expect(got.po.closedAt).not.toBeNull();
     expect(got.po.closedBy).toBeNull();
     expect(got.grns).toHaveLength(3);
-    // A typed rate wins over the PO rate.
+    // A rate typed by a store.rate holder wins over the PO rate (the audit keeps both).
     const [r3] = await env.db.select().from(storeTxn).where(eq(storeTxn.id, g3.id));
     expect(r3).toMatchObject({ ratePaise: 44_000, valuePaise: 176_000 });
-    // A closed order takes nothing more; cancelling a GRN opens it again.
-    await expect(p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: U, poLineId: bearingLine!.id })).rejects.toThrow(/not open for deliveries/);
+    // Closed by the full delivery, it still offers only its tolerance: 5 % of 4 pieces is not a whole piece.
+    await expect(p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: U, poLineId: bearingLine!.id })).rejects.toThrow(/Over the order/);
+    // Cancelling a GRN opens it again.
     await p.storekeeper.store.cancel({ txnId: g3.id, reason: "Wrong size" });
     got = await p.office.store.po.get({ id: po.id });
     expect(got.po.status).toBe("part_received");
@@ -282,7 +287,8 @@ describe("GRN against a PO (row 71)", () => {
     });
     const plain = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 3 * U });
     const [row] = await env.db.select().from(storeTxn).where(eq(storeTxn.id, plain.id));
-    expect(row).toMatchObject({ ratePaise: null, valuePaise: 0, poLineId: null, rejectedMilli: null });
+    // Rate pending: nothing rated is held, so it comes in unrated at 0 until the office sets its rate.
+    expect(row).toMatchObject({ ratePaise: null, ratePending: true, valuePaise: 0, ratedMilli: 0, poLineId: null, rejectedMilli: null });
   });
 
   test("the tolerance is a plant setting; 0 refuses any over-receipt; only publishers set it", async () => {
@@ -368,12 +374,12 @@ describe("reorder levels (row 72)", () => {
 describe("valuation (row 73)", () => {
   test("worked example: SQL issue values equal the domain's, and the last issue empties the value", async () => {
     const p = await plant();
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 20_000 });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 20_000 });
     let heldQ = 20 * U;
     let heldV = grnValuePaise(10 * U, 10_000) + grnValuePaise(10 * U, 20_000);
     for (const q of [5 * U, 3_333, 7_777]) {
-      const want = issueValuePaise(heldQ, heldV, q);
+      const want = issueValuePaise({ ratedMilli: heldQ, valuePaise: heldV }, q);
       const out = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: q, purpose: "melt" });
       const [row] = await env.db.select().from(storeTxn).where(eq(storeTxn.id, out.id));
       expect(row!.valuePaise).toBe(want);
@@ -383,30 +389,31 @@ describe("valuation (row 73)", () => {
     }
     const v = await p.manager.store.valuation.items();
     const flux = v.items.find((i) => i.id === p.fluxId)!;
-    expect(flux).toMatchObject({ heldMilli: heldQ, valuePaise: heldV, noRate: false });
+    expect(flux).toMatchObject({ heldMilli: heldQ, valuePaise: heldV, unratedMilli: 0 });
     const last = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: heldQ, purpose: "other" });
     expect(await storeIssueValuePaise(env.db, p.companyId, last.id)).toBe(heldV);
     expect((await p.manager.store.valuation.items()).items.find((i) => i.id === p.fluxId)).toMatchObject({ heldMilli: 0, valuePaise: 0, avgRatePaise: null });
   });
 
-  test("no rate values at 0 and shows; exchange keeps the value; cancelled issue returns its value", async () => {
+  test("a pending GRN borrows the average; exchange keeps the value; cancelled issue returns its value", async () => {
     const p = await plant();
-    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U, ratePaise: 50_000 });
+    await p.owner.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U, ratePaise: 50_000 });
     await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U });
     let b = (await p.accountant.store.valuation.items()).items.find((i) => i.id === p.bearingId)!;
-    expect(b).toMatchObject({ heldMilli: 8 * U, valuePaise: 200_000, avgRatePaise: 25_000, noRate: true });
+    // The pending GRN is valued at the ₹500 average, which does not move.
+    expect(b).toMatchObject({ heldMilli: 8 * U, valuePaise: 400_000, avgRatePaise: 50_000, unratedMilli: 0, pendingCount: 1 });
     const ex = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: U, qtyInMilli: U });
     const legs = await env.db.select().from(storeTxn).where(eq(storeTxn.exchangeId, ex.exchangeId));
-    expect(legs.find((l) => l.kind === "mrs")!.valuePaise).toBe(25_000);
-    expect(legs.find((l) => l.kind === "grn")!.valuePaise).toBe(25_000);
+    expect(legs.find((l) => l.kind === "mrs")).toMatchObject({ valuePaise: 50_000, ratedMilli: U });
+    expect(legs.find((l) => l.kind === "grn")).toMatchObject({ valuePaise: 50_000, ratedMilli: U });
     b = (await p.accountant.store.valuation.items()).items.find((i) => i.id === p.bearingId)!;
-    expect(b.valuePaise).toBe(200_000);
+    expect(b).toMatchObject({ valuePaise: 400_000, avgRatePaise: 50_000 });
     const out = await p.storekeeper.store.issue({ itemId: p.bearingId, qtyMilli: 2 * U, purpose: "maintenance" });
-    expect(await storeIssueValuePaise(env.db, p.companyId, out.id)).toBe(50_000);
+    expect(await storeIssueValuePaise(env.db, p.companyId, out.id)).toBe(100_000);
     await p.storekeeper.store.cancel({ txnId: out.id, reason: "Not used" });
     expect(await storeIssueValuePaise(env.db, p.companyId, out.id)).toBe(0);
     b = (await p.accountant.store.valuation.items()).items.find((i) => i.id === p.bearingId)!;
-    expect(b.valuePaise).toBe(200_000);
+    expect(b.valuePaise).toBe(400_000);
     // The helper is plant-scoped and only values issues.
     const other = await plant();
     expect(await storeIssueValuePaise(env.db, other.companyId, out.id)).toBe(0);
@@ -419,9 +426,9 @@ describe("valuation (row 73)", () => {
     const p = await plant();
     const ist = (d: number, h = 12) => new Date(Date.UTC(2026, 9, d, h - 5, 30)); // October 2026, IST wall clock
     setClock(new Date(Date.UTC(2026, 8, 28, 6)));
-    const before = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
+    const before = await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U, ratePaise: 10_000 });
     setClock(ist(3));
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, ratePaise: 16_000 });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, ratePaise: 16_000 });
     setClock(ist(5));
     await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 4 * U, purpose: "melt" });
     setClock(ist(6));
@@ -430,7 +437,7 @@ describe("valuation (row 73)", () => {
     await p.storekeeper.store.cancel({ txnId: back.id, reason: "Returned" });
     // 1 Nov 00:10 IST is still 31 Oct in UTC: it belongs to November on the plant's calendar.
     setClock(new Date(Date.UTC(2026, 9, 31, 18, 40)));
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 2 * U, ratePaise: 10_000 });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: 2 * U, ratePaise: 10_000 });
     setClock(null);
 
     const r = await p.office.store.valuation.month({ month: "2026-10" });
@@ -456,7 +463,7 @@ describe("valuation (row 73)", () => {
       await expect(p[role].store.valuation.items()).rejects.toMatchObject({ code: "FORBIDDEN" });
       await expect(p[role].store.valuation.month({ month: "2026-10" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U, ratePaise: 100 });
+    await p.owner.store.receive({ itemId: p.fluxId, qtyMilli: U, ratePaise: 100 });
     const other = await plant();
     const ids = (await other.manager.store.valuation.items()).items.map((i) => i.id);
     expect(ids).not.toContain(p.fluxId);

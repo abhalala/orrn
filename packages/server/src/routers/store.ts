@@ -36,7 +36,7 @@ import {
   type StoreTxnRow,
 } from "@orrn/db/schema/store";
 import { storePo, storePoLine } from "@orrn/db/schema/storeBuy";
-import { maxReceivableMilli, rateFitsQty, STORE_MAX_RATE_PAISE } from "@orrn/domain";
+import { maxReceivableMilli, poTakesDeliveries, rateFitsQty, STORE_MAX_RATE_PAISE } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import type { Context } from "../context";
@@ -44,6 +44,7 @@ import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
+import { can } from "../lib/permissions";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
 import { loadPoLineForReceipt, poLineReceiveGuard, poStatusSync, readPoTolerance } from "../lib/storeBuy";
@@ -52,6 +53,7 @@ import { storePoRouter } from "./storePo";
 import { storeValuationRouter, storeSettingsRouter, storeBelowMinimum } from "./storeValuation";
 import {
   assertStoreQty,
+  diagnoseStoreCancel,
   errorText,
   explainStoreCancelLost,
   explainStoreWriteLost,
@@ -355,13 +357,20 @@ export const storeRouter = router({
         clientRequestId,
         /**
          * XE store (row 73): paise per unit of the item's unit. Omitted with a PO line = the line's rate;
-         * omitted or null without one = no rate (the stock is valued at 0 and shows "no rate").
+         * a different rate needs `store.rate`. Without a PO line, a rate needs `store.rate`; omitted or
+         * null = rate pending (valued at the item's average until a `store.rate` holder sets it).
          */
         ratePaise: z.number().int().min(0).max(STORE_MAX_RATE_PAISE).nullable().optional(),
         /** XE store (row 71): the purchase order line this delivery is against. */
         poLineId: id64.optional(),
         /** XE store (row 71): what inspection turned back; `qtyMilli` is what was accepted into stock. */
         rejectedMilli: z.number().int().min(0).max(MAX_STORE_QTY_MILLI).optional(),
+      }).extend({
+        /** Accepted into stock. 0 only with `rejectedMilli` > 0: a fully rejected delivery, kept as a record. */
+        qtyMilli: z.number().int().min(0).max(MAX_STORE_QTY_MILLI),
+      }).refine((v) => v.qtyMilli > 0 || (v.rejectedMilli ?? 0) > 0, {
+        message: "Enter the quantity accepted, or what was rejected",
+        path: ["qtyMilli"],
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -373,7 +382,7 @@ export const storeRouter = router({
       const earlier = await findByRequest(ctx, input.clientRequestId);
       if (earlier) return replay(earlier);
 
-      const item = await usableItem(ctx, input.itemId, [input.qtyMilli]);
+      const item = await usableItem(ctx, input.itemId, input.qtyMilli > 0 ? [input.qtyMilli] : []);
       if (input.rejectedMilli) assertStoreQty(item, [input.rejectedMilli]);
       // XE store (row 71): against a PO line, the line names the item, the rate and the most it may still take.
       const poLine = input.poLineId ? await loadPoLineForReceipt(ctx.db, ctx.companyId, input.poLineId) : null;
@@ -382,11 +391,22 @@ export const storeRouter = router({
         if (poLine.itemId !== item.id) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${poLine.poNumber} line ${poLine.line} is for another item` });
         }
-        if (poLine.poStatus !== "issued" && poLine.poStatus !== "part_received") {
+        if (!poTakesDeliveries(poLine.poStatus, poLine.poClosedByHand)) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${poLine.poNumber} is not open for deliveries` });
         }
         const room = maxReceivableMilli(poLine.orderedMilli, toleranceBp) - poLine.receivedMilli;
         if (input.qtyMilli > room) throw overReceiptError(poLine.poNumber, poLine.line, room, item.unit);
+      }
+      // XE store (row 73): the storekeeper does not set valuation rates. Against an order the order's
+      // rate holds; typing another, or a rate with no order, needs store.rate. With no rate the GRN is
+      // valued at the item's average and its rate stays pending for the office.
+      const setsRates = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "store.rate");
+      const typedRate = input.ratePaise !== undefined && (!poLine || input.ratePaise !== poLine.ratePaise);
+      if (typedRate && !setsRates) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: poLine ? "Only the office can change the order's rate" : "Only the office can set a rate; leave it empty and it stays pending",
+        });
       }
       const ratePaise = input.ratePaise !== undefined ? input.ratePaise : (poLine?.ratePaise ?? null);
       if (ratePaise !== null && !rateFitsQty(input.qtyMilli, ratePaise)) {
@@ -403,7 +423,7 @@ export const storeRouter = router({
         itemId: item.id, unit: item.unit, qtyMilli: input.qtyMilli, locationId: store.id,
         purpose: null, refId: null, grnRef: input.grnRef, exchangeId: null, note: input.note ?? null,
         clientRequestId: input.clientRequestId ?? null, userId, at, guardBalance: false,
-        ratePaise, poLineId: poLine?.lineId ?? null, rejectedMilli: input.rejectedMilli ?? null,
+        ratePaise, ratePending: ratePaise === null, poLineId: poLine?.lineId ?? null, rejectedMilli: input.rejectedMilli ?? null,
         and: poLine
           ? poLineReceiveGuard({ companyId: ctx.companyId, poLineId: poLine.lineId, itemId: item.id, qtyMilli: input.qtyMilli, toleranceBp })
           : undefined,
@@ -421,7 +441,8 @@ export const storeRouter = router({
               subjectId: id,
               meta: {
                 number: doc.number, itemId: item.id, qtyMilli: input.qtyMilli, grnRef: input.grnRef,
-                ratePaise, poNumber: poLine?.poNumber ?? null, poLineId: poLine?.lineId ?? null,
+                ratePaise, ratePending: ratePaise === null && input.qtyMilli > 0,
+                poNumber: poLine?.poNumber ?? null, poLineId: poLine?.lineId ?? null,
                 rejectedMilli: input.rejectedMilli ?? null,
                 // The order's own rate, so a rate typed over it at the gate shows in the audit.
                 poRatePaise: poLine?.ratePaise ?? null,
@@ -439,7 +460,7 @@ export const storeRouter = router({
         if (poLine) {
           // The order changed between the read and the write: cancelled, closed, or another GRN took the room.
           const now = await loadPoLineForReceipt(ctx.db, ctx.companyId, poLine.lineId);
-          if (now.poStatus !== "issued" && now.poStatus !== "part_received") {
+          if (!poTakesDeliveries(now.poStatus, now.poClosedByHand)) {
             throw new TRPCError({ code: "BAD_REQUEST", message: `${now.poNumber} is not open for deliveries` });
           }
           const room = maxReceivableMilli(now.orderedMilli, toleranceBp) - now.receivedMilli;
@@ -555,6 +576,8 @@ export const storeRouter = router({
         and: sql`exists (select 1 from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId})`,
         // XE store (row 73): old for new keeps the store's value; the new leg carries what the old took out.
         valueSql: sql<number>`coalesce((select o.value_paise from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
+        // ...and the old leg's rated part, at most its own quantity, so the average holds.
+        ratedSql: sql<number>`coalesce((select min(o.rated_milli, ${input.qtyInMilli}) from ${storeTxn} o where o.id = ${mrsId} and o.company_id = ${ctx.companyId}), 0)`,
       };
       const ledger = { companyId: ctx.companyId, seq, userId, at };
       try {
@@ -610,6 +633,12 @@ export const storeRouter = router({
       if (txn.cancelledAt) throw alreadyCancelled();
       // `source_type` never changes after insert, so this read needs no write-time twin.
       if (txn.sourceType) throw storeSourceLockedError(txn);
+      // Read time, in the order `diagnoseStoreCancel` explains a lost write: a short balance first, then
+      // (XE store row 73) stock that went out after this GRN or an opening rate that rated it, so the
+      // store's value stays exact; then a retired item or location. All checked again inside the batch
+      // (`storeCancelRows`), so a racing issue cannot slip in.
+      const why = await diagnoseStoreCancel(ctx.db, ctx.companyId, txn.id);
+      if (why) throw why;
 
       const group = txn.exchangeId
         ? await ctx.db
@@ -725,8 +754,9 @@ export const storeRouter = router({
           sourceType: storeTxn.sourceType,
           sourceId: storeTxn.sourceId,
           grnRef: storeTxn.grnRef,
-          /** XE store (row 73): null on a GRN = "no rate". */
+          /** XE store (row 73): null on a GRN = no rate: pending (`ratePending`) or an old GRN. */
           ratePaise: storeTxn.ratePaise,
+          ratePending: storeTxn.ratePending,
           valuePaise: storeTxn.valuePaise,
           rejectedMilli: storeTxn.rejectedMilli,
           poLineId: storeTxn.poLineId,

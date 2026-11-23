@@ -148,3 +148,33 @@ export type StoreIndentRow = typeof storeIndent.$inferSelect;
 export type StoreIndentLineRow = typeof storeIndentLine.$inferSelect;
 export type StorePoRow = typeof storePo.$inferSelect;
 export type StorePoLineRow = typeof storePoLine.$inferSelect;
+
+/**
+ * XE store (row 73): an item's opening rate. Stock held from before valuation (old GRNs with no rate)
+ * has no value; a `store.rate` holder gives it a rate, and the unrated quantity held at that moment
+ * (computed inside the INSERT) becomes rated at that rate. Append-only; each row adds `qty_milli` to the
+ * item's rated quantity and `value_paise` to its value from `created_at` on.
+ */
+export const storeOpeningRate = sqliteTable(
+  "store_opening_rate",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => storeItem.id, { onDelete: "restrict" }),
+    /** Paise per unit of the item's unit. */
+    ratePaise: integer("rate_paise").notNull(),
+    /** The unrated quantity held when the rate was set (milli-units), now rated. */
+    qtyMilli: integer("qty_milli").notNull(),
+    /** round(qty x rate / 1000). */
+    valuePaise: integer("value_paise").notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [index("store_opening_rate_company_item_idx").on(table.companyId, table.itemId, table.createdAt)],
+);
+
+export type StoreOpeningRateRow = typeof storeOpeningRate.$inferSelect;

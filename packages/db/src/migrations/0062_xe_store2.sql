@@ -93,4 +93,21 @@ ALTER TABLE `store_txn` ADD `rate_paise` integer;--> statement-breakpoint
 ALTER TABLE `store_txn` ADD `value_paise` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE `store_txn` ADD `po_line_id` text;--> statement-breakpoint
 ALTER TABLE `store_txn` ADD `rejected_milli` integer;--> statement-breakpoint
-CREATE INDEX `store_txn_company_po_line_idx` ON `store_txn` (`company_id`,`po_line_id`);
+CREATE INDEX `store_txn_company_po_line_idx` ON `store_txn` (`company_id`,`po_line_id`);--> statement-breakpoint
+CREATE TABLE `store_opening_rate` (
+	`id` text PRIMARY KEY NOT NULL,
+	`company_id` text NOT NULL,
+	`item_id` text NOT NULL,
+	`rate_paise` integer NOT NULL,
+	`qty_milli` integer NOT NULL,
+	`value_paise` integer NOT NULL,
+	`created_by` text,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`item_id`) REFERENCES `store_item`(`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`created_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `store_opening_rate_company_item_idx` ON `store_opening_rate` (`company_id`,`item_id`,`created_at`);--> statement-breakpoint
+ALTER TABLE `store_txn` ADD `rated_milli` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `store_txn` ADD `rate_pending` integer DEFAULT false NOT NULL;

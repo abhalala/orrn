@@ -7188,6 +7188,8 @@ export const en = {
       store__po__close: "Purchase order closed short",
       store__po__cancel: "Purchase order cancelled",
       store__settings__update: "Over-delivery allowance changed",
+      store__rate__set: "Pending delivery rate set",
+      store__rate__opening: "Opening rate given to old stock",
       store_item__create: "Store item added",
       store_item__update: "Store item changed",
       support_request__close: "Help request closed",

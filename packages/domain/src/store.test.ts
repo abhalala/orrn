@@ -5,12 +5,13 @@ import {
   belowMinimum,
   DEFAULT_PO_OVER_RECEIPT_BP,
   grnValuePaise,
-  heldValueShown,
+  issueTake,
   issueValuePaise,
   lineValuePaise,
   maxReceivableMilli,
   monthValuation,
   nextIndentStatus,
+  pendingGrnTake,
   poCancellable,
   poClosableByHand,
   poEditable,
@@ -22,16 +23,16 @@ import {
   reorderQtyMilli,
   STORE_MAX_QTY_MILLI,
   STORE_MAX_RATE_PAISE,
+  unratedMilli,
   type ValuationEntry,
 } from "./store";
 
 const U = 1000;
 
 describe("store valuation (row 73)", () => {
-  test("a GRN is worth quantity x rate; no rate is worth 0", () => {
+  test("a GRN is worth quantity x rate", () => {
     // 12.5 kg of flux at ₹84.40 per kg = ₹1,055.00
     expect(grnValuePaise(12_500, 8_440)).toBe(105_500);
-    expect(grnValuePaise(12_500, null)).toBe(0);
     // 0.333 kg at ₹1.00 = 33.3 paise → 33
     expect(lineValuePaise(333, 100)).toBe(33);
     expect(lineValuePaise(335, 100)).toBe(34);
@@ -39,39 +40,51 @@ describe("store valuation (row 73)", () => {
 
   test("worked example: two GRNs at different rates, then issues at the weighted average", () => {
     // GRN 10 kg @ ₹100 = ₹1,000; GRN 10 kg @ ₹200 = ₹2,000 → 20 kg worth ₹3,000, average ₹150/kg.
-    let held = 20 * U;
-    let value = grnValuePaise(10 * U, 10_000) + grnValuePaise(10 * U, 20_000);
-    expect(value).toBe(300_000);
-    expect(averageRatePaise(held, value)).toBe(15_000);
+    let ratedMilli = 20 * U;
+    let valuePaise = grnValuePaise(10 * U, 10_000) + grnValuePaise(10 * U, 20_000);
+    expect(valuePaise).toBe(300_000);
+    expect(averageRatePaise({ ratedMilli, valuePaise })).toBe(15_000);
     // Issue 5 kg → ₹750.
-    const out1 = issueValuePaise(held, value, 5 * U);
+    const out1 = issueValuePaise({ ratedMilli, valuePaise }, 5 * U);
     expect(out1).toBe(75_000);
-    held -= 5 * U;
-    value -= out1;
+    ratedMilli -= 5 * U;
+    valuePaise -= out1;
     // Issue 3.333 kg of the remaining 15 kg worth ₹2,250 → 2250 × 3.333 / 15 = ₹499.95
-    const out2 = issueValuePaise(held, value, 3_333);
+    const out2 = issueValuePaise({ ratedMilli, valuePaise }, 3_333);
     expect(out2).toBe(49_995);
-    held -= 3_333;
-    value -= out2;
+    ratedMilli -= 3_333;
+    valuePaise -= out2;
     // The last issue takes everything left, so nothing is held at a value.
-    const out3 = issueValuePaise(held, value, held);
-    expect(out3).toBe(value);
-    expect(heldValueShown(0, value - out3)).toBe(0);
+    expect(issueTake({ ratedMilli, valuePaise }, ratedMilli)).toEqual({ ratedMilli, valuePaise });
   });
 
-  test("an issue never goes negative and an empty or unvalued holding issues at 0", () => {
-    expect(issueValuePaise(0, 0, 1000)).toBe(0);
-    expect(issueValuePaise(10 * U, -500, 1000)).toBe(0);
-    expect(issueValuePaise(10 * U, 0, 1000)).toBe(0);
-    // Over-issue cannot happen (the store refuses it) but the formula still takes at most what is held.
-    expect(issueValuePaise(1000, 777, 5000)).toBe(777);
+  test("old stock with no rate does not pull the average down; issues take rated stock first", () => {
+    // 90 kg of old flux (no rate) + GRN 10 kg @ ₹100: the average is ₹100/kg, not ₹10/kg.
+    const held = { ratedMilli: 10 * U, valuePaise: 100_000 };
+    expect(averageRatePaise(held)).toBe(10_000);
+    expect(unratedMilli(100 * U, held.ratedMilli)).toBe(90 * U);
+    // Issue 4 kg: all rated, at ₹100.
+    expect(issueTake(held, 4 * U)).toEqual({ ratedMilli: 4 * U, valuePaise: 40_000 });
+    // Issue 15 kg: the 10 rated kg carry the whole ₹1,000; the other 5 kg are old stock at no value.
+    expect(issueTake(held, 15 * U)).toEqual({ ratedMilli: 10 * U, valuePaise: 100_000 });
+    // Nothing rated held: an issue is unrated and worth 0.
+    expect(issueTake({ ratedMilli: 0, valuePaise: 0 }, U)).toEqual({ ratedMilli: 0, valuePaise: 0 });
+    // A rated item at rate 0 (free samples) still uses up rated stock.
+    expect(issueTake({ ratedMilli: 5 * U, valuePaise: 0 }, 2 * U)).toEqual({ ratedMilli: 2 * U, valuePaise: 0 });
   });
 
-  test("averages and shown values clamp at 0", () => {
-    expect(averageRatePaise(0, 100)).toBeNull();
-    expect(averageRatePaise(2 * U, -100)).toBe(0);
-    expect(heldValueShown(5 * U, -1)).toBe(0);
-    expect(heldValueShown(5 * U, 123)).toBe(123);
+  test("a pending GRN borrows the average (which does not move), or comes in unrated with no average", () => {
+    const held = { ratedMilli: 20 * U, valuePaise: 300_000 };
+    const p = pendingGrnTake(held, 10 * U);
+    expect(p).toEqual({ ratedMilli: 10 * U, valuePaise: 150_000 });
+    expect(averageRatePaise({ ratedMilli: held.ratedMilli + p.ratedMilli, valuePaise: held.valuePaise + p.valuePaise })).toBe(15_000);
+    expect(pendingGrnTake({ ratedMilli: 0, valuePaise: 0 }, 10 * U)).toEqual({ ratedMilli: 0, valuePaise: 0 });
+  });
+
+  test("averages: none with nothing rated; never below 0", () => {
+    expect(averageRatePaise({ ratedMilli: 0, valuePaise: 100 })).toBeNull();
+    expect(averageRatePaise({ ratedMilli: 2 * U, valuePaise: -100 })).toBe(0);
+    expect(unratedMilli(5 * U, 7 * U)).toBe(0);
   });
 
   test("the largest quantity at the largest rate stays an exact integer", () => {
@@ -102,9 +115,22 @@ describe("month report", () => {
       inPaise: 75_000 - 20_000,
       outMilli: 4 * U,
       outPaise: 46_667,
+      ratedPaise: 0,
       closingMilli: 11 * U,
       closingPaise: 120_000 + 55_000 - 46_667,
     });
+  });
+
+  test("an opening rate adds value with no quantity, before the month or in it; the report adds up", () => {
+    const entries: ValuationEntry[] = [
+      { kind: "grn", qtyMilli: 90 * U, valuePaise: 0, createdAt: from - 5000, cancelledAt: null }, // old stock, no rate
+      { kind: "rate", qtyMilli: 40 * U, valuePaise: 40_000, createdAt: from - 1000, cancelledAt: null }, // before
+      { kind: "rate", qtyMilli: 50 * U, valuePaise: 60_000, createdAt: day(4), cancelledAt: null }, // in the month
+      { kind: "mrs", qtyMilli: 10 * U, valuePaise: 10_000, createdAt: day(8), cancelledAt: null },
+    ];
+    const r = monthValuation(entries, from, to);
+    expect(r).toMatchObject({ openingMilli: 90 * U, openingPaise: 40_000, ratedPaise: 60_000, outPaise: 10_000, closingMilli: 80 * U });
+    expect(r.closingPaise).toBe(r.openingPaise + r.inPaise - r.outPaise + r.ratedPaise);
   });
 });
 

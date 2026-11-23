@@ -16,17 +16,18 @@
  * Every status change is one UPDATE guarded by the status it expects (write time), plus its audit row.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { rowsPerStatement, chunk } from "@orrn/db/chunk";
 import { COUNTABLE_STORE_UNITS, storeItem } from "@orrn/db/schema/store";
 import { storeIndent, storeIndentLine, storeIndentStatuses, storePo, type StoreIndentRow } from "@orrn/db/schema/storeBuy";
+import { company } from "@orrn/db/schema/tenant";
 import { belowMinimum, nextIndentStatus, reorderQtyMilli, STORE_MAX_DOC_LINES, type StoreIndentAction } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, router } from "../index";
 import type { Context } from "../context";
-import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
+import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { can } from "../lib/permissions";
 import { now as clockNow } from "../lib/clock";
@@ -93,7 +94,23 @@ type NewIndent = {
   reason: string | null;
   source: string | null;
   lines: { itemId: string; qtyMilli: number }[];
+  /** Write-time condition on the header INSERT; the whole batch fails (`isBatchAbort`) when it does not hold. */
+  onlyIf?: SQL;
 };
+
+/**
+ * EXISTS a live indent (open, approved, or ordered on an order not yet closed or cancelled) with the
+ * item: Today's "make indent" returns it instead of raising a second one.
+ */
+function liveIndentForItemSql(companyId: string, itemId: string): SQL {
+  return sql`exists (
+    select 1 from ${storeIndentLine} li
+    join ${storeIndent} ii on ii.id = li.indent_id and ii.company_id = li.company_id
+    left join ${storePo} ip on ip.id = ii.po_id and ip.company_id = ii.company_id
+    where li.company_id = ${companyId} and li.item_id = ${itemId}
+      and (ii.status in ('open', 'approved') or (ii.status = 'ordered' and ip.status in ('draft', 'issued', 'part_received')))
+  )`;
+}
 
 async function insertIndent(ctx: Ctx, input: NewIndent) {
   const userId = ctx.session.user.id;
@@ -101,22 +118,50 @@ async function insertIndent(ctx: Ctx, input: NewIndent) {
   const doc = await nextDocNumber(ctx.db, ctx.companyId, "indent", at, userId);
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const id = crypto.randomUUID();
-  const statements: SqliteBatchItem[] = [
-    ctx.db.insert(storeIndent).values({
-      id,
-      companyId: ctx.companyId,
-      serverSeq: seq,
-      number: doc.number,
-      period: doc.period,
-      department: input.department,
-      neededBy: input.neededBy,
-      reason: input.reason,
-      status: "open",
-      source: input.source,
-      createdBy: userId,
-      createdAt: at,
-    }),
-  ];
+  const header = {
+    id,
+    companyId: ctx.companyId,
+    serverSeq: seq,
+    number: doc.number,
+    period: doc.period,
+    department: input.department,
+    neededBy: input.neededBy,
+    reason: input.reason,
+    status: "open" as const,
+    source: input.source,
+    createdBy: userId,
+    createdAt: at,
+  };
+  const statements: SqliteBatchItem[] = input.onlyIf
+    ? [
+        // Guarded header (INSERT … SELECT … WHERE onlyIf), then fail the whole batch if it did not land.
+        ctx.db.insert(storeIndent).select(
+          ctx.db
+            .select({
+              id: sql<string>`${id}`.as("id"),
+              companyId: sql<string>`${company.id}`.as("company_id"),
+              serverSeq: sql<number>`${seq}`.as("server_seq"),
+              number: sql<string>`${doc.number}`.as("number"),
+              period: sql<string>`${doc.period}`.as("period"),
+              department: sql<string>`${input.department}`.as("department"),
+              neededBy: sql<string | null>`${input.neededBy}`.as("needed_by"),
+              reason: sql<string | null>`${input.reason}`.as("reason"),
+              status: sql<"open">`'open'`.as("status"),
+              source: sql<string | null>`${input.source}`.as("source"),
+              decidedBy: sql<string | null>`null`.as("decided_by"),
+              decidedAt: sql<number | null>`null`.as("decided_at"),
+              decisionNote: sql<string | null>`null`.as("decision_note"),
+              poId: sql<string | null>`null`.as("po_id"),
+              createdBy: sql<string | null>`${userId}`.as("created_by"),
+              createdAt: sql<number>`${at.getTime()}`.as("created_at"),
+              updatedAt: sql<number | null>`null`.as("updated_at"),
+            })
+            .from(company)
+            .where(and(eq(company.id, ctx.companyId), input.onlyIf)),
+        ),
+        abortBatchUnlessChanged(ctx.db),
+      ]
+    : [ctx.db.insert(storeIndent).values(header)];
   const rows = input.lines.map((l, i) => ({
     id: crypto.randomUUID(),
     companyId: ctx.companyId,
@@ -268,19 +313,24 @@ export const storeIndentRouter = router({
     .input(z.object({ itemId: id64 }))
     .mutation(async ({ ctx, input }) => {
       const item = await loadStoreItem(ctx.db, ctx.companyId, input.itemId);
-      const [live] = await ctx.db
-        .select({ id: storeIndent.id, number: storeIndent.number })
-        .from(storeIndentLine)
-        .innerJoin(storeIndent, and(eq(storeIndent.id, storeIndentLine.indentId), eq(storeIndent.companyId, storeIndentLine.companyId)))
-        .leftJoin(storePo, and(eq(storePo.id, storeIndent.poId), eq(storePo.companyId, storeIndent.companyId)))
-        .where(
-          and(
-            eq(storeIndentLine.companyId, ctx.companyId),
-            eq(storeIndentLine.itemId, item.id),
-            sql`(${storeIndent.status} in ('open', 'approved') or (${storeIndent.status} = 'ordered' and ${storePo.status} in ('draft', 'issued', 'part_received')))`,
-          ),
-        )
-        .limit(1);
+      const findLive = async () =>
+        (
+          await ctx.db
+            .select({ id: storeIndent.id, number: storeIndent.number })
+            .from(storeIndentLine)
+            .innerJoin(storeIndent, and(eq(storeIndent.id, storeIndentLine.indentId), eq(storeIndent.companyId, storeIndentLine.companyId)))
+            .leftJoin(storePo, and(eq(storePo.id, storeIndent.poId), eq(storePo.companyId, storeIndent.companyId)))
+            .where(
+              and(
+                eq(storeIndentLine.companyId, ctx.companyId),
+                eq(storeIndentLine.itemId, item.id),
+                sql`(${storeIndent.status} in ('open', 'approved') or (${storeIndent.status} = 'ordered' and ${storePo.status} in ('draft', 'issued', 'part_received')))`,
+              ),
+            )
+            .orderBy(asc(storeIndent.createdAt))
+            .limit(1)
+        )[0];
+      const live = await findLive();
       if (live) return { id: live.id, number: live.number, existing: true as const };
       const store = await resolveStoreLocation(ctx.db, ctx.companyId);
       const balanceMilli = await storeBalance(ctx.db, ctx.companyId, item.id, store.id);
@@ -294,14 +344,23 @@ export const storeIndentRouter = router({
         countable: (COUNTABLE_STORE_UNITS as readonly string[]).includes(item.unit),
       });
       assertStoreQty(item, [qtyMilli]);
-      const made = await insertIndent(ctx, {
-        department: "Store",
-        neededBy: null,
-        reason: "Below minimum",
-        source: "reorder",
-        lines: [{ itemId: item.id, qtyMilli }],
-      });
-      return { ...made, existing: false as const };
+      try {
+        const made = await insertIndent(ctx, {
+          department: "Store",
+          neededBy: null,
+          reason: "Below minimum",
+          source: "reorder",
+          lines: [{ itemId: item.id, qtyMilli }],
+          // Two clicks (two tabs, two storekeepers) racing past the read above: only one indent lands.
+          onlyIf: sql`not ${liveIndentForItemSql(ctx.companyId, item.id)}`,
+        });
+        return { ...made, existing: false as const };
+      } catch (e) {
+        if (!isBatchAbort(e)) throw e;
+        const won = await findLive();
+        if (won) return { id: won.id, number: won.number, existing: true as const };
+        throw new TRPCError({ code: "CONFLICT", message: "The store changed; try again" });
+      }
     }),
 
   approve: actionProcedure("indent.approve")
