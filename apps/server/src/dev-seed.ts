@@ -77,7 +77,6 @@ import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
-import { packingListWriteBatch } from "@orrn/server/routers/packingList";
 import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSerial";
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
@@ -391,6 +390,8 @@ export type SeedResult =
  * at any hour, across a month or a financial year. The route never passes it.
  */
 export async function seedDevData(db: Db, opts: { password: string; now?: number }): Promise<SeedResult> {
+  // Dynamic: a static import would evaluate the packing-list router at Worker startup (routers load lazily, AGENTS.md).
+  const { packingListWriteBatch } = await import("@orrn/server/routers/packingList");
   const now = opts.now ?? Date.now();
   const password = opts.password;
   if (!password) throw new Error("dev-seed: refusing to run without ORRN_LOCAL_PASSWORD");
