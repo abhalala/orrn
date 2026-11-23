@@ -374,6 +374,40 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     expect((await other.as("press").drawbench.list({ limit: 50, offset: 0 })).items).toEqual([]);
   });
 
+  test("draw bench and fabrication routers: tenancy, permission and the happy path for start, receive, cancel, list and get", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const other = await plant();
+    for (const [name, startArgs] of [["drawbench", { passes: 1 }], ["fabrication", { ops: ["cut"] as ("cut")[] }]] as const) {
+      const r = p.as("press")[name];
+      const [s1, s2] = await p.pack(p.dieA, [{ kg: 10 }, { kg: 10 }]);
+      const b1 = await bundleBy(p, s1!);
+      for (const role of ROLES.filter((x) => !can(x, "process.run"))) {
+        await expect(p.as(role)[name].start({ ...startArgs, codes: [s1!] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      }
+      const a = await r.start({ ...startArgs, codes: [s1!] });
+      const b = await r.start({ ...startArgs, codes: [s2!] });
+      // Another plant never sees, receives or cancels these steps.
+      await expect(other.as("press")[name].get({ id: a.id })).rejects.toMatchObject({ code: "NOT_FOUND", message: "Not found" });
+      await expect(other.as("press")[name].cancel({ id: a.id, reason: "x" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(other.as("press")[name].receive({ id: a.id, mode: "same", locationId: other.yard, same: [{ bundleId: b1.id, weightG: kg(10) }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect((await other.as("press")[name].list({ limit: 50, offset: 0 })).items).toEqual([]);
+      // Who may not run the line may not cancel or receive either.
+      await expect(p.as("office")[name].cancel({ id: a.id, reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(p.as("office")[name].receive({ id: a.id, mode: "same", locationId: p.yard, same: [{ bundleId: b1.id, weightG: kg(10) }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      // Happy path: list and get, cancel one (the bundle is free again), receive the other.
+      expect((await r.list({ limit: 50, offset: 0 })).items.map((x) => x.id).sort()).toEqual([a.id, b.id].sort());
+      expect((await r.get({ id: a.id })).inputs.map((i) => i.serial)).toEqual([s1!]);
+      await r.cancel({ id: a.id, reason: "wrong bundle" });
+      expect((await r.get({ id: a.id })).step.status).toBe("cancelled");
+      expect((await p.owner.process.forBundle({ bundleId: b1.id }))?.open).toBeNull();
+      const b2 = await bundleBy(p, s2!);
+      await r.receive({ id: b.id, mode: "same", locationId: p.yard, same: [{ bundleId: b2.id, weightG: kg(9.5) }] });
+      expect((await r.get({ id: b.id })).step.status).toBe("done");
+      await expectLedgerConsistent(p);
+    }
+  });
+
   test("fabrication: cut to length on the same bundles with rejects and the time taken; in-house finishing records batch and chemicals", async () => {
     setClock(NOON);
     const p = await plant();
