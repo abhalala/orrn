@@ -18,6 +18,7 @@ import { qtyText, unitShort } from "@/features/store/store-labels";
 import { StoreLoadError, StoreNote, StoreSection } from "@/features/store/store-ui";
 import { useFmt } from "@/shared/lib/fmt";
 import { bookDateText, whenText } from "@/shared/lib/fmt-text";
+import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -78,7 +79,7 @@ export function PoDetailPage({ id }: { id: string }) {
 
   const { po, lines, totals, grns } = data;
   const receivedAny = lines.some((l) => l.receivedMilli > 0);
-  const actions = poActions(po.status, receivedAny, access.manageOrders);
+  const actions = poActions(po.status, receivedAny, true);
   const status = po.status as PoStatus;
 
   const open = (what: Exclude<Ask, null>) => {
@@ -180,12 +181,14 @@ export function PoDetailPage({ id }: { id: string }) {
         actions={
           <>
             {actions.edit ? (
-              <Button asChild variant="secondary">
-                <Link to="/store/po/$id/edit" params={{ id }}>
-                  <Pencil aria-hidden="true" strokeWidth={2} />
-                  {t("store2.po.action.edit")}
-                </Link>
-              </Button>
+              <Can do="po.manage">
+                <Button asChild variant="secondary">
+                  <Link to="/store/po/$id/edit" params={{ id }}>
+                    <Pencil aria-hidden="true" strokeWidth={2} />
+                    {t("store2.po.action.edit")}
+                  </Link>
+                </Button>
+              </Can>
             ) : null}
             <Button asChild variant="secondary">
               <Link to="/store/po/$id/print" params={{ id }}>
@@ -194,20 +197,26 @@ export function PoDetailPage({ id }: { id: string }) {
               </Link>
             </Button>
             {actions.cancel ? (
-              <Button variant="secondary" onClick={() => open("cancel")} aria-haspopup="dialog">
-                {t("store2.po.action.cancel")}
-              </Button>
+              <Can do="po.manage">
+                <Button variant="secondary" onClick={() => open("cancel")} aria-haspopup="dialog">
+                  {t("store2.po.action.cancel")}
+                </Button>
+              </Can>
             ) : null}
             {actions.closeShort ? (
-              <Button variant="secondary" onClick={() => open("close")} aria-haspopup="dialog">
-                {t("store2.po.action.closeShort")}
-              </Button>
+              <Can do="po.manage">
+                <Button variant="secondary" onClick={() => open("close")} aria-haspopup="dialog">
+                  {t("store2.po.action.closeShort")}
+                </Button>
+              </Can>
             ) : null}
             {actions.send ? (
-              <Button onClick={() => open("send")} aria-haspopup="dialog">
-                <Send aria-hidden="true" strokeWidth={2} />
-                {t("store2.po.action.send")}
-              </Button>
+              <Can do="po.manage">
+                <Button onClick={() => open("send")} aria-haspopup="dialog">
+                  <Send aria-hidden="true" strokeWidth={2} />
+                  {t("store2.po.action.send")}
+                </Button>
+              </Can>
             ) : null}
           </>
         }

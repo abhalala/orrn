@@ -37,6 +37,7 @@ export function GrnBuyFields({
   const { t } = useT();
   const fmt = useFmt();
   const { data: me } = useMe();
+  const canRate = can(me, "store.rate");
   const poId = `grn-po-${useId().replace(/:/g, "")}`;
   const lines = useQuery({
     ...trpc.store.po.openLines.queryOptions({ itemId: itemId ?? undefined }),
@@ -53,6 +54,7 @@ export function GrnBuyFields({
 
   // The rate is always per kilogram (or per piece, litre...) on the server, whatever unit the plant shows weights in.
   const rateUnit = unit ? unitShort(t, unit, 1000) : "";
+  const rateLabel = unit ? t("store2.grn.rate", { unit: rateUnit }) : t("store2.po.form.rateNoUnit");
   const qtyUnit = unit ? unitShort(t, unit, 2000, fmt) : "";
 
   return (
@@ -90,19 +92,28 @@ export function GrnBuyFields({
         </Field>
       ) : null}
 
-      <Field
-        label={unit ? t("store2.grn.rate", { unit: rateUnit }) : t("store2.po.form.rateNoUnit")}
-        hint={picked ? t("store2.grn.rateFromPo", { rate: rupees(picked.ratePaise) }) : t("store2.grn.rateHint")}
-        error={showErrors && !parsed.ok && parsed.rate ? t("store2.grn.rateInvalid") : undefined}
-      >
-        <TextInput
-          value={draft.rate}
-          onChangeText={(v) => onChange({ ...draft, rate: v })}
-          inputMode="decimal"
-          autoComplete="off"
-          maxLength={14}
-        />
-      </Field>
+      {canRate ? (
+        <Field
+          label={rateLabel}
+          hint={picked ? t("store2.grn.rateFromPo", { rate: rupees(picked.ratePaise) }) : t("store2.grn.rateHint")}
+          error={showErrors && !parsed.ok && parsed.rate ? t("store2.grn.rateInvalid") : undefined}
+        >
+          <TextInput
+            value={draft.rate}
+            onChangeText={(v) => onChange({ ...draft, rate: v })}
+            inputMode="decimal"
+            autoComplete="off"
+            maxLength={14}
+          />
+        </Field>
+      ) : picked ? (
+        // The order's rate, to read only: the server uses it, and the storekeeper never sends one.
+        <Field label={rateLabel} hint={t("store2.grn.rateFromPo", { rate: rupees(picked.ratePaise) })}>
+          <TextInput value={paiseToText(picked.ratePaise)} readOnly inputMode="decimal" />
+        </Field>
+      ) : (
+        <p className="m-0 text-[14px] text-muted-foreground">{t("store2.grn.rateByOffice")}</p>
+      )}
 
       <Field
         label={t("store2.grn.rejected")}

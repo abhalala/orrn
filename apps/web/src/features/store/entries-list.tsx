@@ -346,7 +346,7 @@ function EntrySheet({
             {e.poNumber ? <Fact label={t("store2.grn.entryPo")}>{e.poNumber}</Fact> : null}
             {e.kind === "grn" ? (
               <Fact label={t("store2.grn.entryRate")}>
-                {e.ratePaise === null ? t("store2.money.noRate") : t("store2.money.perUnit", { rate: rupees(e.ratePaise), unit: unitShort(t, e.unit, 1000) })}
+                {e.ratePaise === null ? (e.ratePending ? t("store2.money.ratePending") : t("store2.money.noRate")) : t("store2.money.perUnit", { rate: rupees(e.ratePaise), unit: unitShort(t, e.unit, 1000) })}
               </Fact>
             ) : null}
             {e.rejectedMilli ? (

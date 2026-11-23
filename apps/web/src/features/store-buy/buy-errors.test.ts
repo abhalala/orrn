@@ -22,6 +22,11 @@ const CASES: [ReturnType<typeof server>, MessageKey][] = [
   [server("BAD_REQUEST", "At most 40 items on one order"), "store2.errors.tooManyLines"],
   [server("BAD_REQUEST", "The same item is on the indent twice"), "store2.errors.sameItemTwice"],
   [server("CONFLICT", "LDO is not below its minimum"), "store2.errors.notBelow"],
+  [server("FORBIDDEN", "Only the office can change the order's rate"), "store2.errors.rateOfficeOnlyPo"],
+  [server("FORBIDDEN", "Only the office can set a rate; leave it empty and it stays pending"), "store2.errors.rateOfficeOnly"],
+  [server("BAD_REQUEST", "All the Cover flux in the store already has a rate"), "store2.errors.allRated"],
+  [server("BAD_REQUEST", "Stock from this delivery has already been issued. Record a return to the vendor instead."), "store2.errors.issuedSince"],
+  [server("BAD_REQUEST", "This delivery's stock already has an opening rate. Record a return to the vendor instead."), "store2.errors.openingRated"],
 ];
 
 describe("buyErrorText", () => {
@@ -40,6 +45,13 @@ describe("buyErrorText", () => {
   test("the over-order refusal keeps the numbers", () => {
     const { t } = createI18n("en");
     expect(buyErrorText(t, server("BAD_REQUEST", "Over the order: PO-12 line 2 takes at most 4.5 more kg"))).toContain("PO-12 line 2 can take only 4.5 kg more");
+  });
+
+  test("the rate refusals say the office sets rates, not the generic forbidden", () => {
+    const { t } = createI18n("en");
+    const text = buyErrorText(t, server("FORBIDDEN", "Only the office can set a rate; leave it empty and it stays pending"));
+    expect(text).not.toBe(t("store2.errors.forbidden"));
+    expect(text).toContain("office");
   });
 
   test("forbidden and unknown fall back to plain words", () => {

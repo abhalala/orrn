@@ -40,8 +40,15 @@ describe("csv", () => {
     expect(csvText([["a", "b"], [1, 2]])).toBe("a,b\r\n1,2\r\n");
   });
   test("month report in exact decimals with a total row", () => {
-    const row = { name: "Flux", unit: "kg", openingMilli: 1500, openingPaise: 12345, inMilli: 0, inPaise: 0, outMilli: 250, outPaise: 100, closingMilli: 1250, closingPaise: 12245 };
-    const csv = monthCsv(["h"], [row], { openingPaise: 12345, inPaise: 0, outPaise: 100, closingPaise: 12245 }, "Total", (u) => u);
-    expect(csv).toBe("h\r\nFlux,kg,1.500,123.45,0.000,0.00,0.250,1.00,1.250,122.45\r\nTotal,,,123.45,,0.00,,1.00,,122.45\r\n");
+    const row = { name: "Flux", unit: "kg", openingMilli: 1500, openingPaise: 12345, inMilli: 0, inPaise: 0, outMilli: 250, outPaise: 100, ratedPaise: 0, closingMilli: 1250, closingPaise: 12245, closingUnratedMilli: 0 };
+    const totals = { openingPaise: 12345, inPaise: 0, outPaise: 100, ratedPaise: 0, closingPaise: 12245 };
+    const csv = monthCsv(["h"], [row], totals, "Total", (u) => u);
+    expect(csv).toBe("h\r\nFlux,kg,1.500,123.45,0.000,0.00,0.250,1.00,0.00,1.250,122.45,0.000\r\nTotal,,,123.45,,0.00,,1.00,0.00,,122.45,\r\n");
+  });
+  test("old stock rated and the quantity still without a rate get their own columns", () => {
+    const row = { name: "Flux", unit: "kg", openingMilli: 1000, openingPaise: 0, inMilli: 0, inPaise: 0, outMilli: 0, outPaise: 0, ratedPaise: 8450, closingMilli: 1000, closingPaise: 8450, closingUnratedMilli: 400 };
+    const totals = { openingPaise: 0, inPaise: 0, outPaise: 0, ratedPaise: 8450, closingPaise: 8450 };
+    const csv = monthCsv(["h"], [row], totals, "Total", (u) => u);
+    expect(csv).toBe("h\r\nFlux,kg,1.000,0.00,0.000,0.00,0.000,0.00,84.50,1.000,84.50,0.400\r\nTotal,,,0.00,,0.00,,0.00,84.50,,84.50,\r\n");
   });
 });

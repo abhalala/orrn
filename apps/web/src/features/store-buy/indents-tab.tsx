@@ -16,13 +16,15 @@ import { toast } from "sonner";
 
 import { Qty } from "@/features/store/balances-list";
 import { StoreLoadError } from "@/features/store/store-ui";
+import { Can } from "@/shared/components/can";
 import { useFmt } from "@/shared/lib/fmt";
+import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { buyErrorText } from "./buy-errors";
 import { IndentSheet } from "./indent-sheet";
 import { indentActions, indentTone, INDENT_STATUSES, knownStatus, type IndentStatus } from "./indent-model";
-import { useBuyAccess, useInvalidateBuy, type IndentRow } from "./use-buy";
+import { useInvalidateBuy, type IndentRow } from "./use-buy";
 
 const LIMIT = 100;
 
@@ -30,7 +32,6 @@ const LIMIT = 100;
 export function IndentsTab() {
   const { t } = useT();
   const fmt = useFmt();
-  const access = useBuyAccess();
   const [status, setStatus] = useState<IndentStatus | "">("");
   const [raising, setRaising] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -77,12 +78,12 @@ export function IndentsTab() {
             ))}
           </NativeSelect>
         </Field>
-        {access.raise ? (
+        <Can do="indent.raise">
           <Button onClick={() => setRaising(true)} aria-haspopup="dialog">
             <Plus aria-hidden="true" strokeWidth={2} />
             {t("store2.indent.raise")}
           </Button>
-        ) : null}
+        </Can>
       </div>
 
       {list.isError && !list.data ? (
@@ -100,10 +101,12 @@ export function IndentsTab() {
                 title={status ? t("store2.indent.empty.filtered") : t("store2.indent.empty.title")}
                 body={status ? undefined : t("store2.indent.empty.body")}
                 action={
-                  !status && access.raise ? (
-                    <Button onClick={() => setRaising(true)} aria-haspopup="dialog">
-                      {t("store2.indent.raise")}
-                    </Button>
+                  !status ? (
+                    <Can do="indent.raise">
+                      <Button onClick={() => setRaising(true)} aria-haspopup="dialog">
+                        {t("store2.indent.raise")}
+                      </Button>
+                    </Can>
                   ) : undefined
                 }
               />
@@ -132,7 +135,7 @@ type Ask = "reject" | "cancel" | null;
 function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
   const { t } = useT();
   const fmt = useFmt();
-  const access = useBuyAccess();
+  const me = useMe();
   const invalidate = useInvalidateBuy();
   const noteId = `indent-note-${useId().replace(/:/g, "")}`;
   const detail = useQuery({ ...trpc.store.indents.get.queryOptions({ id: id ?? "" }), enabled: id !== null });
@@ -165,8 +168,9 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
 
   const data = detail.data;
   const indent = data?.indent;
+  const mine = !!indent && me.data?.user.id !== undefined && indent.createdBy === me.data.user.id;
   const actions = indent
-    ? indentActions(indent.status, indent, { userId: access.userId, decide: access.decide, manageOrders: access.manageOrders })
+    ? indentActions(indent.status, indent, { userId: me.data?.user.id ?? null, decide: true, manageOrders: true })
     : null;
 
   const run = async (kind: "approve" | "reject" | "cancel") => {
@@ -201,26 +205,35 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
       ) : (
         <>
           {actions.cancel ? (
-            <Button variant="ghost" size="lg" onClick={() => setAsk("cancel")}>
-              {t("store2.indent.detail.cancel")}
-            </Button>
+            // The server lets the raiser cancel (indent.raise) or any approver (indent.approve).
+            <Can do={mine ? ["indent.raise", "indent.approve"] : "indent.approve"}>
+              <Button variant="ghost" size="lg" onClick={() => setAsk("cancel")}>
+                {t("store2.indent.detail.cancel")}
+              </Button>
+            </Can>
           ) : null}
           {actions.reject ? (
-            <Button variant="secondary" size="lg" onClick={() => setAsk("reject")}>
-              {t("store2.indent.detail.reject")}
-            </Button>
+            <Can do="indent.approve">
+              <Button variant="secondary" size="lg" onClick={() => setAsk("reject")}>
+                {t("store2.indent.detail.reject")}
+              </Button>
+            </Can>
           ) : null}
           {actions.approve ? (
-            <Button size="lg" loading={busy} onClick={() => void run("approve")}>
-              {t("store2.indent.detail.approve")}
-            </Button>
+            <Can do="indent.approve">
+              <Button size="lg" loading={busy} onClick={() => void run("approve")}>
+                {t("store2.indent.detail.approve")}
+              </Button>
+            </Can>
           ) : null}
           {actions.makeOrder ? (
-            <Button asChild size="lg">
-              <Link to="/store/po/new" search={{ indent: indent.id }}>
-                {t("store2.indent.detail.makeOrder")}
-              </Link>
-            </Button>
+            <Can do="po.manage">
+              <Button asChild size="lg">
+                <Link to="/store/po/new" search={{ indent: indent.id }}>
+                  {t("store2.indent.detail.makeOrder")}
+                </Link>
+              </Button>
+            </Can>
           ) : null}
         </>
       )
@@ -281,7 +294,11 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
                 </Link>
               </p>
             ) : null}
-            {actions?.makeOrder ? <p className="m-0 text-[14px] text-muted-foreground">{t("store2.indent.detail.makeOrderHint")}</p> : null}
+            {actions?.makeOrder ? (
+              <Can do="po.manage">
+                <p className="m-0 text-[14px] text-muted-foreground">{t("store2.indent.detail.makeOrderHint")}</p>
+              </Can>
+            ) : null}
 
             {ask ? (
               <Field
@@ -292,9 +309,11 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
                 <TextArea value={text} rows={3} maxLength={500} onChangeText={setText} />
               </Field>
             ) : actions?.approve ? (
-              <Field label={t("store2.indent.detail.noteLabel")} hint={t("store2.indent.detail.noteHint")}>
-                <TextArea value={text} rows={2} maxLength={500} onChangeText={setText} />
-              </Field>
+              <Can do="indent.approve">
+                <Field label={t("store2.indent.detail.noteLabel")} hint={t("store2.indent.detail.noteHint")}>
+                  <TextArea value={text} rows={2} maxLength={500} onChangeText={setText} />
+                </Field>
+              </Can>
             ) : null}
 
             {error ? (

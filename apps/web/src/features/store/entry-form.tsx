@@ -33,7 +33,7 @@ import { MASS_KG } from "@/shared/lib/plant-input";
 import type { Fmt } from "@orrn/domain";
 import { useFmt } from "@/shared/lib/fmt";
 import { GrnBuyFields } from "@/features/store-buy/grn-fields";
-import { EMPTY_GRN_BUY, grnBuyInput, type GrnBuyDraft } from "@/features/store-buy/grn-model";
+import { EMPTY_GRN_BUY, grnBuyInput, parseAcceptedMilli, type GrnBuyDraft } from "@/features/store-buy/grn-model";
 import { buyErrorText } from "@/features/store-buy/buy-errors";
 
 export type EntryMode = "receive" | "issue" | "exchange";
@@ -226,7 +226,10 @@ function EntryFormBody({
   const issue = useMutation(trpc.store.issue.mutationOptions());
   const exchange = useMutation(trpc.store.exchange.mutationOptions());
   const mutation = mode === "receive" ? receive : mode === "issue" ? issue : exchange;
-  const buyParsed = grnBuyInput(buy, unit);
+  const { data: me } = useMe();
+  const canRate = can(me, "store.rate");
+  const buyParsed = grnBuyInput(buy, unit, canRate);
+  const rejectedForQty = buyParsed.ok ? buyParsed.rejectedMilli : null;
 
   // What is wrong with each field right now (shown once touched or after a submit attempt).
   const problems = useMemo(() => {
@@ -234,7 +237,11 @@ function EntryFormBody({
     const short: FieldKey[] = [];
     if (!item) out.item = t("store.form.itemRequired");
     const parse = (text: string, key: FieldKey) => {
-      const parsed = parseQtyMilli(text, unit);
+      // A GRN may accept nothing when the whole delivery was rejected.
+      const parsed =
+        mode === "receive" && key === "qty"
+          ? parseAcceptedMilli(text, unit, rejectedForQty)
+          : parseQtyMilli(text, unit);
       if (!parsed.ok) {
         out[key] = qtyProblemText(t, parsed.problem);
         return null;
@@ -257,7 +264,7 @@ function EntryFormBody({
       signature = entrySignature({ mode, itemId: item.id, outMilli, inMilli, note });
     } else if (item && mode !== "exchange" && milli !== null) {
       signature = entrySignature({ mode, itemId: item.id, milli, purpose, ref, challan, note });
-      if (mode === "receive") signature += `|${buy.poLineId ?? ""}|${buy.rate.trim()}|${buy.rejected.trim()}`;
+      if (mode === "receive") signature += `|${buy.poLineId ?? ""}|${canRate ? buy.rate.trim() : ""}|${buy.rejected.trim()}`;
     }
 
     // Not enough in the store, against the balance last loaded. Skipped for a resend of a submit
@@ -274,7 +281,7 @@ function EntryFormBody({
     if (mode === "exchange") checkShort(outMilli, "old");
     if (mode === "issue") checkShort(milli, "qty");
     return { errors: out, short, milli, outMilli, inMilli, signature };
-  }, [item, unit, qty, oldQty, newQty, purpose, ref, challan, note, buy, mode, unsure, t]);
+  }, [item, unit, qty, oldQty, newQty, purpose, ref, challan, note, buy, canRate, rejectedForQty, mode, unsure, t]);
 
   const shownError = (key: FieldKey) => {
     const e = problems.errors[key];

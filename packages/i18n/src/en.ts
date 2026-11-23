@@ -2093,6 +2093,8 @@ export const en = {
       retireWithStock: "Only an empty item can be retired. Issue what is left, or cancel its entries, first.",
       unitLocked: "The unit can't change because this item already has entries.",
       cancelDrawn: "You can't cancel this entry because some of what it brought in has been issued since. Cancel those issues first.",
+      cancelIssued: "Some stock from this delivery has already gone out. Record a return to the vendor instead.",
+      cancelRated: "Opening rate was already given to this delivery's stock. Record a return to the vendor instead.",
       cancelItemRetired: "This item is retired. Bring it back into use first, then cancel the entry.",
       cancelLocationRetired: "The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry.",
       alreadyCancelled: "This entry is already cancelled.",

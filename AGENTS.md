@@ -703,31 +703,54 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 ## Store buying: indents, purchase orders, GRN against PO, valuation (XE store rows 69 to 73)
 
 - Migration `0062_xe_store2`. Tables `store_indent` / `store_indent_line` / `store_po` / `store_po_line`
-  in `packages/db/src/schema/storeBuy.ts`; `store_item.min_milli` / `reorder_milli`; `store_txn`
-  gains `rate_paise` (nullable), `value_paise` (not null, default 0), `po_line_id`, `rejected_milli`.
+  / `store_opening_rate` in `packages/db/src/schema/storeBuy.ts`; `store_item.min_milli` / `reorder_milli`;
+  `store_txn` gains `rate_paise` (nullable), `value_paise` and `rated_milli` (not null, default 0),
+  `rate_pending` (boolean, default false), `po_line_id`, `rejected_milli`.
   Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
 - Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
   `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
   (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
 - Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
   admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
-  (office, manager, admin, accountant). Indent: open -> approved | rejected (note required) ->
+  (office, manager, admin, accountant), `store.rate` (office, manager, admin, accountant: the rate is
+  settled by the bill, not at the gate). Indent: open -> approved | rejected (note required) ->
   ordered (a PO made from it) | cancelled. PO: draft (editable) -> issued -> part_received -> closed;
-  cancel only with no live GRN (the indent goes back to approved); close short by hand.
-- GRN against PO: `store.receive` takes `poLineId`, `ratePaise` (defaults to the line's rate) and
-  `rejectedMilli`. The room check (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in
-  the document INSERT's WHERE, so racing GRNs cannot overrun; `poStatusSync` runs in the same batch,
-  and again on `store.cancel`. Tolerance: `company.settings.storePoOverReceiptBp` (default 500 = 5 %,
-  max 5000), written with `settingsPatchSql`. A GRN without a PO works exactly as before.
-- Valuation (weighted average, `lib/storeValue.ts`): every `store_txn.value_paise` is frozen at write.
-  GRN = round(qty x rate / 1000), 0 with no rate ("no rate" on screens). MRS = held value x qty / held
-  qty, computed in SQL inside `storeTxnInsert` (`issueValueSql`); an issue that empties the item takes
-  all remaining value. Held qty/value sum non-cancelled txns. MAINT and others read an issue's value
-  with `storeIssueValuePaise(db, companyId, storeTxnId)` (0 for a non-MRS, cancelled, missing or other
-  plant's entry). Rates are always per store unit (per kg, never converted to the plant's weight unit).
-- Web: `/store/buy` (tabs indents, orders, value), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy
-  A4 `print`), reorder levels on the item page, PO line / rate / rejected on the GRN form, Today tile
-  `TodayStoreLowTile` (store.txn) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+  cancel only with no live GRN that took goods in (the indent goes back to approved); close short by hand.
+  `store.indents.fromReorder` holds "no live indent with this item" in the header INSERT's WHERE plus
+  `abortBatchUnlessChanged`, so two clicks give one indent (the loser gets the live one back, `existing`).
+- GRN against PO: `store.receive` takes `poLineId`, `ratePaise` and `rejectedMilli`. The room check
+  (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in the document INSERT's WHERE, so
+  racing GRNs cannot overrun; `poStatusSync` runs in the same batch, and again on `store.cancel`. An order
+  a full delivery closed (`closed_by` null) still takes a top-up within the tolerance (`poTakesDeliveries`,
+  `poTakesDeliveriesSql`); one closed short by hand takes none. Tolerance:
+  `company.settings.storePoOverReceiptBp` (default 500 = 5 %, max 5000), written with `settingsPatchSql`.
+  `qtyMilli` may be 0 when `rejectedMilli` > 0: a fully rejected delivery is recorded (vendor history) with
+  no stock and no value, and does not count as goods in on the order.
+- Rates: against a PO line the line's rate holds; a different rate, or any rate on a GRN with no PO,
+  needs `store.rate` (FORBIDDEN otherwise; the audit keeps `ratePaise` and `poRatePaise`). With no rate the
+  GRN is `rate_pending`: valued at the item's average when it lands (the average does not move), or unrated
+  at 0 when nothing rated is held. `store.valuation.setGrnRate` (store.rate) sets it later, only while no
+  live MRS of the item was written after the GRN (`storeOutSinceSql`, in the UPDATE's WHERE too).
+- Valuation (weighted average, `lib/storeValue.ts`): every `store_txn.value_paise` and `rated_milli` is
+  frozen at write. The average is held value over RATED held quantity, so stock with no rate never pulls it
+  down. MRS: takes rated stock first, valued at value x part / rated, computed in SQL inside
+  `storeTxnInsert` (`issueTakeSql`); the issue that takes all rated stock takes all the value. Old GRNs from
+  before 0062 are unrated (shown as "rate not set"); `store.valuation.setOpeningRate` (store.rate) inserts a
+  `store_opening_rate` row that rates the unrated quantity held at that moment (computed in the INSERT) and
+  closes any pending GRN it covered. Held qty/value/rated sum live txns plus opening rates; nothing is
+  clamped and the month report adds up (opening + in - out + rated = closing).
+- Cancel keeps values exact: `storeCancelRows` also requires, group-wide, that no live MRS of the item was
+  written after the group's GRN (commit order by `rowid`: `created_at` and `server_seq` are read before the
+  batch), and that the unrated quantity held stays >= 0 (an opening rate already rated it). Refusal, read
+  time and after a lost write (`diagnoseStoreCancel`): "Stock from this delivery has already been issued.
+  Record a return to the vendor instead." A GRN that accepted 0 is never blocked.
+- MAINT and others read an issue's value with `storeIssueValuePaise(db, companyId, storeTxnId)` (0 for a
+  non-MRS, cancelled, missing or other plant's entry). Rates are always per store unit (per kg, never
+  converted to the plant's weight unit).
+- Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
+  rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
+  line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`
+  (store.txn, store module on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
 
 ## Foundry (casts, melts, spectro, close-out)
 

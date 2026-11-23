@@ -38,6 +38,7 @@ export const store2En = {
   money: {
     noRate: "No rate",
     perUnit: "{rate} per {unit}",
+    ratePending: "Rate pending",
   },
   grn: {
     entryPo: "Purchase order",
@@ -51,6 +52,7 @@ export const store2En = {
     rate: "Rate per {unit}",
     rateHint: "Rupees, from the vendor's bill. Leave empty if you do not know it yet.",
     rateFromPo: "From the order: {rate}",
+    rateByOffice: "The office sets the rate. Until then this delivery counts at the average rate.",
     rateInvalid: "Enter the rate in rupees, like 84.50",
     rejected: "Rejected at inspection",
     rejectedHint: "What you turned back. It does not go into the store.",
@@ -93,6 +95,11 @@ export const store2En = {
     sameItemTwice: "The same item is on it twice. Put it on one line.",
     notBelow: "This item is not below its minimum any more.",
     forbidden: "You do not have permission to do that.",
+    rateOfficeOnlyPo: "Only the office can change the order's rate. Leave the rate as the order has it.",
+    rateOfficeOnly: "Only the office can set a rate. Leave it empty and the office will set it.",
+    allRated: "All of this item in the store already has a rate.",
+    issuedSince: "Some stock from this delivery has already gone out. Record a return to the vendor instead.",
+    openingRated: "Opening rate was already given to this delivery's stock. Record a return to the vendor instead.",
     unknown: "That did not work. Try again.",
   },
   indent: store2IndentEn,

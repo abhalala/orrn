@@ -1,4 +1,4 @@
-import { parseQtyMilli, type QtyProblem, type StoreUnit } from "@/features/store/store-qty";
+import { parseQtyMilli, type QtyProblem, type QtyResult, type StoreUnit } from "@/features/store/store-qty";
 
 import { ratePaiseFromText } from "./money";
 
@@ -12,11 +12,13 @@ export type GrnBuyInput =
   | { ok: false; rate?: "invalid"; rejected?: QtyProblem };
 
 /**
- * An empty rate stays unknown (null: the server takes the order line's rate, or values the GRN at 0 with
- * "no rate"). An empty or zero rejected box sends nothing.
+ * An empty rate stays unknown (null: the server takes the order line's rate, or the GRN waits for the
+ * office to set one). An empty or zero rejected box sends nothing. Only a person who can set rates
+ * (`canRate`, store.rate) ever sends one: for everyone else the rate box is ignored, so the server uses
+ * the order's rate or leaves it pending.
  */
-export function grnBuyInput(draft: GrnBuyDraft, unit: StoreUnit | null): GrnBuyInput {
-  const rateText = draft.rate.trim();
+export function grnBuyInput(draft: GrnBuyDraft, unit: StoreUnit | null, canRate: boolean): GrnBuyInput {
+  const rateText = canRate ? draft.rate.trim() : "";
   const ratePaise = rateText === "" ? null : ratePaiseFromText(rateText);
   const rateBad = rateText !== "" && ratePaise === null;
   let rejectedMilli: number | null = null;
@@ -28,4 +30,14 @@ export function grnBuyInput(draft: GrnBuyDraft, unit: StoreUnit | null): GrnBuyI
   }
   if (rateBad || rejectedBad) return { ok: false, rate: rateBad ? "invalid" : undefined, rejected: rejectedBad };
   return { ok: true, poLineId: draft.poLineId, ratePaise, rejectedMilli };
+}
+
+/**
+ * The accepted quantity of a GRN. Zero is allowed only when something was rejected (a delivery turned
+ * back whole, kept as a record); every other check is the usual quantity check.
+ */
+export function parseAcceptedMilli(text: string, unit: StoreUnit | null, rejectedMilli: number | null): QtyResult {
+  const r = parseQtyMilli(text, unit);
+  if (!r.ok && r.problem === "zero" && rejectedMilli !== null && rejectedMilli > 0) return { ok: true, milli: 0 };
+  return r;
 }

@@ -13,6 +13,7 @@ export type PoRow = Outputs["store"]["po"]["list"]["items"][number];
 export type PoDetail = Outputs["store"]["po"]["get"];
 export type PoOpenLine = Outputs["store"]["po"]["openLines"]["items"][number];
 export type ValuationItem = Outputs["store"]["valuation"]["items"]["items"][number];
+export type PendingGrn = Outputs["store"]["valuation"]["pending"]["items"][number];
 export type MonthValuation = Outputs["store"]["valuation"]["month"];
 export type BelowMinimumItem = Outputs["store"]["belowMinimum"]["items"][number];
 

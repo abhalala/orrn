@@ -77,8 +77,10 @@ type MonthRow = {
   inPaise: number;
   outMilli: number;
   outPaise: number;
+  ratedPaise: number;
   closingMilli: number;
   closingPaise: number;
+  closingUnratedMilli: number;
 };
 
 /** Plain decimals for a spreadsheet: quantity in the item's unit, money in rupees, both exact. */
@@ -97,7 +99,7 @@ function rs(paise: number): string {
 export function monthCsv(
   head: string[],
   rows: MonthRow[],
-  totals: { openingPaise: number; inPaise: number; outPaise: number; closingPaise: number },
+  totals: { openingPaise: number; inPaise: number; outPaise: number; ratedPaise: number; closingPaise: number },
   totalLabel: string,
   unitWord: (unit: string) => string,
 ): string {
@@ -110,9 +112,14 @@ export function monthCsv(
     rs(r.inPaise),
     dec(r.outMilli),
     rs(r.outPaise),
+    rs(r.ratedPaise),
     dec(r.closingMilli),
     rs(r.closingPaise),
+    dec(r.closingUnratedMilli),
   ]);
-  body.push([totalLabel, "", "", rs(totals.openingPaise), "", rs(totals.inPaise), "", rs(totals.outPaise), "", rs(totals.closingPaise)]);
+  body.push([
+    totalLabel, "", "", rs(totals.openingPaise), "", rs(totals.inPaise), "", rs(totals.outPaise),
+    rs(totals.ratedPaise), "", rs(totals.closingPaise), "",
+  ]);
   return csvText([head, ...body]);
 }

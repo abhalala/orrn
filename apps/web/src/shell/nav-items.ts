@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 
 export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "store";
 
 export type NavItem = {
   key: string;
@@ -101,7 +102,7 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
   // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
   // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
-  { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },
+  { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"], module: "store" },
   // XE store (rows 69, 70, 73): indents, purchase orders and the store's value, for department heads, the office,
   // the store and managers.
   {
@@ -110,6 +111,7 @@ export const TENANT_MORE: readonly NavItem[] = [
     labelKey: "nav.storeBuying",
     icon: ShoppingCart,
     requires: ["indent.raise", "indent.approve", "po.view", "po.manage", "store.value"],
+    module: "store",
   },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the
@@ -155,16 +157,21 @@ export const GODSEYE_MORE: readonly NavItem[] = [
   { key: "support", to: "/admin/support", labelKey: "nav.adminSupport", icon: LifeBuoy, requires: ["platform.company.manage"] },
 ];
 
+/** Is this company module on? An empty or missing modules list means every module is on. */
+export function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
+  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  return modules.length === 0 || modules.includes(module);
+}
+
 /**
  * Items this person may see: permission (`canAny`) and company modules. An
  * empty modules list means every module is on (companies created before
  * modules existed have none set).
  */
 export function visibleItems(items: readonly NavItem[], me: Me | null | undefined): NavItem[] {
-  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   return items.filter((item) => {
     if (item.requires && !canAny(me, item.requires)) return false;
-    if (item.module && modules.length > 0 && !modules.includes(item.module)) return false;
+    if (item.module && !moduleOn(me, item.module)) return false;
     return true;
   });
 }
