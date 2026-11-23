@@ -202,6 +202,18 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE store (rows 69 to 72): buying (indents, purchase orders, the over-receipt tolerance) commits plant money; not reviewed for the buddy.
+    "store.indents.approve": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.cancel": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.create": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.fromReorder": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.reject": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.cancel": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.close": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.create": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.issue": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.update": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.settings.setPoTolerance": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

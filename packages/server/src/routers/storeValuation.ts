@@ -54,7 +54,7 @@ export const storeValuationRouter = router({
         /** Live GRNs with no rate (not an exchange's new leg, which carries the old leg's value). */
         unratedMilli: sql<number>`coalesce((
           select sum(u.qty_milli) from ${storeTxn} u
-          where u.company_id = ${ctx.companyId} and u.item_id = ${storeItem.id} and u.kind = 'grn'
+          where u.company_id = ${ctx.companyId} and u.item_id = ${sql`${storeItem.id}`} and u.kind = 'grn'
             and u.cancelled_at is null and u.rate_paise is null and u.exchange_id is null
         ), 0)`,
       })
