@@ -84,7 +84,7 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "purchase", "dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "maintenance", "purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {

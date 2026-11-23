@@ -3,7 +3,6 @@ import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, TextInput } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Sheet } from "@orrn/ui/components/sheet";
@@ -18,6 +17,7 @@ import { Can } from "@/shared/components/can";
 import { useFmt } from "@/shared/lib/fmt";
 import { trpc } from "@/shared/utils/trpc";
 
+import { FieldSelect } from "./field-controls";
 import { isPriority, isWoKind, isWoStatus, maintErrorKey, PRIORITY_TONE, WO_KINDS, WO_STATUS_TONE } from "./model";
 import { WO_FILTERS, woFilterOf, type WoFilter, type WoSearch } from "./search";
 
@@ -231,23 +231,23 @@ function NewWorkOrderSheet({ initialAssetId, onClose }: { initialAssetId?: strin
     >
       <form id="wo-new-form" className="flex min-w-0 flex-col gap-4" onSubmit={submit}>
         <Field label={t("maint.workOrders.new.asset")} required error={attempted && !assetId ? t("maint.workOrders.new.assetRequired") : undefined}>
-          <NativeSelect value={assetId} onChange={(e) => setAssetId(e.target.value)}>
+          <FieldSelect value={assetId} onChange={(e) => setAssetId(e.target.value)}>
             <option value="">{t("maint.workOrders.new.assetPlaceholder")}</option>
             {(assets.data ?? []).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code} {a.name}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <Field label={t("maint.workOrders.new.kind")}>
-          <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as (typeof WO_KINDS)[number])}>
+          <FieldSelect value={kind} onChange={(e) => setKind(e.target.value as (typeof WO_KINDS)[number])}>
             {WO_KINDS.map((k) => (
               <option key={k} value={k}>
                 {t(`maint.woKind.${k}`)}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <Field
           label={t("maint.workOrders.new.what")}
@@ -258,24 +258,24 @@ function NewWorkOrderSheet({ initialAssetId, onClose }: { initialAssetId?: strin
           <TextInput value={title} maxLength={300} onChangeText={setTitle} />
         </Field>
         <Field label={t("maint.workOrders.new.priority")}>
-          <NativeSelect value={priority} onChange={(e) => setPriority(e.target.value)}>
+          <FieldSelect value={priority} onChange={(e) => setPriority(e.target.value)}>
             <option value="">{t("maint.workOrders.new.priorityFromAsset")}</option>
             {(["high", "medium", "low"] as const).map((p) => (
               <option key={p} value={p}>
                 {t(`maint.priority.${p}`)}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <Field label={t("maint.workOrders.new.assignTo")}>
-          <NativeSelect value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+          <FieldSelect value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
             <option value="">{t("maint.workOrders.unassigned")}</option>
             {(people.data ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
       </form>
     </Sheet>

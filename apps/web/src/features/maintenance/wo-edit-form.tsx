@@ -1,14 +1,13 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { FieldSelect, FieldTextArea } from "./field-controls";
 import { maintErrorKey, PRIORITIES } from "./model";
 import { isConflict, useInvalidateWo } from "./wo-hooks";
 import { buildUpdate, formOf, hasChanges, type WoEditForm, type WoEditSource } from "./wo-model";
@@ -62,30 +61,30 @@ export function WoEditCard({ wo }: { wo: WoEditSource & { id: string; serverSeq:
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t("maint.workOrders.edit.priority")}>
-            <NativeSelect value={form.priority} onChange={(e) => set({ priority: e.target.value })}>
+            <FieldSelect value={form.priority} onChange={(e) => set({ priority: e.target.value })}>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
                   {t(`maint.priority.${p}`)}
                 </option>
               ))}
-            </NativeSelect>
+            </FieldSelect>
           </Field>
           <Field label={t("maint.workOrders.edit.assignedTo")}>
-            <NativeSelect value={form.assignedTo} onChange={(e) => set({ assignedTo: e.target.value })}>
+            <FieldSelect value={form.assignedTo} onChange={(e) => set({ assignedTo: e.target.value })}>
               <option value="">{t("maint.workOrders.unassigned")}</option>
               {people_.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
-            </NativeSelect>
+            </FieldSelect>
           </Field>
         </div>
         <Field label={t("maint.workOrders.edit.cause")}>
-          <TextArea value={form.cause} maxLength={2000} rows={3} onChangeText={(v) => set({ cause: v })} />
+          <FieldTextArea value={form.cause} maxLength={2000} rows={3} onChangeText={(v) => set({ cause: v })} />
         </Field>
         <Field label={t("maint.workOrders.edit.workDone")}>
-          <TextArea value={form.workDone} maxLength={4000} rows={4} onChangeText={(v) => set({ workDone: v })} />
+          <FieldTextArea value={form.workDone} maxLength={4000} rows={4} onChangeText={(v) => set({ workDone: v })} />
         </Field>
         <Field
           label={t("maint.workOrders.edit.labour")}

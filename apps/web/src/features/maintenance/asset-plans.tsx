@@ -3,7 +3,6 @@ import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Chip } from "@orrn/ui/components/chip";
 import { Field, TextInput } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
 import { UiLink } from "@orrn/ui/components/link";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +14,7 @@ import { Can } from "@/shared/components/can";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
+import { FieldTextArea } from "./field-controls";
 import { emptyPlanForm, formFromPlan, planPayload, planProblem, type PlanFormState } from "./asset-model";
 import { PlanInterval, Section } from "./asset-parts";
 import { DUE_TONE, dueLines, isDueState, maintErrorKey, type PlanDue } from "./model";
@@ -195,7 +195,7 @@ function PlanSheet({ assetId, linked, plan, open, onOpenChange }: { assetId: str
           <TextInput value={form.title} onChange={(e) => patch({ title: e.currentTarget.value })} maxLength={200} autoComplete="off" />
         </Field>
         <Field label={t("maint.assets.plans.steps")}>
-          <TextArea value={form.steps} onChange={(e) => patch({ steps: e.currentTarget.value })} rows={4} maxLength={2000} />
+          <FieldTextArea value={form.steps} onChange={(e) => patch({ steps: e.currentTarget.value })} rows={4} maxLength={2000} />
         </Field>
         <Field label={t("maint.assets.plans.days")}>
           <TextInput inputMode="numeric" value={form.days} onChange={(e) => patch({ days: e.currentTarget.value })} maxLength={5} />

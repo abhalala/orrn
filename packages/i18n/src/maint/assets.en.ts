@@ -128,7 +128,7 @@ export const maintAssetsEn = {
       title: "Work",
       raised: "Raised",
       finished: "Finished",
-      labour: "Labour (h:mm)",
+      labour: "Labour",
     },
   },
   spares: {

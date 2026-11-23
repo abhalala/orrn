@@ -1,8 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -12,6 +10,7 @@ import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { FieldSelect, FieldTextArea } from "./field-controls";
 import { assetFormValid, assetPayload, emptyAssetForm, formFromAsset, linkValue, type AssetFormState } from "./asset-model";
 import { ASSET_KINDS, ASSET_STATUSES, CRITICALITIES, LINK_KINDS, maintErrorKey, type LinkKind } from "./model";
 
@@ -51,16 +50,16 @@ export function AssetFields({
         <TextInput {...text("name")} maxLength={120} autoComplete="off" />
       </Field>
       <Field label={t("maint.assets.form.kind")}>
-        <NativeSelect value={form.kind} onChange={(e) => onChange({ kind: e.currentTarget.value as AssetFormState["kind"] })}>
+        <FieldSelect value={form.kind} onChange={(e) => onChange({ kind: e.currentTarget.value as AssetFormState["kind"] })}>
           {ASSET_KINDS.map((k) => (
             <option key={k} value={k}>
               {t(`maint.kind.${k}`)}
             </option>
           ))}
-        </NativeSelect>
+        </FieldSelect>
       </Field>
       <Field label={t("maint.assets.form.link")} hint={t("maint.assets.form.linkHint")}>
-        <NativeSelect value={form.link} onChange={(e) => onChange({ link: e.currentTarget.value })}>
+        <FieldSelect value={form.link} onChange={(e) => onChange({ link: e.currentTarget.value })}>
           <option value="">{t("maint.assets.form.linkNone")}</option>
           {LINK_KINDS.map((kind) => {
             const group = (options ?? []).filter((o) => o.kind === kind);
@@ -80,7 +79,7 @@ export function AssetFields({
               </optgroup>
             );
           })}
-        </NativeSelect>
+        </FieldSelect>
       </Field>
       <Field label={t("maint.assets.form.make")}>
         <TextInput {...text("make")} maxLength={120} />
@@ -100,25 +99,25 @@ export function AssetFields({
         <TextInput {...text("location")} maxLength={120} />
       </Field>
       <Field label={t("maint.assets.form.criticality")}>
-        <NativeSelect value={form.criticality} onChange={(e) => onChange({ criticality: e.currentTarget.value as AssetFormState["criticality"] })}>
+        <FieldSelect value={form.criticality} onChange={(e) => onChange({ criticality: e.currentTarget.value as AssetFormState["criticality"] })}>
           {CRITICALITIES.map((c) => (
             <option key={c} value={c}>
               {`${t(`maint.criticality.${c}`)}: ${t(`maint.criticalityHint.${c}`)}`}
             </option>
           ))}
-        </NativeSelect>
+        </FieldSelect>
       </Field>
       <Field label={t("maint.assets.form.status")}>
-        <NativeSelect value={form.status} onChange={(e) => onChange({ status: e.currentTarget.value as AssetFormState["status"] })}>
+        <FieldSelect value={form.status} onChange={(e) => onChange({ status: e.currentTarget.value as AssetFormState["status"] })}>
           {ASSET_STATUSES.map((s) => (
             <option key={s} value={s}>
               {t(`maint.assetStatus.${s}`)}
             </option>
           ))}
-        </NativeSelect>
+        </FieldSelect>
       </Field>
       <Field label={t("maint.assets.form.note")}>
-        <TextArea {...text("note")} rows={3} maxLength={1000} />
+        <FieldTextArea {...text("note")} rows={3} maxLength={1000} />
       </Field>
     </div>
   );

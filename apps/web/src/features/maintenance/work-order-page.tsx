@@ -2,7 +2,6 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { TextArea } from "@orrn/ui/components/input";
 import { Field } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -16,6 +15,7 @@ import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { FieldTextArea } from "./field-controls";
 import { hoursMinutes, isPriority, isWoKind, isWoStatus, maintErrorKey, PRIORITY_TONE, WO_STATUS_TONE, type WoStatus } from "./model";
 import { WoEditCard } from "./wo-edit-form";
 import { isConflict, useInvalidateWo } from "./wo-hooks";
@@ -275,7 +275,7 @@ function AskSheet({
     >
       <form id={formId} onSubmit={go}>
         <Field label={label} required>
-          <TextArea value={text} maxLength={max} rows={5} onChangeText={setText} />
+          <FieldTextArea value={text} maxLength={max} rows={5} onChangeText={setText} />
         </Field>
       </form>
     </Sheet>
