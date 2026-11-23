@@ -31,7 +31,7 @@ export const maintAssetKinds = ["press", "furnace", "oven", "compressor", "crane
 export const maintLinkKinds = ["press", "furnace", "oven"] as const;
 export const maintCriticalities = ["A", "B", "C"] as const;
 export const maintAssetStatuses = ["running", "standby", "under_repair", "retired"] as const;
-export const maintWoKinds = ["breakdown", "preventive"] as const;
+export const maintWoKinds = ["breakdown", "preventive", "condition"] as const;
 export const maintWoStatuses = ["open", "in_progress", "waiting_spares", "done", "cancelled"] as const;
 export const maintWoSources = ["manual", "downtime", "plan", "reading"] as const;
 export const maintPriorities = ["high", "medium", "low"] as const;
@@ -151,10 +151,10 @@ export const maintWorkOrder = sqliteTable(
     uniqueIndex("maint_wo_company_number_unique").on(table.companyId, table.period, table.number),
     uniqueIndex("maint_wo_company_downtime_unique")
       .on(table.companyId, table.downtimeId)
-      .where(sql`${table.downtimeId} IS NOT NULL`),
+      .where(sql`${table.downtimeId} IS NOT NULL AND ${table.status} <> 'cancelled'`),
     uniqueIndex("maint_wo_company_reading_unique")
       .on(table.companyId, table.readingId)
-      .where(sql`${table.readingId} IS NOT NULL`),
+      .where(sql`${table.readingId} IS NOT NULL AND ${table.status} <> 'cancelled'`),
     // One live preventive work order per plan.
     uniqueIndex("maint_wo_company_plan_live_unique")
       .on(table.companyId, table.planId)

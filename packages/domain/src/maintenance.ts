@@ -23,7 +23,11 @@ export type MaintCriticality = (typeof MAINT_CRITICALITIES)[number];
 export const MAINT_ASSET_STATUSES = ["running", "standby", "under_repair", "retired"] as const;
 export type MaintAssetStatus = (typeof MAINT_ASSET_STATUSES)[number];
 
-export const MAINT_WO_KINDS = ["breakdown", "preventive"] as const;
+/**
+ * Breakdown: the asset failed. Preventive: from a plan. Condition: raised from an out-of-limit reading
+ * while the asset still runs; it is not a failure, so it never counts in breakdowns, MTTR or MTBF.
+ */
+export const MAINT_WO_KINDS = ["breakdown", "preventive", "condition"] as const;
 export type MaintWoKind = (typeof MAINT_WO_KINDS)[number];
 
 export const MAINT_WO_STATUSES = ["open", "in_progress", "waiting_spares", "done", "cancelled"] as const;
@@ -93,16 +97,21 @@ export type PmDueInput = {
   /** Run minutes of the asset since `baseAtMs` (null when the plan has no hours interval). */
   usageMinSinceBase: number | null;
   nowMs: number;
+  /**
+   * The plant day of an instant as a day number (consecutive days differ by 1), on the plant's own
+   * clock. The server passes the company timezone's day (`plantDayNumber`); without it, UTC days.
+   */
+  dayOf?: (ms: number) => number;
 };
 
 export type PmDueState = "ok" | "soon" | "overdue";
 
 export type PmDue = {
-  /** Calendar date it falls due (null without a days interval). */
+  /** Instant the days interval runs out (null without a days interval); it falls due on that plant day. */
   dueAtMs: number | null;
-  /** Whole days until the calendar date; negative = overdue by that many days; 0 = due today. */
+  /** Plant days until the due day; 0 = due today; negative = overdue by that many plant days. */
   daysLeft: number | null;
-  /** Run hours left (whole hours, rounded down); negative = over by that many. */
+  /** Run hours left, rounded UP while time is left (never 0 then); 0 or negative = over by that many. */
   hoursLeft: number | null;
   /** Run hours since the last reset, whole hours rounded down. */
   hoursRun: number | null;
@@ -113,21 +122,29 @@ export type PmDue = {
 
 const STATE_RANK: Record<PmDueState, number> = { ok: 0, soon: 1, overdue: 2 };
 
+/** Day number of a calendar date (days since 1970-01-01), for counting plant days across months. */
+export function dayNumber(ymd: { year: number; month: number; day: number }): number {
+  return Math.floor(Date.UTC(ymd.year, ymd.month - 1, ymd.day) / DAY_MS);
+}
+
+const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
+
 /**
  * When a preventive plan falls due. A plan with both intervals is due at whichever comes first.
- * Throws RangeError for a plan with neither interval (the router refuses that before saving).
+ * Days are plant days: a plan falls due on the plant day its interval runs out, is "due today" all
+ * that day and overdue from the next plant day. Throws RangeError for a plan with neither interval.
  */
 export function pmDue(input: PmDueInput): PmDue {
   const { intervalDays, intervalHours, baseAtMs, nowMs } = input;
+  const dayOf = input.dayOf ?? utcDay;
   if (intervalDays == null && intervalHours == null) throw new RangeError("A plan needs days, run hours or both");
 
   let days: { state: PmDueState; share: number; dueAtMs: number; daysLeft: number } | null = null;
   if (intervalDays != null) {
     const dueAtMs = baseAtMs + intervalDays * DAY_MS;
-    const left = dueAtMs - nowMs;
-    const daysLeft = Math.floor(left / DAY_MS);
-    const state: PmDueState = left <= 0 ? "overdue" : daysLeft <= PM_SOON_DAYS ? "soon" : "ok";
-    days = { state, share: left / (intervalDays * DAY_MS), dueAtMs, daysLeft };
+    const daysLeft = dayOf(dueAtMs) - dayOf(nowMs);
+    const state: PmDueState = daysLeft < 0 ? "overdue" : daysLeft <= PM_SOON_DAYS ? "soon" : "ok";
+    days = { state, share: daysLeft / intervalDays, dueAtMs, daysLeft };
   }
 
   let hours: { state: PmDueState; share: number; hoursLeft: number; hoursRun: number } | null = null;
@@ -136,7 +153,8 @@ export function pmDue(input: PmDueInput): PmDue {
     const leftMin = intervalHours * 60 - usedMin;
     const soonMin = Math.max(60, intervalHours * 60 * PM_SOON_HOURS_SHARE);
     const state: PmDueState = leftMin <= 0 ? "overdue" : leftMin <= soonMin ? "soon" : "ok";
-    hours = { state, share: leftMin / (intervalHours * 60), hoursLeft: Math.floor(leftMin / 60), hoursRun: Math.floor(usedMin / 60) };
+    const hoursLeft = leftMin > 0 ? Math.ceil(leftMin / 60) : Math.floor(leftMin / 60);
+    hours = { state, share: leftMin / (intervalHours * 60), hoursLeft, hoursRun: Math.floor(usedMin / 60) };
   }
 
   let basis: "days" | "hours";
@@ -179,6 +197,26 @@ export function spanMinutesIn(span: Span, fromMs: number, toMs: number): number 
   return end > start ? (end - start) / 60_000 : 0;
 }
 
+/**
+ * Minutes covered by `spans` (closed spans), each overlap counted once. Used for the cuts of a press run:
+ * its stop-to-resume pauses and its downtime entries can overlap, and the run loses that time once.
+ */
+export function mergedMinutes(spans: readonly { startMs: number; endMs: number }[]): number {
+  const sorted = spans.filter((s) => s.endMs > s.startMs).sort((a, b) => a.startMs - b.startMs);
+  let total = 0;
+  let curStart = Number.NaN;
+  let curEnd = Number.NaN;
+  for (const s of sorted) {
+    if (Number.isNaN(curStart) || s.startMs > curEnd) {
+      if (!Number.isNaN(curStart)) total += curEnd - curStart;
+      curStart = s.startMs;
+      curEnd = s.endMs;
+    } else if (s.endMs > curEnd) curEnd = s.endMs;
+  }
+  if (!Number.isNaN(curStart)) total += curEnd - curStart;
+  return total / 60_000;
+}
+
 // ---------------------------------------------------------------------------
 // Condition readings (row 68)
 // ---------------------------------------------------------------------------
@@ -204,33 +242,38 @@ export function validReadingLimit(limit: ReadingLimit): boolean {
 // Reliability and cost (row 67)
 // ---------------------------------------------------------------------------
 
-export type BreakdownEvent = { startMs: number; endMs: number | null };
+/** One breakdown, closed: it has an end. Breakdowns still open are listed apart and never counted here. */
+export type BreakdownEvent = { startMs: number; endMs: number };
 
 export type Reliability = {
+  /** Breakdowns that STARTED in the window (each one wholly in the month it started). */
   failures: number;
-  /** Whole minutes the asset was down inside the window (open events count to `toMs`). */
+  /** Whole minutes the asset was down inside the window, each breakdown clipped to the window. */
   downtimeMin: number;
-  /** Mean time to repair, minutes (null without failures). */
+  /** Mean time to repair: the FULL length of the breakdowns that started in the window, over their count. */
   mttrMin: number | null;
-  /** Mean time between failures: the window's up time over the failures, minutes (null without failures). */
+  /** Mean time between failures: the window's up time (window minus downtime in it) over the failures. */
   mtbfMin: number | null;
 };
 
 /**
- * MTBF and MTTR of one asset over [fromMs, toMs). Each event is one breakdown, counted once (the caller
- * merges a downtime entry with the work order made from it). Failures are events that START in the
- * window; downtime counts the minutes of every event inside the window. Calendar time, not run time.
+ * MTBF and MTTR of one asset over [fromMs, toMs), from closed breakdowns. Each event is one breakdown,
+ * counted once (the caller merges a downtime entry with the work order made from it). A breakdown that
+ * runs across months belongs wholly to the month it started for the count and MTTR; the downtime
+ * minutes of each month are clipped to that month. Calendar time, not run time.
  */
 export function reliability(events: readonly BreakdownEvent[], fromMs: number, toMs: number): Reliability {
   const windowMin = Math.max(0, (toMs - fromMs) / 60_000);
-  const failures = events.filter((e) => e.startMs >= fromMs && e.startMs < toMs).length;
+  const started = events.filter((e) => e.startMs >= fromMs && e.startMs < toMs);
+  const failures = started.length;
   const down = events.reduce((s, e) => s + spanMinutesIn(e, fromMs, toMs), 0);
   const downtimeMin = Math.round(down);
   if (failures === 0) return { failures: 0, downtimeMin, mttrMin: null, mtbfMin: null };
+  const repairMin = started.reduce((s, e) => s + Math.max(0, e.endMs - e.startMs) / 60_000, 0);
   return {
     failures,
     downtimeMin,
-    mttrMin: Math.round(down / failures),
+    mttrMin: Math.round(repairMin / failures),
     mtbfMin: Math.round(Math.max(0, windowMin - down) / failures),
   };
 }

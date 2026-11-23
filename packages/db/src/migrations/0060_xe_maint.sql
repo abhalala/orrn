@@ -146,8 +146,8 @@ CREATE TABLE `maint_work_order` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `maint_wo_company_number_unique` ON `maint_work_order` (`company_id`,`period`,`number`);--> statement-breakpoint
-CREATE UNIQUE INDEX `maint_wo_company_downtime_unique` ON `maint_work_order` (`company_id`,`downtime_id`) WHERE "maint_work_order"."downtime_id" IS NOT NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX `maint_wo_company_reading_unique` ON `maint_work_order` (`company_id`,`reading_id`) WHERE "maint_work_order"."reading_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `maint_wo_company_downtime_unique` ON `maint_work_order` (`company_id`,`downtime_id`) WHERE "maint_work_order"."downtime_id" IS NOT NULL AND "maint_work_order"."status" <> 'cancelled';--> statement-breakpoint
+CREATE UNIQUE INDEX `maint_wo_company_reading_unique` ON `maint_work_order` (`company_id`,`reading_id`) WHERE "maint_work_order"."reading_id" IS NOT NULL AND "maint_work_order"."status" <> 'cancelled';--> statement-breakpoint
 CREATE UNIQUE INDEX `maint_wo_company_plan_live_unique` ON `maint_work_order` (`company_id`,`plan_id`) WHERE "maint_work_order"."plan_id" IS NOT NULL AND "maint_work_order"."status" IN ('open', 'in_progress', 'waiting_spares');--> statement-breakpoint
 CREATE INDEX `maint_wo_company_status_idx` ON `maint_work_order` (`company_id`,`status`,`created_at`);--> statement-breakpoint
 CREATE INDEX `maint_wo_company_asset_idx` ON `maint_work_order` (`company_id`,`asset_id`,`created_at`);

@@ -48,7 +48,7 @@ describe("asset register (#63)", () => {
     expect(got.asset).toMatchObject({ code: "PRESS-1", kind: "press", linkKind: "press", criticality: "A" });
     expect(got.link).toMatchObject({ kind: "press", code: "P1" });
     expect(await errOf(p.manager.maint.assets.create(asset({ code: "cmp-1" })))).toEqual({ code: "CONFLICT", message: "Another asset already has that code" });
-    expect(await errOf(p.manager.maint.assets.create(asset({ code: "X", linkKind: "press", linkId: p.lineId })))).toEqual({
+    expect(await errOf(p.manager.maint.assets.create(asset({ code: "X", kind: "press", linkKind: "press", linkId: p.lineId })))).toEqual({
       code: "CONFLICT",
       message: "Another asset already points at that press, furnace or oven",
     });
@@ -92,6 +92,28 @@ describe("asset register (#63)", () => {
     expect(await errOf(p.owner.maint.today())).toMatchObject({ code: "FORBIDDEN" });
   });
 
+  test("an asset points only at a master of its own kind", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const f = await p.furnace();
+    const refusal = { code: "BAD_REQUEST", message: "A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven" };
+    expect(await errOf(p.manager.maint.assets.create(asset({ linkKind: "press", linkId: p.lineId })))).toEqual(refusal);
+    expect(await errOf(p.manager.maint.assets.create(asset({ code: "P", kind: "press", linkKind: "furnace", linkId: f })))).toEqual(refusal);
+    const { id } = await p.manager.maint.assets.create(asset({ code: "PRESS-1", kind: "press", linkKind: "press", linkId: p.lineId }));
+    const { asset: row } = await p.manager.maint.assets.get({ id });
+    expect(await errOf(p.manager.maint.assets.update({ id, serverSeq: row.serverSeq, ...asset({ code: "PRESS-1", linkKind: "press", linkId: p.lineId }) }))).toEqual(refusal);
+    // With no link, any kind is fine.
+    await p.manager.maint.assets.update({ id, serverSeq: row.serverSeq, ...asset({ code: "PRESS-1", kind: "press" }) });
+  });
+
+  test("a plant that never set maintenance up: no Today tile figures (module on by default, no assets)", async () => {
+    setClock(NOON);
+    const p = await plant();
+    expect(await p.supervisor.maint.today()).toBeNull();
+    await p.manager.maint.assets.create(asset());
+    expect(await p.supervisor.maint.today()).toMatchObject({ overdue: 0, soon: 0, liveWorkOrders: 0, top: [] });
+  });
+
   test("add from masters makes one asset per press, furnace and oven, once", async () => {
     setClock(NOON);
     const p = await plant();
@@ -121,7 +143,36 @@ describe("preventive plans (#64)", () => {
     expect(due[0]!.due).toMatchObject({ state: "overdue", daysLeft: -1 });
     const today = await p.supervisor.maint.today();
     expect(today).toMatchObject({ overdue: 1, soon: 0, liveWorkOrders: 0 });
-    expect(today.top.map((t) => t.title)).toEqual(["Drain the tank"]);
+    expect(today!.top.map((t) => t.title)).toEqual(["Drain the tank"]);
+  });
+
+  test("plan edits carry serverSeq; switching a plan back on counts from now", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { id: assetId } = await p.manager.maint.assets.create(asset());
+    const { id: planId } = await p.manager.maint.plans.create({ assetId, title: "Drain the tank", intervalDays: 30 });
+    const read = async () => (await p.manager.maint.assets.get({ id: assetId })).plans.find((x) => x.id === planId)!;
+    const v1 = await read();
+    await p.manager.maint.plans.update({ id: planId, serverSeq: v1.serverSeq, title: "Drain the tank", intervalDays: 30, active: false });
+    // A second manager's save from the old copy is refused, with no audit row.
+    expect(await errOf(p.supervisor.maint.plans.update({ id: planId, serverSeq: v1.serverSeq, title: "Drain weekly", intervalDays: 7, active: true }))).toEqual({
+      code: "CONFLICT",
+      message: "This plan changed since you opened it. Open it again.",
+    });
+    const audits = await env.db.select({ action: auditLog.action }).from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "maint.plan.update")));
+    expect(audits).toHaveLength(1);
+    // Eight months off, then on again: due in 30 days from now, not overdue.
+    setClock(at(240 * DAY));
+    const v2 = await read();
+    expect(v2.active).toBe(false);
+    await p.manager.maint.plans.update({ id: planId, serverSeq: v2.serverSeq, title: "Drain the tank", intervalDays: 30, active: true });
+    const v3 = await read();
+    expect(v3.baseAt).toBe(at(240 * DAY).getTime());
+    expect(v3.due).toMatchObject({ state: "ok", daysLeft: 30 });
+    // An edit of an active plan keeps its count.
+    setClock(at(250 * DAY));
+    await p.manager.maint.plans.update({ id: planId, serverSeq: v3.serverSeq, title: "Drain the tank well", intervalDays: 30, active: true });
+    expect((await read()).baseAt).toBe(at(240 * DAY).getTime());
   });
 
   test("run hours on an unlinked asset are refused; a plan needs an interval", async () => {
@@ -155,6 +206,53 @@ describe("preventive plans (#64)", () => {
     const [later] = await p.manager.maint.plans.due();
     // 3 more running hours: 9 h run, 1 h left (soon: the last hour of a 10 h plan).
     expect(later!.due).toMatchObject({ hoursRun: 9, hoursLeft: 1, state: "soon" });
+  });
+
+  test("press run hours: downtime logged after the run stopped subtracts nothing from other runs", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { id: assetId } = await p.manager.maint.assets.create(asset({ code: "PRESS-1", kind: "press", linkKind: "press", linkId: p.lineId }));
+    await p.manager.maint.plans.create({ assetId, title: "Hydraulic oil", intervalHours: 2000 });
+    // Run A 1 h to 13 h (12 h). Run B 14 h to 18 h, then stopped (not yet counted).
+    await p.run(at(H), at(13 * H));
+    const b = await p.run(at(14 * H), at(18 * H), "running");
+    // A breakdown at 19 h attaches to stopped run B and lasts 10 h: after B stopped, so it takes nothing off.
+    await p.downtime(at(19 * H), at(29 * H), "breakdown", b);
+    // A downtime entry that starts inside run B and runs past its stop takes off only the part inside B.
+    await p.downtime(at(17 * H), at(20 * H), "die_change", b);
+    setClock(at(30 * H));
+    const [row] = await p.manager.maint.plans.due();
+    // 12 h + (4 h - 1 h) = 15 h.
+    expect(row!.due).toMatchObject({ hoursRun: 15 });
+  });
+
+  test("press run hours: the gap between a stop and its resume is not run time; a downtime inside it counts once", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { id: assetId } = await p.manager.maint.assets.create(asset({ code: "PRESS-1", kind: "press", linkKind: "press", linkId: p.lineId }));
+    await p.manager.maint.plans.create({ assetId, title: "Hydraulic oil", intervalHours: 2000 });
+    // One run 1 h to 21 h, stopped at 5 h and resumed at 15 h (a night pause), with a breakdown 6 h to 8 h inside the pause
+    // and another 18 h to 19 h while running.
+    const r = await p.run(at(H), at(21 * H));
+    const audit = (action: string, ms: number) =>
+      env.db.insert(auditLog).values({ id: crypto.randomUUID(), companyId: p.companyId, action, subjectType: "press_run", subjectId: r, at: at(ms) });
+    await audit("press_run.start", H);
+    await audit("press_run.stop", 5 * H);
+    await audit("press_run.resume", 15 * H);
+    await audit("press_run.stop", 21 * H);
+    await p.downtime(at(6 * H), at(8 * H), "breakdown", r);
+    await p.downtime(at(18 * H), at(19 * H), "breakdown", r);
+    // A resume with no stop before it (another run) takes nothing off.
+    const r2 = await p.run(at(22 * H), at(24 * H));
+    await env.db.insert(auditLog).values({ id: crypto.randomUUID(), companyId: p.companyId, action: "press_run.resume", subjectType: "press_run", subjectId: r2, at: at(23 * H) });
+    // Another plant's audit rows on the same run id never count.
+    const q = await plant();
+    await env.db.insert(auditLog).values({ id: crypto.randomUUID(), companyId: q.companyId, action: "press_run.stop", subjectType: "press_run", subjectId: r, at: at(16 * H) });
+    await env.db.insert(auditLog).values({ id: crypto.randomUUID(), companyId: q.companyId, action: "press_run.resume", subjectType: "press_run", subjectId: r, at: at(20 * H) });
+    setClock(at(30 * H));
+    const [row] = await p.manager.maint.plans.due();
+    // 20 h span - 10 h pause - 1 h breakdown while running = 9 h; plus run 2: 2 h.
+    expect(row!.due).toMatchObject({ hoursRun: 11 });
   });
 
   test("furnace and oven hours: locked melts and batches only", async () => {

@@ -3,14 +3,20 @@
  * `@orrn/domain` (`maintenance.ts`); this file reads rows and hands them over.
  *
  * Run hours (row 64) come from what the plant already records, per linked master:
- * - press: press runs on the line (started to stopped; a running run counts to now), minus the downtime
- *   logged on those runs; voided runs never count.
+ * - press: press runs on the line (started to stopped; a running run counts to now), minus the run's
+ *   cuts: the downtime logged on it and its stop-to-resume pauses, each clipped to the run itself (a
+ *   downtime entry logged after the run stopped subtracts nothing), overlaps counted once. A pause is
+ *   read from the audit log: a `press_run.resume` row back to the run's latest `press_run.stop` row
+ *   before it (server receipt times, the same clock that sets `stopped_at`). A resume with no stop row
+ *   before it subtracts nothing, so the plan can only come due earlier, never later. Voided runs never count.
  * - furnace: locked melts on the furnace, from preheat (else charging) start to casting end.
  * - oven: ageing batches in the oven, from in to out (still in: to now); void batches never count.
  * An asset with no link has no run hours, so a plan on it can only run on calendar days.
- * Every query aggregates in SQL (GROUP BY plan) and binds a handful of parameters, never an id list.
+ * The run totals aggregate in SQL (GROUP BY plan); the press cuts come back as rows already clipped to
+ * their run and the plan's base, and are merged per run here (`mergedMinutes`). Every query binds a
+ * handful of parameters, never an id list.
  */
-import { comparePmDue, pmDue, type MaintLinkKind, type PmDue } from "@orrn/domain";
+import { comparePmDue, dayNumber, mergedMinutes, pmDue, type MaintLinkKind, type PmDue } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -18,9 +24,10 @@ import { maintAsset, maintPlan, maintSetting, type MaintAssetRow } from "@orrn/d
 import { furnace } from "@orrn/db/schema/foundry";
 import { ageingOven } from "@orrn/db/schema/ageing";
 import { pressLine } from "@orrn/db/schema/press";
-import { membership } from "@orrn/db/schema/tenant";
+import { company, membership } from "@orrn/db/schema/tenant";
 
 import type { OrrnDb } from "./atomic";
+import { companyTimezone, zonedYmd } from "./dayWindow";
 
 type Ctx = { db: OrrnDb; companyId: string };
 
@@ -73,6 +80,7 @@ export async function labourRate(ctx: Ctx): Promise<number | null> {
 // ---------------------------------------------------------------------------
 
 type Row = { plan_id: string; ms: number | null };
+type CutRow = { plan_id: string; run_id: string; s: number; e: number };
 
 /**
  * Run minutes of each active hours plan since its `base_at`, as of `nowMs`, for plans whose asset is
@@ -86,24 +94,47 @@ export async function planUsageMinutes(ctx: Ctx, nowMs: number, assetId?: string
   const clip = (start: ReturnType<typeof sql>, end: ReturnType<typeof sql>) =>
     sql`coalesce(sum(max(0, min(${end}, ${now}) - max(${start}, p.base_at))), 0)`;
 
-  const [runs, downtime, melts, batches] = await Promise.all([
+  // The cuts of a press run, clipped to the run, the plan's base and now. A downtime entry attaches to
+  // the line's latest running OR stopped run, so it may lie after the run stopped: clipping keeps it
+  // from eating other runs' hours.
+  const runEnd = sql`coalesce(r.stopped_at, ${now})`;
+  const [runs, downtimeCuts, pauseCuts, melts, batches] = await Promise.all([
     ctx.db.all<Row>(sql`
-      select p.id as plan_id, ${clip(sql`r.started_at`, sql`coalesce(r.stopped_at, ${now})`)} as ms
+      select p.id as plan_id, ${clip(sql`r.started_at`, runEnd)} as ms
       from maint_plan p
       join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
       join press_run r on r.company_id = p.company_id and r.press_line_id = a.link_id
-        and r.status <> 'voided' and r.started_at is not null and coalesce(r.stopped_at, ${now}) > p.base_at
+        and r.status <> 'voided' and r.started_at is not null and ${runEnd} > p.base_at
       where ${base}
       group by p.id`),
-    ctx.db.all<Row>(sql`
-      select p.id as plan_id, ${clip(sql`d.started_at`, sql`coalesce(d.stopped_at, ${now})`)} as ms
-      from maint_plan p
-      join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
-      join press_downtime d on d.company_id = p.company_id and d.press_line_id = a.link_id and d.press_run_id is not null
-        and coalesce(d.stopped_at, ${now}) > p.base_at
-      join press_run r on r.id = d.press_run_id and r.company_id = d.company_id and r.status <> 'voided'
-      where ${base}
-      group by p.id`),
+    ctx.db.all<CutRow>(sql`
+      select plan_id, run_id, s, e from (
+        select p.id as plan_id, r.id as run_id,
+          max(d.started_at, r.started_at, p.base_at) as s,
+          min(coalesce(d.stopped_at, ${now}), ${runEnd}, ${now}) as e
+        from maint_plan p
+        join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
+        join press_run r on r.company_id = p.company_id and r.press_line_id = a.link_id
+          and r.status <> 'voided' and r.started_at is not null and ${runEnd} > p.base_at
+        join press_downtime d on d.company_id = r.company_id and d.press_run_id = r.id
+          and coalesce(d.stopped_at, ${now}) > p.base_at
+        where ${base}
+      ) where e > s`),
+    ctx.db.all<CutRow>(sql`
+      select plan_id, run_id, s, e from (
+        select p.id as plan_id, r.id as run_id,
+          max((select max(st.at) from audit_log st
+                 where st.company_id = x.company_id and st.subject_type = 'press_run' and st.subject_id = x.subject_id
+                   and st.action = 'press_run.stop' and st.at <= x.at), r.started_at, p.base_at) as s,
+          min(x.at, ${runEnd}, ${now}) as e
+        from maint_plan p
+        join maint_asset a on a.id = p.asset_id and a.company_id = p.company_id and a.link_kind = 'press'
+        join press_run r on r.company_id = p.company_id and r.press_line_id = a.link_id
+          and r.status <> 'voided' and r.started_at is not null and ${runEnd} > p.base_at
+        join audit_log x on x.company_id = r.company_id and x.subject_type = 'press_run' and x.subject_id = r.id
+          and x.action = 'press_run.resume' and x.at > p.base_at
+        where ${base}
+      ) where s is not null and e > s`),
     ctx.db.all<Row>(sql`
       select p.id as plan_id, ${clip(sql`coalesce(m.preheat_start_at, m.charging_start_at)`, sql`m.casting_end_at`)} as ms
       from maint_plan p
@@ -123,15 +154,34 @@ export async function planUsageMinutes(ctx: Ctx, nowMs: number, assetId?: string
   ]);
 
   const out = new Map<string, number>();
-  const add = (rows: Row[], sign: 1 | -1) => {
-    for (const r of rows) out.set(r.plan_id, (out.get(r.plan_id) ?? 0) + sign * Number(r.ms ?? 0));
+  const add = (rows: Row[]) => {
+    for (const r of rows) out.set(r.plan_id, (out.get(r.plan_id) ?? 0) + Number(r.ms ?? 0));
   };
-  add(runs, 1);
-  add(downtime, -1);
-  add(melts, 1);
-  add(batches, 1);
+  add(runs);
+  add(melts);
+  add(batches);
+  // Cuts merged per (plan, run): a downtime entry inside a pause is taken off once.
+  const cuts = new Map<string, { plan: string; spans: { startMs: number; endMs: number }[] }>();
+  for (const c of [...downtimeCuts, ...pauseCuts]) {
+    const key = `${c.plan_id}|${c.run_id}`;
+    const entry = cuts.get(key) ?? { plan: c.plan_id, spans: [] };
+    entry.spans.push({ startMs: Number(c.s), endMs: Number(c.e) });
+    cuts.set(key, entry);
+  }
+  for (const { plan, spans } of cuts.values()) out.set(plan, (out.get(plan) ?? 0) - mergedMinutes(spans) * 60_000);
   for (const [k, ms] of out) out.set(k, Math.max(0, Math.floor(ms / 60_000)));
   return out;
+}
+
+/** The plant's timezone (company settings, Asia/Kolkata by default). */
+export async function plantTimezone(ctx: Ctx): Promise<string> {
+  const [row] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+  return companyTimezone(row?.settings);
+}
+
+/** The plant day of an instant as a day number, on the plant's clock (`pmDue` counts days with it). */
+export function plantDayOf(timezone: string): (ms: number) => number {
+  return (ms) => dayNumber(zonedYmd(timezone, ms));
 }
 
 export type PlanDueRow = {
@@ -151,7 +201,8 @@ export type PlanDueRow = {
 
 /** Every active plan (of one asset, or all), with its due figures, overdue first. */
 export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promise<PlanDueRow[]> {
-  const usage = await planUsageMinutes(ctx, nowMs, assetId);
+  const [usage, tz] = await Promise.all([planUsageMinutes(ctx, nowMs, assetId), plantTimezone(ctx)]);
+  const dayOf = plantDayOf(tz);
   const rows = await ctx.db.all<{
     id: string;
     title: string;
@@ -189,6 +240,7 @@ export async function plansDue(ctx: Ctx, nowMs: number, assetId?: string): Promi
         baseAtMs: Number(r.base_at),
         usageMinSinceBase: r.interval_hours != null ? (usage.get(r.id) ?? 0) : null,
         nowMs,
+        dayOf,
       }),
       openWorkOrderId: r.wo_id,
       openWorkOrderNumber: r.wo_number,

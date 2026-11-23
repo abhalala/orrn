@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
-import { auditLog, maintPlan, maintWorkOrder } from "@orrn/db/schema";
+import { auditLog, maintAsset, maintPlan, maintWorkOrder } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -84,7 +84,7 @@ describe("work orders (#65)", () => {
     });
     const { id } = await p.supervisor.maint.workOrders.create({ assetId, kind: "breakdown", title: "Leak" });
     let wo = await p.supervisor.maint.workOrders.get({ id });
-    expect(await errOf(p.supervisor.maint.workOrders.update({ id, serverSeq: wo.serverSeq, startedAt: at(2 * H).getTime(), finishedAt: at(H).getTime() }))).toEqual({
+    expect(await errOf(p.supervisor.maint.workOrders.update({ id, serverSeq: wo.serverSeq, startedAt: at(-H).getTime(), finishedAt: at(-2 * H).getTime() }))).toEqual({
       code: "BAD_REQUEST",
       message: "The finish time is before the start time",
     });
@@ -137,7 +137,113 @@ describe("work orders (#65)", () => {
     });
     expect(await errOf(q.owner.maint.workOrders.fromDowntime({ downtimeId }))).toMatchObject({ code: "NOT_FOUND" });
     const breakdowns = await p.supervisor.maint.workOrders.breakdowns();
-    expect(breakdowns.map((d) => [d.id, d.workOrderNumber])).toEqual([[downtimeId, first.number]]);
+    expect(breakdowns.hasAssets).toBe(true);
+    expect(breakdowns.items.map((d) => [d.id, d.workOrderNumber])).toEqual([[downtimeId, first.number]]);
+  });
+
+  test("a plant with no assets: breakdowns say so and list nothing", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await p.downtime(at(-H), null, "breakdown");
+    expect(await p.press.maint.workOrders.breakdowns()).toEqual({ hasAssets: false, items: [] });
+    await compressor(p);
+    const after = await p.press.maint.workOrders.breakdowns();
+    expect(after.hasAssets).toBe(true);
+    expect(after.items).toHaveLength(1);
+  });
+
+  test("a cancelled work order does not block a new one from the same downtime entry or reading", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await pressAsset(p);
+    const downtimeId = await p.downtime(at(-H), null, "breakdown");
+    const first = await p.press.maint.workOrders.fromDowntime({ downtimeId });
+    let wo = await p.press.maint.workOrders.get({ id: first.id });
+    await p.supervisor.maint.workOrders.move({ id: wo.id, serverSeq: wo.serverSeq, to: "cancelled", reason: "Wrong press" });
+    expect((await p.press.maint.workOrders.breakdowns()).items[0]).toMatchObject({ id: downtimeId, workOrderId: null });
+    const second = await p.press.maint.workOrders.fromDowntime({ downtimeId });
+    expect(second).toMatchObject({ replayed: false, number: "WO-2" });
+    expect(second.id).not.toBe(first.id);
+    expect((await p.press.maint.workOrders.breakdowns()).items[0]).toMatchObject({ workOrderId: second.id });
+
+    const { id: assetId } = await compressor(p);
+    const { id: kindId } = await p.manager.maint.readings.createKind({ assetId, name: "Pressure", unit: "bar", maxMilli: 8_000 });
+    const reading = await p.operator.maint.readings.record({ kindId, valueMilli: 9_500 });
+    const r1 = await p.operator.maint.readings.makeWorkOrder({ readingId: reading.id });
+    wo = await p.operator.maint.workOrders.get({ id: r1.id });
+    await p.operator.maint.workOrders.move({ id: wo.id, serverSeq: wo.serverSeq, to: "cancelled", reason: "Gauge was faulty" });
+    // The reading shows as not handled again, then makes a new work order.
+    expect((await p.supervisor.maint.readings.flagged())[0]!.workOrderId).toBeNull();
+    expect((await p.supervisor.maint.today())!.flaggedReadings).toBe(1);
+    const r2 = await p.operator.maint.readings.makeWorkOrder({ readingId: reading.id });
+    expect(r2.replayed).toBe(false);
+    expect((await p.supervisor.maint.readings.flagged())[0]!.workOrderId).toBe(r2.id);
+  });
+
+  test("a lost race for a work order takes no WO number", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await pressAsset(p);
+    const downtimeId = await p.downtime(at(-H), null, "breakdown");
+    const { insertWorkOrder } = await import("../src/routers/maintenanceWork");
+    const [asset] = await env.db.select().from(maintAsset).where(eq(maintAsset.companyId, p.companyId));
+    const ctx = { db: env.db, companyId: p.companyId, session: { user: { id: p.users.press.id } } } as never;
+    const input = { assetId: asset!.id, kind: "breakdown" as const, source: "downtime" as const, downtimeId, title: "Seal", priority: "high" as const };
+    const read = async () => {
+      const [w] = await env.db.select().from(maintWorkOrder).where(and(eq(maintWorkOrder.companyId, p.companyId), eq(maintWorkOrder.downtimeId, downtimeId)));
+      return w ?? null;
+    };
+    let calls = 0;
+    // The other tap wins between our first look and our write.
+    const lost = await insertWorkOrder(ctx, input, async () => {
+      calls += 1;
+      if (calls === 1) {
+        await insertWorkOrder(ctx, input, async () => null);
+        return null;
+      }
+      return read();
+    });
+    expect(lost).toMatchObject({ number: "WO-1", replayed: true });
+    const { id: cmp } = await compressor(p);
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
+  });
+
+  test("times: none in the future; a done work order keeps them; a new finish moves its plan's reset point", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { id: assetId } = await compressor(p);
+    const { id: planId } = await p.manager.maint.plans.create({ assetId, title: "Drain the tank", intervalDays: 30 });
+    const made = await p.operator.maint.plans.makeWorkOrder({ planId });
+    let wo = await p.operator.maint.workOrders.get({ id: made.id });
+    expect(await errOf(p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, finishedAt: at(DAY).getTime() }))).toEqual({
+      code: "BAD_REQUEST",
+      message: "A start or finish time cannot be in the future",
+    });
+    expect(await errOf(p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, startedAt: at(H).getTime() }))).toMatchObject({ code: "BAD_REQUEST" });
+    // A few minutes ahead (a fast phone clock) is fine.
+    await p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, startedAt: at(2 * 60_000).getTime() });
+    setClock(at(2 * H));
+    wo = await p.operator.maint.workOrders.get({ id: made.id });
+    await p.operator.maint.workOrders.move({ id: wo.id, serverSeq: wo.serverSeq, to: "done", workDone: "Drained" });
+    expect((await env.db.select().from(maintPlan).where(eq(maintPlan.id, planId)))[0]!.baseAt.getTime()).toBe(at(2 * H).getTime());
+    wo = await p.operator.maint.workOrders.get({ id: made.id });
+    expect(await errOf(p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, finishedAt: null }))).toEqual({
+      code: "BAD_REQUEST",
+      message: "A done work order keeps its start and finish times",
+    });
+    // The real finish was at 1 h: the plan now counts from 1 h.
+    await p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, finishedAt: at(H).getTime() });
+    expect((await env.db.select().from(maintPlan).where(eq(maintPlan.id, planId)))[0]!.baseAt.getTime()).toBe(at(H).getTime());
+    // A later work order on the plan is now its reset point: editing the older one moves nothing.
+    const next = await p.operator.maint.plans.makeWorkOrder({ planId });
+    let nwo = await p.operator.maint.workOrders.get({ id: next.id });
+    setClock(at(3 * H));
+    await p.operator.maint.workOrders.move({ id: nwo.id, serverSeq: nwo.serverSeq, to: "done", workDone: "Drained again" });
+    wo = await p.operator.maint.workOrders.get({ id: made.id });
+    await p.operator.maint.workOrders.update({ id: wo.id, serverSeq: wo.serverSeq, finishedAt: at(90 * 60_000).getTime() });
+    expect((await env.db.select().from(maintPlan).where(eq(maintPlan.id, planId)))[0]!.baseAt.getTime()).toBe(at(3 * H).getTime());
+    nwo = await p.operator.maint.workOrders.get({ id: next.id });
+    expect(nwo.status).toBe("done");
   });
 
   test("a preventive work order done resets its plan; one live work order per plan", async () => {
@@ -238,19 +344,26 @@ describe("condition readings (#68)", () => {
     expect(hot.flag).toBe("high");
     const flagged = await p.supervisor.maint.readings.flagged();
     expect(flagged.map((f) => [f.id, f.flag, f.unit])).toEqual([[hot.id, "high", "°C"]]);
-    expect((await p.supervisor.maint.today()).flaggedReadings).toBe(1);
+    expect((await p.supervisor.maint.today())!.flaggedReadings).toBe(1);
     const okReading = (await p.operator.maint.readings.list({ assetId })).items.find((r) => r.flag === "ok")!;
     expect(await errOf(p.operator.maint.readings.makeWorkOrder({ readingId: okReading.id }))).toEqual({ code: "BAD_REQUEST", message: "That reading is inside its limits" });
     const wo = await p.operator.maint.readings.makeWorkOrder({ readingId: hot.id });
     expect(await p.operator.maint.readings.makeWorkOrder({ readingId: hot.id })).toEqual({ id: wo.id, number: wo.number, replayed: true });
-    expect(await p.operator.maint.workOrders.get({ id: wo.id })).toMatchObject({ source: "reading", kind: "breakdown", title: "Oil temperature 72 °C", priority: "high" });
+    expect(await p.operator.maint.workOrders.get({ id: wo.id })).toMatchObject({ source: "reading", kind: "condition", title: "Oil temperature 72 °C", priority: "high" });
     expect((await p.supervisor.maint.readings.flagged())[0]!.workOrderId).toBe(wo.id);
-    expect((await p.supervisor.maint.today()).flaggedReadings).toBe(0);
+    expect((await p.supervisor.maint.today())!.flaggedReadings).toBe(0);
     // Tenancy and roles.
     expect(await errOf(q.owner.maint.readings.record({ kindId, valueMilli: 1 }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
     expect(await errOf(q.owner.maint.readings.list({ assetId }))).toMatchObject({ code: "NOT_FOUND" });
     expect(await errOf(p.viewer.maint.readings.record({ kindId, valueMilli: 1 }))).toMatchObject({ code: "FORBIDDEN" });
     expect(await errOf(p.operator.maint.readings.createKind({ assetId, name: "x", unit: "bar", maxMilli: 1 }))).toMatchObject({ code: "FORBIDDEN" });
+    // The unit is fixed once the kind has readings; a kind with none may change it.
+    expect(await errOf(p.manager.maint.readings.updateKind({ id: kindId, name: "Oil temperature", unit: "°F", minMilli: 68_000, maxMilli: 140_000, active: true }))).toEqual({
+      code: "BAD_REQUEST",
+      message: "This reading already has readings in its unit. Add a new reading kind for another unit",
+    });
+    const fresh = await p.manager.maint.readings.createKind({ assetId, name: "Pressure", unit: "bar", maxMilli: 200_000 });
+    await p.manager.maint.readings.updateKind({ id: fresh.id, name: "Pressure", unit: "kg/cm²", maxMilli: 200_000, active: true });
     // A switched-off kind takes no reading.
     await p.manager.maint.readings.updateKind({ id: kindId, name: "Oil temperature", unit: "°C", minMilli: 20_000, maxMilli: 60_000, active: false });
     expect(await errOf(p.operator.maint.readings.record({ kindId, valueMilli: 1 }))).toEqual({ code: "BAD_REQUEST", message: "That reading is switched off" });

@@ -21,6 +21,7 @@ import {
   maintWoNext,
   priorityFromCriticality,
   type MaintPriority,
+  type MaintWoKind,
   type MaintWoStatus,
 } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
@@ -48,7 +49,7 @@ import { actionProcedure, router } from "../index";
 import { atomicBatch, atomicBatchLast, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
-import { nextDocNumber } from "../lib/docNumber";
+import { docNumberInBatch, isDocNumberStale } from "../lib/docNumber";
 import { assertMember, loadAsset, notFound } from "../lib/maintenance";
 import { assertModule } from "../lib/moduleGate";
 import { nextCompanySeq } from "../lib/sequence";
@@ -62,6 +63,8 @@ export const WO_BAD_MOVE = "A work order cannot move to that status from here";
 export const WO_NEEDS_WORK_DONE = "Write what was done before marking the work order done";
 export const WO_NEEDS_REASON = "Say why the work order is cancelled";
 export const WO_FINISH_BEFORE_START = "The finish time is before the start time";
+export const WO_TIME_FUTURE = "A start or finish time cannot be in the future";
+export const WO_DONE_KEEPS_TIMES = "A done work order keeps its start and finish times";
 export const DOWNTIME_NOT_BREAKDOWN = "Only a downtime entry with the breakdown reason makes a work order";
 export const DOWNTIME_NO_ASSET = "No asset points at this press yet. Add it to the asset register first";
 export const SPARE_NOT_MAINTENANCE = "Only a store issue for maintenance can be linked";
@@ -91,7 +94,7 @@ function uniqueHit(e: unknown): boolean {
 
 type NewWo = {
   assetId: string;
-  kind: "breakdown" | "preventive";
+  kind: MaintWoKind;
   source: "manual" | "downtime" | "plan" | "reading";
   title: string;
   priority: MaintPriority;
@@ -104,66 +107,72 @@ type NewWo = {
 /**
  * Insert one work order with its number and audit row. When the source already has one (a unique index
  * on downtime, reading or live plan), the existing row comes back with `replayed: true`. `existing`
- * re-reads that row after a lost race.
+ * re-reads that row after a lost race. The WO number is reserved inside the same batch
+ * (`docNumberInBatch`), so a lost race takes no number and the series has no gap; when another work
+ * order took the predicted number first, it reads again and retries (at most 5 times).
  */
 export async function insertWorkOrder(ctx: WriteCtx, input: NewWo, existing: () => Promise<MaintWorkOrderRow | null>) {
   const prior = await existing();
   if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
   const at = now();
   const userId = ctx.session.user.id;
-  const doc = await nextDocNumber(ctx.db, ctx.companyId, "maint_wo", at, userId);
   const seq = await nextCompanySeq(ctx, ctx.companyId);
-  const woId = crypto.randomUUID();
-  const statements = [
-    ctx.db.insert(maintWorkOrder).values({
-      id: woId,
-      companyId: ctx.companyId,
-      serverSeq: seq,
-      number: doc.number,
-      period: doc.period,
-      assetId: input.assetId,
-      kind: input.kind,
-      source: input.source,
-      planId: input.planId ?? null,
-      downtimeId: input.downtimeId ?? null,
-      readingId: input.readingId ?? null,
-      priority: input.priority,
-      status: "open",
-      title: input.title,
-      assignedTo: input.assignedTo ?? null,
-      createdBy: userId,
-      createdAt: at,
-      updatedAt: at,
-    }),
-    auditInsertGuarded(
-      ctx,
-      {
-        action: "maint.workorder.create",
-        subjectType: "maint_work_order",
-        subjectId: woId,
-        meta: { number: doc.number, kind: input.kind, source: input.source, assetId: input.assetId, priority: input.priority },
-      },
-      { from: maintWorkOrder, where: and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.id, woId)) },
-    ),
-  ];
-  if (input.readingId) {
-    statements.push(
-      ctx.db
-        .update(maintReading)
-        .set({ workOrderId: woId })
-        .where(and(eq(maintReading.companyId, ctx.companyId), eq(maintReading.id, input.readingId), isNull(maintReading.workOrderId))),
-    );
-  }
-  try {
-    await atomicBatch(ctx.db, statements as never);
-  } catch (e) {
-    if (uniqueHit(e)) {
-      const won = await existing();
-      if (won) return { id: won.id, number: won.number, replayed: true as const };
+  for (let attempt = 0; ; attempt += 1) {
+    const doc = await docNumberInBatch(ctx.db, ctx.companyId, "maint_wo", at, userId);
+    const woId = crypto.randomUUID();
+    const statements = [
+      ...doc.statements,
+      ctx.db.insert(maintWorkOrder).values({
+        id: woId,
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        number: doc.number,
+        period: doc.period,
+        assetId: input.assetId,
+        kind: input.kind,
+        source: input.source,
+        planId: input.planId ?? null,
+        downtimeId: input.downtimeId ?? null,
+        readingId: input.readingId ?? null,
+        priority: input.priority,
+        status: "open",
+        title: input.title,
+        assignedTo: input.assignedTo ?? null,
+        createdBy: userId,
+        createdAt: at,
+        updatedAt: at,
+      }),
+      auditInsertGuarded(
+        ctx,
+        {
+          action: "maint.workorder.create",
+          subjectType: "maint_work_order",
+          subjectId: woId,
+          meta: { number: doc.number, kind: input.kind, source: input.source, assetId: input.assetId, priority: input.priority },
+        },
+        { from: maintWorkOrder, where: and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.id, woId)) },
+      ),
+    ];
+    if (input.readingId) {
+      statements.push(
+        ctx.db
+          .update(maintReading)
+          .set({ workOrderId: woId })
+          .where(and(eq(maintReading.companyId, ctx.companyId), eq(maintReading.id, input.readingId), isNull(maintReading.workOrderId))),
+      );
     }
-    throw e;
+    try {
+      await atomicBatch(ctx.db, statements as never);
+      return { id: woId, number: doc.number, replayed: false as const };
+    } catch (e) {
+      if (uniqueHit(e)) {
+        const won = await existing();
+        if (won) return { id: won.id, number: won.number, replayed: true as const };
+      }
+      if (isDocNumberStale(e) && attempt < 4) continue;
+      throw e;
+    }
   }
-  return { id: woId, number: doc.number, replayed: false as const };
 }
 
 /** One guarded UPDATE + its audit row, both landing only on the caller's `server_seq`. */
@@ -256,6 +265,11 @@ const listInput = z
   .default({ status: "live", limit: 50 });
 
 const ms = z.number().int().min(0).max(8_640_000_000_000);
+/** A typed time may run ahead of the server clock by this much (a phone clock a little fast). */
+const FUTURE_SKEW_MS = 5 * 60_000;
+
+/** A work order on a source (downtime entry, reading) that is not cancelled: a cancelled one never blocks a new one. */
+const notCancelled = sql`${maintWorkOrder.status} <> 'cancelled'`;
 
 export const workOrdersRouter = router({
   list: viewProcedure.input(listInput).query(async ({ ctx, input }) => {
@@ -388,7 +402,7 @@ export const workOrdersRouter = router({
       .limit(1);
     if (!d) throw notFound();
     const existing = async () => {
-      const [w] = await ctx.db.select().from(maintWorkOrder).where(and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.downtimeId, d.id))).limit(1);
+      const [w] = await ctx.db.select().from(maintWorkOrder).where(and(eq(maintWorkOrder.companyId, ctx.companyId), eq(maintWorkOrder.downtimeId, d.id), notCancelled)).limit(1);
       return w ?? null;
     };
     const prior = await existing();
@@ -414,10 +428,16 @@ export const workOrdersRouter = router({
     );
   }),
 
-  /** Press downtime entries with the breakdown reason in the last 30 days, and the work order made from each. */
+  /**
+   * Press downtime entries with the breakdown reason in the last 30 days, and the live or done work
+   * order made from each (a cancelled one is left out, so the entry can make a new one). `hasAssets` is
+   * false while the register is empty: the press station then shows nothing new at all.
+   */
   breakdowns: viewProcedure.query(async ({ ctx }) => {
     await assertModule(ctx, "maintenance");
     const since = new Date(now().getTime() - 30 * 86_400_000);
+    const [anyAsset] = await ctx.db.select({ id: maintAsset.id }).from(maintAsset).where(eq(maintAsset.companyId, ctx.companyId)).limit(1);
+    if (!anyAsset) return { hasAssets: false, items: [] };
     const rows = await ctx.db
       .select({
         id: pressDowntime.id,
@@ -433,7 +453,7 @@ export const workOrdersRouter = router({
       .from(pressDowntime)
       .innerJoin(reasonCode, and(eq(reasonCode.id, pressDowntime.reasonCodeId), eq(reasonCode.companyId, pressDowntime.companyId)))
       .innerJoin(pressLine, and(eq(pressLine.id, pressDowntime.pressLineId), eq(pressLine.companyId, pressDowntime.companyId)))
-      .leftJoin(maintWorkOrder, and(eq(maintWorkOrder.companyId, pressDowntime.companyId), eq(maintWorkOrder.downtimeId, pressDowntime.id)))
+      .leftJoin(maintWorkOrder, and(eq(maintWorkOrder.companyId, pressDowntime.companyId), eq(maintWorkOrder.downtimeId, pressDowntime.id), notCancelled))
       .leftJoin(
         maintAsset,
         and(eq(maintAsset.companyId, pressDowntime.companyId), eq(maintAsset.linkKind, "press"), eq(maintAsset.linkId, pressDowntime.pressLineId)),
@@ -441,7 +461,7 @@ export const workOrdersRouter = router({
       .where(and(eq(pressDowntime.companyId, ctx.companyId), eq(reasonCode.code, "breakdown"), sql`${pressDowntime.startedAt} >= ${since.getTime()}`))
       .orderBy(desc(pressDowntime.startedAt))
       .limit(100);
-    return rows.map((r) => ({ ...r, startedAt: r.startedAt.getTime(), stoppedAt: r.stoppedAt?.getTime() ?? null }));
+    return { hasAssets: true, items: rows.map((r) => ({ ...r, startedAt: r.startedAt.getTime(), stoppedAt: r.stoppedAt?.getTime() ?? null })) };
   }),
 
   update: workProcedure
@@ -481,10 +501,26 @@ export const workOrdersRouter = router({
       put("finishedAt", input.finishedAt === undefined ? undefined : input.finishedAt == null ? null : new Date(input.finishedAt));
       const start = set.startedAt !== undefined ? set.startedAt : row.startedAt;
       const finish = set.finishedAt !== undefined ? set.finishedAt : row.finishedAt;
+      const latest = now().getTime() + FUTURE_SKEW_MS;
+      if ((set.startedAt && set.startedAt.getTime() > latest) || (set.finishedAt && set.finishedAt.getTime() > latest)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: WO_TIME_FUTURE });
+      }
       if (start && finish && finish.getTime() < start.getTime()) throw new TRPCError({ code: "BAD_REQUEST", message: WO_FINISH_BEFORE_START });
       if (row.status === "done" && set.workDone === null) throw new TRPCError({ code: "BAD_REQUEST", message: WO_NEEDS_WORK_DONE });
+      if (row.status === "done" && (set.startedAt === null || set.finishedAt === null)) throw new TRPCError({ code: "BAD_REQUEST", message: WO_DONE_KEEPS_TIMES });
       if (changed.length === 0) return { id: row.id };
-      await guardedWrite(ctx, row, input.serverSeq, set, { action: "maint.workorder.update", meta: { fields: changed } });
+      // A done preventive work order that its plan last reset from: a new finish time moves the reset point.
+      const movesPlan = row.status === "done" && row.kind === "preventive" && row.planId && set.finishedAt && set.finishedAt.getTime() !== row.finishedAt?.getTime();
+      await guardedWrite(ctx, row, input.serverSeq, set, { action: "maint.workorder.update", meta: { fields: changed, ...(movesPlan ? { planReset: true } : {}) } }, (landedSql) =>
+        movesPlan
+          ? [
+              ctx.db
+                .update(maintPlan)
+                .set({ baseAt: set.finishedAt!, updatedAt: now() })
+                .where(and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.id, row.planId!), eq(maintPlan.lastWorkOrderId, row.id), landedSql)),
+            ]
+          : [],
+      );
       return { id: row.id };
     }),
 
@@ -512,6 +548,10 @@ export const workOrdersRouter = router({
       if (input.to === "done") {
         const work = input.workDone?.trim() || row.workDone;
         if (!work) throw new TRPCError({ code: "BAD_REQUEST", message: WO_NEEDS_WORK_DONE });
+        const latest = at.getTime() + FUTURE_SKEW_MS;
+        if ((row.startedAt && row.startedAt.getTime() > latest) || (row.finishedAt && row.finishedAt.getTime() > latest)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: WO_TIME_FUTURE });
+        }
         set.workDone = work;
         set.startedAt = row.startedAt ?? row.createdAt;
         set.finishedAt = row.finishedAt ?? at;
@@ -527,15 +567,25 @@ export const workOrdersRouter = router({
         input.serverSeq,
         set,
         { action: "maint.workorder.move", meta: { from, to: input.to, ...(input.reason ? { reason: input.reason } : {}), ...(resetsPlan ? { planReset: true } : {}) } },
-        (landedSql) =>
-          resetsPlan
+        (landedSql) => [
+          ...(resetsPlan
             ? [
                 ctx.db
                   .update(maintPlan)
                   .set({ baseAt: set.finishedAt!, lastWorkOrderId: row.id, updatedAt: at })
                   .where(and(eq(maintPlan.companyId, ctx.companyId), eq(maintPlan.id, row.planId!), landedSql)),
               ]
-            : [],
+            : []),
+          // A cancelled work order frees its reading: it shows as not handled again and can make a new one.
+          ...(input.to === "cancelled" && row.readingId
+            ? [
+                ctx.db
+                  .update(maintReading)
+                  .set({ workOrderId: null })
+                  .where(and(eq(maintReading.companyId, ctx.companyId), eq(maintReading.id, row.readingId), eq(maintReading.workOrderId, row.id), landedSql)),
+              ]
+            : []),
+        ],
       );
       return { id: row.id, status: input.to };
     }),

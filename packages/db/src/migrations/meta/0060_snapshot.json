@@ -15712,7 +15712,7 @@
             "downtime_id"
           ],
           "isUnique": true,
-          "where": "\"maint_work_order\".\"downtime_id\" IS NOT NULL"
+          "where": "\"maint_work_order\".\"downtime_id\" IS NOT NULL AND \"maint_work_order\".\"status\" <> 'cancelled'"
         },
         "maint_wo_company_reading_unique": {
           "name": "maint_wo_company_reading_unique",
@@ -15721,7 +15721,7 @@
             "reading_id"
           ],
           "isUnique": true,
-          "where": "\"maint_work_order\".\"reading_id\" IS NOT NULL"
+          "where": "\"maint_work_order\".\"reading_id\" IS NOT NULL AND \"maint_work_order\".\"status\" <> 'cancelled'"
         },
         "maint_wo_company_plan_live_unique": {
           "name": "maint_wo_company_plan_live_unique",
