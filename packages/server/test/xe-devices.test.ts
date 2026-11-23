@@ -175,7 +175,7 @@ describe("row 95: enrolment, tokens, health", () => {
     await expect(admin.devices.revoke({ id: e.id, reason: "again" })).rejects.toMatchObject({ code: "CONFLICT" });
     await expect(admin.devices.rotateToken({ id: e.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect((await admin.devices.list()).devices[0]).toMatchObject({ health: "revoked", label: "Gate bridge 60 t" });
-    expect(await auditActions(companyId)).toEqual(expect.arrayContaining(["device.enrol", "device.token", "device.update", "device.revoke"]));
+    expect(await auditActions(companyId)).toEqual(expect.arrayContaining(["plant_device.enrol", "plant_device.token", "plant_device.update", "plant_device.revoke"]));
   });
 
   test("the edge: node signature AND device token; revoked, wrong token, other node, module off", async () => {
@@ -386,7 +386,7 @@ describe("row 48: weighbridge", () => {
     await p.storekeeper.purchase.lots.update({ id: lot.id, fcKgG: 11_000 * KG });
     const mm = await p.manager.devices.weigh.mismatches();
     expect(mm.items).toEqual([expect.objectContaining({ subjectId: lot.id, bridgeG: 11_200 * KG, currentG: 11_000 * KG })]);
-    expect(await auditActions(p.companyId)).toEqual(expect.arrayContaining(["device.import", "device.weigh", "purchase_lot.update"]));
+    expect(await auditActions(p.companyId)).toEqual(expect.arrayContaining(["plant_device.import", "plant_device.weigh", "purchase_lot.update"]));
   });
 
   test("typed fallback: a reason, compared with the truck's ticket, flagged beyond the tolerance", async () => {
@@ -400,7 +400,7 @@ describe("row 48: weighbridge", () => {
     expect(typed.check).toMatchObject({ diffG: -200 * KG, allowedG: 56 * KG, flagged: true });
     expect((await env.db.select().from(purchaseLot).where(eq(purchaseLot.id, lot.id)))[0]!.fcKgG).toBe(11_000 * KG);
     expect((await p.manager.devices.weigh.mismatches()).items.map((m) => m.reason)).toEqual(["Bridge display blank"]);
-    expect(await auditActions(p.companyId)).toContain("device.weigh_flagged");
+    expect(await auditActions(p.companyId)).toContain("plant_device.weigh_flagged");
 
     // Within tolerance: recorded, not flagged. With no ticket for the truck: recorded with the reason only.
     const lot3 = await p.lot("GJ06CD0003");
@@ -511,7 +511,7 @@ describe("rows 40 and 94: lab auto-capture", () => {
     expect(attached).toMatchObject({ result: "pass", subjectType: "press_run" });
     await expect(p.as("supervisor").devices.lab.attach({ readingId: inbox.items[0]!.id, code: run.number })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.as("supervisor").devices.lab.inbox()).items).toEqual([]);
-    expect(await auditActions(p.companyId)).toEqual(expect.arrayContaining(["device.capture"]));
+    expect(await auditActions(p.companyId)).toEqual(expect.arrayContaining(["plant_device.capture"]));
 
     // Tenancy and permission on the lab.
     const other = await pressPlant();

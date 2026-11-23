@@ -370,7 +370,7 @@ export async function captureLabReading(
       }),
       db.update(deviceReadingUse).set({ qaCheckId: checkId }).where(and(eq(deviceReadingUse.id, useId), eq(deviceReadingUse.companyId, o.companyId))),
       auditInsert(audit, {
-        action: "device.capture",
+        action: "plant_device.capture",
         subjectType: "qa_check",
         subjectId: checkId,
         meta: { readingId: reading.id, deviceId: reading.deviceId, kind, subjectType: target.type, subjectId: target.id, number: subject.number, result, auto: o.actorId == null },

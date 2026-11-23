@@ -167,7 +167,7 @@ const deviceAdmin = {
             tokenVersion: 1,
             enrolledBy: ctx.session.user.id,
           }),
-          auditInsert(audit(ctx), { action: "device.enrol", subjectType: "plant_device", subjectId: deviceId, meta: { code: input.code, kind: input.kind, protocol: input.protocol, simulated, nodeId: input.deploymentId ?? null } }),
+          auditInsert(audit(ctx), { action: "plant_device.enrol", subjectType: "plant_device", subjectId: deviceId, meta: { code: input.code, kind: input.kind, protocol: input.protocol, simulated, nodeId: input.deploymentId ?? null } }),
         ]);
       } catch (e) {
         if (isQaUnique(e, "plant_device")) throw new TRPCError({ code: "CONFLICT", message: `Device ${input.code} is already enrolled` });
@@ -191,7 +191,7 @@ const deviceAdmin = {
           .where(and(eq(plantDevice.id, d.id), eq(plantDevice.companyId, ctx.companyId), eq(plantDevice.tokenVersion, d.tokenVersion), isNull(plantDevice.revokedAt))),
         auditInsertGuarded(
           audit(ctx),
-          { action: "device.token", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, tokenVersion: version } },
+          { action: "plant_device.token", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, tokenVersion: version } },
           { from: plantDevice, where: and(eq(plantDevice.id, d.id), eq(plantDevice.tokenVersion, version)) },
         ),
       ]);
@@ -214,7 +214,7 @@ const deviceAdmin = {
           .where(and(eq(plantDevice.id, d.id), eq(plantDevice.companyId, ctx.companyId), isNull(plantDevice.revokedAt))),
         auditInsertGuarded(
           audit(ctx),
-          { action: "device.revoke", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, reason: input.reason } },
+          { action: "plant_device.revoke", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, reason: input.reason } },
           { from: plantDevice, where: and(eq(plantDevice.id, d.id), eq(plantDevice.revokedBy, ctx.session.user.id), eq(plantDevice.revokedAt, at)) },
         ),
       ]);
@@ -236,7 +236,7 @@ const deviceAdmin = {
       if (Object.keys(patch).length === 0) return { success: true };
       await atomicBatch(ctx.db, [
         ctx.db.update(plantDevice).set(patch).where(and(eq(plantDevice.id, d.id), eq(plantDevice.companyId, ctx.companyId), isNull(plantDevice.revokedAt))),
-        auditInsert(audit(ctx), { action: "device.update", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, fields: Object.keys(patch) } }),
+        auditInsert(audit(ctx), { action: "plant_device.update", subjectType: "plant_device", subjectId: d.id, meta: { code: d.code, fields: Object.keys(patch) } }),
       ]);
       return { success: true };
     }),
@@ -282,7 +282,7 @@ const settings = router({
       if (Object.keys(patch).length === 0) return plantSettings(ctx);
       await atomicBatch(ctx.db, [
         ctx.db.update(company).set({ settings: settingsPatchSql(patch) as never }).where(eq(company.id, ctx.companyId)),
-        auditInsert(audit(ctx), { action: "device.settings", subjectType: "company", subjectId: ctx.companyId, meta: input }),
+        auditInsert(audit(ctx), { action: "plant_device.settings", subjectType: "company", subjectId: ctx.companyId, meta: input }),
       ]);
       return plantSettings(ctx);
     }),
@@ -326,7 +326,7 @@ const imports = router({
         importedBy: ctx.session.user.id,
       }));
       const added = await insertReadings(ctx, values);
-      if (added > 0) await atomicBatch(ctx.db, [auditInsert(audit(ctx), { action: "device.import", subjectType: "device_reading", meta: { kind: "weighbridge", unit: input.unit, added, deviceId: d?.id ?? null } })]);
+      if (added > 0) await atomicBatch(ctx.db, [auditInsert(audit(ctx), { action: "plant_device.import", subjectType: "device_reading", meta: { kind: "weighbridge", unit: input.unit, added, deviceId: d?.id ?? null } })]);
       return { added, duplicate: values.length - added, errors: parsed.errors };
     }),
 
@@ -361,7 +361,7 @@ const imports = router({
       let captured = 0;
       const qaOn = await moduleOn(ctx, "qa");
       if (added > 0) {
-        await atomicBatch(ctx.db, [auditInsert(audit(ctx), { action: "device.import", subjectType: "device_reading", meta: { kind: input.kind, added, deviceId: d?.id ?? null } })]);
+        await atomicBatch(ctx.db, [auditInsert(audit(ctx), { action: "plant_device.import", subjectType: "device_reading", meta: { kind: input.kind, added, deviceId: d?.id ?? null } })]);
         if (qaOn) {
           const landed = await landedIds(ctx, values.map((v) => v.id));
           for (const v of values) {
@@ -580,7 +580,7 @@ const weigh = router({
       const items: SqliteBatchItem[] = [
         voidLiveWeigh(ctx, input.subjectType, input.subjectId, at),
         ctx.db.insert(deviceReadingUse).values({ id: useId, companyId: ctx.companyId, readingId: t.id, subjectType: input.subjectType, subjectId: input.subjectId, bridgeG: t.netG, typedG: null, diffG: load?.diffG ?? 0, allowedG: load?.allowedG ?? null, flagged: false, createdBy: ctx.session.user.id, createdAt: at }),
-        auditInsert(audit(ctx), { action: "device.weigh", subjectType: input.subjectType, subjectId: input.subjectId, meta: { number: subject.number, readingId: t.id, ticketNo: t.ticketNo, netG: t.netG } }),
+        auditInsert(audit(ctx), { action: "plant_device.weigh", subjectType: input.subjectType, subjectId: input.subjectId, meta: { number: subject.number, readingId: t.id, ticketNo: t.ticketNo, netG: t.netG } }),
       ];
       if (subject.lot) items.push(...(await lotWeightStatements(ctx, subject.lot, t.netG!, { weighbridgeTicket: t.ticketNo })).items);
       await runWeighBatch(ctx, items);
@@ -620,7 +620,7 @@ const weigh = router({
           createdAt: at,
         }),
         auditInsert(audit(ctx), {
-          action: check?.flagged ? "device.weigh_flagged" : "device.weigh_typed",
+          action: check?.flagged ? "plant_device.weigh_flagged" : "plant_device.weigh_typed",
           subjectType: input.subjectType,
           subjectId: input.subjectId,
           meta: { number: subject.number, typedG: input.typedG, reason: input.reason, ticketNo: cand?.ticketNo ?? null, bridgeG: cand?.netG ?? null, diffG: check?.diffG ?? null },
@@ -742,7 +742,7 @@ const lab = router({
       try {
         await atomicBatch(ctx.db, [
           ctx.db.insert(deviceReadingUse).values({ id: useId, companyId: ctx.companyId, readingId: r.id, subjectType: "set_aside", subjectId: null, reason: input.reason, createdBy: ctx.session.user.id }),
-          auditInsert(audit(ctx), { action: "device.set_aside", subjectType: "device_reading", subjectId: r.id, meta: { reason: input.reason } }),
+          auditInsert(audit(ctx), { action: "plant_device.set_aside", subjectType: "device_reading", subjectId: r.id, meta: { reason: input.reason } }),
         ]);
       } catch (e) {
         if (isQaUnique(e, "device_reading_use")) throw new TRPCError({ code: "CONFLICT", message: "That reading is already on a quality check" });
