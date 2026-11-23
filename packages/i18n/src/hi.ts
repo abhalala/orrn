@@ -14,6 +14,7 @@ import { admHi } from "./adm/hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
+import { fdy2Hi } from "./fdy2/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -3230,6 +3231,8 @@ export const hi = {
         scrap_store: "स्क्रैप स्टोर",
         store: "सेंट्रल स्टोर",
         wip: "काम चालू",
+        billet_rack: "बिलेट रैक",
+        press_floor: "प्रेस फ़्लोर",
       },
       holdsEmpty: "खाली",
       holdsBundles: "{count} bundle",
@@ -6485,6 +6488,7 @@ export const hi = {
   adm: admHi,
 
   buddy: buddyHi,
+  fdy2: fdy2Hi,
 
   reg: regHi,
   qa: qaHi,
@@ -6504,6 +6508,8 @@ export const hi = {
       die_work: "Die का काम",
       melt_correct: "लॉक मेल्ट का सुधार",
       cast_tail: "कास्ट क्लोज़-आउट",
+      log_reject: "लॉग रिजेक्ट",
+      billet_reject: "बिलेट रिजेक्ट",
     },
     downtime: {
       die_change: "Die बदली",
@@ -6595,6 +6601,22 @@ export const hi = {
       scale_difference: "काँटे का फ़र्क",
       remelted: "बिलेट फ़र्नेस में वापस गए",
       scrapped: "बिलेट स्क्रैप हुए",
+      other: "अन्य",
+    },
+    log_reject: {
+      crack: "दरार",
+      inclusion: "इन्क्लूज़न",
+      size: "गलत साइज़",
+      chemistry: "केमिस्ट्री बाहर",
+      bend: "टेढ़ा लॉग",
+      other: "अन्य",
+    },
+    billet_reject: {
+      crack: "दरार",
+      inclusion: "इन्क्लूज़न",
+      size: "गलत साइज़",
+      chemistry: "केमिस्ट्री बाहर",
+      short_length: "छोटी लंबाई",
       other: "अन्य",
     },
   },
@@ -7018,6 +7040,21 @@ export const hi = {
       foundry__cast__cancel: "कास्ट रद्द किया",
       foundry__furnace__create: "फर्नेस जोड़ी",
       foundry__furnace__update: "फर्नेस बदली",
+      foundry__billets__cut: "लॉग से बिलेट काटे",
+      foundry__billets__issue: "बिलेट प्रेस को दिए",
+      foundry__chemistry__set: "सामान्य केमिस्ट्री तय की",
+      foundry__homog__create: "होमोजेनाइज़िंग बैच खोला",
+      foundry__homog__hold: "होमोजेनाइज़िंग बैच रोका",
+      foundry__homog__load: "होमोजेनाइज़िंग के लिए लॉग लोड किए",
+      foundry__homog__out: "होमोजेनाइज़िंग बैच बाहर निकाला",
+      foundry__homog__release: "होमोजेनाइज़िंग बैच पास किया",
+      foundry__homog__start: "होमोजेनाइज़िंग शुरू",
+      foundry__homog__unload: "होमोजेनाइज़िंग बैच से लॉग हटाए",
+      foundry__homog__void: "होमोजेनाइज़िंग बैच रद्द",
+      foundry__logs__mtc: "मिल टेस्ट सर्टिफ़िकेट जोड़ा",
+      foundry__logs__receive: "बाहर से खरीदे लॉग आए",
+      foundry__reject__billet: "बिलेट रिजेक्ट किए",
+      foundry__reject__log: "लॉग रिजेक्ट किए",
       foundry__melt__correct: "मेल्ट सुधारा",
       foundry__melt__correct_request: "मेल्ट सुधारने की मंज़ूरी मांगी",
       foundry__melt__discard: "ड्राफ्ट मेल्ट हटाया",

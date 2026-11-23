@@ -96,6 +96,8 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_lineTooLarge", key: "foundry.refusal.lineTooLarge", re: /^A line is above 100 t; check the kg$/ },
   { id: "fd_spectroOver", key: "foundry.refusal.spectroOver", re: /^The eight elements add up to more than 100 %$/ },
   { id: "fd_spectroPpm", key: "foundry.refusal.spectroPpm", re: /^Spectro values must be whole ppm from 0 to 1,000,000$/ },
+  // XE FOUNDRY (#41): a melt never takes a homogenizing furnace.
+  { id: "fd_homogFurnace", key: "foundry.refusal.homogFurnace", re: /^(.+) is a homogenizing furnace; pick a melting furnace$/, vars: (m) => ({ furnace: m[1]! }) },
 ];
 
 registerRefusals(FOUNDRY_REFUSALS);

@@ -58,6 +58,7 @@ export const foundryRefusalEn = {
   correctionApproved: "A correction for this melt is approved. Correct it now.",
   giveBundle: "Scan or type the bundle.",
   simulatorOff: "The furnace simulator is off.",
+  homogFurnace: "{furnace} is a homogenizing furnace. Pick a melting furnace.",
   dayOrder: "The end day is before the start day.",
   maxDays: "Pick at most 92 days.",
   addStream: "Add the dross and Fe return streams first in Masters, Return streams.",
