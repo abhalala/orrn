@@ -65,9 +65,15 @@ function routerFiles(): Map<string, { file: string; ident: string }> {
     for (const ident of m[1]!.split(",").map((s) => s.trim())) fileOf.set(ident, m[2]!);
   }
   const out = new Map<string, { file: string; ident: string }>();
+  const add = (key: string, rel: string, ident: string) =>
+    out.set(key, { file: join(SERVER_SRC, "routers", rel.endsWith(".ts") ? rel : `${rel}.ts`), ident });
   for (const m of index.matchAll(/^\s{2}(\w+): (\w+),/gm)) {
     const rel = fileOf.get(m[2]!);
-    if (rel) out.set(m[1]!, { file: join(SERVER_SRC, "routers", rel.endsWith(".ts") ? rel : `${rel}.ts`), ident: m[2]! });
+    if (rel) add(m[1]!, rel, m[2]!);
+  }
+  // Lazy routers (Worker startup CPU, routers/index.ts): `key: lazy(() => import("./file").then((m) => m.ident)),`.
+  for (const m of index.matchAll(/^\s{2}(\w+): lazy\(\(\) => import\("\.\/([^"]+)"\)\.then\(\((\w+)\) => \3\.(\w+)\)\),/gm)) {
+    add(m[1]!, m[2]!, m[4]!);
   }
   return out;
 }
