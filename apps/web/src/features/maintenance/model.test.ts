@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { dueLines, hoursMinutes, maintErrorKey, maintenanceOn, maintReady, milliText, parseMilli } from "./model";
+import { dueLines, hoursMinutes, maintErrorKey, maintenanceNamed, maintenanceOn, maintReady, milliText, parseMilli } from "./model";
 import { parseWoSearch, woFilterOf } from "./search";
 
 const me = (role: string, modules: string[] = []) =>
@@ -19,6 +19,18 @@ describe("maintenance gate", () => {
     expect(maintReady(me("storekeeper"), ["maint.view"])).toBe(true);
     expect(maintReady(me("accountant"), ["maint.view"])).toBe(false);
     expect(maintReady(null, ["maint.view"])).toBe(false);
+  });
+});
+
+describe("maintenance named (load errors on shared screens)", () => {
+  test("only a module list that names maintenance; empty (all on) does not", () => {
+    expect(maintenanceNamed({ company: { modules: [] } } as never)).toBe(false);
+    expect(maintenanceNamed({ company: { modules: ["press"] } } as never)).toBe(false);
+    expect(maintenanceNamed({ company: { modules: ["press", "Maintenance"] } } as never)).toBe(true);
+    expect(maintenanceNamed(null as never)).toBe(false);
+  });
+  test("the new refusal maps to its words", () => {
+    expect(maintErrorKey({ message: "This reading's unit or limits changed just now. Take the reading again" } as never)).toBe("maint.errors.kindChanged");
   });
 });
 

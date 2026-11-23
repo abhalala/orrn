@@ -8,7 +8,7 @@ import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { dueLines, maintReady, type PlanDue } from "./model";
+import { dueLines, maintenanceNamed, maintReady, type PlanDue } from "./model";
 
 export type MaintTodayCounts = {
   overdue: number;
@@ -91,7 +91,8 @@ export function TodayMaintTile() {
     meta: INLINE_ERROR_META,
   });
   if (!ready) return null;
-  if (today.isError && !today.data) return <MaintTodayError onRetry={() => void today.refetch()} />;
+  // The error block only for a plant that named the module: with "empty list = all on" a failed read stays silent.
+  if (today.isError && !today.data) return maintenanceNamed(me.data) ? <MaintTodayError onRetry={() => void today.refetch()} /> : null;
   if (!today.data) return null;
   return (
     <section aria-labelledby="today-maint" data-testid="today-maint" className="flex min-w-0 flex-col gap-3">

@@ -18,7 +18,7 @@ import { ReportToggle } from "../reports/report-chrome";
 import { AssetSheet } from "./asset-form";
 import { ASSET_STATUS_TONE, isAssetKind, isAssetStatus, isCriticality, maintErrorKey } from "./model";
 
-/** The server returns at most this many assets for one list. */
+/** The server returns at most this many assets for one list (`ASSET_LIST_CAP` in packages/server/src/routers/maintenance.ts; keep equal). */
 export const ASSET_LIST_CAP = 500;
 
 /** `/maintenance/assets`: the register of machines. */

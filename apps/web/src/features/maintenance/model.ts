@@ -63,6 +63,15 @@ export function maintenanceOn(me: MeLike): boolean {
   return modules.length === 0 || modules.includes("maintenance");
 }
 
+/**
+ * The plant's module list names maintenance (not just "empty list = all on"). A shared screen shows a
+ * maintenance load error only then, so a plant that never set maintenance up sees nothing new.
+ */
+export function maintenanceNamed(me: MeLike): boolean {
+  const modules = ((me as { company?: { modules?: string[] | null } | null } | null | undefined)?.company?.modules ?? []).map((m) => m.toLowerCase());
+  return modules.includes("maintenance");
+}
+
 /** The person may use `actions` here AND the module is on: the gate for a query on a shared screen (Today, press). */
 export function maintReady(me: MeLike, actions: readonly Action[]): boolean {
   return !!me && maintenanceOn(me) && canAny(me, actions as Action[]);

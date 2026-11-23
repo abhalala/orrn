@@ -247,6 +247,14 @@ describe("report", () => {
     const done = await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" });
     w = await p.operator.maint.workOrders.get({ id: done.id });
     await p.operator.maint.workOrders.update({ id: w.id, serverSeq: w.serverSeq, labourMin: 45 });
+    // One spare on the open breakdown, one on the done one: only the done one's entry counts.
+    await p.owner.stock.locations.seedDefaults();
+    const item = await p.storekeeper.store.items.create({ name: "Fuse", unit: "piece", category: "spare" });
+    await p.storekeeper.store.receive({ itemId: item.id, qtyMilli: 10_000 });
+    for (const woId of [open.id, done.id]) {
+      const issue = await p.storekeeper.store.issue({ itemId: item.id, qtyMilli: 1_000, purpose: "maintenance", refId: woId });
+      await p.operator.maint.spares.link({ workOrderId: woId, storeTxnId: issue.id });
+    }
     w = await p.operator.maint.workOrders.get({ id: done.id });
     setClock(new Date(NOV + 2 * DAY + H));
     await p.operator.maint.workOrders.move({ id: w.id, serverSeq: w.serverSeq, to: "done", workDone: "Reset" });
@@ -256,6 +264,7 @@ describe("report", () => {
     const row = report.rows.find((r) => r.asset.id === cmp)!;
     expect(row.stillOpen.map((o) => o.workOrderId)).toEqual([open.id]);
     expect(row.total.labourMin).toBe(30 + 45);
+    expect(row.total.sparesEntries).toBe(1);
   });
 
   test("more than 5,000 assets: the report says it is cut short", async () => {
