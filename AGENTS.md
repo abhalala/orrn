@@ -838,6 +838,43 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   across the range, biggest first), and `lotsG` / `streamsG` on every row and in the total; the report shows
   "Metal in by source" and the CSV carries "From lots kg" / "From return streams kg".
 
+## Foundry depth (XE parity lane FOUNDRY, rows 41-47 and 50; migration 0061)
+
+Rides the `foundry` module (no new module key; ROUTER_MODULE `foundry` gates every mutation). Tables in
+`packages/db/src/schema/foundryDepth.ts`, routers `routers/foundryDepth.ts` (`foundry.homog`, `foundry.logs`,
+`foundry.billets`, `foundry.rejects`) and `routers/foundryPlan.ts` (`foundry.chargeMix`, `foundry.casts.dataSheet`),
+shared SQL in `lib/foundryDepth.ts`, pure rules in `@orrn/domain` `foundryDepth.ts`. Actions (append-only in
+PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundry.billets`, `foundry.reject`, `foundry.plan`.
+
+- **Logs vs billets are told apart by location kind**, not by item: the `billet` item (item_ref = cast id) sits at
+  `billet_store` (logs as cast), `billet_rack` (cut billets) or `press_floor` (one press's billets; `location.press_line_id`
+  is required for that kind, another plant's press is Not found). Voucher types `log_receipt`, `billet_cut`, `billet_issue`,
+  `foundry_reject`. A cut debits the store and credits the rack (billets) and the end-cut stream (scrap, default PLANT-SCRAP);
+  an issue moves rack to a press floor; a reject debits a place and credits a return stream (scrap).
+- **Cast tail** = melt logs + bought-in receipts - on hand - press credited - foundry out (`castFoundryOutSql`: the net of
+  `billet_cut` and `foundry_reject` billet rows). `castCloseCheck` counts foundry out as credited. Never post a cut or a
+  reject without its paired credit, or the tail drifts.
+- **Press close draws from the press floor** when an active `press_floor` exists for the run's press line, else the billet
+  store (`pressDrawLocation`). No setting: making a press floor is the switch.
+- **Bought-in logs (#42):** `logs.receive` makes a closed `cast` with `source = 'bought_in'` (number = the receipt number `OL-n`,
+  doc type `log_receipt`), the `log_receipt` row and a + ledger row at the billet store, in one batch. Melts, close and cancel
+  refuse it because it is closed. The mill test certificate rides the die-files R2 bucket ticket flow
+  (`{co}/dies/mtc-{receiptId}/{fileId}`, purged with the plant by `dieFilesPurge.ts`); `mtcUrl` mints the signed link.
+- **Homogenizing (#41):** `homog_batch` (doc type `homog`, `HB-n`) on a furnace of `kind = 'homogenizing'` (melts refuse that
+  kind; `seedDefaults` only checks melting furnaces). One `in_furnace` batch per furnace (partial unique index). Soak is ageing's
+  `soakCompliance` with a 60 min reading hold and 30 min over-temperature grace (`homogSoak`). `out` freezes the verdict;
+  `release` passes an ok soak, holds a failed one unless a note is given. No ledger rows. Plant setting
+  `settings.foundry.requireHomogenizing` (default off): a 6xxx log is cut only up to the pieces released from homogenizing.
+- **Reject registers (#43):** reason kinds `log_reject`, `billet_reject` (seeded per plant; "other" needs a note).
+- **Charge mix (#47):** `suggestChargeMix` is a two-phase simplex (`solveLp`) on typical chemistry per scrap item and per
+  return stream (`charge_chemistry`, edited with masters.publish at `/foundry/chemistry`). It never writes a melt; the web
+  panel on the charge step is display only. Cost (lot rates; streams cost 0) is sent only to reports.read or purchase.receipt.
+- **Buddy:** every foundry-depth write is a `paths` deny in `lib/buddy/decisions.ts` until reviewed for drafts.
+- **Web:** `/foundry/homog`, `/foundry/homog/$id`, `/foundry/logs`, `/foundry/billets` (`tab=stock|cut|issue`),
+  `/foundry/rejects` (`kind=log|billet`, `from`, `to`), `/foundry/chemistry`, `/casts/$id/sheet` (A4 data sheet, a paper:
+  `paper-guard.test.ts`), linked from the `/casts` header. Strings in the `fdy2` namespace (`packages/i18n/src/fdy2`, en+hi).
+  Refusals go through `ErrorLine` and `@orrn/i18n/refusal-foundry` like every foundry screen.
+
 ## Ageing (contracts W3-AG-C, server W3-AG-S, web W3-AG-W)
 
 D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky` @1ebdd0d7 (and `wt/W2-FD-S-omafranky` @ddf3bd9c for the foundry); both are superseded, not merged (D32: the hub's lanes win; 8 satellite test cases were ported into W2-FD-S). Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).

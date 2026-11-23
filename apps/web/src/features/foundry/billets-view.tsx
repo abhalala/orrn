@@ -192,16 +192,18 @@ function CutTab({ places }: { places: StockPlace[] }) {
   );
 }
 
-/** The refusal of a write: the person's-language sentence, plus the server's own words for the homogenizing gate. */
+/**
+ * The refusal of a write, said from the dictionary (`ErrorLine`, never the server's English). The homogenizing
+ * gate adds what to do next above it.
+ */
 function Refusal({ error }: { error: unknown }) {
   const { t } = useT();
   if (!error) return null;
-  const message = (error as { message?: unknown }).message;
-  if (isHomogRefusal(message)) {
+  if (isHomogRefusal((error as { message?: unknown }).message)) {
     return (
       <div className="flex flex-col gap-1" data-testid="homog-refusal">
         <Note tone="red" role="alert">{t("fdy2.billets.cut.homogNeeded")}</Note>
-        <p className="m-0 px-1 text-[13px] text-muted-foreground break-words">{String(message)}</p>
+        <ErrorLine error={error} />
       </div>
     );
   }
