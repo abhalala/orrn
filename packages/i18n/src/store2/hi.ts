@@ -36,6 +36,9 @@ export const store2Hi = {
     perUnit: "{rate} प्रति {unit}",
   },
   grn: {
+    entryPo: "परचेज़ ऑर्डर",
+    entryRate: "रेट",
+    entryValue: "मूल्य",
     poLine: "परचेज़ ऑर्डर के सामने",
     noPo: "कोई परचेज़ ऑर्डर नहीं",
     poLineOption: "{po} लाइन {line}, {vendor}: {left} {unit} आना बाकी",

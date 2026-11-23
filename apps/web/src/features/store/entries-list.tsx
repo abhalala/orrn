@@ -31,6 +31,8 @@ import { StoreLoadError } from "./store-ui";
 import { useFormatWhen } from "./use-format-when";
 import { useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
 import { useFmt } from "@/shared/lib/fmt";
+import { can, useMe } from "@/shared/lib/me";
+import { rupees } from "@/features/store-buy/money";
 
 /** The server's cap on store.txns (no cursor yet: a `before` cursor is a plant/core follow-up). */
 const MAX = 500;
@@ -225,6 +227,7 @@ function EntrySheet({
 }) {
   const { t } = useT();
   const fmt = useFmt();
+  const { data: me } = useMe();
   const when = useFormatWhen();
   const { canEnter } = useStoreAccess();
   const invalidate = useInvalidateStore();
@@ -340,6 +343,20 @@ function EntrySheet({
             {/* A draw's refId is the drawing record's id (a cast uuid), not something a person typed. */}
             {e.refId && !e.sourceType ? <Fact label={t("store.entry.ref")}>{e.refId}</Fact> : null}
             {e.grnRef ? <Fact label={t("store.entry.challan")}>{e.grnRef}</Fact> : null}
+            {e.poNumber ? <Fact label={t("store2.grn.entryPo")}>{e.poNumber}</Fact> : null}
+            {e.kind === "grn" ? (
+              <Fact label={t("store2.grn.entryRate")}>
+                {e.ratePaise === null ? t("store2.money.noRate") : t("store2.money.perUnit", { rate: rupees(e.ratePaise), unit: unitShort(t, e.unit, 1000) })}
+              </Fact>
+            ) : null}
+            {e.rejectedMilli ? (
+              <Fact label={t("store2.grn.rejected")}>
+                {formatQty(e.rejectedMilli, e.unit, fmt)} {unitShort(t, e.unit, e.rejectedMilli, fmt)}
+              </Fact>
+            ) : null}
+            {can(me, "store.value") && (e.kind === "mrs" || e.ratePaise !== null) ? (
+              <Fact label={t("store2.grn.entryValue")}>{rupees(e.valuePaise)}</Fact>
+            ) : null}
           </dl>
           {e.note ? (
             <dl className="m-0">

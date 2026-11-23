@@ -40,6 +40,9 @@ export const store2En = {
     perUnit: "{rate} per {unit}",
   },
   grn: {
+    entryPo: "Purchase order",
+    entryRate: "Rate",
+    entryValue: "Value",
     poLine: "Against a purchase order",
     noPo: "No purchase order",
     poLineOption: "{po} line {line}, {vendor}: {left} {unit} still to come",
