@@ -54,7 +54,8 @@ describe("no order, plan or dispatch screen calls the mm and inch helper", () =>
 describe("the hints under the length and band boxes follow the plant's unit", () => {
   const src = (rel: string) => readFileSync(join(import.meta.dir, "../..", rel), "utf8");
   test("the cut length hints pick the metre wording for a plant on metres", () => {
-    expect(src("features/pack/die-step.tsx")).toContain('lengthIsMetres(fmt) ? "pack.new.cutLengthHintMetres" : "pack.new.cutLengthHintMm"');
+    // The pack cut length has its own three boxes (feet, inch, mm) whatever the plant's unit, with one hint for all.
+    expect(src("features/pack/die-step.tsx")).toContain('t("pack.new.cutLengthHintThree")');
     expect(src("features/orders/components/die-block.tsx")).toContain('lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm"');
     expect(src("features/orders/components/line-editor.tsx")).toContain('lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm"');
     expect(src("features/portal/new-order-page.tsx")).toContain('lengthIsMetres(fmt) ? "portal.orders.lengthHintMetres" : "portal.orders.lengthHintMm"');

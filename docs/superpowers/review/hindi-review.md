@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12388 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12393 screen strings in 60 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -676,7 +676,7 @@ Counts: 12388 screen strings in 60 groups, 45 guides with 866 strings.
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
-### pack (222)
+### pack (227)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -730,6 +730,11 @@ Counts: 12388 screen strings in 60 groups, 45 guides with 866 strings.
 | `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
 | `new.cutLengthHintMetres` | In metres, for example 3.658. | मीटर में, जैसे 3.658. |
 | `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
+| `new.cutLengthBoxFt` | Feet | फ़ीट |
+| `new.cutLengthBoxIn` | Inch | इंच |
+| `new.cutLengthBoxMm` | mm | मिमी |
+| `new.cutLengthTyped` | typed | लिखा |
+| `new.cutLengthHintThree` | Type in the box that matches the order. The other two fill in. | ऑर्डर की इकाई वाले बॉक्स में लिखें। बाकी दो अपने आप भर जाएँगे। |
 | `new.yard` | Yard | यार्ड |
 | `new.yardHint` | Where these bundles will be stacked. | ये bundle किस यार्ड में रखे जाएंगे। |
 | `new.yardRequired` | Choose the yard these bundles go to. | ये bundle किस यार्ड में जाएंगे, वह चुनें। |

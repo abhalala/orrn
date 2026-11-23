@@ -22,6 +22,7 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "bill.doc.rate", why: "the tax invoice's rate is per kg: the HSN unit code is KGS" },
   { prefix: "bill.new.perKg", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
   { prefix: "bill.new.rates", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
+  { prefix: "pack.new.cutLengthBox", why: "the pack cut length always offers Feet, Inch and mm boxes, because orders arrive in all three (owner ask)" },
   { prefix: "units.", why: "the unit words themselves (and the names in the pickers)" },
   { prefix: "settings.", why: "Settings names the units it lets a plant choose" },
   { prefix: "packingList.", why: "the packing list view mirrors the paper, which keeps kg and feet and inches until the paper has its own setting" },
