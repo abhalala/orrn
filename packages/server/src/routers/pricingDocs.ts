@@ -38,7 +38,7 @@ import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { loadPricingRows, masterReady, priceLines, pricingCompany, pricingToday } from "../lib/pricing";
 import { assertOrderPrice, bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
 import { nextCompanySeq } from "../lib/sequence";
@@ -395,7 +395,7 @@ export const pricingDocsProcedures = {
     convert: actionProcedure("quote.manage")
       .input(z.object({ id, poNumber: text(100).nullish() }))
       .mutation(async ({ ctx, input }) => {
-        if (!can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.manage")) {
+        if (!ctxCan(ctx, "order.manage")) {
           bad("Your role can't make sales orders");
         }
         const q = await loadQuote(ctx.db, ctx.companyId, input.id);
@@ -408,7 +408,7 @@ export const pricingDocsProcedures = {
         const today = pricingToday(co.settings, clockNow());
         if (q.validUntil < today) bad(`This quote ran out on ${q.validUntil}. Make a new one`);
         const lines = await quoteLines(ctx.db, ctx.companyId, q.id);
-        const withRates = co.priceOnSalesOrder && can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price");
+        const withRates = co.priceOnSalesOrder && ctxCan(ctx, "order.price");
         const made = await createSalesOrder(
           ctx,
           {

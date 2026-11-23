@@ -196,6 +196,12 @@ app.on(["POST", "GET", "DELETE"], "/mcp", async (c) => {
   const { handleMcpRequest } = await import("@orrn/server/lib/buddy/mcp");
   return handleMcpRequest(c.req.raw, { db: createDb() });
 });
+// XE PLATFORM row 83: the plant's read-only API (opt-in module `api`), bearer token only, no cookie read. The module
+// loads on the first /api/v1 request, never at Worker startup (10021).
+app.all("/api/v1/*", async (c) => {
+  const { handlePublicApi } = await import("@orrn/server/lib/publicApi/app");
+  return handlePublicApi(c.req.raw, { db: createDb() });
+});
 // The chat leg: the bubble's turn, proxied to Hermes as SSE (lib/buddy/chat.ts). 403/404 with no body.
 app.post("/buddy/chat", async (c) => {
   const { handleBuddyChat } = await import("@orrn/server/lib/buddy/chat");
@@ -237,6 +243,8 @@ async function scheduled(controller: ScheduledController, _env: unknown, ctx: Ex
   // XE-BILL: the 5-minute cron retries and cancels IRNs.
   if (controller.cron === IRN_CRON) {
     ctx.waitUntil(import("@orrn/server/lib/billing/cron").then(({ runIrnCronJob }) => runIrnCronJob(createDb(), Date.now())));
+    // XE PLATFORM row 83: deliver due webhooks of every plant (bounded per tick; the event's own waitUntil goes first).
+    ctx.waitUntil(import("@orrn/server/lib/webhooks/cron").then(({ runWebhookCron }) => runWebhookCron(createDb(), Date.now())));
     return;
   }
   ctx.waitUntil(import("@orrn/server/lib/dailyCron").then(({ runDailyCron }) => runDailyCron(createDb(), new Date())));

@@ -33,6 +33,8 @@ import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { assertDispatchAgeing, dispatchAgeingGuardStatements, isAgeingAbort } from "../lib/ageing";
+import { webhookOutboxStatement } from "../lib/webhooks/outbox";
+import { scheduleDrain } from "../lib/webhooks/schedule";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema } from "../lib/importReplay";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
@@ -84,7 +86,7 @@ import {
   type OffBandRow,
   type OffBandState,
 } from "../lib/dispatchOffBand";
-import { can } from "../lib/permissions";
+import { can, meOfCtx, ctxCan } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
   classifyBundles,
@@ -1079,7 +1081,7 @@ type ScanCtx = Pick<Context, "db" | "session" | "impersonation"> & {
 /** D12: only `order.manage` holders (the office) may add bundles with no sales order line. */
 function assertMayAddUnassigned(ctx: Pick<ScanCtx, "role">, allowUnassigned: boolean | undefined) {
   if (!allowUnassigned) return;
-  if (!can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.manage")) {
+  if (!ctxCan(ctx, "order.manage")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Only the office can add bundles that are not on a sales order" });
   }
 }
@@ -1845,7 +1847,7 @@ export const dispatchRouter = router({
       // FP-OP-14: the dispatch's value from its order lines' rates, only with priceOnSalesOrder on and
       // order.price held (C23); null for everyone else. Weighed grams; missing rates are counted, not zeroed.
       let value: (ReturnType<typeof dispatchValue> & { complete: boolean }) | null = null;
-      if (can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price")) {
+      if (ctxCan(ctx, "order.price")) {
         const floor = await companyFloor(ctx.db, ctx.companyId);
         if (floor.floor.priceOnSalesOrder) {
           const v = dispatchValue(itemRows.map((it) => ({ weightG: Number(it.weightG), ratePaise: it.lineRatePaise })));
@@ -1944,7 +1946,7 @@ export const dispatchRouter = router({
       if (!existing) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
       }
-      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+      const me = meOfCtx(ctx);
 
       const baseChange = input.customerId !== undefined || input.shipDate !== undefined || input.notes !== undefined;
       const header: Partial<Record<HeaderField, string | null>> = {};
@@ -2255,7 +2257,7 @@ export const dispatchRouter = router({
       if (!EDITABLE_DISPATCH.includes(item.status)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order lines can only be changed before the dispatch completes" });
       }
-      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+      const me = meOfCtx(ctx);
       // An unlink by someone without order.manage (the floor) is checked here and in the UPDATE itself.
       const guardedUnlink = input.salesOrderLineId === null && !can(me, "order.manage");
       /** EXISTS: the dispatch's customer (as it is now) has an open order line for the bundle's section. */
@@ -3238,6 +3240,16 @@ export const dispatchRouter = router({
       );
       // XE QA (review B1): a quality hold placed after the read fails the completion whole.
       statements.push(...(await qaHoldGuardStatements(ctx.db, ctx.companyId, bundleIds)));
+      // XE PLATFORM row 83: the webhook outbox row lands with the completion or not at all (no row unless `api` is on).
+      statements.push(
+        webhookOutboxStatement(ctx.db, ctx.companyId, "dispatch.done", {
+          dispatchId: d.id,
+          code: d.code,
+          customerId: d.customerId,
+          packingListNumber: plNumber ?? null,
+          bundles: items.length,
+        }),
+      );
 
       try {
         await atomicBatch(ctx.db, statements);
@@ -3291,6 +3303,7 @@ export const dispatchRouter = router({
         }
         throw new TRPCError({ code: "CONFLICT", message: "Bundles on this dispatch changed. Reload and try again." });
       }
+      scheduleDrain(ctx);
       return { success: true as const, plNumber, packingListId: plId };
     }),
 

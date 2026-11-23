@@ -8,7 +8,7 @@ import { errorMetaOf, TRPCMetaError } from "./lib/errorMeta";
 import { assertModule, moduleForPath } from "./lib/moduleGate";
 import { PORTAL_REFUSALS, resolvePortalAccess } from "./lib/portal";
 import { COMPANY_HEADER, IMPERSONATE_HEADER } from "./lib/tenantContext";
-import { can, canAny, type Action } from "./lib/permissions";
+import { can, ctxCan, ctxCanAny, type Action } from "./lib/permissions";
 import { ScanRefusalError } from "./lib/scanRefusal";
 
 export const t = initTRPC.context<Context>().create({
@@ -140,8 +140,8 @@ function tagGuard<F extends object>(guard: GuardActions, fn: F): F {
 export function actionProcedure(action: Action) {
   return companyProcedure.use(
     tagGuard({ mode: "all", actions: [action] }, ({ ctx, next }) => {
-      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-      if (!can(me, action)) {
+      // XE PLATFORM row 79: the member's effective set (custom role applied), never the role alone.
+      if (!ctxCan(ctx, action)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You don't have permission to do that",
@@ -156,8 +156,7 @@ export function actionProcedure(action: Action) {
 export function anyActionProcedure(...actions: readonly Action[]) {
   return companyProcedure.use(
     tagGuard({ mode: "any", actions }, ({ ctx, next }) => {
-      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-      if (!canAny(me, actions)) {
+      if (!ctxCanAny(ctx, actions)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You don't have permission to do that",

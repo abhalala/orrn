@@ -178,6 +178,9 @@ export const PLANT_ACTIONS = [
   // XE parity lane COST (module `costing`, opt-in). Rates and margins also take `order.price`.
   "cost.view", // cost per kg, capacity, forecast, dies due, the outlook page
   "cost.manage", // costing settings: stage rates, low-margin line, press hours, die fallbacks
+  // XE PLATFORM (lane PLATFORM, migration 0066): custom roles; plant API tokens and webhooks (opt-in `api`).
+  "role.manage", // make, edit and delete custom roles (copies of a fixed role with actions switched on or off)
+  "api.manage", // plant API tokens and webhooks
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -373,6 +376,9 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Margins (rate minus cost) also need `order.price`, so admin sees cost but never a margin.
   "cost.view": ["admin", "manager", "accountant"],
   "cost.manage": ["admin", "manager"],
+  // XE PLATFORM: the plant admin, as with people and settings (lane brief "Actions and grants").
+  "role.manage": ["admin"],
+  "api.manage": ["admin"],
   "support.request": [
     "admin",
     "manager",
@@ -469,6 +475,115 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
 };
 
 /**
+ * XE PLATFORM row 79: custom roles. A custom role is a copy of one fixed role (its BASE) with plant actions
+ * switched on (`added`) or off (`removed`). The base stays the member's `membership.role`, so everything that
+ * keys on the role (approver rules, the Today layout, stations, who may hand out which role, owner checks)
+ * reads the base. Every ACTION check reads the member's effective set, which `effectiveActions` alone computes:
+ * the server puts it on the request context (`ctx.actions`, `lib/tenantContext.ts`) and `auth.me` sends it to
+ * the client as `company.actions`.
+ *
+ * With no custom role the effective set IS the fixed role's set (`test/custom-roles-matrix.test.ts` pins every
+ * action x role against the matrix as it stood before custom roles existed).
+ */
+export type CustomRoleGrant = {
+  baseRole: CompanyRole;
+  added: readonly string[];
+  removed: readonly string[];
+};
+
+/**
+ * Never granted by a custom role: platform staff actions, the owner's own actions, and the two that manage
+ * grants themselves (a role that could edit roles or mint API tokens could widen itself).
+ */
+export const NEVER_GRANTABLE_ACTIONS: readonly Action[] = [...OWNER_ONLY_ACTIONS, "role.manage", "api.manage"];
+
+/**
+ * Acts the server checks by the OWNER role, not by an action (`routers/company.ts`). No custom role reaches
+ * them, because the base of a custom role is never `owner` and these read the base: changing secure sign-in
+ * for the plant, making, demoting or removing an owner (ownership transfer), and the buddy. Deleting the
+ * company and changing its plan are platform acts (Godseye), never a tenant action.
+ */
+export const OWNER_ONLY_ACTS = ["secure_sign_in", "owner_roles", "owner_remove", "buddy", "company_delete", "plan_change"] as const;
+
+/** The actions a custom role may switch on or off: every plant action (and `dispatch.complete`) not in the list above. */
+export const ROLE_TOGGLE_ACTIONS: readonly Action[] = ([...PLANT_ACTIONS, "dispatch.complete"] as Action[]).filter(
+  (a) => !NEVER_GRANTABLE_ACTIONS.includes(a),
+);
+const ROLE_TOGGLE_SET: ReadonlySet<string> = new Set(ROLE_TOGGLE_ACTIONS);
+
+/** A fixed role a custom role may copy. Never the owner. */
+export function canBeCustomBase(role: CompanyRole): boolean {
+  return role !== "owner";
+}
+
+/** The fixed role's own action set (no custom role). */
+export function fixedRoleActions(role: CompanyRole): ReadonlySet<Action> {
+  return ROLE_ACTIONS[role];
+}
+
+/**
+ * THE one function for a member's effective actions: the base role's set, then the custom role's changes.
+ * - Only `ROLE_TOGGLE_ACTIONS` move; anything else in `added`/`removed` is ignored.
+ * - Legacy keys follow their plant key (`LEGACY_VIA_PLANT`): switching a plant key off drops every legacy key
+ *   the base held through it when no other source is left; switching one on adds them.
+ * - A custom role whose base is not `role` (a broken invariant) only ever removes: fail closed.
+ * - The owner never has a custom role; an owner's set is returned unchanged.
+ */
+export function effectiveActions(role: CompanyRole, custom?: CustomRoleGrant | null): ReadonlySet<Action> {
+  const base = ROLE_ACTIONS[role];
+  if (!custom || role === "owner") return base;
+  const mayAdd = custom.baseRole === role;
+  const added = mayAdd ? custom.added.filter((a) => ROLE_TOGGLE_SET.has(a)) : [];
+  const removed = custom.removed.filter((a) => ROLE_TOGGLE_SET.has(a) && !added.includes(a));
+  if (added.length === 0 && removed.length === 0) return base;
+  const set = new Set<Action>(base);
+  for (const a of removed) set.delete(a as Action);
+  for (const a of added) set.add(a as Action);
+  for (const [legacy, via] of Object.entries(LEGACY_VIA_PLANT) as [Action, (typeof LEGACY_VIA_PLANT)[LegacyAction]][]) {
+    if (via === "all" || via.length === 0) continue;
+    if (via.some((p) => added.includes(p))) {
+      set.add(legacy);
+    } else if (set.has(legacy) && via.some((p) => removed.includes(p)) && !via.some((p) => set.has(p))) {
+      set.delete(legacy);
+    }
+  }
+  return set;
+}
+
+/**
+ * The permission half of a server context: the base role and the effective set. Every server-side action check
+ * goes through `ctxCan` / `ctxCanAny` / `meOfCtx` (guard: `test/custom-roles-guard.test.ts`). `actions`
+ * undefined means a context built without the tenant resolver (unit tests): the fixed role's set.
+ */
+export type PermissionCtx = { role: CompanyRole | null | undefined; actions?: ReadonlySet<Action> | null };
+
+export function ctxActions(ctx: PermissionCtx): ReadonlySet<Action> {
+  if (!ctx.role) return new Set();
+  return ctx.actions ?? ROLE_ACTIONS[ctx.role];
+}
+
+export function ctxCan(ctx: PermissionCtx, action: Action): boolean {
+  if (action.startsWith("platform.")) return false;
+  return ctxActions(ctx).has(action);
+}
+
+export function ctxCanAny(ctx: PermissionCtx, actions: readonly Action[]): boolean {
+  return actions.some((a) => ctxCan(ctx, a));
+}
+
+/** A `can()`-shaped object for a server context (keeps the effective set). */
+export function meOfCtx(ctx: PermissionCtx): MeLike {
+  return ctx.role
+    ? { company: { role: ctx.role, actions: ctxActions(ctx) }, isPlatformAdmin: false, platformRole: null }
+    : { company: null, isPlatformAdmin: false, platformRole: null };
+}
+
+/** Effective actions as a sorted list, for `auth.me` and audit rows. */
+export function actionList(set: ReadonlySet<Action>): Action[] {
+  return [...set].sort();
+}
+
+/**
  * Approver roles per approval kind (digest §4.2 "approve" cells; manager, plant
  * admin and owner approve everything that needs a second person). The
  * requester can never approve their own request.
@@ -545,7 +660,11 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
 };
 
 export type MeLike = {
-  company: { role: CompanyRole } | null;
+  /**
+   * `actions`: the member's effective action set (custom roles, XE PLATFORM). When present, `can()` reads it and
+   * not the role's fixed set. The server always sends it (`auth.me` `company.actions`).
+   */
+  company: { role: CompanyRole; actions?: ReadonlySet<Action> | readonly Action[] | readonly string[] } | null;
   isPlatformAdmin: boolean;
   platformRole?: PlatformStaffRole | null;
 };
@@ -580,6 +699,10 @@ export type Me = {
     plan: string | null;
     modules?: string[];
     role: CompanyRole;
+    /** The member's effective actions (custom roles, XE PLATFORM); absent on old payloads. */
+    actions?: readonly string[];
+    /** The custom role the member holds, if any (its base is `role`). */
+    customRole?: { id: string; name: string } | null;
     settings?: { lengthUnit?: LengthUnit; [key: string]: unknown };
     /** Resolved units and formats for this plant's screens (`screenPrefs`). Absent on old payloads. */
     units?: ResolvedPrefs;
@@ -628,7 +751,22 @@ export function can(me: MeLike | Me | null | undefined, action: Action): boolean
 
   if (!me.company) return false;
 
+  const actions = me.company.actions;
+  if (actions) return actionSetOf(actions).has(action);
   return ROLE_ACTIONS[me.company.role].has(action);
+}
+
+/** A list from `auth.me` becomes a Set once per payload object. */
+const ACTION_SET_CACHE = new WeakMap<object, ReadonlySet<string>>();
+function actionSetOf(actions: ReadonlySet<Action> | readonly string[]): ReadonlySet<string> {
+  if (actions instanceof Set) return actions as ReadonlySet<string>;
+  const list = actions as readonly string[];
+  let set = ACTION_SET_CACHE.get(list);
+  if (!set) {
+    set = new Set(list);
+    ACTION_SET_CACHE.set(list, set);
+  }
+  return set;
 }
 
 /**
@@ -659,4 +797,13 @@ export function canAssignPlatformRole(
   target: PlatformStaffRole,
 ): boolean {
   return assignablePlatformRoles(actor).includes(target);
+}
+
+/**
+ * A fixed role's own rights, for checks about ANOTHER member picked in a form (who may be named operator or
+ * supervisor on a press run). Never for the caller: the caller's checks go through `ctxCan`. Every use is listed
+ * in `test/custom-roles-guard.test.ts`.
+ */
+export function fixedRoleCan(role: CompanyRole, action: Action): boolean {
+  return ROLE_ACTIONS[role].has(action);
 }

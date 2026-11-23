@@ -12,7 +12,7 @@ import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
-import { canAny, PURCHASE_READ_ACTIONS } from "../lib/permissions";
+import { PURCHASE_READ_ACTIONS, ctxCanAny } from "../lib/permissions";
 import { holdsOrderPrice } from "../lib/pricingKit";
 import { kindsRoleMayDecide, loadApprovalRules, mayDecide } from "../lib/approverRules";
 import { nextCompanySeq } from "../lib/sequence";
@@ -84,7 +84,7 @@ export const approvalRouter = router({
       // threshold reads the request's own meta), so the screens offer Approve only where it would land.
       const rules = await loadApprovalRules(ctx.db, ctx.companyId);
       // XE-PRICE B2: a line override (an order-line rate) is decided only by a holder of order.price.
-      const priceOk = holdsOrderPrice(ctx.role);
+      const priceOk = holdsOrderPrice(ctx);
       const withDecide = items.map((item) => ({
         ...item,
         canDecide:
@@ -92,7 +92,7 @@ export const approvalRouter = router({
           mayDecide(ctx.role, item.kind, item.meta, rules) &&
           (priceOk || !(item.kind === "price_change" && (item.meta as { rateKind?: unknown } | null)?.rateKind === "line")),
       }));
-      const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
+      const purchaseReader = ctxCanAny(ctx, PURCHASE_READ_ACTIONS);
       const visible = purchaseReader
         ? withDecide
         : withDecide.map((item) =>
@@ -168,7 +168,7 @@ export const approvalRouter = router({
       }
       // XE-PRICE review B2: a line override is an order-line rate, decided only by an approver who
       // also holds order.price (owner, manager). A master-rate change keeps its approvers.
-      if (row.kind === "price_change" && (row.meta as { rateKind?: unknown } | null)?.rateKind === "line" && !holdsOrderPrice(ctx.role)) {
+      if (row.kind === "price_change" && (row.meta as { rateKind?: unknown } | null)?.rateKind === "line" && !holdsOrderPrice(ctx)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const userId = ctx.session.user.id;

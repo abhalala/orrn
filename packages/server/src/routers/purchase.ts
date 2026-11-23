@@ -45,7 +45,7 @@ import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
 import { boriMeltedMessage, lotRemaining, lotRemainingSql, OUTER_LOT_ID } from "../lib/foundry";
 import { lotCancelLeavesStockNonNegative, lotCancelRows, lotOkRows } from "../lib/ledger";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import {
   bookDateInstant,
   companyToday,
@@ -998,7 +998,7 @@ const lotsRouter = router({
       const lot = await loadLot(ctx, input.id);
       if (lot.status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "This lot is already cancelled" });
       const wasOk = lot.status === "ok";
-      if (wasOk && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+      if (wasOk && !ctxCan(ctx, "masters.publish")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only a manager can cancel a lot that is in stock" });
       }
       const userId = ctx.session.user.id;

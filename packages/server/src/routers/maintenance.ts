@@ -74,7 +74,7 @@ import {
   plantTimezone,
 } from "../lib/maintenance";
 import { assertModule } from "../lib/moduleGate";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
 import { insertWorkOrder, sparesFor, sparesRouter, workOrdersRouter } from "./maintenanceWork";
 
@@ -883,7 +883,7 @@ const reportsRouter = router({
     } catch (e) {
       throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
     }
-    const showMoney = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "maint.manage");
+    const showMoney = ctxCan(ctx, "maint.manage");
     const tz = await plantTimezone(ctx);
     const fromMs = monthStartMs(tz, months[0]!);
     const toMs = monthStartMs(tz, nextMonthKey(months[months.length - 1]!));

@@ -9,7 +9,7 @@ import { actionProcedure, router } from "../index";
 import type { OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { withSubjectLabels } from "../lib/auditSubjects";
-import { canAny, type Action } from "../lib/permissions";
+import { type Action, ctxCanAny } from "../lib/permissions";
 import { holdsOrderPrice } from "../lib/pricingKit";
 
 /**
@@ -148,8 +148,8 @@ export const auditRouter = router({
   list: actionProcedure("audit.read")
     .input(auditListInput)
     .query(async ({ ctx, input }) => {
-      const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
-      return listAudit(ctx.db, ctx.companyId, input, purchaseReader, holdsOrderPrice(ctx.role));
+      const purchaseReader = ctxCanAny(ctx, PURCHASE_READ_ACTIONS);
+      return listAudit(ctx.db, ctx.companyId, input, purchaseReader, holdsOrderPrice(ctx));
     }),
 
   /** One subject's history (bundle, dispatch screens): newest first, at most 50 rows. */
@@ -169,9 +169,9 @@ export const auditRouter = router({
         )
         .orderBy(desc(auditLog.at), desc(auditLog.id))
         .limit(AUDIT_FOR_SUBJECT_CAP + 1);
-      const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
+      const purchaseReader = ctxCanAny(ctx, PURCHASE_READ_ACTIONS);
       return {
-        items: await withSubjectLabels(ctx.db, ctx.companyId, view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader, holdsOrderPrice(ctx.role))),
+        items: await withSubjectLabels(ctx.db, ctx.companyId, view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader, holdsOrderPrice(ctx))),
         capped: rows.length > AUDIT_FOR_SUBJECT_CAP,
       };
     }),

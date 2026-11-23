@@ -76,7 +76,7 @@ import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
 import { castAt, homogKgWithinSql, homogLeft, homogWindow, pressDraws, type PressDraw } from "../lib/foundryDepth";
-import { can, type CompanyRole } from "../lib/permissions";
+import { type CompanyRole, fixedRoleCan, ctxCan, type Action } from "../lib/permissions";
 import {
   billetUsableSql,
   billetPostedSql,
@@ -167,7 +167,11 @@ async function memberRole(db: OrrnDb, companyId: string, userId: string): Promis
   return (row?.role as CompanyRole | undefined) ?? null;
 }
 
-const canRole = (role: CompanyRole, action: Parameters<typeof can>[1]) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
+/**
+ * Who may be NAMED as operator or supervisor on a run: the picked person's fixed role (a station roster rule, which
+ * keys on the role like stations do; XE PLATFORM row 79). The caller's own rights go through `ctxCan`.
+ */
+const canRole = (role: CompanyRole, action: Action) => fixedRoleCan(role, action);
 
 async function requireOperator(db: OrrnDb, companyId: string, userId: string | null | undefined): Promise<string | null> {
   if (!userId) return null;
@@ -457,7 +461,7 @@ async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReaso
     children.qc.map((q) => ({ pcs: q.pcs, kgG: q.kgG, reasonCode: q.reasonCode ?? null, reasonRequiresNote: Boolean(q.requiresNote), note: q.note })),
     children.downtime.map((d) => ({ stoppedAt: ms(d.stoppedAt) })),
     { balanceWarnBp: floor.press.balanceWarnBp },
-    { callerId, callerCanClose: canRole(ctx.role, "press.close"), billetOnHandG: castInfo.onHandG, billetOnHandByCastG },
+    { callerId, callerCanClose: ctxCan(ctx, "press.close"), billetOnHandG: castInfo.onHandG, billetOnHandByCastG },
   );
   const figures = closeFigures({
     billets: children.billets,
@@ -1021,7 +1025,7 @@ export const pressRunRouter = router({
       const callerId = ctx.session.user.id;
       const operatorId = (await requireOperator(ctx.db, ctx.companyId, input.operatorId)) ?? run.operatorId ?? (ctx.role === "press" ? callerId : null);
       const supervisorId =
-        (await requireSupervisor(ctx.db, ctx.companyId, input.supervisorId)) ?? run.supervisorId ?? (canRole(ctx.role, "press.close") ? callerId : null);
+        (await requireSupervisor(ctx.db, ctx.companyId, input.supervisorId)) ?? run.supervisorId ?? (ctxCan(ctx, "press.close") ? callerId : null);
       const at = clockNow();
       const unconfirmed = skewUnconfirmed(at.getTime(), input.tappedAt);
       const shift = shiftAt(await companySettings(ctx.db, ctx.companyId), at.getTime());

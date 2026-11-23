@@ -12,13 +12,13 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { ingestArtifact, ingestBlock, ingestCandidate, type CandidateState } from "@orrn/db/schema/ingest";
 
-import { canAny } from "../permissions";
+import { ctxCanAny } from "../permissions";
 import { loadBlock, loadCandidate, NOT_FOUND_ARTIFACT, NOT_FOUND_CANDIDATE, rateMaskColumns, seesRates } from "./core";
 import type { IngestCtx } from "./types";
 
 /** The caller holds `ingest.check` only: no upload, no merge. */
 export function checkOnly(ctx: Pick<IngestCtx, "role">): boolean {
-  return !canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, ["ingest.upload", "ingest.merge"]);
+  return !ctxCanAny(ctx, ["ingest.upload", "ingest.merge"]);
 }
 
 /** A check-only caller opens a candidate only when its table was read by the model and is not discarded. */

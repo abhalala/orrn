@@ -21,7 +21,8 @@ import { and, eq, sql } from "drizzle-orm";
 
 import type { Context } from "../../context";
 import { now } from "../clock";
-import { BUDDY_ROLES } from "../permissions";
+import { BUDDY_ROLES, effectiveActions } from "../permissions";
+import { customGrantForMembership } from "../customRoles";
 import { buddyEnv, roleMayUseBuddy } from "./access";
 import { buddyCompanies, companyListed } from "./config";
 import { hashBuddyToken, looksLikeBuddyToken } from "./token";
@@ -80,9 +81,14 @@ export async function contextFromGrant(
     await db.update(buddyGrant).set({ lastUsedAt: at }).where(eq(buddyGrant.id, row.id));
   }
 
+  // XE PLATFORM row 79: the grant acts with the member's effective set. Production grants are the owner's (no custom
+  // role ever); the lookup runs only for the other roles tests may widen to.
+  const actions = effectiveActions(row.role, row.role === "owner" ? null : await customGrantForMembership(db, row.membershipId, row.companyId));
+
   const ctx = {
     auth: null,
     db,
+    actions,
     request: new Request("https://buddy.invalid/mcp", { method: "POST" }),
     session: {
       user: { id: row.userId, name: row.userName, email: row.userEmail, image: null },

@@ -105,8 +105,8 @@ export function BuddyLauncher() {
         onClick={openPanel}
         onPointerEnter={() => void loadPanel().catch(() => {})}
         onFocus={() => void loadPanel().catch(() => {})}
-        aria-label={t("buddy.open")}
-        title={t("buddy.open")}
+        aria-label={t("buddy.askOrrn")}
+        title={t("buddy.askOrrn")}
         aria-haspopup="dialog"
         aria-expanded={open}
         data-testid="buddy-launcher"

@@ -7,7 +7,8 @@ import { die } from "@orrn/db/schema/catalog";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { assertModule } from "./moduleGate";
-import { can, type CompanyRole } from "./permissions";
+import { type PermissionCtx, ctxCan } from "./permissions";
+
 
 export const ymd = z
   .string()
@@ -47,9 +48,9 @@ export async function sectionInfo(db: OrrnDb, companyId: string, ids: readonly s
  * money in their audit rows) is shown and written only to `order.price` holders, as AGENTS says for
  * `ratePaise`. `price.view` / `price.manage` cover the master alone. FORBIDDEN otherwise.
  */
-export function holdsOrderPrice(role: CompanyRole | null | undefined): boolean {
-  return can({ company: role ? { role } : null, isPlatformAdmin: false, platformRole: null } as never, "order.price");
+export function holdsOrderPrice(ctx: PermissionCtx): boolean {
+  return ctxCan(ctx, "order.price");
 }
-export function assertOrderPrice(ctx: { role: CompanyRole | null | undefined }): void {
-  if (!holdsOrderPrice(ctx.role)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+export function assertOrderPrice(ctx: PermissionCtx): void {
+  if (!holdsOrderPrice(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
 }

@@ -15,7 +15,7 @@ import { refusedInput } from "./decisions";
 import { IMPORT_ANSWERS_PATH, IMPORT_DRY_RUN_PATH, KIND_TARGET } from "./draftView";
 import { statusEnvelope, type Envelope } from "./envelope";
 import type { BuddyContext } from "./grantContext";
-import { allowedProcedure, roleHoldsGuard, validateInput } from "./registry";
+import { allowedProcedure, ctxHoldsGuard, validateInput } from "./registry";
 
 export type PreparedDraft = { path: string; kind: "answers" | "dryRun"; input: unknown; summary: string };
 type Prepared = { ok: true; draft: PreparedDraft } | { ok: false; envelope: Envelope };
@@ -39,7 +39,7 @@ const dryRunArgs = z.strictObject({ candidateId: id });
 async function target(kind: "answers" | "dryRun", ctx: BuddyContext): Promise<{ ok: true; entry: NonNullable<Awaited<ReturnType<typeof allowedProcedure>>> } | { ok: false; envelope: Envelope }> {
   const entry = await allowedProcedure(KIND_TARGET[kind]);
   if (!entry) return { ok: false, envelope: statusEnvelope("not_found", "Not found.") };
-  if (roleHoldsGuard(entry.guard, ctx.role) === false) {
+  if (ctxHoldsGuard(entry.guard, ctx) === false) {
     const action = entry.guard ? entry.guard.actions.join(entry.guard.mode === "all" ? " and " : " or ") : "";
     return { ok: false, envelope: statusEnvelope("forbidden", `The person's role cannot do this. It needs the action "${action}".`) };
   }

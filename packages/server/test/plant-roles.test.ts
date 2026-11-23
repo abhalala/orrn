@@ -117,6 +117,9 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE PLATFORM: custom roles and the plant API (admin; never grantable through a custom role).
+  "role.manage": ["admin"],
+  "api.manage": ["admin"],
   // XE-PRICE (lane PRICE).
   "price.view": ["admin", "office", "manager", "accountant"],
   "price.manage": ["admin", "office", "manager"],

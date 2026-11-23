@@ -28,7 +28,7 @@ import { byteLength, errorEnvelope, okEnvelope, statusEnvelope, stripSecrets, ty
 import { contextFromGrant, type BuddyContext } from "./grantContext";
 import { ANSWERS_PER_DRAFT, prepareImportAnswers, prepareImportDryRun } from "./importDrafts";
 import { absoluteLink, draftLink, reviewPath } from "./links";
-import { allowedProcedure, buddyRegistry, inputJsonSchema, roleHoldsGuard, unknownKeys, validateInput, type BuddyProcedure } from "./registry";
+import { allowedProcedure, buddyRegistry, inputJsonSchema, ctxHoldsGuard, unknownKeys, validateInput, type BuddyProcedure } from "./registry";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -348,7 +348,7 @@ async function search(args: Record<string, unknown>, ctx: BuddyContext): Promise
       kind: entry.kind,
       runs: entry.kind === "query" ? "at once" : "as a draft the person confirms",
       description: entry.description,
-      callable: roleHoldsGuard(entry.guard, ctx.role),
+      callable: ctxHoldsGuard(entry.guard, ctx),
     })),
   });
 }
@@ -362,7 +362,7 @@ async function describe(args: Record<string, unknown>, ctx: BuddyContext): Promi
     runs: entry.kind === "query" ? "at once" : "as a draft the person confirms",
     description: entry.description,
     action: actionText(entry),
-    callable: roleHoldsGuard(entry.guard, ctx.role),
+    callable: ctxHoldsGuard(entry.guard, ctx),
     input: inputJsonSchema(entry),
     ...(entry.decision.kind === "allow" && entry.decision.unless
       ? { refused: { field: entry.decision.unless.field, values: entry.decision.unless.values, reason: entry.decision.unless.reason } }
@@ -387,7 +387,7 @@ async function call(args: Record<string, unknown>, ctx: BuddyContext, origin: st
   const refused = refusedInput(entry.decision, input);
   if (refused) return statusEnvelope("forbidden", refused);
   const action = actionText(entry);
-  if (roleHoldsGuard(entry.guard, ctx.role) === false) {
+  if (ctxHoldsGuard(entry.guard, ctx) === false) {
     return statusEnvelope("forbidden", `The person's role cannot do this. It needs the action "${action}".`);
   }
 

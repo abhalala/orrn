@@ -71,7 +71,7 @@ import {
 import { signDieFileUrl } from "../lib/dieFiles";
 import { checkDieAllowed } from "../lib/dieOwner";
 import { loadTrialRun, trialMoveStatements, trialRunCheck } from "../lib/dieTrial";
-import { can, type CompanyRole } from "../lib/permissions";
+import { type CompanyRole, ctxCan } from "../lib/permissions";
 import { kindsRoleMayDecide, loadApprovalRules } from "../lib/approverRules";
 import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
@@ -145,7 +145,7 @@ async function checkCopyOwner(
   current: string | null,
 ): Promise<void> {
   if (ownerCustomerId === undefined || ownerCustomerId === current) return;
-  if (!can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+  if (!ctxCan(ctx, "masters.publish")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Only a manager or admin can set who owns a die" });
   }
   // Null = inherit the section owner (never "plant-owned" while the section is owned, C2).
@@ -533,7 +533,7 @@ export const dieInstanceRouter = router({
       // may start one on the rack, and only with the setting on there is anything to skip.
       const floor = await loadFloorSettings(ctx.db, ctx.companyId);
       const startStatus = newCopyStatus(floor);
-      if (input.status === "available" && startStatus === "on_trial" && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+      if (input.status === "available" && startStatus === "on_trial" && !ctxCan(ctx, "masters.publish")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "A new copy starts on trial; a manager can release it once it has passed" });
       }
       const newStatus = input.status ?? startStatus;
@@ -1462,7 +1462,7 @@ export const dieInstanceRouter = router({
   closeOwnerOverride: anyActionProcedure("masters.publish")
     .input(z.object({ approvalId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      if (!kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, ctx.companyId)).includes("die_owner_override") && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+      if (!kindsRoleMayDecide(ctx.role, await loadApprovalRules(ctx.db, ctx.companyId)).includes("die_owner_override") && !ctxCan(ctx, "masters.publish")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const [row] = await ctx.db
@@ -1557,7 +1557,7 @@ export const dieInstanceRouter = router({
       if (copy.status !== "on_trial") {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} is not on trial` });
       }
-      const manager = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
+      const manager = ctxCan(ctx, "masters.publish");
       let statements: SqliteBatchItem[];
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       if (input.pressRunId) {
@@ -1615,8 +1615,8 @@ export const dieInstanceRouter = router({
       }
       const run = await loadTrialRun(ctx.db, ctx.companyId, input.pressRunId);
       trialRunCheck(run, copy, "fail");
-      const editor = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "die.card")
-        || can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
+      const editor = ctxCan(ctx, "die.card")
+        || ctxCan(ctx, "masters.publish");
       if (input.then === "retire" && !editor) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only the die room or a manager can retire a copy" });
       }

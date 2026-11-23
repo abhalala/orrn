@@ -25,8 +25,7 @@ import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatc
 import { now as clockNow } from "../lib/clock";
 import { bundleBandTones } from "../lib/bundleBand";
 import { resolveCode } from "../lib/codeResolver";
-import { canAny } from "../lib/permissions";
-import type { CompanyRole } from "@orrn/db/schema/tenant";
+import { type PermissionCtx, ctxCanAny } from "../lib/permissions";
 import {
   DEFAULT_LOCATIONS,
   defaultLocationStatements,
@@ -51,8 +50,8 @@ const locationCode = z
   .refine((s) => !/^0+$/.test(s), "Location 0 is not allowed");
 
 /** Store stock (consumables) is not for the floor: store keepers, publishers and analytics readers. */
-function canSeeStoreStock(role: CompanyRole) {
-  return canAny({ company: { role }, isPlatformAdmin: false, platformRole: null }, ["store.txn", "masters.publish", "analytics.view"]);
+function canSeeStoreStock(ctx: PermissionCtx) {
+  return ctxCanAny(ctx, ["store.txn", "masters.publish", "analytics.view"]);
 }
 
 /** The audit writer's slice of the request context. */
@@ -748,7 +747,7 @@ export const stockRouter = router({
       else if (input.locationId !== undefined) conditions.push(eq(stockLedger.locationId, input.locationId));
       if (input.itemKind) conditions.push(eq(stockLedger.itemKind, input.itemKind));
       if (input.itemRef) conditions.push(eq(stockLedger.itemRef, input.itemRef));
-      if (!canSeeStoreStock(ctx.role)) conditions.push(ne(stockLedger.itemKind, "store_item"));
+      if (!canSeeStoreStock(ctx)) conditions.push(ne(stockLedger.itemKind, "store_item"));
 
       const rows = await ctx.db
         .select({
@@ -798,7 +797,7 @@ export const stockRouter = router({
     .query(async ({ ctx, input }) => {
       const scope = and(
         ledgerScope(ctx.companyId, input.at !== undefined ? new Date(input.at) : undefined),
-        canSeeStoreStock(ctx.role) ? undefined : ne(stockLedger.itemKind, "store_item"),
+        canSeeStoreStock(ctx) ? undefined : ne(stockLedger.itemKind, "store_item"),
       );
       const per = ctx.db
         .select({

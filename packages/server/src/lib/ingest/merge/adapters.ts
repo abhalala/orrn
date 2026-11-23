@@ -21,7 +21,7 @@ import type { IngestTarget } from "@orrn/db/schema/ingest";
 import { mapInChunks } from "../../atomic";
 import { assertModule } from "../../moduleGate";
 import { companyFloor } from "../../orderLines";
-import { can } from "../../permissions";
+import { can, meOfCtx } from "../../permissions";
 import { loadSections, resolveName, resolveSection, serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
 import { liveOrderKey, liveOrdersOf, normOrderNo, orderGroupCheck, orderKeyRecord, orderLabel, orderPoOf, parseOrderKey, type LiveOrder } from "../orderid";
@@ -789,7 +789,7 @@ type OrderGroup = { key: string; rows: StagedRow[] };
  */
 export async function orderPricing(ctx: IngestCtx): Promise<{ canPrice: boolean; refusal: string }> {
   const floor = await companyFloor(ctx.db, ctx.companyId);
-  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+  const me = meOfCtx(ctx);
   const on = floor.floor.priceOnSalesOrder === true;
   const may = can(me, "order.price");
   return {

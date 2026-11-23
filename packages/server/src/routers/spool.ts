@@ -21,7 +21,7 @@ import {
   retryEdgePrintCommand,
   enqueueEdgeTestPrintCommand,
 } from "../lib/edge-v1";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { writeAudit } from "../lib/audit";
 import { cloneLabelDraft, createLabelDraft, getLabelDocument, listLabelDocuments, publishLabelDraft, updateLabelDraft } from "../lib/label-documents";
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -140,7 +140,7 @@ export const spoolRouter = router({
 
   listPrinters: companyProcedure
     .use(({ ctx, next }) => {
-      if (!can({ company: { role: ctx.role! }, isPlatformAdmin: false }, "spool.list_printers")) {
+      if (!ctxCan(ctx, "spool.list_printers")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Insufficient permissions" });
       }
       return next({ ctx });

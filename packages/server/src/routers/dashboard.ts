@@ -16,7 +16,7 @@ import { companyProcedure, router } from "../index";
 import { mapInChunks, type OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
-import { can, canAny } from "../lib/permissions";
+import { can, canAny, meOfCtx } from "../lib/permissions";
 import { toolingShortfallsFor } from "./toolRoom";
 import { kindsRoleMayDecide, loadApprovalRules } from "../lib/approverRules";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
@@ -56,7 +56,7 @@ export const dashboardRouter = router({
     const end = new Date(day.endMs);
     // FP-PF-15: viewers get the four KPIs only (kg packed, bundles, kg dispatched, in stock).
     const kpisOnly = ctx.role === "viewer";
-    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    const me = meOfCtx(ctx);
     // Rate slices need both the plant switch and order.price (C23; platform spec §6 Today).
     const showValue = !kpisOnly && readFloorSettings(settings).priceOnSalesOrder && can(me, "order.price");
 

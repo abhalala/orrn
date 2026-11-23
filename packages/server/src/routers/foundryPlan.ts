@@ -21,7 +21,7 @@ import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../
 import { auditInsert } from "../lib/audit";
 import { lotDrawnSql, lotStockSql, OUTER_LOT_ID, resolvePlantScrap } from "../lib/foundry";
 import { loadCast } from "../lib/foundryKit";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 
 const id = z.string().min(1).max(64);
 const num = (v: unknown) => Number(v ?? 0);
@@ -146,7 +146,7 @@ const chargeMix = router({
         limits: limits.map((l) => ({ element: l.element as SpectroElementKey, minPpm: l.minPpm, maxPpm: l.maxPpm })),
         sources,
       });
-      const seesCost = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "reports.read") || can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "purchase.receipt");
+      const seesCost = ctxCan(ctx, "reports.read") || ctxCan(ctx, "purchase.receipt");
       return {
         alloy: a.code,
         targetKgG: input.targetKgG,

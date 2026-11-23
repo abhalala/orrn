@@ -377,7 +377,8 @@ export function castBookStart(text: string): number | null {
  * refuse anyone else), and never the person's own account (`ownAccount`, Sign-in) while a Godseye admin
  * impersonates the plant.
  */
-export function sectionVisible(section: { requires?: readonly Action[]; ownAccount?: boolean }, me: Me | undefined): boolean {
+export function sectionVisible(section: { requires?: readonly Action[]; ownAccount?: boolean; module?: CompanyModule }, me: Me | undefined): boolean {
   if (section.ownAccount && me?.impersonation) return false;
+  if (section.module && !isModuleOn(me?.company?.modules, section.module)) return false;
   return !section.requires || canAny(me, section.requires);
 }

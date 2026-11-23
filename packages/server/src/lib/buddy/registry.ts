@@ -11,8 +11,7 @@ import { z } from "zod";
 
 import { GUARD_ACTIONS, type GuardActions } from "../../index";
 import type { Action } from "../permissions";
-import { can } from "../permissions";
-import type { CompanyRole } from "@orrn/db/schema/tenant";
+import { ctxCan, type PermissionCtx } from "../permissions";
 import { BUDDY_DECISIONS, decideBuddyPath, type BuddyDecision } from "./decisions";
 import { describePath } from "./descriptions";
 
@@ -114,14 +113,16 @@ export async function allowedProcedure(path: unknown): Promise<BuddyProcedure | 
   return entry && entry.decision.kind === "allow" ? entry : null;
 }
 
-/** Whether the role holds the guard's action(s); null when the procedure has no action guard. */
-export function roleHoldsGuard(guard: GuardActions | null, role: CompanyRole | null): boolean | null {
+/**
+ * Whether the person holds the guard's action(s); null when the procedure has no action guard. Reads the
+ * context's effective set (custom roles, XE PLATFORM row 79), never the role alone.
+ */
+export function ctxHoldsGuard(guard: GuardActions | null, ctx: PermissionCtx): boolean | null {
   if (!guard) return null;
-  if (!role) return false;
-  const me = { company: { role }, isPlatformAdmin: false, platformRole: null };
+  if (!ctx.role) return false;
   return guard.mode === "all"
-    ? guard.actions.every((a: Action) => can(me, a))
-    : guard.actions.some((a: Action) => can(me, a));
+    ? guard.actions.every((a: Action) => ctxCan(ctx, a))
+    : guard.actions.some((a: Action) => ctxCan(ctx, a));
 }
 
 /**

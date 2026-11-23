@@ -44,7 +44,7 @@ import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
 import { loadPoLineForReceipt, poLineReceiveGuard, poStatusSync, readPoTolerance } from "../lib/storeBuy";
@@ -431,7 +431,7 @@ export const storeRouter = router({
       // XE store (row 73): the storekeeper does not set valuation rates. Against an order the order's
       // rate holds; typing another, or a rate with no order, needs store.rate. With no rate the GRN is
       // valued at the item's average and its rate stays pending for the office.
-      const setsRates = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "store.rate");
+      const setsRates = ctxCan(ctx, "store.rate");
       // `ratePaise: null` from someone who does not set rates means "no rate from me", the same as leaving
       // it out: pending with no PO, the order's rate against a PO line (re-check STORE nit 7).
       const sentRate = input.ratePaise === null && !setsRates ? undefined : input.ratePaise;

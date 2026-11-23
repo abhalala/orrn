@@ -19,7 +19,7 @@ import { bpPercent1 } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { actionProcedure, anyActionProcedure } from "../index";
 import { now } from "../lib/clock";
 import { BOOK_SUMMARY_GROUPS, bookSummary, bookTotals } from "../lib/orderBook";
@@ -90,7 +90,7 @@ export const analyticsReportProcedures = {
     .query(async ({ ctx, input }) => {
       const { groupBy, withRates, ...book } = input;
       const floor = await companyFloor(ctx.db, ctx.companyId);
-      const ratesAllowed = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price") && floor.floor.priceOnSalesOrder;
+      const ratesAllowed = ctxCan(ctx, "order.price") && floor.floor.priceOnSalesOrder;
       if (withRates && !ratesAllowed) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Rates are not shown to you" });
       }

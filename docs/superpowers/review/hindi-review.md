@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12660 screen strings in 61 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3164,7 +3164,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (398)
+### admin (400)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3384,6 +3384,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
 | `plan.moduleNames.costing` | Costing | लागत |
+| `plan.moduleNames.api` | Plant API and webhooks | प्लांट API और webhook |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3401,6 +3402,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
 | `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
+| `plan.moduleHints.api` | Lets your own software read orders, stock, dispatches and invoices. Off until switched on | आपका अपना सॉफ़्टवेयर ऑर्डर, स्टॉक, dispatch और इनवॉइस पढ़ सके। चालू करने तक बंद |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -8614,12 +8616,13 @@ Please check, Lalubhai:
 | `floor.makers.noMaker` | No maker | मेकर नहीं |
 | `floor.makers.empty` | No copy has a cost yet | अभी किसी कॉपी की लागत दर्ज नहीं |
 
-### buddy (402)
+### buddy (403)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Buddy | Buddy |
 | `open` | Open Buddy | Buddy खोलें |
+| `askOrrn` | Ask orrn | orrn से पूछें |
 | `newChat` | New chat | नई बातचीत |
 | `addFile` | Add a file | फ़ाइल जोड़ें |
 | `addFileHint` | Files go in on the Imports page. Buddy never gets the file itself. | फ़ाइलें इम्पोर्ट पेज पर डाली जाती हैं। Buddy को फ़ाइल कभी नहीं मिलती। |
@@ -10185,6 +10188,267 @@ Please check, Lalubhai:
 | `order.failed` | Could not load cost. | लागत लोड नहीं हुई। |
 | `csv.cost` | cost | cost |
 
+### plat3 (256)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `tabs.roles` | Roles | रोल |
+| `tabs.api` | Plant API | प्लांट API |
+| `refusal.notFound` | That is not there any more. Reload the page. | यह अब नहीं है। पेज दोबारा खोलें। |
+| `refusal.ownerBase` | A role cannot copy the owner. | रोल की कॉपी मालिक की नहीं बन सकती। |
+| `refusal.moreThanYou` | You cannot give a role something you do not have yourself. | जो कार्रवाई आपके पास खुद नहीं है, वह किसी रोल को नहीं दे सकते। |
+| `refusal.nameTaken` | A role with this name already exists. | इस नाम का रोल पहले से है। |
+| `refusal.inUse` | People still hold this role. Give them another role first. | कुछ लोगों के पास यह रोल है। पहले उन्हें कोई और रोल दें। |
+| `refusal.ownerMember` | The owner keeps the owner role. | मालिक का रोल मालिक ही रहता है। |
+| `refusal.yourself` | You cannot change your own role. | अपना रोल खुद नहीं बदल सकते। |
+| `refusal.invoicesNeedBilling` | Invoices can be read only when billing is on. | इनवॉइस तभी पढ़े जा सकते हैं जब बिलिंग चालू हो। |
+| `refusal.urlRefused` | Use a public https address. orrn does not send to local, private or tailnet addresses. | सार्वजनिक https पता डालें। orrn लोकल, प्राइवेट या tailnet पते पर नहीं भेजता। |
+| `refusal.keyMissing` | Signing is not set up on this server yet. Ask orrn support. | इस सर्वर पर साइन करना अभी चालू नहीं है। orrn सपोर्ट से कहें। |
+| `refusal.tooMany` | A plant can keep at most 20 tokens and 10 webhooks. | एक प्लांट में ज़्यादा से ज़्यादा 20 टोकन और 10 webhook रह सकते हैं। |
+| `refusal.moduleOff` | The plant API is not switched on for this plant. | इस प्लांट में प्लांट API चालू नहीं है। |
+| `refusal.generic` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `areas.packing` | Packing and stock | पैकिंग और स्टॉक |
+| `areas.dispatch` | Dispatch | Dispatch |
+| `areas.orders` | Orders | ऑर्डर |
+| `areas.foundry` | Foundry | फाउंड्री |
+| `areas.press` | Press | प्रेस |
+| `areas.ageing` | Ageing | एजिंग |
+| `areas.dies` | Dies | Die |
+| `areas.store` | Store and scrap purchase | स्टोर और स्क्रैप खरीद |
+| `areas.maintenance` | Maintenance | मेंटेनेंस |
+| `areas.quality` | Quality and complaints | क्वालिटी और शिकायतें |
+| `areas.pricing` | Prices and quotes | दाम और कोटेशन |
+| `areas.billing` | Tax invoices and payments | टैक्स इनवॉइस और पेमेंट |
+| `areas.masters` | Masters and rules | मास्टर और नियम |
+| `areas.people` | People and office | लोग और ऑफिस |
+| `areas.reports` | Reports and exports | रिपोर्ट और export |
+| `areas.imports` | Bringing in old files | पुरानी फ़ाइलें लाना |
+| `actions.cost__view` | See costs, press load, forecast and dies due | लागत, प्रेस का लोड, अनुमान और ड्यू डाई देखना |
+| `actions.cost__manage` | Set costing rates, press hours and the low-margin line | लागत के रेट, प्रेस के घंटे और कम मार्जिन की सीमा तय करना |
+| `actions.foundry__homog` | Run homogenizing batches: load, start, readings, take out | होमोजनाइज़िंग बैच चलाना: लोड, शुरू, रीडिंग, बाहर निकालना |
+| `actions.foundry__homogRelease` | Release, hold or void a homogenizing batch | होमोजनाइज़िंग बैच रिलीज़, होल्ड या रद्द करना |
+| `actions.foundry__logs` | Receive bought-in logs with their mill test certificate | बाहर से खरीदे लॉग उनके मिल टेस्ट सर्टिफ़िकेट के साथ लेना |
+| `actions.foundry__billets` | Cut logs into billets and issue billets to a press | लॉग से बिलेट काटना और बिलेट प्रेस को देना |
+| `actions.foundry__reject` | Enter log and billet rejects | लॉग और बिलेट के रिजेक्ट दर्ज करना |
+| `actions.foundry__plan` | Accept, change and drop casting plan lines | कास्टिंग प्लान की लाइनें मंज़ूर करना, बदलना और हटाना |
+| `actions.indent__raise` | Raise an indent for the store to buy items | स्टोर के लिए सामान खरीदने का इंडेंट देना |
+| `actions.indent__approve` | Approve or turn down an indent | इंडेंट मंज़ूर या नामंज़ूर करना |
+| `actions.po__view` | See store purchase orders and their rates | स्टोर के परचेज़ ऑर्डर और उनके रेट देखना |
+| `actions.po__manage` | Make, change, issue and close store purchase orders | स्टोर के परचेज़ ऑर्डर बनाना, बदलना, जारी करना और बंद करना |
+| `actions.store__value` | See average rates and the store's month-end value | औसत रेट और महीने के अंत में स्टोर का मूल्य देखना |
+| `actions.store__rate` | Set valuation rates on goods received and opening stock | आए माल और शुरुआती स्टॉक के मूल्यांकन रेट तय करना |
+| `actions.maint__view` | See maintenance: assets, plans and work orders | मेंटेनेंस देखना: एसेट, प्लान और वर्क ऑर्डर |
+| `actions.maint__manage` | Set up assets, plans, reading limits and the labour rate | एसेट, प्लान, रीडिंग की सीमा और मज़दूरी रेट सेट करना |
+| `actions.maint__workorder` | Raise a breakdown, work a work order and take readings | ब्रेकडाउन दर्ज करना, वर्क ऑर्डर पर काम करना और रीडिंग लेना |
+| `actions.bundle__pack` | Pack bundles and print labels | Bundle पैक करना और लेबल छापना |
+| `actions.bundle__void` | Void a bundle | Bundle रद्द करना |
+| `actions.stock__move` | Move bundles to another place | Bundle को दूसरी जगह रखना |
+| `actions.stock__count` | Count stock | स्टॉक गिनना |
+| `actions.dispatch__scan` | Scan bundles onto a packing list | Packing list पर bundle स्कैन करना |
+| `actions.dispatch__complete` | Finish a dispatch | Dispatch पूरा करना |
+| `actions.packingList__combine` | Combine dispatches into one packing list | कई dispatch की एक packing list बनाना |
+| `actions.invoice__link` | Put an invoice number on a dispatch | Dispatch पर इनवॉइस नंबर डालना |
+| `actions.order__manage` | Make and change orders | ऑर्डर बनाना और बदलना |
+| `actions.order__plan` | Plan, release and cancel press plans | प्रेस प्लान बनाना, छोड़ना और रद्द करना |
+| `actions.order__price` | See and set rates on order lines | ऑर्डर लाइन पर रेट देखना और डालना |
+| `actions.order__reallocate` | Move bundles between order lines | Bundle को एक ऑर्डर लाइन से दूसरी पर ले जाना |
+| `actions.cast__enter` | Enter a cast and attach spectro results | कास्ट एंट्री और स्पेक्ट्रो रिज़ल्ट जोड़ना |
+| `actions.cast__close` | Close a cast and explain the tail | कास्ट बंद करना और tail का कारण बताना |
+| `actions.melt__enter` | Enter, lock and read furnace figures for a melt | मेल्ट की एंट्री, लॉक और फर्नेस रीडिंग |
+| `actions.melt__correct` | Ask to correct a locked melt | लॉक हुए मेल्ट को सुधारने को कहना |
+| `actions.press__run` | Run the press, put dies in and out, note stoppages | प्रेस चलाना, die लगाना और निकालना, रुकावट लिखना |
+| `actions.press__close` | Close and reopen press runs, confirm times | प्रेस रन बंद करना और दोबारा खोलना, समय पक्का करना |
+| `actions.press__queue` | Change the press queue after release | छोड़ने के बाद प्रेस कतार बदलना |
+| `actions.qc__enter` | Enter rejects at the press station | प्रेस स्टेशन पर रिजेक्ट लिखना |
+| `actions.ageing__view` | See the ageing board and readings | एजिंग बोर्ड और रीडिंग देखना |
+| `actions.ageing__enter` | Work at the ageing station | एजिंग स्टेशन पर काम करना |
+| `actions.ageing__load` | Load a trolley, start and take out an oven batch | ट्रॉली भरना, ओवन बैच शुरू करना और निकालना |
+| `actions.ageing__record` | Record oven temperatures and hardness | ओवन का तापमान और हार्डनेस लिखना |
+| `actions.ageing__release` | Release, hold or rework an aged batch | एज हुआ बैच छोड़ना, रोकना या दोबारा करना |
+| `actions.die__reading` | Record die weight readings | Die वज़न रीडिंग लिखना |
+| `actions.die__card` | Keep the die card and nitriding log | Die कार्ड और नाइट्राइडिंग लॉग रखना |
+| `actions.die__rerank` | Propose a change of die tier | Die टियर बदलने का प्रस्ताव देना |
+| `actions.die__issue` | Give a die copy to a press line and take it back | Die कॉपी प्रेस लाइन को देना और वापस लेना |
+| `actions.die__maker` | Send a die copy to the die maker and receive it | Die कॉपी die maker को भेजना और वापस लेना |
+| `actions.purchase__receipt` | Record scrap coming in | आया हुआ स्क्रैप दर्ज करना |
+| `actions.purchase__dcnote` | Make debit and credit notes on a scrap lot | स्क्रैप लॉट पर डेबिट और क्रेडिट नोट बनाना |
+| `actions.store__txn` | Issue and take in store items | स्टोर का सामान देना और लेना |
+| `actions.complaint__open` | Raise a complaint against a bundle | Bundle के खिलाफ़ शिकायत दर्ज करना |
+| `actions.complaint__manage` | Look into, answer and close complaints | शिकायत की जाँच, जवाब और बंद करना |
+| `actions.qa__check` | Record quality checks and calibrations | क्वालिटी जाँच और कैलिब्रेशन लिखना |
+| `actions.qa__hold` | Put a bundle on quality hold | Bundle को क्वालिटी होल्ड पर रखना |
+| `actions.qa__release` | Release a bundle from quality hold | Bundle को क्वालिटी होल्ड से छोड़ना |
+| `actions.qa__masters` | Keep quality plans, instruments and the temper master | क्वालिटी प्लान, उपकरण और टेम्पर मास्टर रखना |
+| `actions.price__view` | See the price master, quotes and proformas | दाम मास्टर, कोटेशन और proforma देखना |
+| `actions.price__manage` | Propose rates and customer terms | रेट और ग्राहक की शर्तों का प्रस्ताव देना |
+| `actions.quote__manage` | Make, send and cancel quotes | कोटेशन बनाना, भेजना और रद्द करना |
+| `actions.enquiry__manage` | Keep enquiries and follow-ups | पूछताछ और फॉलो-अप रखना |
+| `actions.gst__settings` | Set GST details and HSN codes | GST की जानकारी और HSN कोड डालना |
+| `actions.invoice__read` | See invoices, credit notes and what is owed | इनवॉइस, क्रेडिट नोट और बाकी रकम देखना |
+| `actions.invoice__issue` | Make and issue invoices and credit notes | इनवॉइस और क्रेडिट नोट बनाना और जारी करना |
+| `actions.invoice__cancel` | Ask to cancel an issued invoice | जारी इनवॉइस रद्द करने को कहना |
+| `actions.payment__record` | Record and void payments received | मिला हुआ पेमेंट दर्ज करना और रद्द करना |
+| `actions.masters__draft` | Propose customers, vendors, sections and prices | ग्राहक, वेंडर, सेक्शन और दाम का प्रस्ताव देना |
+| `actions.masters__publish` | Publish masters | मास्टर पब्लिश करना |
+| `actions.docs__manage` | Keep the plant's documents | प्लांट के दस्तावेज़ रखना |
+| `actions.approvalRule__manage` | Set who approves what | तय करना कि कौन किसे मंज़ूर करे |
+| `actions.refFormat__manage` | Set number formats for documents | दस्तावेज़ों के नंबर का फ़ॉर्मेट तय करना |
+| `actions.users__manage` | Manage people, PINs, phones and printers | लोग, PIN, फ़ोन और प्रिंटर संभालना |
+| `actions.portal__manage` | Manage customer portal users and portal orders | ग्राहक पोर्टल के यूज़र और पोर्टल ऑर्डर संभालना |
+| `actions.support__request` | Ask orrn support for help | orrn सपोर्ट से मदद मांगना |
+| `actions.audit__read` | Read the audit log | ऑडिट लॉग पढ़ना |
+| `actions.reports__read` | Read reports | रिपोर्ट पढ़ना |
+| `actions.analytics__view` | See charts and customer figures | चार्ट और ग्राहक के आंकड़े देखना |
+| `actions.mis__view` | See the owner's morning page | मालिक का सुबह का पेज देखना |
+| `actions.export__accounts` | Export GST returns and Tally files | GST रिटर्न और Tally फ़ाइल export करना |
+| `actions.ingest__upload` | Upload old files and answer questions about them | पुरानी फ़ाइलें डालना और उनके सवालों के जवाब देना |
+| `actions.ingest__merge` | Approve imports and bring them in | इम्पोर्ट मंज़ूर करके अंदर लाना |
+| `actions.ingest__check` | Check the sheets read from an upload | अपलोड से पढ़ी शीट जाँचना |
+| `roles.title` | Roles | रोल |
+| `roles.subtitle` | Make your own role as a copy of a fixed one, then switch single actions on or off. | किसी तय रोल की कॉपी से अपना रोल बनाएं, फिर एक-एक कार्रवाई चालू या बंद करें। |
+| `roles.make` | Make a role | रोल बनाएं |
+| `roles.makeTitle` | Make a role | रोल बनाएं |
+| `roles.editTitle` | Change {name} | {name} बदलें |
+| `roles.name` | Name | नाम |
+| `roles.nameHint` | Up to 40 characters, for example Night supervisor. | 40 अक्षर तक, जैसे रात का supervisor। |
+| `roles.copyOf` | Copy of {role} | {role} की कॉपी |
+| `roles.copyOfPick` | Start from | किससे शुरू करें |
+| `roles.copyOfHint` | The role keeps this one as its base for good. The owner cannot be copied. | रोल हमेशा इसी को अपना आधार रखता है। मालिक की कॉपी नहीं बन सकती। |
+| `roles.holders` | People | लोग |
+| `roles.people` | {count} {count:person\|people} | {count} {count:व्यक्ति\|लोग} |
+| `roles.noPeople` | No one yet | अभी कोई नहीं |
+| `roles.empty` | No custom roles yet. A role you make shows here. | अभी कोई अपना रोल नहीं है। आप जो रोल बनाएंगे वह यहां दिखेगा। |
+| `roles.loadFailed` | The roles did not load. | रोल नहीं खुले। |
+| `roles.readOnly` | You can read the roles. Making and changing them needs the role action. | आप रोल देख सकते हैं। बनाने और बदलने के लिए रोल वाली कार्रवाई चाहिए। |
+| `roles.change` | Change | बदलें |
+| `roles.delete` | Delete | हटाएं |
+| `roles.deleteTitle` | Delete {name}? | {name} हटाएं? |
+| `roles.deleteBody` | A role that nobody holds can be deleted. This cannot be undone. | जिस रोल के पास कोई नहीं है वही हट सकता है। यह वापस नहीं होगा। |
+| `roles.deleteConfirm` | Delete role | रोल हटाएं |
+| `roles.saved` | Role saved. | रोल सेव हुआ। |
+| `roles.deleted` | Role deleted. | रोल हट गया। |
+| `roles.save` | Save role | रोल सेव करें |
+| `roles.switches` | Actions | कार्रवाइयां |
+| `roles.switchesHint` | A switch that is on gives the role that action. A tag shows what the base role already has. | चालू स्विच रोल को वह कार्रवाई देता है। टैग बताता है कि आधार रोल में पहले से क्या है। |
+| `roles.inBase` | In the base role | आधार रोल में है |
+| `roles.changed` | Changed | बदला |
+| `roles.cannotGive` | You do not have this action yourself, so you cannot give it. | यह कार्रवाई आपके पास खुद नहीं है, इसलिए आप इसे दे नहीं सकते। |
+| `roles.changes` | {on} switched on, {off} switched off against the base role. | आधार रोल से {on} चालू, {off} बंद। |
+| `roles.noChanges` | Same as the base role. | आधार रोल जैसा ही। |
+| `roles.nameRequired` | Enter a name. | नाम लिखें। |
+| `roles.updated` | Last changed {date} | आखिरी बदलाव {date} |
+| `roles.reset` | Back to the base role | आधार रोल पर वापस |
+| `roles.on` | On | चालू |
+| `roles.off` | Off | बंद |
+| `roles.count` | {count} of {total} on | {total} में से {count} चालू |
+| `member.role` | Role | रोल |
+| `member.fixed` | Fixed roles | तय रोल |
+| `member.custom` | Your own roles | आपके अपने रोल |
+| `member.customTag` | {role} (copy of {base}) | {role} ({base} की कॉपी) |
+| `member.hint` | A fixed role is the same for everyone. Your own role is a fixed role with some actions changed. | तय रोल सबके लिए एक जैसा है। अपना रोल एक तय रोल है जिसकी कुछ कार्रवाइयां बदली गई हैं। |
+| `member.noCustom` | None | कोई नहीं |
+| `api.title` | Plant API | प्लांट API |
+| `api.subtitle` | Let your own software read orders, stock, dispatches and invoices, and tell it when something happens. | अपना सॉफ़्टवेयर ऑर्डर, स्टॉक, dispatch और इनवॉइस पढ़ सके, और कुछ होने पर उसे खबर मिले। |
+| `api.readOnly` | Only the plant admin can open this page. | यह पेज सिर्फ़ प्लांट एडमिन खोल सकता है। |
+| `api.loadFailed` | This did not load. | यह नहीं खुला। |
+| `api.tokens.title` | Tokens | टोकन |
+| `api.tokens.hint` | A token lets one program read your plant's figures. Give each program its own token. | टोकन से एक प्रोग्राम आपके प्लांट के आंकड़े पढ़ सकता है। हर प्रोग्राम को अलग टोकन दें। |
+| `api.tokens.make` | Make a token | टोकन बनाएं |
+| `api.tokens.empty` | No tokens yet. | अभी कोई टोकन नहीं है। |
+| `api.tokens.name` | Name | नाम |
+| `api.tokens.nameHint` | What will use it, for example Tally sync. | इसे कौन इस्तेमाल करेगा, जैसे Tally sync। |
+| `api.tokens.scopes` | What it may read | क्या पढ़ सकता है |
+| `api.tokens.expiry` | Stops working after | इतने दिन बाद बंद |
+| `api.tokens.expiryHint` | Days, from 1 to 730. Leave empty to keep it until you revoke it. | दिन, 1 से 730। खाली छोड़ें तो आप रद्द करने तक चलेगा। |
+| `api.tokens.expiryNone` | Until revoked | रद्द करने तक |
+| `api.tokens.expiryDays` | {count} {count:day\|days} | {count} {count:दिन\|दिन} |
+| `api.tokens.starts` | Starts with | शुरुआत |
+| `api.tokens.lastUsed` | Last used | आखिरी बार इस्तेमाल |
+| `api.tokens.neverUsed` | Never used | कभी नहीं |
+| `api.tokens.expires` | Stops working | बंद होगा |
+| `api.tokens.status` | Status | स्थिति |
+| `api.tokens.active` | Working | चालू |
+| `api.tokens.revoked` | Revoked | रद्द |
+| `api.tokens.expired` | Expired | खत्म |
+| `api.tokens.revoke` | Revoke | रद्द करें |
+| `api.tokens.revokeTitle` | Revoke {name}? | {name} रद्द करें? |
+| `api.tokens.revokeBody` | Anything that uses this token stops working at once. This cannot be undone. | जो भी इस टोकन से चल रहा है वह तुरंत बंद हो जाएगा। यह वापस नहीं होगा। |
+| `api.tokens.revokeConfirm` | Revoke token | टोकन रद्द करें |
+| `api.tokens.revokedToast` | Token revoked. | टोकन रद्द हुआ। |
+| `api.tokens.shownOnce` | Copy this token now | यह टोकन अभी कॉपी करें |
+| `api.tokens.shownOnceBody` | It is shown only this once. If you lose it, revoke it and make a new one. | यह सिर्फ़ इसी बार दिखता है। खो जाए तो इसे रद्द करके नया बनाएं। |
+| `api.tokens.copy` | Copy token | टोकन कॉपी करें |
+| `api.tokens.copied` | Copied. | कॉपी हो गया। |
+| `api.tokens.copyFailed` | Could not copy. Select it and copy by hand. | कॉपी नहीं हुआ। इसे चुनकर हाथ से कॉपी करें। |
+| `api.tokens.done` | I have copied it | मैंने कॉपी कर लिया |
+| `api.tokens.needScope` | Pick at least one thing it may read. | कम से कम एक चीज़ चुनें जो यह पढ़ सके। |
+| `api.tokens.invalidExpiry` | Enter whole days from 1 to 730, or leave it empty. | 1 से 730 के बीच पूरे दिन लिखें, या खाली छोड़ें। |
+| `api.tokens.nameRequired` | Enter a name. | नाम लिखें। |
+| `api.tokens.billingOff` | Needs tax invoices to be on for this plant. | इस प्लांट में टैक्स इनवॉइस चालू होना चाहिए। |
+| `api.scopes.orders__read` | Orders | ऑर्डर |
+| `api.scopes.stock__read` | Stock | स्टॉक |
+| `api.scopes.dispatch__read` | Dispatches | Dispatch |
+| `api.scopes.invoices__read` | Invoices | इनवॉइस |
+| `api.scopes.prices__read` | Rates (includes rates on orders and invoices) | रेट (ऑर्डर और इनवॉइस के रेट भी) |
+| `api.webhooks.title` | Webhooks | Webhook |
+| `api.webhooks.hint` | orrn sends a message to your address when something happens. Use a public https address. | कुछ होने पर orrn आपके पते पर संदेश भेजता है। सार्वजनिक https पता रखें। |
+| `api.webhooks.add` | Add a webhook | Webhook जोड़ें |
+| `api.webhooks.empty` | No webhooks yet. | अभी कोई webhook नहीं है। |
+| `api.webhooks.url` | Address | पता |
+| `api.webhooks.urlHint` | Starts with https:// | https:// से शुरू |
+| `api.webhooks.events` | Tell me when | इन पर खबर दें |
+| `api.webhooks.invalidUrl` | Enter a full https address. | पूरा https पता लिखें। |
+| `api.webhooks.needEvent` | Pick at least one thing. | कम से कम एक चीज़ चुनें। |
+| `api.webhooks.paused` | Paused | रुका हुआ |
+| `api.webhooks.sending` | Sending | भेज रहा है |
+| `api.webhooks.pause` | Pause | रोकें |
+| `api.webhooks.resume` | Resume | फिर चालू करें |
+| `api.webhooks.delete` | Delete | हटाएं |
+| `api.webhooks.deleteTitle` | Delete this webhook? | यह webhook हटाएं? |
+| `api.webhooks.deleteBody` | orrn stops sending to {url} and its list of deliveries goes too. This cannot be undone. | orrn {url} पर भेजना बंद कर देगा और उसकी भेजी हुई सूची भी हट जाएगी। यह वापस नहीं होगा। |
+| `api.webhooks.deleteConfirm` | Delete webhook | Webhook हटाएं |
+| `api.webhooks.deleted` | Webhook deleted. | Webhook हट गया। |
+| `api.webhooks.added` | Webhook added. | Webhook जुड़ गया। |
+| `api.webhooks.updated` | Webhook saved. | Webhook सेव हुआ। |
+| `api.webhooks.secretTitle` | Copy the signing secret now | साइन करने वाला सीक्रेट अभी कॉपी करें |
+| `api.webhooks.secretBody` | Use it to check that a message really came from orrn. It is shown only this once. | इससे जाँचें कि संदेश सच में orrn से आया है। यह सिर्फ़ इसी बार दिखता है। |
+| `api.webhooks.copySecret` | Copy secret | सीक्रेट कॉपी करें |
+| `api.webhooks.deliveries` | Deliveries | भेजे गए संदेश |
+| `api.webhooks.showDeliveries` | Show deliveries | भेजे गए संदेश दिखाएं |
+| `api.webhooks.hideDeliveries` | Hide deliveries | भेजे गए संदेश छिपाएं |
+| `api.webhooks.noDeliveries` | Nothing has been sent yet. | अभी कुछ नहीं भेजा गया। |
+| `api.webhooks.event` | What | क्या |
+| `api.webhooks.when` | When | कब |
+| `api.webhooks.state` | State | स्थिति |
+| `api.webhooks.tries` | Tries | कोशिशें |
+| `api.webhooks.lastError` | Last answer | आखिरी जवाब |
+| `api.webhooks.pending` | Waiting | इंतज़ार में |
+| `api.webhooks.delivered` | Delivered | पहुंच गया |
+| `api.webhooks.failed` | Failed | फेल |
+| `api.webhooks.resend` | Send again | फिर से भेजें |
+| `api.webhooks.resent` | It will be sent again shortly. | थोड़ी देर में फिर से भेजा जाएगा। |
+| `api.webhooks.attempts` | {count} {count:try\|tries} | {count} {count:कोशिश\|कोशिशें} |
+| `api.webhooks.noError` | None | कोई नहीं |
+| `api.webhooks.httpStatus` | Answer {status} | जवाब {status} |
+| `api.events.order__confirmed` | An order is confirmed | ऑर्डर पक्का होता है |
+| `api.events.dispatch__done` | A dispatch is finished | Dispatch पूरा होता है |
+| `api.events.invoice__issued` | An invoice is issued | इनवॉइस जारी होता है |
+| `api.events.stock__adjusted` | Stock is adjusted | स्टॉक ठीक किया जाता है |
+| `api.docs.title` | How to use it | कैसे इस्तेमाल करें |
+| `api.docs.base` | Address of the API | API का पता |
+| `api.docs.auth` | Send your token in the Authorization header: | अपना टोकन Authorization header में भेजें: |
+| `api.docs.endpoints` | What you can read | क्या पढ़ सकते हैं |
+| `api.docs.endpointOrders` | Orders, and one order by its id | ऑर्डर, और id से एक ऑर्डर |
+| `api.docs.endpointStock` | Stock | स्टॉक |
+| `api.docs.endpointDispatches` | Dispatches, and one dispatch by its id | Dispatch, और id से एक dispatch |
+| `api.docs.endpointInvoices` | Invoices, and one invoice by its id (needs tax invoices on) | इनवॉइस, और id से एक इनवॉइस (टैक्स इनवॉइस चालू हो तब) |
+| `api.docs.paging` | Lists come a page at a time. Send limit (up to 100) and cursor. The answer has data and nextCursor; send nextCursor back to get the next page. When it is empty there are no more. | सूची एक बार में एक पेज आती है। limit (100 तक) और cursor भेजें। जवाब में data और nextCursor होता है; अगला पेज लेने के लिए nextCursor वापस भेजें। वह खाली हो तो और पेज नहीं हैं। |
+| `api.docs.rate` | Each token may make {count} calls a minute. After that the answer is 429 until the minute is over. | हर टोकन एक मिनट में {count} बार कॉल कर सकता है। उसके बाद मिनट पूरा होने तक जवाब 429 आता है। |
+| `api.docs.rates` | Rates are left out unless the token includes rates. | टोकन में रेट शामिल न हों तो रेट नहीं दिखते। |
+| `api.docs.hooks` | A webhook is a POST with a JSON body: id, event, createdAt and data. Headers x-orrn-event, x-orrn-delivery and x-orrn-signature come with it. A message that gets no 2xx answer is tried again for 24 hours, then marked failed, and you can send it again here. | Webhook एक POST है जिसमें JSON होता है: id, event, createdAt और data। साथ में x-orrn-event, x-orrn-delivery और x-orrn-signature header आते हैं। जिस संदेश का जवाब 2xx नहीं आता उसे 24 घंटे तक फिर भेजा जाता है, फिर फेल लिखा जाता है, और आप यहां से फिर भेज सकते हैं। |
+| `api.docs.signature` | To check a signature, sign the timestamp, a dot and the raw body with your secret, and compare: | सिग्नेचर जाँचने के लिए समय, एक बिंदु और पूरी बॉडी को अपने सीक्रेट से साइन करके मिलाएं: |
+| `api.docs.openapi` | Full description (OpenAPI) | पूरा ब्यौरा (OpenAPI) |
+
 ### qa (276)
 
 | Key | English | हिंदी |
@@ -11355,7 +11619,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (57)
+### plantSettings (58)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11402,6 +11666,7 @@ Please check, Lalubhai:
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `modules.names.maintenance` | Maintenance | मेंटेनेंस |
 | `modules.names.costing` | Costing | लागत |
+| `modules.names.api` | Plant API | प्लांट API |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -11541,7 +11806,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (480)
+### audit (494)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11612,6 +11877,10 @@ Please check, Lalubhai:
 | `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
 | `subjectTypes.qa_instrument` | Instrument | उपकरण |
 | `subjectTypes.price_rate` | Price rate | दाम का रेट |
+| `subjectTypes.custom_role` | Role | रोल |
+| `subjectTypes.api_token` | API token | API टोकन |
+| `subjectTypes.webhook_endpoint` | Webhook | Webhook |
+| `subjectTypes.webhook_delivery` | Webhook message | Webhook का संदेश |
 | `subjectTypes.quote` | Quote | कोटेशन |
 | `subjectTypes.proforma` | Proforma invoice | प्रोफार्मा इनवॉइस |
 | `subjectTypes.enquiry` | Enquiry | पूछताछ |
@@ -11882,6 +12151,16 @@ Please check, Lalubhai:
 | `actions.member__invite__resend` | Invite sent again | इनवाइट फिर से भेजा |
 | `actions.member__remove` | Team member removed | टीम मेंबर हटाया |
 | `actions.member__updateRole` | Team member's role changed | टीम मेंबर का रोल बदला |
+| `actions.member__customRole` | Team member's own role changed | टीम मेंबर का अपना रोल बदला |
+| `actions.role__create` | Role made | रोल बनाया |
+| `actions.role__update` | Role changed | रोल बदला |
+| `actions.role__delete` | Role deleted | रोल हटाया |
+| `actions.api__token__create` | API token made | API टोकन बनाया |
+| `actions.api__token__revoke` | API token revoked | API टोकन रद्द किया |
+| `actions.api__webhook__create` | Webhook added | Webhook जोड़ा |
+| `actions.api__webhook__update` | Webhook changed | Webhook बदला |
+| `actions.api__webhook__delete` | Webhook deleted | Webhook हटाया |
+| `actions.api__webhook__resend` | Webhook message sent again | Webhook का संदेश फिर भेजा |
 | `actions.nitriding__add` | Nitriding logged | नाइट्राइडिंग दर्ज की |
 | `actions.nitriding__back` | Die back from nitriding | डाई नाइट्राइडिंग से वापस |
 | `actions.nitriding__out` | Die sent for nitriding | डाई नाइट्राइडिंग को भेजी |

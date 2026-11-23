@@ -27,6 +27,8 @@ import { bundleTransfer, openSalesOrderStatuses, salesOrder, salesOrderLine, sal
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
+import { webhookOutboxStatement } from "../lib/webhooks/outbox";
+import { scheduleDrain } from "../lib/webhooks/schedule";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
@@ -367,6 +369,14 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
       batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
       ...freeze.statements(orderLanded(ctx.companyId, order.id, seq)),
       poRepeatGuard(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber! }),
+      // XE PLATFORM row 83: the webhook outbox row lands with the confirmation or not at all (no row unless `api` is on).
+      webhookOutboxStatement(ctx.db, ctx.companyId, "order.confirmed", {
+        orderId: order.id,
+        number: order.number,
+        customerId: order.customerId,
+        poNumber: order.poNumber ?? null,
+        confirmedAt: at.toISOString(),
+      }),
       auditInsert(ctx, {
         action: "order.confirm",
         subjectType: "sales_order",
@@ -386,6 +396,7 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
     if (isBatchAbort(e, "sales_order_line")) conflict();
     throw e;
   }
+  scheduleDrain(ctx);
   return { id: order.id, status: "confirmed" as const };
 }
 

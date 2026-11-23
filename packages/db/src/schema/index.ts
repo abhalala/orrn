@@ -35,4 +35,5 @@ export * from "./store";
 export * from "./storeBuy";
 export * from "./sync";
 export * from "./tenant";
+export * from "./xePlatform";
 export {};

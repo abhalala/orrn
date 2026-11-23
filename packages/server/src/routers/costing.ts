@@ -167,7 +167,7 @@ export const costingRouter = router({
         .from(pressLine)
         .where(eq(pressLine.companyId, ctx.companyId))
         .orderBy(asc(pressLine.sortOrder), asc(pressLine.code));
-      return { ...co.costing, ratesToday: ratesOn(co.costing.rates, co.today), today: co.today, pressLines: lines, metalSource: co.pricing.metalSource, ratesAllowed: ratesAllowed(ctx.role, co) };
+      return { ...co.costing, ratesToday: ratesOn(co.costing.rates, co.today), today: co.today, pressLines: lines, metalSource: co.pricing.metalSource, ratesAllowed: ratesAllowed(ctx, co) };
     }),
 
     /**
@@ -299,7 +299,7 @@ export const costingRouter = router({
     const runById = new Map(own.runs.map((r) => [r.id, r]));
     const bySection = new Map([...groupRuns(recent.runs, (r) => r.sectionId)].map(([k, v]) => [k, rollup(v).totalPaisePerKg]));
     const plant = rollup(recent.runs).totalPaisePerKg;
-    const allowed = ratesAllowed(ctx.role, co);
+    const allowed = ratesAllowed(ctx, co);
     return {
       ratesAllowed: allowed,
       lowMarginBp: co.costing.lowMarginBp,
@@ -341,7 +341,7 @@ export const costingRouter = router({
     .input(z.object({ from: ymd.optional(), to: ymd.optional(), groupBy: z.enum(["section", "customer", "month"]).default("month") }).default({ groupBy: "month" }))
     .query(async ({ ctx, input }) => {
       const co = await gate(ctx);
-      if (!ratesAllowed(ctx.role, co)) throw new TRPCError({ code: "FORBIDDEN", message: FORBIDDEN_RATES });
+      if (!ratesAllowed(ctx, co)) throw new TRPCError({ code: "FORBIDDEN", message: FORBIDDEN_RATES });
       const to = input.to ?? co.today;
       const from = input.from ?? `${addMonths(monthOf(to), -5)}-01`;
       if (from > to) throw new TRPCError({ code: "BAD_REQUEST", message: "The start date must be before the end date" });

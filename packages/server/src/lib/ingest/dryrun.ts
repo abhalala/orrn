@@ -47,7 +47,7 @@ import { chunk, IN_LIST_CHUNK, mapInChunks, pushChunkedInserts, type SqliteBatch
 import { now } from "../clock";
 import { createId } from "../id";
 import { companyModules } from "../moduleGate";
-import { can } from "../permissions";
+import { can, meOfCtx } from "../permissions";
 import { nameKey } from "../purchase";
 import { stagedRowIdOf } from "./artifacts";
 import {
@@ -1136,7 +1136,7 @@ export async function candidateQuestions(
     if (u.code === "column_meaning_unclear") add("column_meaning_unclear", u.field, { name: u.field });
   }
   if (periodRequired(r) && !artifact.periodConfirmed?.asOf) add("period_needed", "", {});
-  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+  const me = meOfCtx(ctx);
   if (r.target === "orders" && r.fields.some((f) => f.field === "rate")) {
     // With rates on sales orders off, the merge writes no rate for anyone (B3): the person leaves
     // rates out first, or turns rates on (X-new-3). Asked of everyone, and it blocks approve. A

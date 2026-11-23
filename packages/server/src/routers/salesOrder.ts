@@ -48,7 +48,7 @@ import { planOrderEditPricing, pricingCompany, pricingToday } from "../lib/prici
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
-import { can, type Action, type CompanyRole } from "../lib/permissions";
+import { type PermissionCtx, ctxCan } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
 import { stockOnOrder } from "../lib/orderStock";
 import { BOOK_STAGES, bookCities, bookTotals, orderBook, type BookFilter } from "../lib/orderBook";
@@ -433,8 +433,7 @@ export async function createSalesOrder(
   return { id, number, replayed: false as const };
 }
 
-export const roleCan = (role: CompanyRole, action: Action) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
-const canPrice = (role: CompanyRole) => roleCan(role, "order.price");
+const canPrice = (ctx: PermissionCtx) => ctxCan(ctx, "order.price");
 
 export const bookInput = z.object({
   status: z.enum(salesOrderStatuses).optional(),
@@ -534,7 +533,7 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
-      return createSalesOrder(ctx, input, { canPrice: canPrice(ctx.role), source: "office" });
+      return createSalesOrder(ctx, input, { canPrice: canPrice(ctx), source: "office" });
     }),
 
   update: actionProcedure("order.manage")
@@ -632,7 +631,7 @@ export const salesOrderRouter = router({
         await assertSections(ctx.db, ctx.companyId, [...changes.filter((c) => c.sectionChanged), ...additions].map((l) => l.sectionId));
       }
       const floor = await companyFloor(ctx.db, ctx.companyId);
-      const priceOk = canPrice(ctx.role);
+      const priceOk = canPrice(ctx);
       // Review round 1 I-4: an edit of a W1 line keeps its locked basis (or re-bases it, audited).
       const edits = await resolveLineEdits(
         ctx.db,
@@ -1016,7 +1015,7 @@ export const salesOrderRouter = router({
       const lines = await lineBalances(ctx.db, ctx.companyId, { orderId: order.id });
       const floor = await companyFloor(ctx.db, ctx.companyId);
       // Rates only for `order.price` holders while the plant shows prices on orders (C23).
-      const showRates = canPrice(ctx.role) && floor.floor.priceOnSalesOrder;
+      const showRates = canPrice(ctx) && floor.floor.priceOnSalesOrder;
       const extras = await orderDetailExtras(ctx.db, ctx.companyId, order, { showRates });
       const totals = sumBalances(lines);
       const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));

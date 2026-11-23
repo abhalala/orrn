@@ -9,6 +9,7 @@ export const guBuddy = {
   buddy: {
     title: "Buddy",
     open: "Buddy ખોલો",
+    askOrrn: "orrn ને પૂછો",
     newChat: "નવી ચેટ",
     addFile: "ફાઇલ ઉમેરો",
     addFileHint: "ફાઇલો ઇમ્પોર્ટ પેજ પર મૂકાય છે. Buddy ને ફાઇલ ક્યારેય મળતી નથી.",

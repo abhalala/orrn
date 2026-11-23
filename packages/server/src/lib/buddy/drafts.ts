@@ -31,7 +31,7 @@ import { refusedInput } from "./decisions";
 import { resolveDraftNames } from "./draftNames";
 import { draftView, fillsExpectSeq, KIND_TARGET, REQUEST_KEYS, type DraftRow } from "./draftView";
 import { capResult, stripSecrets } from "./envelope";
-import { allowedProcedure, roleHoldsGuard, validateInput, type BuddyProcedure } from "./registry";
+import { allowedProcedure, ctxHoldsGuard, validateInput, type BuddyProcedure } from "./registry";
 import { TRPCMetaError } from "../errorMeta";
 import { CONFIRM_BLOCKED, type BuddyDraftView } from "./views";
 
@@ -303,7 +303,7 @@ async function decided(ctx: BrowserCtx, row: Row): Promise<BuddyProcedure | null
   const entry = await allowedProcedure(path);
   if (!entry) return null;
   if (row.kind === "procedure" && refusedInput(entry.decision, row.inputJson)) return null;
-  if (row.kind !== "procedure" && roleHoldsGuard(entry.guard, ctx.role ?? null) === false) return null;
+  if (row.kind !== "procedure" && ctxHoldsGuard(entry.guard, ctx) === false) return null;
   return entry;
 }
 

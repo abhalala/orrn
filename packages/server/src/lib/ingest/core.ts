@@ -20,7 +20,7 @@ import {
 import { periodRequired, recipeSchema, VISION_PARAMS } from "@orrn/ingest";
 
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../atomic";
-import { can } from "../permissions";
+import { ctxCan } from "../permissions";
 import type {
   ArtifactSummary,
   BlockView,
@@ -266,7 +266,7 @@ export function rateColumns(recipe: unknown): number[] {
 const RATE_HEADER = /\b(rate|rates|price|prices)\b|\brs\.?\s*(\/|per)\s*(kg|kgs|t|ton|tonne|qtl)\b|\u20b9/i;
 
 export function seesRates(ctx: Pick<IngestCtx, "role">): boolean {
-  return can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price");
+  return ctxCan(ctx, "order.price");
 }
 
 /**

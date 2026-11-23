@@ -46,7 +46,7 @@ import { resolveCode } from "../lib/codeResolver";
 import { closeStatements, countReport, phantomSummary, sightingsOf, unscannedPhantoms } from "../lib/count";
 import { nextDocNumber } from "../lib/docNumber";
 import { LEDGER_IN_CHUNK, moveRows, type PostingCtx } from "../lib/ledger";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
 import { errorText } from "../lib/store";
 
@@ -922,7 +922,7 @@ export const countRouter = router({
       }
 
       // move_found
-      if (!can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "stock.move")) {
+      if (!ctxCan(ctx, "stock.move")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
       const notMovable = wanted.filter((b) => lineOf.get(b)!.kind === "phantom");

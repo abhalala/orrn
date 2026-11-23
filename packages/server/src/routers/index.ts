@@ -78,6 +78,9 @@ export const appRouter = router({
   maint: lazy(() => import("./maintenance").then((m) => m.maintenanceRouter)),
   // XE parity lane COST: cost per kg, margins, capacity, forecast, dies due (module `costing`, opt-in).
   costing: lazy(() => import("./costing").then((m) => m.costingRouter)),
+  // XE PLATFORM: custom roles (no module key), plant API tokens and webhooks (opt-in `api`).
+  roles: lazy(() => import("./roles").then((m) => m.rolesRouter)),
+  api: lazy(() => import("./apiAccess").then((m) => m.apiAccessRouter)),
 });
 export type AppRouter = typeof appRouter;
 
