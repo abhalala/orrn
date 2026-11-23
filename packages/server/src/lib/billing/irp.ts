@@ -150,14 +150,15 @@ export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: Fak
   };
   return {
     script,
-    async generateIrn({ gstin }, payload) {
+    // Keyed by tenant too: test plants share one GSTIN, a real GSTIN belongs to one plant.
+    async generateIrn({ companyId, gstin }, payload) {
       script.calls.push({ op: "generate", body: payload });
       if (script.failGenerate && script.failGenerate.times > 0) {
         script.failGenerate.times -= 1;
         return script.failGenerate.response;
       }
       const doc = payload.DocDtls as { Typ: string; No: string; Dt: string };
-      const key = `${gstin}|${doc.Typ}|${doc.No}`;
+      const key = `${companyId}|${gstin}|${doc.Typ}|${doc.No}`;
       const existing = issued.get(key);
       if (existing) {
         return { ok: false, code: "2150", message: "Duplicate IRN", retryable: false, info: [{ InfCd: "DUPIRN", Desc: { Irn: existing.Irn, AckNo: existing.AckNo, AckDt: existing.AckDt } }] };
@@ -172,9 +173,9 @@ export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: Fak
       issued.set(key, out);
       return { ok: true, data: out };
     },
-    async irnByDocument({ gstin }, doc) {
+    async irnByDocument({ companyId, gstin }, doc) {
       script.calls.push({ op: "byDocument", body: doc });
-      const found = issued.get(`${gstin}|${doc.docType}|${doc.docNo}`);
+      const found = issued.get(`${companyId}|${gstin}|${doc.docType}|${doc.docNo}`);
       return found ? { ok: true, data: { ...found, Status: cancelled.has(found.Irn) ? IRN_STATUS_CANCELLED : "ACT" } } : { ok: false, code: "2283", message: "IRN details not found", retryable: false };
     },
     async cancelIrn(_gstin, input) {
