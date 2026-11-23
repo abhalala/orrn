@@ -51,6 +51,7 @@ import { Route as TenantPressIndexRouteImport } from './routes/_tenant/press.ind
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
 import { Route as TenantOrdersIndexRouteImport } from './routes/_tenant/orders.index'
 import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
+import { Route as TenantMaintenanceIndexRouteImport } from './routes/_tenant/maintenance.index'
 import { Route as TenantIngestIndexRouteImport } from './routes/_tenant/ingest.index'
 import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
@@ -112,6 +113,7 @@ import { Route as TenantMastersDocumentsRouteImport } from './routes/_tenant/mas
 import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.dies'
 import { Route as TenantMastersBankRouteImport } from './routes/_tenant/masters.bank'
 import { Route as TenantMastersAlloysRouteImport } from './routes/_tenant/masters.alloys'
+import { Route as TenantMaintenanceReportRouteImport } from './routes/_tenant/maintenance.report'
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
 import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
 import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispatches.new'
@@ -147,6 +149,8 @@ import { Route as TenantPreviewDieRoomIndexRouteImport } from './routes/_tenant/
 import { Route as TenantPreviewAgeingIndexRouteImport } from './routes/_tenant/preview.ageing.index'
 import { Route as TenantPressLinesIndexRouteImport } from './routes/_tenant/press.lines.index'
 import { Route as TenantOrdersPlanIndexRouteImport } from './routes/_tenant/orders.plan.index'
+import { Route as TenantMaintenanceWorkOrdersIndexRouteImport } from './routes/_tenant/maintenance.work-orders.index'
+import { Route as TenantMaintenanceAssetsIndexRouteImport } from './routes/_tenant/maintenance.assets.index'
 import { Route as TenantCastsIdIndexRouteImport } from './routes/_tenant/casts.$id.index'
 import { Route as PortalPortalOrdersIndexRouteImport } from './routes/_portal/portal.orders.index'
 import { Route as PortalPortalDispatchesIndexRouteImport } from './routes/_portal/portal.dispatches.index'
@@ -179,6 +183,8 @@ import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.ru
 import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
 import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
+import { Route as TenantMaintenanceWorkOrdersIdRouteImport } from './routes/_tenant/maintenance.work-orders.$id'
+import { Route as TenantMaintenanceAssetsIdRouteImport } from './routes/_tenant/maintenance.assets.$id'
 import { Route as TenantIngestReviewCandidateIdRouteImport } from './routes/_tenant/ingest.review.$candidateId'
 import { Route as TenantIngestMergeRunIdRouteImport } from './routes/_tenant/ingest.merge.$runId'
 import { Route as TenantIngestFilesArtifactIdRouteImport } from './routes/_tenant/ingest.files.$artifactId'
@@ -398,6 +404,11 @@ const TenantOrdersIndexRoute = TenantOrdersIndexRouteImport.update({
 const TenantMastersIndexRoute = TenantMastersIndexRouteImport.update({
   id: '/masters/',
   path: '/masters/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMaintenanceIndexRoute = TenantMaintenanceIndexRouteImport.update({
+  id: '/maintenance/',
+  path: '/maintenance/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantIngestIndexRoute = TenantIngestIndexRouteImport.update({
@@ -706,6 +717,11 @@ const TenantMastersAlloysRoute = TenantMastersAlloysRouteImport.update({
   path: '/masters/alloys',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMaintenanceReportRoute = TenantMaintenanceReportRouteImport.update({
+  id: '/maintenance/report',
+  path: '/maintenance/report',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantGuidesSlugRoute = TenantGuidesSlugRouteImport.update({
   id: '/guides/$slug',
   path: '/guides/$slug',
@@ -886,6 +902,18 @@ const TenantOrdersPlanIndexRoute = TenantOrdersPlanIndexRouteImport.update({
   path: '/orders/plan/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMaintenanceWorkOrdersIndexRoute =
+  TenantMaintenanceWorkOrdersIndexRouteImport.update({
+    id: '/maintenance/work-orders/',
+    path: '/maintenance/work-orders/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantMaintenanceAssetsIndexRoute =
+  TenantMaintenanceAssetsIndexRouteImport.update({
+    id: '/maintenance/assets/',
+    path: '/maintenance/assets/',
+    getParentRoute: () => TenantRoute,
+  } as any)
 const TenantCastsIdIndexRoute = TenantCastsIdIndexRouteImport.update({
   id: '/casts/$id/',
   path: '/casts/$id/',
@@ -1063,6 +1091,18 @@ const TenantOrdersPlanIdRoute = TenantOrdersPlanIdRouteImport.update({
   path: '/orders/plan/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantMaintenanceWorkOrdersIdRoute =
+  TenantMaintenanceWorkOrdersIdRouteImport.update({
+    id: '/maintenance/work-orders/$id',
+    path: '/maintenance/work-orders/$id',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantMaintenanceAssetsIdRoute =
+  TenantMaintenanceAssetsIdRouteImport.update({
+    id: '/maintenance/assets/$id',
+    path: '/maintenance/assets/$id',
+    getParentRoute: () => TenantRoute,
+  } as any)
 const TenantIngestReviewCandidateIdRoute =
   TenantIngestReviewCandidateIdRouteImport.update({
     id: '/ingest/review/$candidateId',
@@ -1198,6 +1238,7 @@ export interface FileRoutesByFullPath {
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/maintenance/report': typeof TenantMaintenanceReportRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
   '/masters/bank': typeof TenantMastersBankRoute
   '/masters/dies': typeof TenantMastersDiesRoute
@@ -1259,6 +1300,7 @@ export interface FileRoutesByFullPath {
   '/dispatches/': typeof TenantDispatchesIndexRoute
   '/guides/': typeof TenantGuidesIndexRoute
   '/ingest/': typeof TenantIngestIndexRoute
+  '/maintenance/': typeof TenantMaintenanceIndexRoute
   '/masters/': typeof TenantMastersIndexRoute
   '/orders/': typeof TenantOrdersIndexRoute
   '/pack/': typeof TenantPackIndexRoute
@@ -1282,6 +1324,8 @@ export interface FileRoutesByFullPath {
   '/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
   '/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
   '/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
+  '/maintenance/assets/$id': typeof TenantMaintenanceAssetsIdRoute
+  '/maintenance/work-orders/$id': typeof TenantMaintenanceWorkOrdersIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1314,6 +1358,8 @@ export interface FileRoutesByFullPath {
   '/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
   '/portal/orders/': typeof PortalPortalOrdersIndexRoute
   '/casts/$id/': typeof TenantCastsIdIndexRoute
+  '/maintenance/assets/': typeof TenantMaintenanceAssetsIndexRoute
+  '/maintenance/work-orders/': typeof TenantMaintenanceWorkOrdersIndexRoute
   '/orders/plan/': typeof TenantOrdersPlanIndexRoute
   '/press/lines/': typeof TenantPressLinesIndexRoute
   '/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
@@ -1380,6 +1426,7 @@ export interface FileRoutesByTo {
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/maintenance/report': typeof TenantMaintenanceReportRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
   '/masters/bank': typeof TenantMastersBankRoute
   '/masters/dies': typeof TenantMastersDiesRoute
@@ -1441,6 +1488,7 @@ export interface FileRoutesByTo {
   '/dispatches': typeof TenantDispatchesIndexRoute
   '/guides': typeof TenantGuidesIndexRoute
   '/ingest': typeof TenantIngestIndexRoute
+  '/maintenance': typeof TenantMaintenanceIndexRoute
   '/masters': typeof TenantMastersIndexRoute
   '/orders': typeof TenantOrdersIndexRoute
   '/pack': typeof TenantPackIndexRoute
@@ -1464,6 +1512,8 @@ export interface FileRoutesByTo {
   '/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
   '/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
   '/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
+  '/maintenance/assets/$id': typeof TenantMaintenanceAssetsIdRoute
+  '/maintenance/work-orders/$id': typeof TenantMaintenanceWorkOrdersIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1496,6 +1546,8 @@ export interface FileRoutesByTo {
   '/portal/dispatches': typeof PortalPortalDispatchesIndexRoute
   '/portal/orders': typeof PortalPortalOrdersIndexRoute
   '/casts/$id': typeof TenantCastsIdIndexRoute
+  '/maintenance/assets': typeof TenantMaintenanceAssetsIndexRoute
+  '/maintenance/work-orders': typeof TenantMaintenanceWorkOrdersIndexRoute
   '/orders/plan': typeof TenantOrdersPlanIndexRoute
   '/press/lines': typeof TenantPressLinesIndexRoute
   '/preview/ageing': typeof TenantPreviewAgeingIndexRoute
@@ -1568,6 +1620,7 @@ export interface FileRoutesById {
   '/_tenant/dispatches/new': typeof TenantDispatchesNewRoute
   '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
+  '/_tenant/maintenance/report': typeof TenantMaintenanceReportRoute
   '/_tenant/masters/alloys': typeof TenantMastersAlloysRoute
   '/_tenant/masters/bank': typeof TenantMastersBankRoute
   '/_tenant/masters/dies': typeof TenantMastersDiesRoute
@@ -1629,6 +1682,7 @@ export interface FileRoutesById {
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
   '/_tenant/guides/': typeof TenantGuidesIndexRoute
   '/_tenant/ingest/': typeof TenantIngestIndexRoute
+  '/_tenant/maintenance/': typeof TenantMaintenanceIndexRoute
   '/_tenant/masters/': typeof TenantMastersIndexRoute
   '/_tenant/orders/': typeof TenantOrdersIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
@@ -1652,6 +1706,8 @@ export interface FileRoutesById {
   '/_tenant/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
   '/_tenant/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
   '/_tenant/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
+  '/_tenant/maintenance/assets/$id': typeof TenantMaintenanceAssetsIdRoute
+  '/_tenant/maintenance/work-orders/$id': typeof TenantMaintenanceWorkOrdersIdRoute
   '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
   '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1684,6 +1740,8 @@ export interface FileRoutesById {
   '/_portal/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
   '/_portal/portal/orders/': typeof PortalPortalOrdersIndexRoute
   '/_tenant/casts/$id/': typeof TenantCastsIdIndexRoute
+  '/_tenant/maintenance/assets/': typeof TenantMaintenanceAssetsIndexRoute
+  '/_tenant/maintenance/work-orders/': typeof TenantMaintenanceWorkOrdersIndexRoute
   '/_tenant/orders/plan/': typeof TenantOrdersPlanIndexRoute
   '/_tenant/press/lines/': typeof TenantPressLinesIndexRoute
   '/_tenant/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
@@ -1752,6 +1810,7 @@ export interface FileRouteTypes {
     | '/dispatches/new'
     | '/foundry/stock'
     | '/guides/$slug'
+    | '/maintenance/report'
     | '/masters/alloys'
     | '/masters/bank'
     | '/masters/dies'
@@ -1813,6 +1872,7 @@ export interface FileRouteTypes {
     | '/dispatches/'
     | '/guides/'
     | '/ingest/'
+    | '/maintenance/'
     | '/masters/'
     | '/orders/'
     | '/pack/'
@@ -1836,6 +1896,8 @@ export interface FileRouteTypes {
     | '/ingest/files/$artifactId'
     | '/ingest/merge/$runId'
     | '/ingest/review/$candidateId'
+    | '/maintenance/assets/$id'
+    | '/maintenance/work-orders/$id'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -1868,6 +1930,8 @@ export interface FileRouteTypes {
     | '/portal/dispatches/'
     | '/portal/orders/'
     | '/casts/$id/'
+    | '/maintenance/assets/'
+    | '/maintenance/work-orders/'
     | '/orders/plan/'
     | '/press/lines/'
     | '/preview/ageing/'
@@ -1934,6 +1998,7 @@ export interface FileRouteTypes {
     | '/dispatches/new'
     | '/foundry/stock'
     | '/guides/$slug'
+    | '/maintenance/report'
     | '/masters/alloys'
     | '/masters/bank'
     | '/masters/dies'
@@ -1995,6 +2060,7 @@ export interface FileRouteTypes {
     | '/dispatches'
     | '/guides'
     | '/ingest'
+    | '/maintenance'
     | '/masters'
     | '/orders'
     | '/pack'
@@ -2018,6 +2084,8 @@ export interface FileRouteTypes {
     | '/ingest/files/$artifactId'
     | '/ingest/merge/$runId'
     | '/ingest/review/$candidateId'
+    | '/maintenance/assets/$id'
+    | '/maintenance/work-orders/$id'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -2050,6 +2118,8 @@ export interface FileRouteTypes {
     | '/portal/dispatches'
     | '/portal/orders'
     | '/casts/$id'
+    | '/maintenance/assets'
+    | '/maintenance/work-orders'
     | '/orders/plan'
     | '/press/lines'
     | '/preview/ageing'
@@ -2121,6 +2191,7 @@ export interface FileRouteTypes {
     | '/_tenant/dispatches/new'
     | '/_tenant/foundry/stock'
     | '/_tenant/guides/$slug'
+    | '/_tenant/maintenance/report'
     | '/_tenant/masters/alloys'
     | '/_tenant/masters/bank'
     | '/_tenant/masters/dies'
@@ -2182,6 +2253,7 @@ export interface FileRouteTypes {
     | '/_tenant/dispatches/'
     | '/_tenant/guides/'
     | '/_tenant/ingest/'
+    | '/_tenant/maintenance/'
     | '/_tenant/masters/'
     | '/_tenant/orders/'
     | '/_tenant/pack/'
@@ -2205,6 +2277,8 @@ export interface FileRouteTypes {
     | '/_tenant/ingest/files/$artifactId'
     | '/_tenant/ingest/merge/$runId'
     | '/_tenant/ingest/review/$candidateId'
+    | '/_tenant/maintenance/assets/$id'
+    | '/_tenant/maintenance/work-orders/$id'
     | '/_tenant/orders/plan/$id'
     | '/_tenant/pack_/$id_/labels'
     | '/_tenant/press/lines/$id'
@@ -2237,6 +2311,8 @@ export interface FileRouteTypes {
     | '/_portal/portal/dispatches/'
     | '/_portal/portal/orders/'
     | '/_tenant/casts/$id/'
+    | '/_tenant/maintenance/assets/'
+    | '/_tenant/maintenance/work-orders/'
     | '/_tenant/orders/plan/'
     | '/_tenant/press/lines/'
     | '/_tenant/preview/ageing/'
@@ -2559,6 +2635,13 @@ declare module '@tanstack/react-router' {
       path: '/masters'
       fullPath: '/masters/'
       preLoaderRoute: typeof TenantMastersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/maintenance/': {
+      id: '/_tenant/maintenance/'
+      path: '/maintenance'
+      fullPath: '/maintenance/'
+      preLoaderRoute: typeof TenantMaintenanceIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/ingest/': {
@@ -2988,6 +3071,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantMastersAlloysRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/maintenance/report': {
+      id: '/_tenant/maintenance/report'
+      path: '/maintenance/report'
+      fullPath: '/maintenance/report'
+      preLoaderRoute: typeof TenantMaintenanceReportRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/guides/$slug': {
       id: '/_tenant/guides/$slug'
       path: '/guides/$slug'
@@ -3233,6 +3323,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantOrdersPlanIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/maintenance/work-orders/': {
+      id: '/_tenant/maintenance/work-orders/'
+      path: '/maintenance/work-orders'
+      fullPath: '/maintenance/work-orders/'
+      preLoaderRoute: typeof TenantMaintenanceWorkOrdersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/maintenance/assets/': {
+      id: '/_tenant/maintenance/assets/'
+      path: '/maintenance/assets'
+      fullPath: '/maintenance/assets/'
+      preLoaderRoute: typeof TenantMaintenanceAssetsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/casts/$id/': {
       id: '/_tenant/casts/$id/'
       path: '/casts/$id'
@@ -3455,6 +3559,20 @@ declare module '@tanstack/react-router' {
       path: '/orders/plan/$id'
       fullPath: '/orders/plan/$id'
       preLoaderRoute: typeof TenantOrdersPlanIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/maintenance/work-orders/$id': {
+      id: '/_tenant/maintenance/work-orders/$id'
+      path: '/maintenance/work-orders/$id'
+      fullPath: '/maintenance/work-orders/$id'
+      preLoaderRoute: typeof TenantMaintenanceWorkOrdersIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/maintenance/assets/$id': {
+      id: '/_tenant/maintenance/assets/$id'
+      path: '/maintenance/assets/$id'
+      fullPath: '/maintenance/assets/$id'
+      preLoaderRoute: typeof TenantMaintenanceAssetsIdRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/ingest/review/$candidateId': {
@@ -3725,6 +3843,7 @@ interface TenantRouteChildren {
   TenantDispatchesNewRoute: typeof TenantDispatchesNewRoute
   TenantFoundryStockRoute: typeof TenantFoundryStockRoute
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
+  TenantMaintenanceReportRoute: typeof TenantMaintenanceReportRoute
   TenantMastersAlloysRoute: typeof TenantMastersAlloysRoute
   TenantMastersBankRoute: typeof TenantMastersBankRoute
   TenantMastersDiesRoute: typeof TenantMastersDiesRoute
@@ -3782,6 +3901,7 @@ interface TenantRouteChildren {
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
   TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
   TenantIngestIndexRoute: typeof TenantIngestIndexRoute
+  TenantMaintenanceIndexRoute: typeof TenantMaintenanceIndexRoute
   TenantMastersIndexRoute: typeof TenantMastersIndexRoute
   TenantOrdersIndexRoute: typeof TenantOrdersIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
@@ -3799,6 +3919,8 @@ interface TenantRouteChildren {
   TenantIngestFilesArtifactIdRoute: typeof TenantIngestFilesArtifactIdRoute
   TenantIngestMergeRunIdRoute: typeof TenantIngestMergeRunIdRoute
   TenantIngestReviewCandidateIdRoute: typeof TenantIngestReviewCandidateIdRoute
+  TenantMaintenanceAssetsIdRoute: typeof TenantMaintenanceAssetsIdRoute
+  TenantMaintenanceWorkOrdersIdRoute: typeof TenantMaintenanceWorkOrdersIdRoute
   TenantOrdersPlanIdRoute: typeof TenantOrdersPlanIdRoute
   TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
   TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
@@ -3825,6 +3947,8 @@ interface TenantRouteChildren {
   TenantStockCountIdRoute: typeof TenantStockCountIdRoute
   TenantStoreItemsIdRoute: typeof TenantStoreItemsIdRoute
   TenantCastsIdIndexRoute: typeof TenantCastsIdIndexRoute
+  TenantMaintenanceAssetsIndexRoute: typeof TenantMaintenanceAssetsIndexRoute
+  TenantMaintenanceWorkOrdersIndexRoute: typeof TenantMaintenanceWorkOrdersIndexRoute
   TenantOrdersPlanIndexRoute: typeof TenantOrdersPlanIndexRoute
   TenantPressLinesIndexRoute: typeof TenantPressLinesIndexRoute
   TenantPreviewAgeingIndexRoute: typeof TenantPreviewAgeingIndexRoute
@@ -3867,6 +3991,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchesNewRoute: TenantDispatchesNewRoute,
   TenantFoundryStockRoute: TenantFoundryStockRoute,
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,
+  TenantMaintenanceReportRoute: TenantMaintenanceReportRoute,
   TenantMastersAlloysRoute: TenantMastersAlloysRoute,
   TenantMastersBankRoute: TenantMastersBankRoute,
   TenantMastersDiesRoute: TenantMastersDiesRoute,
@@ -3924,6 +4049,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
   TenantGuidesIndexRoute: TenantGuidesIndexRoute,
   TenantIngestIndexRoute: TenantIngestIndexRoute,
+  TenantMaintenanceIndexRoute: TenantMaintenanceIndexRoute,
   TenantMastersIndexRoute: TenantMastersIndexRoute,
   TenantOrdersIndexRoute: TenantOrdersIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
@@ -3941,6 +4067,8 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantIngestFilesArtifactIdRoute: TenantIngestFilesArtifactIdRoute,
   TenantIngestMergeRunIdRoute: TenantIngestMergeRunIdRoute,
   TenantIngestReviewCandidateIdRoute: TenantIngestReviewCandidateIdRoute,
+  TenantMaintenanceAssetsIdRoute: TenantMaintenanceAssetsIdRoute,
+  TenantMaintenanceWorkOrdersIdRoute: TenantMaintenanceWorkOrdersIdRoute,
   TenantOrdersPlanIdRoute: TenantOrdersPlanIdRoute,
   TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
   TenantPressLinesIdRoute: TenantPressLinesIdRoute,
@@ -3967,6 +4095,8 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantStockCountIdRoute: TenantStockCountIdRoute,
   TenantStoreItemsIdRoute: TenantStoreItemsIdRoute,
   TenantCastsIdIndexRoute: TenantCastsIdIndexRoute,
+  TenantMaintenanceAssetsIndexRoute: TenantMaintenanceAssetsIndexRoute,
+  TenantMaintenanceWorkOrdersIndexRoute: TenantMaintenanceWorkOrdersIndexRoute,
   TenantOrdersPlanIndexRoute: TenantOrdersPlanIndexRoute,
   TenantPressLinesIndexRoute: TenantPressLinesIndexRoute,
   TenantPreviewAgeingIndexRoute: TenantPreviewAgeingIndexRoute,

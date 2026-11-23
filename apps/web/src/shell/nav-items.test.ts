@@ -34,6 +34,7 @@ describe("visibleItems", () => {
       "reports",
       "complaints",
       "owner",
+      "maintenance",
       "purchase",
       "approvals",
       "dies",

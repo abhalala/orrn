@@ -30,6 +30,7 @@ import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
+import { maintEn } from "./maint/en";
 
 export const en = {
   common: {
@@ -230,6 +231,7 @@ export const en = {
     ageing: "Ageing",
     complaints: "Complaints",
     owner: "Owner",
+    maintenance: "Maintenance",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3792,6 +3794,7 @@ export const en = {
         qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        maintenance: "Maintenance",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3806,6 +3809,7 @@ export const en = {
         qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
         complaints: "Customer complaints on a bundle, with the trace and the reply",
+        maintenance: "Assets, preventive plans, work orders and machine readings",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6506,6 +6510,7 @@ export const en = {
 
   reg: regEn,
   qa: qaEn,
+  maint: maintEn,
 
   reasons: {
     kinds: {
@@ -6664,6 +6669,7 @@ export const en = {
         qa: "Quality",
         purchase: "Scrap purchase",
         complaints: "Complaints",
+        maintenance: "Maintenance",
       },
     },
     letterhead: {
@@ -6873,6 +6879,8 @@ export const en = {
       purchase_lot: "Purchase lot",
       count_session: "Stock count",
       complaint: "Complaint",
+      maint_asset: "Asset",
+      maint_work_order: "Work order",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
       ingest_artifact: "Import file",
@@ -6971,6 +6979,20 @@ export const en = {
       complaint__reply: "Complaint answered",
       complaint__close: "Complaint closed",
       mis__morning__sent: "Morning summary sent",
+      maint__asset__create: "Asset added",
+      maint__asset__update: "Asset changed",
+      maint__asset__addFromMasters: "Presses, furnaces and ovens added as assets",
+      maint__plan__create: "Maintenance plan added",
+      maint__plan__update: "Maintenance plan changed",
+      maint__workorder__create: "Work order raised",
+      maint__workorder__update: "Work order changed",
+      maint__workorder__move: "Work order status changed",
+      maint__spare__link: "Spare added to a work order",
+      maint__spare__unlink: "Spare taken off a work order",
+      maint__limit__create: "Reading limit added",
+      maint__limit__update: "Reading limit changed",
+      maint__reading__record: "Machine reading taken",
+      maint__settings__update: "Maintenance labour rate changed",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
       customer__update: "Customer changed",

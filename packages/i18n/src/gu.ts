@@ -13,6 +13,7 @@ import { refusalGu } from "./native/refusal.gu";
 import { guAdminLimits } from "./gu-more/admin-limits";
 import { guAgeing } from "./gu-more/ageing";
 import { guReg } from "./gu-more/reg";
+import { guMaint } from "./gu-more/maint";
 import { guAgeingWeb } from "./gu-more/ageing-web";
 import { guApprovals } from "./gu-more/approvals";
 import { guPressBoard } from "./gu-more/press-board";
@@ -1852,6 +1853,7 @@ export const gu = mergeGu(
   guAdminLimits,
   guAgeing,
   guReg,
+  guMaint,
   guAgeingWeb,
   guApprovals,
   guAuth,
@@ -1895,4 +1897,5 @@ export const gu = mergeGu(
   typeof guIngest &
   typeof guBuddy &
   typeof guReg &
-  typeof guQa satisfies GuMessages;
+  typeof guQa &
+  typeof guMaint satisfies GuMessages;

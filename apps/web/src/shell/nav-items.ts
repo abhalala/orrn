@@ -31,10 +31,11 @@ import {
   UploadCloud,
   MessageSquareWarning,
   Sunrise,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "maintenance";
 
 export type NavItem = {
   key: string;
@@ -94,6 +95,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   // XE parity REG: the complaint register and the owner's morning page.
   { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
   { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
+  // XE parity lane MAINT: assets, preventive plans, work orders and readings.
+  { key: "maintenance", to: "/maintenance", labelKey: "nav.maintenance", icon: Wrench, requires: ["maint.view"], module: "maintenance" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
