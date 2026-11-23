@@ -173,6 +173,8 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
       <div>Vehicle <strong>${e(h.vehicleNo ?? "—")}</strong></div>
       ${h.driverName || h.driverPhone ? `<div>Driver ${e([h.driverName, h.driverPhone].filter(Boolean).join(" · "))}</div>` : ""}
       ${h.transporter ? `<div>${e(h.transporter)}</div>` : ""}
+      ${h.packingMode ? `<div>Packing ${e(h.packingMode)}</div>` : ""}
+      ${h.transitInsurance ? `<div>Transit insurance ${e(`${h.transitInsurance.policyNo}, ${h.transitInsurance.insurer}`)}</div>` : ""}
     </div>
     <div class="box">
       <div class="label">References</div>

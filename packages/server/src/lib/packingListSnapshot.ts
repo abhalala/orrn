@@ -148,6 +148,10 @@ export const plSnapshotV2Schema = z.object({
      * date never depends on the reader's timezone (review round 3 m-5). Absent on older snapshots.
      */
     shipDate: ymd.nullable().optional(),
+    /** XE ADM #76: mode of packing (the dispatch's, else its order lines'). Absent on older snapshots. */
+    packingMode: z.string().nullable().optional(),
+    /** XE ADM #21: transit insurance policy, when set, marked to print and valid on the PL date. */
+    transitInsurance: z.object({ policyNo: z.string(), insurer: z.string(), validTo: ymd.nullable() }).nullable().optional(),
   }),
   columns: z.tuple([
     z.literal("sr"),

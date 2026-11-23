@@ -11,7 +11,7 @@ import { company } from "./tenant";
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 /**
- * Quality gates (XE parity lane QA, migration 0055_xe_qa). orrn keeps quality as checkpoints on the
+ * Quality gates (XE parity lane QA, migration 0058_xe_qa). orrn keeps quality as checkpoints on the
  * documents it already has, not as two dozen registers: `qa_check` is one table for every kind of
  * check (incoming, first piece, in process, clearance, dimensions, mechanical, ultrasonic) and each
  * register is a filtered list of it. Verdicts (`result`, `flags_json`) are computed by the server from

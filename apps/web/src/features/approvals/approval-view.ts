@@ -28,6 +28,8 @@ export type ApprovalForView = {
   subjectId: string;
   requestedBy: string | null;
   meta: Record<string, unknown>;
+  /** XE ADM #78: the server's answer under the plant's approver rules; absent on older shapes. */
+  canDecide?: boolean;
 };
 
 export type ApprovalSubject = {
@@ -468,6 +470,9 @@ export function decideState(me: Me | null | undefined, row: ApprovalForView): De
   const role = me?.company?.role;
   if (!me || !role) return "view";
   if (row.requestedBy !== null && row.requestedBy === me.user.id) return "own";
+  // The server decides who may approve under the plant's approver rules (and thresholds); the built-in
+  // matrix is only the fallback for a row that does not carry the answer.
+  if (row.canDecide !== undefined) return row.canDecide ? "decide" : "view";
   return canApprove(role, row.kind) ? "decide" : "view";
 }
 

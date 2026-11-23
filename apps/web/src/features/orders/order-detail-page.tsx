@@ -29,6 +29,7 @@ import { StockOnSheet } from "./components/stock-on-sheet";
 import { OrderPrintButtons } from "./components/print-buttons";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
+import { LinePackingMode } from "./components/line-packing-mode";
 import { LinesEditor } from "./components/lines-editor";
 import { ReasonSheet } from "./components/reason-sheet";
 import { TakeStockSheet, type TakeStockTarget } from "./components/take-stock-sheet";
@@ -406,6 +407,9 @@ export function OrderDetailPage({ id }: { id: string }) {
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
                 {/* FP-AG-15: the line's pieces on the ageing side, beneath the Aged cell. */}
                 <OrderLineAged salesOrderId={order.id} lineId={line.lineId} />
+                <Can do="order.manage">
+                  <LinePackingMode orderId={order.id} lineId={line.lineId} lineNo={line.lineNo} />
+                </Can>
                 {/* XE parity lane QA (row 37): on an open order, the alloy is short, with the substitutes allowed. Nothing otherwise. */}
                 {status === "booking" || status === "confirmed" || status === "dispatching" ? <OrderLineAlloy lineId={line.lineId} /> : null}
                 {(() => {

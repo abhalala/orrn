@@ -37,6 +37,10 @@ import { transporterRouter } from "./transporter";
 import { portalRouter } from "./portal";
 import { ingestRouter } from "./ingest/index";
 import { buddyRouter } from "./buddy";
+import { complaintRouter } from "./complaint";
+import { plantMastersRouter } from "./plantMasters";
+import { toolRoomRouter } from "./toolRoom";
+import { plantDocsRouter } from "./plantDocs";
 import { qaRouter } from "./qa";
 
 export const appRouter = router({
@@ -88,6 +92,12 @@ export const appRouter = router({
   portal: portalRouter,
   ingest: ingestRouter,
   buddy: buddyRouter,
+  // XE parity lane REG (#18, #34), module `complaints`.
+  complaints: complaintRouter,
+  // XE parity lane ADM: plant masters and rules, tool room extras, the document register.
+  masters: plantMastersRouter,
+  toolRoom: toolRoomRouter,
+  docs: plantDocsRouter,
   // XE parity lane QA.
   qa: qaRouter,
 });

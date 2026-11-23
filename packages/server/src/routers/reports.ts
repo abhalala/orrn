@@ -15,7 +15,19 @@ import { company } from "@orrn/db/schema/tenant";
 
 import { readFloorSettings } from "@orrn/domain";
 
-import { anyActionProcedure, router } from "../index";
+import { actionProcedure, anyActionProcedure, router } from "../index";
+import { now } from "../lib/clock";
+import {
+  PLAN_ACTUAL_GROUPS,
+  materialReconciliation,
+  morningFigures,
+  orderLineWip,
+  planActual,
+  planBilletNeed,
+  recutRegister,
+  rejectionRegister,
+  unpackedStock,
+} from "../lib/regReports";
 import { ageingReportInput } from "../lib/ageingContracts";
 import { AGEING_REPORT_COLUMNS, ageingReport } from "../lib/ageingServer";
 import { companyTimezone, zonedMidnightMs, zonedYmd } from "../lib/dayWindow";
@@ -52,6 +64,14 @@ export const SALES_REGISTER_COLUMNS = [
   "PO numbers",
   "Dispatch",
 ] as const;
+
+const regDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day as YYYY-MM-DD");
+const regId = z.string().min(1).max(64);
+/** A register covers at most a year: the period must end on or after it starts. */
+function assertRange(from: string, to: string) {
+  if (to < from) throw new TRPCError({ code: "BAD_REQUEST", message: "The period must end after it starts" });
+  if (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`) > 366 * 86_400_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a period of at most a year" });
+}
 
 export const reportsRouter = router({
   /**
@@ -205,4 +225,74 @@ export const reportsRouter = router({
       }
       return { filename: `sales-register-${input.month}.csv`, csv: `${lines.join("\r\n")}\r\n`, rows: rows.length };
     }),
+
+  // ── XE parity lane REG: registers and views (reports.read unless said) ──────
+
+  /** #30 Rejection register: press QC rejects of logged runs and pack rejects, paged; totals over the filter. */
+  rejections: anyActionProcedure("reports.read")
+    .input(
+      z.object({
+        from: regDay,
+        to: regDay,
+        sectionId: regId.optional(),
+        pressLineId: regId.optional(),
+        shiftId: regId.optional(),
+        reason: z.string().max(200).optional(),
+        source: z.enum(["press", "pack"]).optional(),
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      assertRange(input.from, input.to);
+      return rejectionRegister(ctx.db, ctx.companyId, input);
+    }),
+
+  /** #31 Recut register: bundles cut shorter than their trolley line, with the reason and the kg lost. */
+  recuts: anyActionProcedure("reports.read")
+    .input(z.object({ from: regDay, to: regDay, sectionId: regId.optional(), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).default(0) }))
+    .query(({ ctx, input }) => {
+      assertRange(input.from, input.to);
+      return recutRegister(ctx.db, ctx.companyId, input);
+    }),
+
+  /** #32 Where every kg of each open order line sits. Office staff answer "where is my order" from it. */
+  wip: anyActionProcedure("reports.read", "order.manage")
+    .input(z.object({ customerId: regId.optional(), orderId: regId.optional(), limit: z.number().int().min(1).max(200).default(50), offset: z.number().int().min(0).default(0) }).default({ limit: 50, offset: 0 }))
+    .query(({ ctx, input }) => orderLineWip(ctx.db, ctx.companyId, input)),
+
+  /** #53 Plan against actual: planned kg of released plans against the good kg of their logged runs. */
+  planActual: anyActionProcedure("reports.read")
+    .input(z.object({ from: regDay, to: regDay, groupBy: z.enum(PLAN_ACTUAL_GROUPS).default("press") }))
+    .query(({ ctx, input }) => {
+      assertRange(input.from, input.to);
+      return planActual(ctx.db, ctx.companyId, input);
+    }),
+
+  /** #96 Unpacked stock: released from ageing and not packed yet, per section and copy. */
+  unpacked: anyActionProcedure("reports.read", "bundle.pack")
+    .input(z.object({ sectionId: regId.optional() }).default({}))
+    .query(({ ctx, input }) => unpackedStock(ctx.db, ctx.companyId, input)),
+
+  /** #74 Material reconciliation: opening + in - out + gap = closing per material class, from the ledger. */
+  materials: anyActionProcedure("reports.read")
+    .input(z.object({ from: regDay, to: regDay }))
+    .query(({ ctx, input }) => {
+      assertRange(input.from, input.to);
+      return materialReconciliation(ctx.db, ctx.companyId, input);
+    }),
+
+  /** #49 Billets a press plan needs, by alloy and length, with a readiness dot per line. */
+  billetNeed: anyActionProcedure("reports.read", "order.plan")
+    .input(z.object({ planId: regId }))
+    .query(async ({ ctx, input }) => {
+      const [plan] = await ctx.db.all<{ id: string }>(sql`select id from press_plan where company_id = ${ctx.companyId} and id = ${input.planId}`);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
+      return planBilletNeed(ctx.db, ctx.companyId, input.planId);
+    }),
+
+  /** #81 The owner's page: yesterday's numbers, the same figures as the morning mail (#82). */
+  morning: actionProcedure("mis.view")
+    .input(z.object({ day: regDay.optional() }).default({}))
+    .query(({ ctx, input }) => morningFigures(ctx.db, ctx.companyId, now(), input.day)),
 });

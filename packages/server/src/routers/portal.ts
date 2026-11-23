@@ -16,13 +16,14 @@
  * the row `active` without creating a membership. Later sign-ins are email + password; no TOTP is
  * asked of a party (PF §9-2).
  */
-import { documentPrefs, readFloorSettings, readUnitSettings } from "@orrn/domain";
+import { documentPrefs, isModuleOn, readFloorSettings, readUnitSettings } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
+import { complaint, complaintKinds } from "@orrn/db/schema/complaint";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
@@ -38,8 +39,10 @@ import { now as clockNow } from "../lib/clock";
 import { dispatchShipDay } from "../lib/dispatchFigures";
 import { nextDocNumber } from "../lib/docNumber";
 import { renderOrrnEmailHtml, sendEmail } from "../lib/email";
-import { assertModule } from "../lib/moduleGate";
+import { openComplaint, partyView } from "../lib/complaints";
+import { assertModule, companyModules } from "../lib/moduleGate";
 import { lineBalances, lineTotals, orderTotals } from "../lib/orders";
+import { lineWip } from "../lib/regReports";
 import {
   assertSectionsVisible,
   listPortalAccess,
@@ -61,6 +64,9 @@ const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? 
 /** Invite life (same as member invites). */
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** Most lines a party may book on one order (an office order takes 100). */
+/** Portal complaint visibility (review REG #1): raised in the portal, or tied to a dispatch. */
+const partyCanSee = or(eq(complaint.source, "portal"), isNotNull(complaint.dispatchId));
+
 export const MAX_PORTAL_LINES = 20;
 
 async function sha256Hex(value: string): Promise<string> {
@@ -108,6 +114,33 @@ const portalOrderInput = z.strictObject(
     clientRequestId: z.string().trim().min(1).max(64).optional(),
   },
   { error: unknownKeyError("Order") },
+);
+
+/** XE parity lane REG: a party complaint is a bundle number, a kind, its words and the pieces hit. */
+/** The party's view of a line's stages: kg per stage and the headline stage. No plan or run ids. */
+type LineWipRow = NonNullable<ReturnType<Awaited<ReturnType<typeof lineWip>>["get"]>>;
+function portalProgress(w: LineWipRow | undefined) {
+  if (!w) return null;
+  return {
+    stage: w.stage,
+    notPlannedG: w.notPlanned,
+    plannedG: w.planned,
+    onPressG: w.onPress,
+    ageingG: w.ageing,
+    unpackedG: w.unpacked,
+    packedG: w.packed,
+    dispatchedG: w.dispatched,
+  };
+}
+
+const portalComplaintInput = z.strictObject(
+  {
+    bundleNo: z.string().trim().min(1).max(40),
+    kind: z.enum(complaintKinds),
+    description: text(2000),
+    affectedPcs: z.number().int().min(1).max(100_000).optional(),
+  },
+  { error: unknownKeyError("Complaint") },
 );
 
 // ---------------------------------------------------------------------------
@@ -723,6 +756,8 @@ export const portalRouter = router({
       timeZone: typeof ctx.portal.settings.timezone === "string" && ctx.portal.settings.timezone ? ctx.portal.settings.timezone : "Asia/Kolkata",
       sections: sections.map((s) => ({ id: s.id, series: s.series, sectionCode: s.sectionCode, name: s.name })),
       plants: plants.map((p) => ({ companyId: p.companyId, companyName: p.companyName, customerName: p.customerName })),
+      /** XE parity REG #18: the portal shows Complaints only when the plant has the module on. */
+      complaints: isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "complaints"),
     };
   }),
 
@@ -756,6 +791,8 @@ export const portalRouter = router({
       const order = items[0];
       if (!order) portalNotFound();
       const lines = await lineBalances(ctx.db, ctx.portal.companyId, { orderId: order.id });
+      // XE parity REG #32: where each line's kg sits, so the party sees "on the press" or "packed" without calling.
+      const wip = await lineWip(ctx.db, ctx.portal.companyId, lines.map((l) => l.lineId));
       return {
         ...order,
         lines: lines.map((l) => ({
@@ -773,6 +810,7 @@ export const portalRouter = router({
           dispatchedPcs: l.dispatchedPcs,
           bakiG: l.bakiG,
           bakiPcs: l.bakiPcs,
+          progress: portalProgress(wip.get(l.lineId)),
         })),
       };
     }),
@@ -981,6 +1019,72 @@ export const portalRouter = router({
         : null,
       canOrder: sections.length > 0,
     };
+  }),
+
+  /**
+   * XE parity lane REG (#18): the party raises a complaint on a bundle it received (a bundle of one of
+   * its own completed dispatches; anything else is Not found, never a hint). Module `complaints`. The
+   * party sees number, status, its own words and the plant's reply; never the trace or the investigation.
+   */
+  complaints: router({
+    // A staff complaint on a bundle that never left on a dispatch is internal: the party sees only
+    // its own complaints and staff complaints tied to a dispatch it received (review REG #1).
+    list: portalProcedure.input(z.object(pageInput).optional()).query(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      const rows = await ctx.db
+        .select()
+        .from(complaint)
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), partyCanSee))
+        .orderBy(desc(complaint.createdAt), desc(complaint.id))
+        .limit(input?.limit ?? 20)
+        .offset(input?.offset ?? 0);
+      return { items: rows.map(partyView) };
+    }),
+    get: portalProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      const [row] = await ctx.db
+        .select()
+        .from(complaint)
+        .where(and(eq(complaint.companyId, ctx.portal.companyId), eq(complaint.customerId, ctx.portal.customerId), eq(complaint.id, input.id), partyCanSee))
+        .limit(1);
+      if (!row) portalNotFound();
+      return partyView(row);
+    }),
+    create: portalProcedure.input(portalComplaintInput).mutation(async ({ ctx, input }) => {
+      await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "complaints");
+      // The bundle must have left on one of this party's completed dispatches (serial or the party's number).
+      const [hit] = await ctx.db
+        .select({ id: bundle.id })
+        .from(bundle)
+        .innerJoin(dispatchItem, and(eq(dispatchItem.bundleId, bundle.id), eq(dispatchItem.companyId, bundle.companyId)))
+        .innerJoin(dispatch, and(eq(dispatch.id, dispatchItem.dispatchId), eq(dispatch.companyId, dispatchItem.companyId)))
+        .where(
+          and(
+            eq(bundle.companyId, ctx.portal.companyId),
+            sql`(${bundle.serial} = ${input.bundleNo} or ${bundle.partyNo} = ${input.bundleNo})`,
+            eq(dispatch.customerId, ctx.portal.customerId),
+            eq(dispatch.status, "completed"),
+            isNull(dispatch.deletedAt),
+          ),
+        )
+        // A serial is unique; a party number can repeat, so prefer the serial, then the newest dispatch.
+        .orderBy(sql`case when ${bundle.serial} = ${input.bundleNo} then 0 else 1 end`, desc(dispatch.completedAt))
+        .limit(1);
+      if (!hit) portalNotFound();
+      const row = await openComplaint(
+        { db: ctx.db, companyId: ctx.portal.companyId, session: ctx.session, impersonation: null },
+        {
+          bundleId: hit.id,
+          source: "portal",
+          kind: input.kind,
+          description: input.description,
+          affectedPcs: input.affectedPcs ?? null,
+          portalUserId: ctx.portal.portalUserId,
+          customerId: ctx.portal.customerId,
+        },
+      );
+      return partyView(row);
+    }),
   }),
 
   users: usersRouter,

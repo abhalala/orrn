@@ -23,6 +23,7 @@ import { sortPressQueue, type DieCopyStatus } from "@orrn/domain";
 import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
+import { dieCopyExtra } from "@orrn/db/schema/admin";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { cast, returnStream } from "@orrn/db/schema/foundry";
 import { dieIssue, pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRemark, pressRun } from "@orrn/db/schema/press";
@@ -566,6 +567,13 @@ export async function assertLateEntryCopy(
   const ownIssue = Boolean(open && run && open.pressRunId === run.id);
   if (open && !ownIssue) throw new TRPCError({ code: "CONFLICT", message: `${copy.code} is already issued to ${open.lineCode}` });
   if (!ownIssue) {
+    // XE ADM #59 (review S1): a copy that failed its receive inspection is refused here as at issue.
+    const [extra] = await db
+      .select({ inspection: dieCopyExtra.inspection })
+      .from(dieCopyExtra)
+      .where(and(eq(dieCopyExtra.dieInstanceId, copy.id), eq(dieCopyExtra.companyId, companyId)))
+      .limit(1);
+    if (extra?.inspection === "fail") bad(`${copy.code} failed its receive inspection; it cannot be issued until it passes`);
     if (copy.status === "on_trial") {
       if (run?.purpose !== "die_trial") bad(`${copy.code} is on trial; it goes only to a die trial run until the trial passes or a manager releases it`);
     } else if (copy.status !== "available") {

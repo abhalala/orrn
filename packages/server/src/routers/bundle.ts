@@ -87,6 +87,8 @@ const bundleRowSchema = z.object({
   scaleReadingG: z.number().int().positive().max(10_000_000).nullable().optional(),
   /** Required for a typed weight while the plant's edge node reports a scale (`weightNeedsReason`). */
   weightOverrideReason: z.string().trim().min(1).max(500).nullable().optional(),
+  /** XE parity REG #31: why a bundle was cut shorter than its trolley line. Kept only on a real recut. */
+  recutReason: z.string().trim().max(200).nullable().optional(),
 });
 
 const rejectRowSchema = z.object({
@@ -734,6 +736,7 @@ export const bundleRouter = router({
         packedSalesOrderLineId: salesOrderLineId,
         partyNo: partyNos[idx]!,
         recut: Boolean(ageingRow && row.lengthMm < ageingRow.lengthMm),
+        recutReason: ageingRow && row.lengthMm < ageingRow.lengthMm ? row.recutReason || null : null,
         weightSource: weights[idx]!.weightSource,
         weightOverrideReason: weights[idx]!.weightOverrideReason,
         scaleReadingG: weights[idx]!.scaleReadingG,

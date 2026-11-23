@@ -26,8 +26,10 @@ import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
+import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
+import { regEn } from "./reg/en";
 
 export const en = {
   common: {
@@ -226,6 +228,8 @@ export const en = {
   nav: {
     qa: "Quality",
     ageing: "Ageing",
+    complaints: "Complaints",
+    owner: "Owner",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3787,6 +3791,7 @@ export const en = {
         store: "Store",
         qa: "Quality",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3800,6 +3805,7 @@ export const en = {
         store: "Store items, GRN and issues",
         qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
+        complaints: "Customer complaints on a bundle, with the trace and the reply",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6494,8 +6500,11 @@ export const en = {
 
   ingest: ingestEn,
 
+  adm: admEn,
+
   buddy: buddyEn,
 
+  reg: regEn,
   qa: qaEn,
 
   reasons: {
@@ -6654,6 +6663,7 @@ export const en = {
         store: "Store",
         qa: "Quality",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
       },
     },
     letterhead: {
@@ -6862,6 +6872,7 @@ export const en = {
       cast: "Cast",
       purchase_lot: "Purchase lot",
       count_session: "Stock count",
+      complaint: "Complaint",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
       ingest_artifact: "Import file",
@@ -6955,6 +6966,11 @@ export const en = {
       count__voidRequested: "Void of missing bundles asked",
       customer__aliases__add: "Customer names added",
       customer__create: "Customer added",
+      complaint__open: "Complaint raised",
+      complaint__investigate: "Complaint investigation saved",
+      complaint__reply: "Complaint answered",
+      complaint__close: "Complaint closed",
+      mis__morning__sent: "Morning summary sent",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
       customer__update: "Customer changed",
@@ -7170,6 +7186,28 @@ export const en = {
       vendor__create: "Vendor added",
       vendor__merge: "Vendors merged",
       vendor__update: "Vendor changed",
+      plant_master__create: "Plant list choice added",
+      plant_master__starters: "Standard choices added to a plant list",
+      plant_master__update: "Plant list choice changed",
+      bank_account__create: "Bank account added",
+      bank_account__update: "Bank account changed",
+      bank_account__default: "Default bank account set",
+      bank_account__restore: "Bank account brought back",
+      bank_account__retire: "Bank account retired",
+      company__insurance__update: "Transit insurance changed",
+      company__number_format__update: "Document numbering changed",
+      company__approval_rule__update: "Who approves a request changed",
+      membership__assign: "Team member's department or designation changed",
+      order_line__packing_mode: "Mode of packing set on an order line",
+      dispatch__packing_mode: "Mode of packing set on a load",
+      tooling__create: "Tooling piece added",
+      tooling__update: "Tooling piece status changed",
+      die_copy__cost: "Die copy cost changed",
+      tooling__min_stock: "Tooling minimum to keep changed",
+      die__category: "Die category set",
+      plant_document__create: "Document added",
+      plant_document__update: "Document changed",
+      plant_document__file: "Document file attached",
     },
   },
 

@@ -77,6 +77,7 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "retiredNoReadings", re: new RegExp(`^${S} is retired; it takes no readings$`), vars: (m) => ({ code: m[1]! }) },
   { id: "retired", re: new RegExp(`^${S} is retired$`), vars: (m) => ({ code: m[1]! }) },
   { id: "sectionDeleted", re: new RegExp(`^${S}'s section is deleted; it cannot be issued$`), vars: (m) => ({ code: m[1]! }) },
+  { id: "copyFailedInspection", re: new RegExp(`^${S} failed its receive inspection; it cannot be issued until it passes$`), vars: (m) => ({ code: m[1]! }) },
   { id: "copyOnTrialIssue", re: new RegExp(`^${S} is on trial; it goes only to a die trial run until the trial passes or a manager releases it$`), vars: (m) => ({ code: m[1]! }) },
   { id: "onTrialRelease", re: new RegExp(`^${S} is on trial; it becomes available when a trial passes, or a manager releases it$`), vars: (m) => ({ code: m[1]! }) },
   {

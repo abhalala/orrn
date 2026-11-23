@@ -88,6 +88,8 @@ export const dispatch = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    /** XE ADM #76: mode of packing for the whole load, printed on the PL (else the lines' own). */
+    packingModeId: text("packing_mode_id"),
   },
   (table) => [
     uniqueIndex("dispatch_company_code_unique").on(table.companyId, table.code),

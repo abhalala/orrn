@@ -22,6 +22,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { TodayTiles, TodayTilesSkeleton } from "./action-tiles";
 import { ChartsBoundary } from "./charts-boundary";
 import { TodayKpis, TodayKpisSkeleton } from "./kpis";
+import { TodayToolingTile } from "./tooling-tile";
 import { OpenDispatches } from "./open-dispatches";
 import { PrintProblems } from "./print-problems";
 import { RecentSessions } from "./recent-sessions";
@@ -198,6 +199,7 @@ export function TodayScreen() {
       </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
       {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}
+      <TodayToolingTile short={data.toolingShort} />
       {/* XE parity lane QA: quality holds and instruments overdue; nothing without a quality role or the module. */}
       <TodayQaTile />
       <PrintProblems failed={data.failedPrintJobs} />

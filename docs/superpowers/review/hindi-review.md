@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,12 +191,14 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (90)
+### nav (92)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `qa` | Quality | गुणवत्ता |
 | `ageing` | Ageing | एजिंग |
+| `complaints` | Complaints | शिकायतें |
+| `owner` | Owner | मालिक |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -3149,7 +3151,7 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (386)
+### admin (388)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3363,6 +3365,7 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `plan.moduleNames.complaints` | Complaints | शिकायतें |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3374,6 +3377,7 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
+| `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -3730,7 +3734,7 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
 | `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
-### refusal (174)
+### refusal (175)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3749,6 +3753,7 @@ Counts: 9209 screen strings in 52 groups, 45 guides with 866 strings.
 | `retiredNoReadings` | {code} is retired. It takes no readings. | {code} बंद है। इसकी रीडिंग नहीं ली जाती। |
 | `sectionDeleted` | {code} belongs to a die that was deleted. It can't be issued. | {code} जिस die की है वह हटा दी गई है। इसे issue नहीं कर सकते। |
 | `alreadyIssued` | {code} is already issued to {line}. | {code} पहले से {line} को issue है। |
+| `copyFailedInspection` | {code} failed its receive inspection. It cannot be issued until it passes. | {code} आने की जांच में फेल हुई। पास होने तक इसे issue नहीं किया जा सकता। |
 | `copyOnTrialIssue` | {code} is on trial. It goes only to a trial run until the trial passes or a manager releases it. | {code} ट्रायल पर है। ट्रायल पास होने या मैनेजर के छोड़ने तक यह सिर्फ ट्रायल रन पर जाएगी। |
 | `runHasDie` | {run} already has a die or has started. Only a queued run takes a die. | {run} के पास पहले से die है या वह शुरू हो चुका है। सिर्फ कतार वाले रन को die मिलती है। |
 | `notCopyOfRunDie` | {code} is not a copy of the die {run} needs. | {code} उस die की कॉपी नहीं है जो {run} को चाहिए। |
@@ -7826,6 +7831,337 @@ Please check, Lalubhai:
 | `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
 | `docTitle.review` | {target}, {file} \| Imports \| orrn | {target}, {file} \| इम्पोर्ट \| orrn |
 
+### adm (326)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `pl.packingMode` | Packing | पैकिंग |
+| `pl.insurance` | Transit insurance | ट्रांजिट बीमा |
+| `pl.insuranceValue` | {policy}, {insurer} | {policy}, {insurer} |
+| `kinds.department` | Departments | विभाग |
+| `kinds.designation` | Designations | पद |
+| `kinds.packing_mode` | Modes of packing | पैकिंग के तरीके |
+| `kinds.die_category` | Die categories | Die की श्रेणियां |
+| `kindOne.department` | Department | विभाग |
+| `kindOne.designation` | Designation | पद |
+| `kindOne.packing_mode` | Mode of packing | पैकिंग का तरीका |
+| `kindOne.die_category` | Die category | Die की श्रेणी |
+| `tooling.bolster` | Bolster | बोल्स्टर |
+| `tooling.backer` | Backer | बैकर |
+| `tooling.die_ring` | Die ring | Die रिंग |
+| `tooling.container` | Container | कंटेनर |
+| `tooling.liner` | Liner | लाइनर |
+| `tooling.other` | Other | अन्य |
+| `toolingStatus.awaiting_inspection` | Waiting for inspection | जांच बाकी |
+| `toolingStatus.in_store` | In store | स्टोर में |
+| `toolingStatus.in_use` | In use | इस्तेमाल में |
+| `toolingStatus.at_maker` | At maker | मेकर के पास |
+| `toolingStatus.failed` | Failed inspection | जांच में फेल |
+| `toolingStatus.retired` | Retired | रिटायर |
+| `docKinds.procedure` | Procedure | प्रक्रिया |
+| `docKinds.customer_spec` | Customer spec | ग्राहक स्पेक |
+| `docKinds.drawing` | Drawing | ड्रॉइंग |
+| `docKinds.certificate` | Certificate | सर्टिफिकेट |
+| `docKinds.other` | Other | अन्य |
+| `inspection.pass` | Passed | पास |
+| `inspection.fail` | Failed | फेल |
+| `inspection.none` | Not inspected | जांच नहीं हुई |
+| `masters.title` | Plant lists | प्लांट की सूचियां |
+| `masters.hub.group` | Plant | प्लांट |
+| `masters.hub.lists` | Plant lists | प्लांट की सूचियां |
+| `masters.hub.listsHint` | Departments, designations, modes of packing and die categories | विभाग, पद, पैकिंग का तरीका और die की श्रेणियां |
+| `masters.hub.listsNoun` | {count:entry\|entries} | {count:नाम\|नाम} |
+| `masters.hub.bank` | Bank accounts | बैंक खाते |
+| `masters.hub.bankHint` | Where customers pay, and which account is the default | ग्राहक कहां पैसा भेजते हैं, और कौन सा खाता मुख्य है |
+| `masters.hub.bankNoun` | {count:account\|accounts} | {count:खाता\|खाते} |
+| `masters.hub.rules` | Plant rules | प्लांट के नियम |
+| `masters.hub.rulesHint` | How document numbers read, who approves what, and transit insurance | कागज़ों के नंबर कैसे दिखें, कौन किसे मंज़ूर करे, और ट्रांज़िट बीमा |
+| `masters.hub.rulesNoun` | {count:rule\|rules} | {count:नियम\|नियम} |
+| `masters.hub.documents` | Documents | दस्तावेज़ |
+| `masters.hub.documentsHint` | Procedures, customer specs, drawings and certificates, with review dates | प्रक्रियाएं, ग्राहक के स्पेक, ड्रॉइंग और सर्टिफ़िकेट, जांच की तारीख के साथ |
+| `masters.hub.documentsNoun` | {count:document\|documents} | {count:दस्तावेज़\|दस्तावेज़} |
+| `masters.hub.tooling` | Tooling | टूलिंग |
+| `masters.hub.toolingHint` | Bolsters, backers, die rings, containers and liners, and the least to keep | बोल्स्टर, बैकर, die रिंग, कंटेनर और लाइनर, और कम से कम कितने रखने हैं |
+| `masters.hub.toolingNoun` | {count:piece\|pieces} | {count:पीस\|पीस} |
+| `masters.errors.nameTaken` | {name} is already on this list. | {name} इस सूची में पहले से है। |
+| `masters.errors.lifeOnlyDie` | Only a die category has an expected life. | सिर्फ़ die की श्रेणी की उम्मीद वाली उम्र होती है। |
+| `masters.errors.bankRetired` | Bring the account back before making it the default. | मुख्य बनाने से पहले खाते को वापस चालू करें। |
+| `masters.errors.toolingCodeTaken` | {code} is already a tooling piece here. | {code} नाम का टूलिंग पीस यहां पहले से है। |
+| `masters.errors.toolingAwaiting` | This piece is waiting for its receive inspection. | इस पीस की आने की जांच बाकी है। |
+| `masters.errors.toolingFailed` | This piece failed its receive inspection. It needs a pass first. | इस पीस की आने की जांच में फ़ेल हुआ। पहले पास चाहिए। |
+| `masters.errors.toolingRetired` | This piece is retired. | यह पीस बंद है। |
+| `masters.lists.subtitle` | The choices other screens pick from. Add your own, or start from the standard ones. | वे विकल्प जिनमें से दूसरी स्क्रीन चुनती हैं। अपने जोड़ें, या मानक वाले से शुरू करें। |
+| `masters.lists.kindsLabel` | Kind of list | सूची का प्रकार |
+| `masters.lists.add` | Add entry | नाम जोड़ें |
+| `masters.lists.columns.name` | Name | नाम |
+| `masters.lists.columns.life` | Expected life | उम्मीद वाली उम्र |
+| `masters.lists.lifeNone` | Not set | तय नहीं |
+| `masters.lists.empty` | No {kind} yet | अभी कोई {kind} नहीं है |
+| `masters.lists.emptyBody` | Add the standard entries in one go, or add your own. | मानक नाम एक बार में जोड़ें, या अपने जोड़ें। |
+| `masters.lists.seed` | Add the standard entries | मानक नाम जोड़ें |
+| `masters.lists.form.addTitle` | Add an entry | नाम जोड़ें |
+| `masters.lists.form.editTitle` | Edit {name} | {name} बदलें |
+| `masters.lists.form.name` | Name | नाम |
+| `masters.lists.form.life` | Expected life | उम्मीद वाली उम्र |
+| `masters.lists.form.lifeHint` | The weight a die of this category is expected to push. Leave blank if you do not track it. | इस श्रेणी की die से कितना वज़न निकलने की उम्मीद है। न गिनते हों तो खाली छोड़ें। |
+| `masters.lists.form.save` | Save entry | नाम सहेजें |
+| `masters.bank.title` | Bank accounts | बैंक खाते |
+| `masters.bank.subtitle` | The accounts customers are asked to pay into. The default one is used first. | वे खाते जिनमें ग्राहकों से पैसा भेजने को कहा जाता है। मुख्य खाता सबसे पहले दिखता है। |
+| `masters.bank.add` | Add account | खाता जोड़ें |
+| `masters.bank.default` | Default | मुख्य |
+| `masters.bank.nowDefault` | {name} is now the default | {name} अब मुख्य खाता है |
+| `masters.bank.empty` | No bank accounts yet | अभी कोई बैंक खाता नहीं है |
+| `masters.bank.emptyBody` | Add the account customers should pay into. The first one becomes the default. | वह खाता जोड़ें जिसमें ग्राहक पैसा भेजें। पहला खाता मुख्य बन जाता है। |
+| `masters.bank.columns.bank` | Bank | बैंक |
+| `masters.bank.columns.accountName` | Account name | खाते का नाम |
+| `masters.bank.columns.accountNo` | Account number | खाता नंबर |
+| `masters.bank.columns.ifsc` | Bank code (IFSC) | बैंक कोड (IFSC) |
+| `masters.bank.form.addTitle` | Add a bank account | बैंक खाता जोड़ें |
+| `masters.bank.form.editTitle` | Edit {name} | {name} बदलें |
+| `masters.bank.form.bankName` | Bank name | बैंक का नाम |
+| `masters.bank.form.bankNameRequired` | Give the bank name. | बैंक का नाम लिखें। |
+| `masters.bank.form.branch` | Branch | शाखा |
+| `masters.bank.form.accountName` | Account name | खाते का नाम |
+| `masters.bank.form.accountNameHint` | As the bank has it, usually the firm's name. | जैसा बैंक में है, आमतौर पर फ़र्म का नाम। |
+| `masters.bank.form.accountNameRequired` | Give the account name. | खाते का नाम लिखें। |
+| `masters.bank.form.accountNo` | Account number | खाता नंबर |
+| `masters.bank.form.accountNoInvalid` | The account number is 6 to 20 digits. | खाता नंबर 6 से 20 अंकों का होता है। |
+| `masters.bank.form.ifsc` | Bank code (IFSC) | बैंक कोड (IFSC) |
+| `masters.bank.form.ifscHint` | 11 characters, like SBIN0001234. | 11 अक्षर, जैसे SBIN0001234। |
+| `masters.bank.form.ifscInvalid` | The bank code is 11 characters, like SBIN0001234. | बैंक कोड 11 अक्षर का होता है, जैसे SBIN0001234। |
+| `masters.bank.form.note` | Note | टिप्पणी |
+| `masters.bank.form.noteHint` | Optional. Shown with the account. | चाहें तो। खाते के साथ दिखती है। |
+| `masters.bank.form.makeDefault` | Make this the default account | इसे मुख्य खाता बनाएं |
+| `masters.bank.form.defaultHint` | The default account is the one customers see first. | मुख्य खाता वह है जो ग्राहक को सबसे पहले दिखता है। |
+| `masters.bank.form.save` | Save account | खाता सहेजें |
+| `masters.bank.form.retire` | Retire account | खाता बंद करें |
+| `masters.bank.form.retireHint` | A retired account leaves the pickers but stays on old papers. A retired account cannot be the default. | बंद खाता चुनने की सूची से हट जाता है, पर पुराने कागज़ों पर रहता है। बंद खाता मुख्य नहीं हो सकता। |
+| `masters.rules.title` | Plant rules | प्लांट के नियम |
+| `masters.rules.subtitle` | How document numbers read, who approves each kind of request, and the transit insurance. | कागज़ों के नंबर कैसे दिखें, हर तरह की रिक्वेस्ट कौन मंज़ूर करे, और ट्रांज़िट बीमा। |
+| `masters.rules.tabsLabel` | Kind of rule | नियम का प्रकार |
+| `masters.rules.tabs.formats` | Number formats | नंबर का रूप |
+| `masters.rules.tabs.approvals` | Approvals | मंज़ूरी |
+| `masters.rules.tabs.insurance` | Transit insurance | ट्रांज़िट बीमा |
+| `masters.rules.docTypes.so` | Sales order | सेल्स ऑर्डर |
+| `masters.rules.docTypes.press_plan` | Press plan | प्रेस प्लान |
+| `masters.rules.docTypes.press_run` | Press run | प्रेस रन |
+| `masters.rules.docTypes.lot` | Scrap lot | स्क्रैप लॉट |
+| `masters.rules.docTypes.dc_note` | Debit or credit note | डेबिट या क्रेडिट नोट |
+| `masters.rules.docTypes.grn` | Goods received note | माल आने की पर्ची |
+| `masters.rules.docTypes.mrs` | Material issue slip | सामान निकासी पर्ची |
+| `masters.rules.docTypes.count` | Stock count | स्टॉक की गिनती |
+| `masters.rules.docTypes.ageing` | Ageing batch | एजिंग बैच |
+| `masters.rules.docTypes.die_maker_job` | Die maker job | die बनाने वाले का काम |
+| `masters.rules.docTypes.pl` | Packing list | पैकिंग लिस्ट |
+| `masters.rules.docTypes.cert` | Test certificate | टेस्ट सर्टिफ़िकेट |
+| `masters.rules.formats.note` | Pick a document to change how its number reads. Only numbers issued after you save change. Numbers already issued stay as they are, and the count never goes back. | किसी कागज़ को चुनें और उसका नंबर कैसे दिखे, बदलें। सहेजने के बाद जो नंबर बनेंगे सिर्फ़ वही बदलेंगे। बन चुके नंबर वैसे ही रहेंगे, और गिनती पीछे नहीं जाती। |
+| `masters.rules.formats.readOnly` | Only an admin or the owner can change number formats. These are the formats in use. | नंबर का रूप सिर्फ़ एडमिन या मालिक बदल सकता है। ये चालू रूप हैं। |
+| `masters.rules.formats.afterSaving` | Only numbers issued after saving change. Old numbers stay as they are. | सहेजने के बाद बनने वाले नंबर ही बदलते हैं। पुराने नंबर वैसे ही रहते हैं। |
+| `masters.rules.formats.empty` | No documents | कोई कागज़ नहीं है |
+| `masters.rules.formats.editTitle` | Number format: {name} | नंबर का रूप: {name} |
+| `masters.rules.formats.columns.doc` | Document | कागज़ |
+| `masters.rules.formats.columns.next` | Next number | अगला नंबर |
+| `masters.rules.formats.columns.source` | Format | रूप |
+| `masters.rules.formats.custom` | Your own | अपना |
+| `masters.rules.formats.builtIn` | Standard | मानक |
+| `masters.rules.formats.prefix` | Starts with | शुरुआत |
+| `masters.rules.formats.prefixHint` | Letters and / - _ . only, no digits. Up to {max} characters. | सिर्फ़ अक्षर और / - _ . , अंक नहीं। {max} अक्षर तक। |
+| `masters.rules.formats.year` | Financial year | वित्त वर्ष |
+| `masters.rules.formats.yearNeeded` | This number must show the year, or it would repeat next April. | इस नंबर में साल दिखना ज़रूरी है, वरना अगले अप्रैल में नंबर दोहरेगा। |
+| `masters.rules.formats.fy.none` | Not shown | नहीं दिखे |
+| `masters.rules.formats.fy.long` | Long, like 2026-27 | लंबा, जैसे 2026-27 |
+| `masters.rules.formats.fy.short` | Short, like 26-27 | छोटा, जैसे 26-27 |
+| `masters.rules.formats.pad` | Digits in the count | गिनती के अंक |
+| `masters.rules.formats.padHint` | 0 to 8. With 4, number 12 reads 0012. | 0 से 8। 4 रखने पर नंबर 12 का रूप 0012 होता है। |
+| `masters.rules.formats.preview` | The next number would read | अगला नंबर ऐसा दिखेगा |
+| `masters.rules.formats.previewNext` | Shown with the count as it stands now. | गिनती जहां अभी है, उसके हिसाब से। |
+| `masters.rules.formats.save` | Save format | रूप सहेजें |
+| `masters.rules.formats.reset` | Use the standard format | मानक रूप रखें |
+| `masters.rules.formats.resetHint` | Goes back to the standard text for later numbers. Issued numbers do not change. | आगे के नंबर मानक रूप में बनेंगे। बन चुके नंबर नहीं बदलते। |
+| `masters.rules.formats.problem.prefixChars` | The start may hold letters and / - _ . only, no digits. | शुरुआत में सिर्फ़ अक्षर और / - _ . हो सकते हैं, अंक नहीं। |
+| `masters.rules.formats.problem.prefixLength` | The start may be at most 12 characters. | शुरुआत 12 अक्षर तक ही हो सकती है। |
+| `masters.rules.formats.problem.pad` | Digits in the count is a whole number from 0 to 8. | गिनती के अंक 0 से 8 के बीच पूरी संख्या होनी चाहिए। |
+| `masters.rules.formats.problem.yearRequired` | This number must show the year, or it would repeat next April. | इस नंबर में साल दिखना ज़रूरी है, वरना अगले अप्रैल में नंबर दोहरेगा। |
+| `masters.rules.approvals.note` | Pick a kind of request to change who may approve it. The owner can always approve. Requests already decided stay as they are. | किसी रिक्वेस्ट को चुनें और बदलें कि उसे कौन मंज़ूर कर सकता है। मालिक हमेशा मंज़ूर कर सकता है। जो रिक्वेस्ट तय हो चुकी हैं वे वैसी ही रहती हैं। |
+| `masters.rules.approvals.readOnly` | Only an admin or the owner can change who approves. These are the approvers in use. | मंज़ूरी करने वाले सिर्फ़ एडमिन या मालिक बदल सकते हैं। ये चालू लोग हैं। |
+| `masters.rules.approvals.afterSaving` | Applies to requests decided after saving. | सहेजने के बाद तय होने वाली रिक्वेस्ट पर लागू होता है। |
+| `masters.rules.approvals.empty` | No kinds of request | कोई रिक्वेस्ट नहीं है |
+| `masters.rules.approvals.editTitle` | Approvers: {name} | मंज़ूर करने वाले: {name} |
+| `masters.rules.approvals.columns.kind` | Request | रिक्वेस्ट |
+| `masters.rules.approvals.columns.who` | Who approves | कौन मंज़ूर करता है |
+| `masters.rules.approvals.aboveLine` | Above {limit}: {roles} | {limit} से ऊपर: {roles} |
+| `masters.rules.approvals.who` | Who may approve | कौन मंज़ूर कर सकता है |
+| `masters.rules.approvals.ownerAlways` | Owner (always) | मालिक (हमेशा) |
+| `masters.rules.approvals.useLimit` | Ask other people to approve above a limit | सीमा से ऊपर दूसरे लोग मंज़ूर करें |
+| `masters.rules.approvals.limitPercent` | Limit | सीमा |
+| `masters.rules.approvals.limitPercentHint` | Over this share of what was ordered, the people below decide instead. | ऑर्डर के इतने हिस्से से ऊपर जाने पर नीचे चुने लोग तय करेंगे। |
+| `masters.rules.approvals.limitPercentInvalid` | Use a number from 0 to 100, up to two decimals. | 0 से 100 के बीच संख्या लिखें, दो दशमलव तक। |
+| `masters.rules.approvals.limitSection` | Limit | सीमा |
+| `masters.rules.approvals.limitSectionHint` | Over this much off the order weight, the people below decide instead. | ऑर्डर के वज़न से इतना ज़्यादा फ़र्क़ होने पर नीचे चुने लोग तय करेंगे। |
+| `masters.rules.approvals.limitRequired` | Give the limit, or switch it off. | सीमा लिखें, या इसे बंद करें। |
+| `masters.rules.approvals.whoAbove` | Who may approve above the limit | सीमा से ऊपर कौन मंज़ूर कर सकता है |
+| `masters.rules.approvals.save` | Save approvers | मंज़ूर करने वाले सहेजें |
+| `masters.rules.approvals.reset` | Use the standard approvers | मानक लोग रखें |
+| `masters.rules.approvals.resetHint` | Goes back to the standard approvers for this request. | इस रिक्वेस्ट के लिए मानक मंज़ूर करने वाले लौट आते हैं। |
+| `masters.rules.insurance.note` | The policy that prints on the packing list. Leave the dates blank if it does not run out. | वह पॉलिसी जो पैकिंग लिस्ट पर छपती है। खत्म न होती हो तो तारीखें खाली छोड़ें। |
+| `masters.rules.insurance.policyNo` | Policy number | पॉलिसी नंबर |
+| `masters.rules.insurance.policyRequired` | Give the policy number. | पॉलिसी नंबर लिखें। |
+| `masters.rules.insurance.insurer` | Insurer | बीमा कंपनी |
+| `masters.rules.insurance.insurerRequired` | Give the insurer. | बीमा कंपनी का नाम लिखें। |
+| `masters.rules.insurance.validFrom` | Starts on | शुरू होने की तारीख |
+| `masters.rules.insurance.validTo` | Ends on | खत्म होने की तारीख |
+| `masters.rules.insurance.endsBeforeStart` | The policy ends before it starts. | पॉलिसी शुरू होने से पहले खत्म हो रही है। |
+| `masters.rules.insurance.printOnPl` | Print the policy on the packing list | पॉलिसी पैकिंग लिस्ट पर छापें |
+| `masters.rules.insurance.save` | Save policy | पॉलिसी सहेजें |
+| `masters.rules.insurance.remove` | Remove policy | पॉलिसी हटाएं |
+| `masters.rules.insurance.saved` | Policy saved | पॉलिसी सहेजी गई |
+| `masters.rules.insurance.removed` | Policy removed | पॉलिसी हटाई गई |
+| `masters.rules.insurance.dates` | {from} to {to} | {from} से {to} |
+| `masters.rules.insurance.state.open` | In force | चालू है |
+| `masters.rules.insurance.state.valid` | In force | चालू है |
+| `masters.rules.insurance.state.soon` | Ends within 30 days | 30 दिन में खत्म |
+| `masters.rules.insurance.state.expired` | Expired | खत्म हो चुकी |
+| `masters.rules.insurance.state.notStarted` | Not started yet | अभी शुरू नहीं हुई |
+| `masters.rules.insurance.state.none` | No policy | कोई पॉलिसी नहीं |
+| `masters.documents.title` | Documents | दस्तावेज़ |
+| `masters.documents.subtitle` | Procedures, customer specs, drawings and certificates, each with a version, a review date and a file. | प्रक्रियाएं, ग्राहक के स्पेक, ड्रॉइंग और सर्टिफ़िकेट, हर एक का वर्ज़न, जांच की तारीख और फ़ाइल। |
+| `masters.documents.add` | Add document | दस्तावेज़ जोड़ें |
+| `masters.documents.readOnly` | Only the office, a manager or the owner can change the register. | रजिस्टर सिर्फ़ ऑफ़िस, मैनेजर या मालिक बदल सकते हैं। |
+| `masters.documents.dueNote` | {count} {count:document is\|documents are} due for review. | {count} {count:दस्तावेज़ की\|दस्तावेज़ों की} जांच का समय हो गया है। |
+| `masters.documents.reviewDue` | Review due | जांच बाकी |
+| `masters.documents.empty` | No documents yet | अभी कोई दस्तावेज़ नहीं है |
+| `masters.documents.emptyBody` | Add the plant's procedures, specs and certificates so everyone finds the current one. | प्लांट की प्रक्रियाएं, स्पेक और सर्टिफ़िकेट जोड़ें ताकि सबको चालू वाला मिले। |
+| `masters.documents.kindFilter` | Kind of document | दस्तावेज़ का प्रकार |
+| `masters.documents.allKinds` | All kinds | सभी प्रकार |
+| `masters.documents.columns.title` | Title | नाम |
+| `masters.documents.columns.kind` | Kind | प्रकार |
+| `masters.documents.columns.version` | Version | वर्ज़न |
+| `masters.documents.columns.review` | Review on | जांच की तारीख |
+| `masters.documents.columns.file` | File | फ़ाइल |
+| `masters.documents.noFile` | No file | फ़ाइल नहीं है |
+| `masters.documents.openFile` | Open | खोलें |
+| `masters.documents.openNamed` | Open the file of {name} | {name} की फ़ाइल खोलें |
+| `masters.documents.sizeAfter` | ({size}) | ({size}) |
+| `masters.documents.errors.noStorage` | File storage is not set up here. The register works without it, and you can add files once it is. | यहां फ़ाइल रखने की जगह तैयार नहीं है। रजिस्टर इसके बिना चलता है, और जगह तैयार होने पर फ़ाइलें जोड़ सकते हैं। |
+| `masters.documents.errors.fileNotSent` | The document is saved, but the file did not go. Open it and add the file again. | दस्तावेज़ सहेजा गया, पर फ़ाइल नहीं गई। इसे खोलकर फ़ाइल फिर से जोड़ें। |
+| `masters.documents.errors.expired` | This upload ran out of time. Pick the file again. | इस अपलोड का समय निकल गया। फ़ाइल फिर से चुनें। |
+| `masters.documents.errors.notWhole` | The file did not arrive whole. Upload it again. | फ़ाइल पूरी नहीं पहुंची। फिर से अपलोड करें। |
+| `masters.documents.form.addTitle` | Add a document | दस्तावेज़ जोड़ें |
+| `masters.documents.form.editTitle` | Edit {name} | {name} बदलें |
+| `masters.documents.form.title` | Title | नाम |
+| `masters.documents.form.titleRequired` | Give the document a title. | दस्तावेज़ का नाम लिखें। |
+| `masters.documents.form.kind` | Kind | प्रकार |
+| `masters.documents.form.version` | Version | वर्ज़न |
+| `masters.documents.form.reviewOn` | Review on | जांच की तारीख |
+| `masters.documents.form.reviewOnHint` | The day it should be looked at again. | जिस दिन इसे फिर से देखना है। |
+| `masters.documents.form.notes` | Notes | टिप्पणी |
+| `masters.documents.form.file` | File | फ़ाइल |
+| `masters.documents.form.noFile` | No file yet. | अभी कोई फ़ाइल नहीं है। |
+| `masters.documents.form.picked` | Ready to send: {name} ({size}) | भेजने को तैयार: {name} ({size}) |
+| `masters.documents.form.pickFile` | Choose a file | फ़ाइल चुनें |
+| `masters.documents.form.replaceFile` | Choose another file | दूसरी फ़ाइल चुनें |
+| `masters.documents.form.fileHint` | An image, PDF, CDR or DWG. A new file replaces the old one. | फ़ोटो, PDF, CDR या DWG। नई फ़ाइल पुरानी की जगह लेती है। |
+| `masters.documents.form.badType` | Use an image, PDF, CDR or DWG file. | फ़ोटो, PDF, CDR या DWG फ़ाइल ही लें। |
+| `masters.documents.form.save` | Save document | दस्तावेज़ सहेजें |
+| `masters.documents.form.retireHint` | A retired document leaves the register but is kept on record. | बंद दस्तावेज़ रजिस्टर से हट जाता है, पर रिकॉर्ड में रहता है। |
+| `masters.tooling.title` | Tooling | टूलिंग |
+| `masters.tooling.subtitle` | Bolsters, backers, die rings, containers and liners, one row per piece. | बोल्स्टर, बैकर, die रिंग, कंटेनर और लाइनर, हर पीस की एक पंक्ति। |
+| `masters.tooling.add` | Add piece | पीस जोड़ें |
+| `masters.tooling.empty` | No tooling yet | अभी कोई टूलिंग नहीं है |
+| `masters.tooling.emptyBody` | Add each piece with the mark painted on it. A new piece from the maker waits for its inspection. | हर पीस उसपर लिखे निशान के साथ जोड़ें। मेकर से आया नया पीस अपनी जांच का इंतज़ार करता है। |
+| `masters.tooling.noneShown` | Nothing matches | कुछ भी मेल नहीं खाता |
+| `masters.tooling.typeFilter` | Type of piece | पीस का प्रकार |
+| `masters.tooling.allTypes` | All types | सभी प्रकार |
+| `masters.tooling.shortfall` | Below the least to keep: {list}. | कम से कम रखने से नीचे: {list}। |
+| `masters.tooling.shortfallItem` | {type} {held} of {min} | {type} {min} में से {held} |
+| `masters.tooling.columns.code` | Mark | निशान |
+| `masters.tooling.columns.type` | Type | प्रकार |
+| `masters.tooling.columns.size` | Size | साइज़ |
+| `masters.tooling.columns.location` | Where | कहां |
+| `masters.tooling.columns.maker` | Maker | मेकर |
+| `masters.tooling.columns.status` | State | हालत |
+| `masters.tooling.form.addTitle` | Add a tooling piece | टूलिंग पीस जोड़ें |
+| `masters.tooling.form.editTitle` | Edit {code} | {code} बदलें |
+| `masters.tooling.form.type` | Type | प्रकार |
+| `masters.tooling.form.code` | Mark | निशान |
+| `masters.tooling.form.codeHint` | The mark painted on the piece. It cannot change later. | पीस पर लिखा निशान। यह बाद में नहीं बदलता। |
+| `masters.tooling.form.codeRequired` | Give the piece its mark. | पीस का निशान लिखें। |
+| `masters.tooling.form.size` | Size | साइज़ |
+| `masters.tooling.form.sizeHint` | For example 240 x 90. | जैसे 240 x 90। |
+| `masters.tooling.form.location` | Where it sits | कहां रखा है |
+| `masters.tooling.form.maker` | Maker | मेकर |
+| `masters.tooling.form.notes` | Notes | टिप्पणी |
+| `masters.tooling.form.status` | State | हालत |
+| `masters.tooling.form.startStatus` | Starts as | शुरुआत में |
+| `masters.tooling.form.startStatusHint` | A new piece from the maker waits for its inspection. Pick another state for a piece you already hold. | मेकर से आया नया पीस अपनी जांच का इंतज़ार करता है। जो पीस पहले से आपके पास है उसके लिए दूसरी हालत चुनें। |
+| `masters.tooling.form.lockedHint` | This piece is {status}. Record an inspection below to move it on. | यह पीस {status} है। आगे बढ़ाने के लिए नीचे जांच दर्ज करें। |
+| `masters.tooling.form.save` | Save piece | पीस सहेजें |
+| `masters.tooling.inspect.title` | Receive inspection | आने की जांच |
+| `masters.tooling.inspect.notes` | What you found | क्या मिला |
+| `masters.tooling.inspect.notesHint` | Required when it fails. | फ़ेल होने पर ज़रूरी है। |
+| `masters.tooling.inspect.notesRequired` | Say what failed. | बताएं क्या फ़ेल हुआ। |
+| `masters.tooling.inspect.pass` | Passed | पास |
+| `masters.tooling.inspect.fail` | Failed | फ़ेल |
+| `masters.tooling.inspect.passed` | {code} passed and is in store | {code} पास हुआ और स्टोर में है |
+| `masters.tooling.inspect.failed` | {code} failed inspection | {code} जांच में फ़ेल हुआ |
+| `masters.tooling.minTitle` | Least to keep | कम से कम कितने रखने हैं |
+| `masters.tooling.minHint` | The fewest pieces of each type the plant wants. Below it, this page and Today say so. 0 means no alert. | हर प्रकार के कम से कम कितने पीस प्लांट को चाहिए। इससे नीचे जाने पर यह पेज और आज की स्क्रीन बताती है। 0 का मतलब कोई चेतावनी नहीं। |
+| `masters.tooling.held` | {count} held now | अभी {count} हैं |
+| `masters.tooling.minInvalid` | Use whole numbers from 0 to 999. | 0 से 999 के बीच पूरी संख्या लिखें। |
+| `masters.tooling.minSave` | Save the least to keep | कम से कम की संख्या सहेजें |
+| `masters.tooling.minSaved` | Saved | सहेजा गया |
+| `masters.tooling.cost.title` | Die cost by maker | मेकर के हिसाब से die की लागत |
+| `masters.tooling.cost.hint` | What the dies from each maker cost for every {massUnit} they have pushed. | हर मेकर की die की लागत, उनसे निकले हर {massUnit} के हिसाब से। |
+| `masters.tooling.cost.maker` | Maker | मेकर |
+| `masters.tooling.cost.noMaker` | No maker | मेकर नहीं |
+| `masters.tooling.cost.copies` | Dies | die |
+| `masters.tooling.cost.made` | Pushed ({massUnit}) | निकला ({massUnit}) |
+| `masters.tooling.cost.perKg` | Cost per {massUnit} | लागत प्रति {massUnit} |
+| `floor.title` | Tool room | टूल रूम |
+| `floor.none` | None | कोई नहीं |
+| `floor.choose` | Choose | चुनें |
+| `floor.saved` | Saved | सेव हो गया |
+| `floor.copy.noCategory` | No die category yet | Die की श्रेणी अभी तय नहीं |
+| `floor.copy.life` | Expected life {life} | अपेक्षित उम्र {life} |
+| `floor.copy.made` | Made so far {made} | अब तक बना {made} |
+| `floor.copy.inspection` | Receive inspection | आने पर जांच |
+| `floor.copy.failedBlock` | Failed inspection. This copy cannot be issued until it passes. | जांच में फेल। जब तक पास नहीं होती, यह कॉपी इश्यू नहीं हो सकती। |
+| `floor.copy.record` | Record inspection | जांच दर्ज करें |
+| `floor.copy.recordTitle` | Record inspection for {code} | {code} की जांच दर्ज करें |
+| `floor.copy.result` | Result | नतीजा |
+| `floor.copy.notes` | Notes | नोट |
+| `floor.copy.notesHint` | Required when it fails | फेल होने पर जरूरी |
+| `floor.copy.notesNeeded` | Say what failed | बताइए क्या फेल हुआ |
+| `floor.copy.recorded` | Inspection recorded | जांच दर्ज हो गई |
+| `floor.copy.cost` | Purchase cost | खरीद की लागत |
+| `floor.copy.costPerKg` | Cost per {massUnit} made | बने माल की लागत प्रति {massUnit} |
+| `floor.copy.noCost` | Not entered | दर्ज नहीं |
+| `floor.copy.noRun` | Not run yet | अभी चला नहीं |
+| `floor.copy.editCost` | Edit cost | लागत बदलें |
+| `floor.copy.costTitle` | Purchase cost for {code} | {code} की खरीद लागत |
+| `floor.copy.costField` | Cost in rupees | लागत रुपये में |
+| `floor.copy.costHint` | Leave empty to clear it | हटाने के लिए खाली छोड़ें |
+| `floor.copy.costSaved` | Cost saved | लागत सेव हो गई |
+| `floor.section.category` | Die category | Die की श्रेणी |
+| `floor.section.categoryHint` | Sets the expected life shown on each copy | हर कॉपी पर दिखने वाली अपेक्षित उम्र इसी से तय होती है |
+| `floor.section.categorySaved` | Die category saved | Die की श्रेणी सेव हो गई |
+| `floor.packing.saved` | Mode of packing saved | पैकिंग का तरीका सेव हो गया |
+| `floor.packing.forLine` | Mode of packing for this line | इस लाइन का पैकिंग तरीका |
+| `floor.packing.forLoad` | Mode of packing for this load | इस लोड का पैकिंग तरीका |
+| `floor.people.saved` | Department and designation saved | विभाग और पद सेव हो गए |
+| `floor.today.title` | Tooling below minimum | टूलिंग न्यूनतम से कम |
+| `floor.today.open` | Open tooling | टूलिंग खोलें |
+| `floor.today.of` | {held} of {min} | {min} में से {held} |
+| `floor.today.meta` | In hand against the minimum | न्यूनतम के मुकाबले हाथ में |
+| `floor.makers.title` | Cost per {massUnit} by maker | मेकर के हिसाब से लागत प्रति {massUnit} |
+| `floor.makers.maker` | Maker | मेकर |
+| `floor.makers.copies` | Copies | कॉपी |
+| `floor.makers.cost` | Cost | लागत |
+| `floor.makers.made` | Made | बना माल |
+| `floor.makers.perKg` | Per {massUnit} | प्रति {massUnit} |
+| `floor.makers.noMaker` | No maker | मेकर नहीं |
+| `floor.makers.empty` | No copy has a cost yet | अभी किसी कॉपी की लागत दर्ज नहीं |
+
 ### buddy (398)
 
 | Key | English | हिंदी |
@@ -8272,6 +8608,346 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
+### reg (335)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `reports.list.rejections` | Rejection register | रिजेक्शन रजिस्टर |
+| `reports.list.rejectionsBody` | Press QC rejects and pack rejects with the reason, run, die copy and shift. | प्रेस QC और पैक रिजेक्ट, कारण, रन, die कॉपी और शिफ्ट के साथ। |
+| `reports.list.recuts` | Recut register | रीकट रजिस्टर |
+| `reports.list.recutsBody` | Bundles cut shorter than their trolley line, with the reason and the weight lost. | ट्रॉली लाइन से छोटे काटे गए बंडल, कारण और खोए हुए वज़न के साथ। |
+| `reports.list.wip` | Where each order stands | हर ऑर्डर कहाँ पहुँचा |
+| `reports.list.wipBody` | Every open order line with its weight split by stage, from not planned to dispatched. | हर खुली ऑर्डर लाइन का वज़न स्टेज के हिसाब से, प्लान नहीं हुआ से डिस्पैच तक। |
+| `reports.list.planActual` | Plan against actual | प्लान बनाम असल |
+| `reports.list.planActualBody` | Planned weight of released plans against the good weight pressed, with downtime reasons. | रिलीज़ प्लान का प्लान वज़न और प्रेस हुआ अच्छा वज़न, डाउनटाइम कारणों के साथ। |
+| `reports.list.unpacked` | Unpacked stock | बिना पैक स्टॉक |
+| `reports.list.unpackedBody` | Pressed and released from ageing but not packed yet, per section and die copy. | प्रेस होकर एजिंग से रिलीज़ हुआ पर अभी पैक नहीं, सेक्शन और die कॉपी के हिसाब से। |
+| `reports.list.materials` | Material reconciliation | माल का मिलान |
+| `reports.list.materialsBody` | Opening, in, out and closing of metal, billets and bundles, and what corrections moved. | मेटल, billet और बंडल का ओपनिंग, आया, गया और क्लोज़िंग, और सुधारों से क्या हिला। |
+| `reports.shown` | Showing {shown} of {total} | {total} में से {shown} दिख रहे हैं |
+| `reports.col.day` | Day | दिन |
+| `reports.col.source` | Source | स्रोत |
+| `reports.col.run` | Run number | रन नंबर |
+| `reports.col.section` | Section | सेक्शन |
+| `reports.col.copy` | Copy | कॉपी |
+| `reports.col.press` | Press | प्रेस |
+| `reports.col.shift` | Shift | शिफ्ट |
+| `reports.col.reason` | Reason | कारण |
+| `reports.col.pieces` | Pieces | पीस |
+| `reports.col.weight` | Weight {massUnit} | वज़न {massUnit} |
+| `reports.col.bundle` | Bundle | बंडल |
+| `reports.col.trolleyLength` | Trolley length | ट्रॉली लंबाई |
+| `reports.col.cutLength` | Cut length | कट लंबाई |
+| `reports.col.kgLost` | Lost {massUnit} | खोया {massUnit} |
+| `reports.col.order` | Order | ऑर्डर |
+| `reports.col.po` | PO | PO |
+| `reports.col.party` | Party | पार्टी |
+| `reports.col.line` | Line | लाइन |
+| `reports.col.baki` | Baki {massUnit} | बाकी {massUnit} |
+| `reports.col.kgSuffix` | {massUnit} | {massUnit} |
+| `reports.col.stages` | Where the weight sits | वज़न कहाँ है |
+| `reports.col.planned` | Planned {massUnit} | प्लान {massUnit} |
+| `reports.col.actual` | Actual {massUnit} | असल {massUnit} |
+| `reports.col.gap` | Gap {massUnit} | फ़र्क़ {massUnit} |
+| `reports.col.achieved` | Achieved % | पूरा % |
+| `reports.col.downtime` | Downtime min | डाउनटाइम मिनट |
+| `reports.col.topReasons` | Top reasons | मुख्य कारण |
+| `reports.col.trolleyLines` | Trolley lines | ट्रॉली लाइन |
+| `reports.col.oldest` | Oldest released | सबसे पुराना रिलीज़ |
+| `reports.col.entries` | Entries | एंट्री |
+| `reports.col.bundles` | Bundles | बंडल |
+| `reports.col.lines` | Open lines | खुली लाइन |
+| `reports.col.ordered` | Ordered {massUnit} | ऑर्डर {massUnit} |
+| `reports.col.dispatched` | Dispatched {massUnit} | डिस्पैच {massUnit} |
+| `reports.rejections.title` | Rejection register | रिजेक्शन रजिस्टर |
+| `reports.rejections.subtitle` | Press QC rejects of logged runs and pack rejects, newest first. The totals cover the whole filter. | लॉग हुए रन के प्रेस QC रिजेक्ट और पैक रिजेक्ट, नए पहले। कुल पूरे फ़िल्टर का है। |
+| `reports.rejections.csvName` | rejections | rejections |
+| `reports.rejections.empty` | No rejections in these days. | इन दिनों में कोई रिजेक्शन नहीं। |
+| `reports.rejections.source` | Source | स्रोत |
+| `reports.rejections.all` | All | सभी |
+| `reports.rejections.sourcePress` | Press QC | प्रेस QC |
+| `reports.rejections.sourcePack` | Pack | पैक |
+| `reports.rejections.byReasonTitle` | By reason | कारण के हिसाब से |
+| `reports.rejections.noReason` | No reason given | कारण नहीं लिखा |
+| `reports.rejections.filterReason` | Reason: {reason} | कारण: {reason} |
+| `reports.rejections.clearReason` | Show all reasons | सभी कारण दिखाएँ |
+| `reports.rejections.filteredByCell` | Filtered by die, press or shift | die, प्रेस या शिफ़्ट से छँटा हुआ |
+| `reports.rejections.clearCells` | Show every die, press and shift | हर die, प्रेस और शिफ़्ट दिखाएँ |
+| `reports.rejections.pickReason` | Show only {reason} | सिर्फ़ {reason} दिखाएँ |
+| `reports.recuts.title` | Recut register | रीकट रजिस्टर |
+| `reports.recuts.subtitle` | Bundles cut shorter than their trolley line, newest first. The totals cover the whole period. | ट्रॉली लाइन से छोटे काटे गए बंडल, नए पहले। कुल पूरी अवधि का है। |
+| `reports.recuts.csvName` | recuts | recuts |
+| `reports.recuts.empty` | No recut bundles in these days. | इन दिनों में कोई रीकट बंडल नहीं। |
+| `reports.wip.title` | Where each order stands | हर ऑर्डर कहाँ पहुँचा |
+| `reports.wip.subtitle` | Open order lines, oldest order first. The bar shows how the ordered weight splits over the stages. | खुली ऑर्डर लाइनें, पुराना ऑर्डर पहले। पट्टी दिखाती है कि ऑर्डर का वज़न किस स्टेज में कितना है। |
+| `reports.wip.csvName` | order-line-stages | order-line-stages |
+| `reports.wip.empty` | No open order lines. | कोई खुली ऑर्डर लाइन नहीं। |
+| `reports.wip.barLabel` | Stages of order {order} line {line} | ऑर्डर {order} लाइन {line} के स्टेज |
+| `reports.wip.bar` | Stage bar | स्टेज पट्टी |
+| `reports.planActual.title` | Plan against actual | प्लान बनाम असल |
+| `reports.planActual.subtitle` | Planned weight of production plans that start in these days against the good weight of their logged runs. | इन दिनों में शुरू होने वाले प्रोडक्शन प्लान का प्लान वज़न और उनके लॉग हुए रन का अच्छा वज़न। |
+| `reports.planActual.csvName` | plan-against-actual | plan-against-actual |
+| `reports.planActual.empty` | No released plans start in these days. | इन दिनों में कोई रिलीज़ प्लान शुरू नहीं हुआ। |
+| `reports.planActual.groupBy` | Group by | ग्रुप करें |
+| `reports.planActual.notSet` | Not set | तय नहीं |
+| `reports.planActual.reasonMin` | {reason} {min} min | {reason} {min} मिनट |
+| `reports.planActual.group.press` | Press | प्रेस |
+| `reports.planActual.group.die` | Die | Die |
+| `reports.planActual.group.alloy` | Alloy | अलॉय |
+| `reports.planActual.group.shift` | Shift | शिफ्ट |
+| `reports.unpacked.title` | Unpacked stock | बिना पैक स्टॉक |
+| `reports.unpacked.subtitle` | Pressed weight released from ageing and not packed yet, per section and die copy. | एजिंग से रिलीज़ हुआ और अभी पैक नहीं हुआ प्रेस वज़न, सेक्शन और die कॉपी के हिसाब से। |
+| `reports.unpacked.csvName` | unpacked-stock | unpacked-stock |
+| `reports.unpacked.empty` | Nothing is waiting to be packed. | पैक होने के लिए कुछ बाकी नहीं। |
+| `reports.materials.title` | Material reconciliation | माल का मिलान |
+| `reports.materials.subtitle` | Opening plus in, less out, plus the gap, equals closing. Every figure comes from the stock ledger. | ओपनिंग जमा आया, घटा गया, जमा फ़र्क़, बराबर क्लोज़िंग। हर आँकड़ा स्टॉक लेजर से आता है। |
+| `reports.materials.csvName` | material-reconciliation | material-reconciliation |
+| `reports.materials.explain` | In and out are documents that move material. The gap is corrections: opening balances, billet counts at cast close, and bundle voids and restores. | आया और गया वे दस्तावेज़ हैं जो माल हिलाते हैं। फ़र्क़ सुधार हैं: ओपनिंग बैलेंस, कास्ट बंद होने पर billet गिनती, और बंडल void और restore। |
+| `reports.materials.class` | Material | माल |
+| `reports.materials.part` | Part | हिस्सा |
+| `reports.materials.document` | Document | दस्तावेज़ |
+| `reports.materials.opening` | Opening | ओपनिंग |
+| `reports.materials.in` | In | आया |
+| `reports.materials.inTotal` | Total in | कुल आया |
+| `reports.materials.out` | Out | गया |
+| `reports.materials.outTotal` | Total out | कुल गया |
+| `reports.materials.gap` | Gap | फ़र्क़ |
+| `reports.materials.gapTotal` | Total gap | कुल फ़र्क़ |
+| `reports.materials.closing` | Closing | क्लोज़िंग |
+| `reports.materials.none` | Nothing in this period | इस अवधि में कुछ नहीं |
+| `reports.materials.unbalanced` | These figures do not add up. Tell the office. | ये आँकड़े मेल नहीं खाते। ऑफ़िस को बताएँ। |
+| `reports.materials.cls.metal` | Metal | मेटल |
+| `reports.materials.cls.billet` | Billets | Billet |
+| `reports.materials.cls.bundle` | Bundles | बंडल |
+| `reports.materials.group.opening` | Opening balances taken on | ओपनिंग बैलेंस चढ़ाया |
+| `reports.materials.group.pack` | Packed into bundles | बंडल में पैक हुआ |
+| `reports.materials.group.void` | Bundles voided or restored | बंडल void या restore हुए |
+| `reports.materials.group.dispatch` | Dispatched | डिस्पैच हुआ |
+| `reports.materials.group.purchase` | Purchases | खरीद |
+| `reports.materials.group.melt` | Melts | मेल्ट |
+| `reports.materials.group.pack_reject` | Pack rejects | पैक रिजेक्ट |
+| `reports.materials.group.press` | Press close | प्रेस क्लोज़ |
+| `reports.materials.group.cast_tail` | Billet count at cast close | कास्ट बंद होने पर billet गिनती |
+| `reports.materials.group.move` | Moves not netted | जो मूव नेट नहीं हुए |
+| `complaints.title` | Complaints | शिकायतें |
+| `complaints.subtitle` | What customers reported about a bundle, and what the plant did about it. | ग्राहक ने बंडल के बारे में क्या बताया और प्लांट ने उस पर क्या किया। |
+| `complaints.portalNav` | Complaints | शिकायतें |
+| `complaints.noAccess` | You do not have access to the complaint register. | आपके पास शिकायत रजिस्टर देखने की अनुमति नहीं है। |
+| `complaints.loadFailed` | Could not load complaints. Try again. | शिकायतें लोड नहीं हो सकीं। फिर कोशिश करें। |
+| `complaints.notFound` | We could not find that complaint. | यह शिकायत नहीं मिली। |
+| `complaints.back` | Complaints | शिकायतें |
+| `complaints.showMore` | Show more | और दिखाएं |
+| `complaints.empty` | No complaints in this list. | इस सूची में कोई शिकायत नहीं है। |
+| `complaints.filter.label` | Show complaints | शिकायतें दिखाएं |
+| `complaints.filter.withCount` | {label} · {count} | {label} · {count} |
+| `complaints.filter.active` | Active | चालू |
+| `complaints.filter.open` | Open | खुली |
+| `complaints.filter.investigating` | Investigating | जांच में |
+| `complaints.filter.replied` | Replied | जवाब दिया |
+| `complaints.filter.closed` | Closed | बंद |
+| `complaints.filter.all` | All | सब |
+| `complaints.cols.number` | Complaint | शिकायत |
+| `complaints.cols.bundle` | Bundle | बंडल |
+| `complaints.cols.party` | Party | पार्टी |
+| `complaints.cols.kind` | Problem | समस्या |
+| `complaints.cols.status` | Status | स्थिति |
+| `complaints.cols.due` | Action due | कार्रवाई की तारीख |
+| `complaints.cols.opened` | Opened | दर्ज हुई |
+| `complaints.status.open` | Open | खुली |
+| `complaints.status.investigating` | Investigating | जांच में |
+| `complaints.status.replied` | Replied | जवाब दिया |
+| `complaints.status.closed` | Closed | बंद |
+| `complaints.kind.dimension` | Dimension | नाप |
+| `complaints.kind.surface` | Surface | सतह |
+| `complaints.kind.hardness` | Hardness | कठोरता |
+| `complaints.kind.bend` | Bend | मुड़ाव |
+| `complaints.kind.weight` | Weight | वज़न |
+| `complaints.kind.packing` | Packing | पैकिंग |
+| `complaints.kind.short_supply` | Short supply | माल कम आया |
+| `complaints.kind.other` | Other | दूसरी |
+| `complaints.source.staff` | Raised by plant staff | प्लांट स्टाफ ने दर्ज की |
+| `complaints.source.portal` | Raised by the customer in the portal | ग्राहक ने पोर्टल से दर्ज की |
+| `complaints.detail.title` | Complaint {number} | शिकायत {number} |
+| `complaints.detail.facts` | Facts | विवरण |
+| `complaints.detail.party` | Party | पार्टी |
+| `complaints.detail.noParty` | No party | पार्टी नहीं |
+| `complaints.detail.bundle` | Bundle | बंडल |
+| `complaints.detail.source` | How it came in | कैसे आई |
+| `complaints.detail.pieces` | Pieces hit | प्रभावित पीस |
+| `complaints.detail.piecesValue` | {count} {count:piece\|pieces} | {count} {count:पीस\|पीस} |
+| `complaints.detail.opened` | Opened | दर्ज हुई |
+| `complaints.detail.openedBy` | {when} by {name} | {when}, {name} ने |
+| `complaints.detail.openedAt` | {when} | {when} |
+| `complaints.detail.words` | What the customer said | ग्राहक ने क्या कहा |
+| `complaints.detail.traceTitle` | Trace when it was raised | दर्ज करते समय का ट्रेस |
+| `complaints.detail.traceHint` | Frozen when the complaint was opened. It does not change if the bundle changes later. | शिकायत दर्ज होते समय की जानकारी जमा कर ली गई है। बाद में बंडल बदले तो यह नहीं बदलती। |
+| `complaints.detail.traceBundle` | Bundle | बंडल |
+| `complaints.detail.traceSection` | Section | सेक्शन |
+| `complaints.detail.traceCopy` | Die copy | Die कॉपी |
+| `complaints.detail.traceCast` | Cast | Cast |
+| `complaints.detail.traceRuns` | Press runs | प्रेस रन |
+| `complaints.detail.traceAgeing` | Ageing batch | एजिंग बैच |
+| `complaints.detail.traceOrder` | Order | ऑर्डर |
+| `complaints.detail.traceDispatch` | Dispatch | Dispatch |
+| `complaints.detail.traceNone` | Not known | पता नहीं |
+| `complaints.detail.traceNoRuns` | No press run found | कोई प्रेस रन नहीं मिला |
+| `complaints.detail.runLine` | {number} · {press} | {number} · {press} |
+| `complaints.detail.runShift` | Day {day}, shift {shift} | दिन {day}, शिफ्ट {shift} |
+| `complaints.detail.runDay` | Day {day} | दिन {day} |
+| `complaints.detail.orderPo` | PO {po} | PO {po} |
+| `complaints.detail.dispatchPl` | PL {number} | PL {number} |
+| `complaints.detail.dispatchInvoice` | Invoice {number} | इनवॉइस {number} |
+| `complaints.detail.dispatchOpen` | Not completed | पूरा नहीं हुआ |
+| `complaints.detail.partyNo` | Party number {number} | पार्टी नंबर {number} |
+| `complaints.detail.packedOn` | Packed {when} | पैक हुआ {when} |
+| `complaints.investigate.title` | Investigation | जांच |
+| `complaints.investigate.hint` | Root cause, what the plant will do, who does it and by when. | जड़ कारण, प्लांट क्या करेगा, कौन करेगा और कब तक। |
+| `complaints.investigate.rootCause` | Root cause | जड़ कारण |
+| `complaints.investigate.correctiveAction` | Corrective action | सुधार की कार्रवाई |
+| `complaints.investigate.owner` | Action owner | कार्रवाई किसकी ज़िम्मेदारी |
+| `complaints.investigate.ownerNone` | Nobody yet | अभी कोई नहीं |
+| `complaints.investigate.due` | Action due | कार्रवाई की तारीख |
+| `complaints.investigate.done` | The action is done | कार्रवाई पूरी हो गई |
+| `complaints.investigate.doneOn` | Marked done {when} | पूरी मानी गई {when} |
+| `complaints.investigate.save` | Save investigation | जांच सेव करें |
+| `complaints.investigate.saved` | Investigation saved | जांच सेव हुई |
+| `complaints.investigate.last` | Last saved by {name}, {when} | आखिरी बार {name} ने सेव की, {when} |
+| `complaints.investigate.readOnly` | Investigation | जांच |
+| `complaints.reply.title` | Reply to the customer | ग्राहक को जवाब |
+| `complaints.reply.hint` | The customer reads this in their portal. | ग्राहक यह जवाब अपने पोर्टल में पढ़ता है। |
+| `complaints.reply.label` | Reply | जवाब |
+| `complaints.reply.send` | Send reply | जवाब भेजें |
+| `complaints.reply.sent` | Reply sent | जवाब भेज दिया |
+| `complaints.reply.by` | Replied by {name}, {when} | {name} ने जवाब दिया, {when} |
+| `complaints.reply.again` | Send a new reply | नया जवाब भेजें |
+| `complaints.close.title` | Close this complaint | यह शिकायत बंद करें |
+| `complaints.close.hint` | A closed complaint stays closed. A new problem gets a new number. | बंद शिकायत बंद ही रहती है। नई समस्या का नया नंबर बनता है। |
+| `complaints.close.note` | Closing note (optional) | बंद करने का नोट (ज़रूरी नहीं) |
+| `complaints.close.button` | Close complaint | शिकायत बंद करें |
+| `complaints.close.done` | Complaint closed | शिकायत बंद हो गई |
+| `complaints.close.by` | Closed by {name}, {when} | {name} ने बंद की, {when} |
+| `complaints.close.noteShown` | Closing note | बंद करने का नोट |
+| `complaints.errors.changed` | This complaint changed since you opened it. Open it again. | आपके खोलने के बाद यह शिकायत बदल गई है। इसे फिर से खोलें। |
+| `complaints.errors.closed` | This complaint is closed. | यह शिकायत बंद है। |
+| `complaints.errors.badMove` | A complaint cannot move to that status from here. | शिकायत यहां से उस स्थिति में नहीं जा सकती। |
+| `complaints.errors.notMember` | That person is not a member of this plant. | वह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `complaints.errors.tooManyPieces` | More pieces than the bundle has. | बंडल में जितने पीस हैं उससे ज़्यादा लिखे हैं। |
+| `complaints.errors.bundleNotFound` | We could not find that bundle. | वह बंडल नहीं मिला। |
+| `complaints.errors.saveFailed` | Could not save. Try again. | सेव नहीं हो सका। फिर कोशिश करें। |
+| `complaints.errors.noPermission` | You cannot do that. | आप यह नहीं कर सकते। |
+| `complaints.errors.moduleOff` | The complaint register is switched off for this plant. | इस प्लांट के लिए शिकायत रजिस्टर बंद है। |
+| `complaints.bundle.title` | Complaints | शिकायतें |
+| `complaints.bundle.raise` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.bundle.none` | No complaints on this bundle. | इस बंडल पर कोई शिकायत नहीं है। |
+| `complaints.bundle.loadFailed` | Could not load the complaints of this bundle. | इस बंडल की शिकायतें लोड नहीं हो सकीं। |
+| `complaints.bundle.sheetTitle` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.bundle.sheetDescription` | Bundle {serial} | बंडल {serial} |
+| `complaints.bundle.kind` | What is wrong | क्या खराबी है |
+| `complaints.bundle.description` | What the customer said | ग्राहक ने क्या कहा |
+| `complaints.bundle.descriptionHint` | Write it the way the customer told it. | जैसा ग्राहक ने बताया वैसा ही लिखें। |
+| `complaints.bundle.pieces` | Pieces hit (optional) | प्रभावित पीस (ज़रूरी नहीं) |
+| `complaints.bundle.piecesHint` | At most {max} in this bundle. | इस बंडल में ज़्यादा से ज़्यादा {max}। |
+| `complaints.bundle.piecesInvalid` | Enter a whole number from 1 to {max}. | 1 से {max} के बीच पूरी संख्या लिखें। |
+| `complaints.bundle.descriptionMissing` | Write what the customer said. | ग्राहक ने जो कहा वह लिखें। |
+| `complaints.bundle.cancel` | Cancel | रद्द करें |
+| `complaints.bundle.submit` | Save complaint | शिकायत सेव करें |
+| `complaints.bundle.raised` | Complaint {number} saved | शिकायत {number} सेव हुई |
+| `complaints.portal.title` | Complaints | शिकायतें |
+| `complaints.portal.subtitle` | Tell the plant about a problem with a bundle you received. | आपको मिले किसी बंडल में समस्या हो तो प्लांट को बताएं। |
+| `complaints.portal.raise` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.portal.empty` | You have not raised any complaint. | आपने अभी कोई शिकायत दर्ज नहीं की। |
+| `complaints.portal.loadFailed` | Could not load your complaints. Try again. | आपकी शिकायतें लोड नहीं हो सकीं। फिर कोशिश करें। |
+| `complaints.portal.formTitle` | Raise a complaint | शिकायत दर्ज करें |
+| `complaints.portal.bundleNo` | Bundle number | बंडल नंबर |
+| `complaints.portal.bundleHint` | The number printed on the bundle label. | बंडल के लेबल पर छपा नंबर। |
+| `complaints.portal.pickDispatch` | Or pick from a dispatch | या किसी Dispatch से चुनें |
+| `complaints.portal.pickDispatchNone` | Choose a dispatch | Dispatch चुनें |
+| `complaints.portal.pickBundle` | Bundle | बंडल |
+| `complaints.portal.pickBundleNone` | Choose a bundle | बंडल चुनें |
+| `complaints.portal.dispatchOption` | {code} · {date} | {code} · {date} |
+| `complaints.portal.bundleOption` | {number} · {section} | {number} · {section} |
+| `complaints.portal.kind` | What is wrong | क्या खराबी है |
+| `complaints.portal.description` | What went wrong | क्या गड़बड़ हुई |
+| `complaints.portal.descriptionHint` | Tell us what you found. | आपने जो देखा वह बताएं। |
+| `complaints.portal.pieces` | Pieces affected (optional) | प्रभावित पीस (ज़रूरी नहीं) |
+| `complaints.portal.piecesInvalid` | Enter a whole number, 1 or more. | पूरी संख्या लिखें, 1 या उससे ज़्यादा। |
+| `complaints.portal.bundleMissing` | Enter the bundle number. | बंडल नंबर लिखें। |
+| `complaints.portal.descriptionMissing` | Write what went wrong. | क्या गड़बड़ हुई वह लिखें। |
+| `complaints.portal.send` | Send complaint | शिकायत भेजें |
+| `complaints.portal.cancel` | Cancel | रद्द करें |
+| `complaints.portal.sent` | Complaint {number} sent | शिकायत {number} भेज दी गई |
+| `complaints.portal.sendFailed` | Could not send the complaint. Try again. | शिकायत नहीं भेजी जा सकी। फिर कोशिश करें। |
+| `complaints.portal.bundleNotFound` | We could not find that bundle on your dispatches. | आपकी Dispatch में वह बंडल नहीं मिला। |
+| `complaints.portal.number` | Complaint | शिकायत |
+| `complaints.portal.bundle` | Bundle | बंडल |
+| `complaints.portal.kindLabel` | Problem | समस्या |
+| `complaints.portal.status` | Status | स्थिति |
+| `complaints.portal.raisedOn` | Raised | दर्ज हुई |
+| `complaints.portal.pieces2` | Pieces affected | प्रभावित पीस |
+| `complaints.portal.yourWords` | Your words | आपके शब्द |
+| `complaints.portal.plantReply` | Reply from the plant | प्लांट का जवाब |
+| `complaints.portal.noReply` | The plant has not replied yet. | प्लांट ने अभी जवाब नहीं दिया। |
+| `complaints.portal.repliedOn` | Replied {when} | जवाब दिया {when} |
+| `complaints.portal.closedOn` | Closed {when} | बंद हुई {when} |
+| `complaints.portal.back` | Complaints | शिकायतें |
+| `stage.notPlanned` | Not planned | प्लान नहीं हुआ |
+| `stage.planned` | Planned | प्लान में |
+| `stage.onPress` | On the press | प्रेस पर |
+| `stage.ageing` | Ageing | एजिंग में |
+| `stage.unpacked` | Waiting to pack | पैकिंग बाकी |
+| `stage.packed` | Packed | पैक हुआ |
+| `stage.dispatched` | Dispatched | भेजा गया |
+| `stage.over` | Over | ज़्यादा |
+| `stage.statusLine` | Status | स्थिति |
+| `owner.title` | Owner | मालिक |
+| `owner.subtitle` | Yesterday at the plant, the same figures as the morning mail. | कल प्लांट में क्या हुआ, सुबह के ईमेल वाले ही आंकड़े। |
+| `owner.day` | Production day {day} | प्रोडक्शन दिन {day} |
+| `owner.pickDay` | Day | दिन |
+| `owner.pressed` | Pressed | प्रेस हुआ |
+| `owner.pressedBody` | {runs} {runs:run\|runs} | {runs} {runs:रन\|रन} |
+| `owner.trials` | Trials {kg} | ट्रायल {kg} |
+| `owner.recovery` | Recovery | रिकवरी |
+| `owner.noRuns` | No runs | कोई रन नहीं |
+| `owner.downtime` | Downtime | रुकावट |
+| `owner.downtimeMin` | {min} min | {min} मिनट |
+| `owner.noDowntime` | No downtime | कोई रुकावट नहीं |
+| `owner.dispatched` | Dispatched | भेजा गया |
+| `owner.dispatchedBody` | {count} {count:load\|loads} | {count} {count:गाड़ी\|गाड़ियां} |
+| `owner.baki` | Open baki | खुली बाकी |
+| `owner.bakiBody` | {count} order {count:line\|lines} | {count} ऑर्डर {count:लाइन\|लाइनें} |
+| `owner.failedCasts` | Casts with failed spectro | spectro में फेल कास्ट |
+| `owner.noFailedCasts` | None | कोई नहीं |
+| `owner.loadFailed` | Could not load the figures. | आंकड़े नहीं खुले। |
+| `owner.noAccess` | This page is for the owner and the plant admin. | यह पेज मालिक और प्लांट एडमिन के लिए है। |
+| `owner.mailTitle` | Morning summary by email | सुबह का सारांश ईमेल पर |
+| `owner.mailHint` | Each morning orrn emails these figures to the owner and the plant admins, at the hour you pick, plant time. | हर सुबह orrn ये आंकड़े मालिक और प्लांट एडमिन को ईमेल करता है, आपके चुने घंटे पर, प्लांट के समय से। |
+| `owner.mailOn` | Send the morning summary | सुबह का सारांश भेजें |
+| `owner.mailHour` | Hour | घंटा |
+| `owner.mailHourValue` | {hour}:00 | {hour}:00 |
+| `owner.mailSave` | Save | सेव करें |
+| `owner.mailSaved` | Saved | सेव हो गया |
+| `owner.mailFailed` | Could not save. Try again. | सेव नहीं हुआ। फिर कोशिश करें। |
+| `billet.title` | Billets for this plan | इस प्लान के लिए billet |
+| `billet.hint` | Billet weight = plan weight divided by the die's own recovery from its logged runs. | billet वज़न = प्लान वज़न भाग die की अपनी रिकवरी (उसके दर्ज रन से)। |
+| `billet.alloy` | Alloy | अलॉय |
+| `billet.length` | Billet length | billet लंबाई |
+| `billet.needKg` | Billets needed | चाहिए billet |
+| `billet.count` | Billets | billet |
+| `billet.stockKg` | In stock | स्टॉक में |
+| `billet.noAlloy` | No alloy | अलॉय नहीं |
+| `billet.unknownLength` | Length not known | लंबाई पता नहीं |
+| `billet.recoveryDie` | Die recovery {pct} | die की रिकवरी {pct} |
+| `billet.recoveryPlant` | Plant recovery {pct}, the die has no logged run | प्लांट की रिकवरी {pct}, die का कोई दर्ज रन नहीं |
+| `billet.recoveryDefault` | Default {pct}, no logged runs yet | डिफ़ॉल्ट {pct}, अभी कोई दर्ज रन नहीं |
+| `billet.ready` | Ready | तैयार |
+| `billet.dieNotReady` | No die copy free to issue | देने के लिए कोई die कॉपी खाली नहीं |
+| `billet.billetsShort` | Not enough billets of {alloy} | {alloy} के billet कम हैं |
+| `billet.readyLabel` | Readiness of the line | लाइन की तैयारी |
+| `billet.loadFailed` | Could not load the billet need. | billet की ज़रूरत नहीं खुली। |
+| `recut.label` | Why was it cut shorter? | छोटा क्यों काटा? |
+| `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
+| `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
+
 ### qa (276)
 
 | Key | English | हिंदी |
@@ -8637,7 +9313,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (51)
+### plantSettings (52)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8678,6 +9354,7 @@ Please check, Lalubhai:
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `modules.names.complaints` | Complaints | शिकायतें |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -8817,7 +9494,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (355)
+### audit (383)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8871,6 +9548,7 @@ Please check, Lalubhai:
 | `subjectTypes.cast` | Cast | कास्ट |
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
+| `subjectTypes.complaint` | Complaint | शिकायत |
 | `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
 | `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `subjectTypes.ingest_artifact` | Import file | इम्पोर्ट की फ़ाइल |
@@ -8961,6 +9639,11 @@ Please check, Lalubhai:
 | `actions.count__voidRequested` | Void of missing bundles asked | गायब बंडल void करने को कहा |
 | `actions.customer__aliases__add` | Customer names added | ग्राहकों के नाम जोड़े |
 | `actions.customer__create` | Customer added | ग्राहक जोड़ा |
+| `actions.complaint__open` | Complaint raised | शिकायत दर्ज हुई |
+| `actions.complaint__investigate` | Complaint investigation saved | शिकायत की जाँच सेव हुई |
+| `actions.complaint__reply` | Complaint answered | शिकायत का जवाब दिया |
+| `actions.complaint__close` | Complaint closed | शिकायत बंद हुई |
+| `actions.mis__morning__sent` | Morning summary sent | सुबह का सारांश भेजा |
 | `actions.customer__delete` | Customer removed | ग्राहक हटाया |
 | `actions.customer__import` | Customers imported | ग्राहक इंपोर्ट किए |
 | `actions.customer__update` | Customer changed | ग्राहक बदला |
@@ -9176,6 +9859,28 @@ Please check, Lalubhai:
 | `actions.vendor__create` | Vendor added | वेंडर जोड़ा |
 | `actions.vendor__merge` | Vendors merged | वेंडर मिलाए |
 | `actions.vendor__update` | Vendor changed | वेंडर बदला |
+| `actions.plant_master__create` | Plant list choice added | प्लांट की सूची में विकल्प जोड़ा |
+| `actions.plant_master__starters` | Standard choices added to a plant list | प्लांट की सूची में मानक विकल्प जोड़े |
+| `actions.plant_master__update` | Plant list choice changed | प्लांट की सूची का विकल्प बदला |
+| `actions.bank_account__create` | Bank account added | बैंक खाता जोड़ा |
+| `actions.bank_account__update` | Bank account changed | बैंक खाता बदला |
+| `actions.bank_account__default` | Default bank account set | मुख्य बैंक खाता तय किया |
+| `actions.bank_account__restore` | Bank account brought back | बैंक खाता वापस चालू किया |
+| `actions.bank_account__retire` | Bank account retired | बैंक खाता बंद किया |
+| `actions.company__insurance__update` | Transit insurance changed | ट्रांज़िट बीमा बदला |
+| `actions.company__number_format__update` | Document numbering changed | कागज़ों की नंबरिंग बदली |
+| `actions.company__approval_rule__update` | Who approves a request changed | रिक्वेस्ट कौन मंज़ूर करे, यह बदला |
+| `actions.membership__assign` | Team member's department or designation changed | टीम मेंबर का विभाग या पद बदला |
+| `actions.order_line__packing_mode` | Mode of packing set on an order line | ऑर्डर लाइन का पैकिंग तरीका तय किया |
+| `actions.dispatch__packing_mode` | Mode of packing set on a load | लोड का पैकिंग तरीका तय किया |
+| `actions.tooling__create` | Tooling piece added | टूलिंग पीस जोड़ा |
+| `actions.tooling__update` | Tooling piece status changed | टूलिंग पीस की हालत बदली |
+| `actions.die_copy__cost` | Die copy cost changed | डाई कॉपी की लागत बदली |
+| `actions.tooling__min_stock` | Tooling minimum to keep changed | टूलिंग कम से कम कितनी रखनी है, यह बदला |
+| `actions.die__category` | Die category set | डाई की श्रेणी तय की |
+| `actions.plant_document__create` | Document added | दस्तावेज़ जोड़ा |
+| `actions.plant_document__update` | Document changed | दस्तावेज़ बदला |
+| `actions.plant_document__file` | Document file attached | दस्तावेज़ की फ़ाइल लगाई |
 
 ### portal (186)
 

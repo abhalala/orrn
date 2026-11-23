@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
+import { progressParts } from "./order-progress";
 import { isPortalOrderStatus, PORTAL_STATUS_TONE, sectionTitle } from "./model";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
@@ -91,6 +92,20 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
                   </div>
                 ))}
               </dl>
+              {l.progress ? (
+                <p className="m-0 text-[13px] break-words" data-testid="portal-line-progress">
+                  <span className="font-semibold">
+                    {t("reg.stage.statusLine")}: {t(`reg.stage.${l.progress.stage}`)}
+                  </span>
+                  {progressParts(l.progress).length > 1 ? (
+                    <span className="block text-muted-foreground">
+                      {progressParts(l.progress)
+                        .map((x) => `${t(`reg.stage.${x.stage}`)} ${kgGrouped3(fmt, x.g)} ${massUnit(fmt)}`)
+                        .join(", ")}
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
               {l.note ? <p className="m-0 text-[13px] break-words text-muted-foreground">{l.note}</p> : null}
             </li>
           ))}

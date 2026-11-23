@@ -38,6 +38,10 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   purchase: "purchase",
   // Scrap vendors are purchase masters (routers/vendor.ts).
   vendor: "purchase",
+  // XE parity lane REG: the complaint register (reads call assertModule too, routers/complaint.ts).
+  complaints: "complaints",
+  // XE ADM: tooling, receive inspections, die cost and category ride the die room module.
+  toolRoom: "dies",
   // XE parity lane QA.
   qa: "qa",
 };

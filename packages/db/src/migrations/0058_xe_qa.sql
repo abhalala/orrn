@@ -1,4 +1,3 @@
--- XE parity lane QA (rows 22-29, 35-39): quality checks, quality hold, temper master, quality plan, inspection points, alloy substitutes, instruments. Additive, eight new tables.
 CREATE TABLE `qa_alloy_substitute` (
 	`id` text PRIMARY KEY NOT NULL,
 	`company_id` text NOT NULL,

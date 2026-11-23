@@ -1,5 +1,5 @@
 /**
- * Quality (XE parity lane QA, migration 0055_xe_qa). One table of checks (`qa_check`) covers incoming
+ * Quality (XE parity lane QA, migration 0058_xe_qa). One table of checks (`qa_check`) covers incoming
  * inspection of lots and bought-in material (row 22), QA clearance for the next stage (23), the first
  * piece (24), dimensions (25), mechanical tests (26), ultrasonic tests (27) and in-process checks (39).
  * Each register is `checks.list` filtered by kind. The quality hold (29) is `qa_hold`; masters (temper,
