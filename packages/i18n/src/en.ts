@@ -6030,6 +6030,7 @@ export const en = {
         late_entry_unapproved: "This late entry is waiting for approval",
         downtime_open: "Stop the open downtime first",
         trial_result_missing: "Say whether the die trial passed or failed",
+        billets_not_homogenized: "Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first",
       },
       errors: {
         generic: "The server did not accept this.",
@@ -6122,6 +6123,7 @@ export const en = {
       billetsOnce: "One cast on a run. A second cast is a new run.",
       shortStock: "The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short.",
       shortStockNoFigure: "The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show the billets short. Say why the stock is short.",
+      floorShort: "{cast}: {floor} holds {have} {massUnit} and the run used {need} {massUnit}. The run is logged; the floor will show less than nothing until billets are issued or counted.",
       pressedLength: "Pressed length",
       pressedLengthHint: "Optional. Pieces times cut length are checked only when this is set.",
       pcsOrdered: "Released {pcs} pcs",

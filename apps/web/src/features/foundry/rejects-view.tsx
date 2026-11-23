@@ -35,6 +35,7 @@ import {
   type RejectKind,
   type RejectsSearch,
 } from "./rejects-model";
+import { useRequestKey } from "./request-key";
 import { ErrorLine, FieldSelect, LoadFailed, Note, Panel } from "./ui";
 
 /**
@@ -138,9 +139,11 @@ function RejectSheet({ open, onClose, kind }: { open: boolean; onClose(): void; 
   const check = checkReject(d, picks, rows);
   const issue = tried && !check.ok ? check.issue : null;
   const needsNote = noteRequired(d.reasonCode, rows.find((r) => r.code === d.reasonCode)?.requiresNote);
+  const key = useRequestKey();
   const post = useMutation(
     trpc.foundry.rejects.create.mutationOptions({
       onSuccess: () => {
+        key.landed();
         toast.success(t("fdy2.rejects.saved"));
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.rejects.pathKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.billets.pathKey() });
@@ -171,7 +174,7 @@ function RejectSheet({ open, onClose, kind }: { open: boolean; onClose(): void; 
             data-testid="reject-save"
             onClick={() => {
               setTried(true);
-              if (check.ok) post.mutate({ kind, ...check.input });
+              if (check.ok) post.mutate({ kind, ...check.input, clientRequestId: key.keyFor({ kind, ...check.input }) });
             }}
           >
             {t("fdy2.rejects.save")}

@@ -132,6 +132,12 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_x_enterBillets", key: "foundry.refusal.enterBillets", re: /^Enter the billets and their kg$/ },
   { id: "fd_x_homogBeforeCut", key: "foundry.refusal.homogBeforeCut", re: new RegExp(`^Homogenize the logs of ${S} before cutting them$`), vars: (m) => ({ cast: m[1]! }) },
   { id: "fd_x_logsHomogLeft", key: "foundry.refusal.logsHomogLeft", re: new RegExp(`^Only ${S} logs of ${S} have been homogenized and not cut$`), vars: (m) => ({ pcs: m[1]!, cast: m[2]! }) },
+  // Fix round 1: whole logs issued from the store pass the same homogenizing gate.
+  { id: "fd_x_homogBeforeIssue", key: "foundry.refusal.homogBeforeIssue", re: new RegExp(`^Homogenize the logs of ${S} before issuing them$`), vars: (m) => ({ cast: m[1]! }) },
+  { id: "fd_x_logsHomogLeftIssue", key: "foundry.refusal.logsHomogLeftIssue", re: new RegExp(`^Only ${S} logs of ${S} have been homogenized and not cut or issued$`), vars: (m) => ({ pcs: m[1]!, cast: m[2]! }) },
+  // Fix round 1: a melt cancel or correction reverses its logs at the billet store, which cuts or issues may have emptied.
+  { id: "fd_x_meltStoreCancel", key: "foundry.refusal.meltStoreCancel", re: new RegExp(`^Only ${S} kg of ${S} logs is left at ${S}; this melt can no longer be cancelled$`), vars: (m) => ({ kg: m[1]!, cast: m[2]!, place: m[3]! }) },
+  { id: "fd_x_meltStoreCorrect", key: "foundry.refusal.meltStoreCorrect", re: new RegExp(`^Only ${S} kg of ${S} logs is left at ${S}; this melt can no longer be corrected$`), vars: (m) => ({ kg: m[1]!, cast: m[2]!, place: m[3]! }) },
   { id: "fd_x_kgAtPlace", key: "foundry.refusal.kgAtPlace", re: new RegExp(`^Only ${S} kg of ${S} is at ${S}$`), vars: (m) => ({ kg: m[1]!, cast: m[2]!, place: m[3]! }) },
   { id: "fd_x_pressFloor", key: "foundry.refusal.pressFloor", re: new RegExp(`^Add a press floor location for ${S} first \\(Masters → Locations\\)$`), vars: (m) => ({ line: m[1]! }) },
   { id: "fd_x_reasonNote", key: "foundry.refusal.reasonNote", re: /^Add a note for this reason$/ },

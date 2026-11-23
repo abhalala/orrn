@@ -50,9 +50,14 @@ export function homogRecipeError(r: HomogRecipe): "temp_range" | "band_range" | 
   return null;
 }
 
-/** 6xxx alloys (`6063`, `6061`, `6082`…) are the ones the plant setting asks to homogenize before cutting. */
+/**
+ * 6xxx alloys are the ones the plant setting asks to homogenize. The alloy master keeps a free code and
+ * no series, so the series is read from the code: four digits starting with 6 (`6063`, `6061T6`), also
+ * behind a registry prefix (`AA6063`, `AA-6063`, `EN AW-6063`, `AW 6082`). Other national names for a
+ * 6xxx alloy (an Indian `HE9`, say) are not recognised; such a plant names the alloy by its AA number.
+ */
 export function alloyNeedsHomogenizing(alloyCode: string | null | undefined): boolean {
-  return /^6\d{3}/.test((alloyCode ?? "").trim());
+  return /^(?:AA|EN\s*AW|AW)?[\s-]*6\d{3}/i.test((alloyCode ?? "").trim());
 }
 
 /**

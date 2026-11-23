@@ -23,6 +23,9 @@ import { now as clockNow } from "../lib/clock";
 import { companyTimezone, zonedMidnightMs, zonedYmd } from "../lib/dayWindow";
 import { nextDocNumber } from "../lib/docNumber";
 import { defaultReturnStreamStatements, foundryAbort, isFoundryAbort } from "../lib/foundry";
+import { keyedBatch, openFloorReplay, priorAnswer } from "../lib/foundryDepth";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { replayMeta } from "../lib/requestReplay";
 import { companySettings } from "../lib/press";
 import { planBilletNeed } from "../lib/regReports";
 import { nextCompanySeq } from "../lib/sequence";
@@ -100,12 +103,31 @@ export const foundryCastPlanRouter = {
       for (const p of used) {
         const d = ymdText(zonedYmd(tz, p.windowStart.getTime()));
         const need = await planBilletNeed(ctx.db, ctx.companyId, p.id);
+        // REG's need is the WHOLE plan (it answers "can this plan run from stock"). A plan already
+        // running has pressed part of it, and those billets have left the stock this proposal takes
+        // off, so only what is still to press counts: each alloy's need less the billets its logged
+        // runs used (fix round 1).
+        const usedRows = await ctx.db.all<{ alloy: string; g: number }>(sql`
+          select c.alloy, coalesce(sum(u.kg_g), 0) as g
+          from press_billet_use u
+          join press_run r on r.id = u.press_run_id and r.company_id = u.company_id
+          join ${cast} c on c.id = u.cast_id and c.company_id = u.company_id
+          where u.company_id = ${ctx.companyId} and r.plan_id = ${p.id} and r.status = 'logged'
+          group by c.alloy`);
+        const pressed = new Map(usedRows.map((u) => [u.alloy, num(u.g)]));
         let billetKgG = 0;
         let noAlloyG = 0;
         for (const r of need.rows) {
-          if (r.alloy == null) noAlloyG += r.billetKgG;
-          else needs.push({ day: d, alloy: r.alloy, billetKgG: r.billetKgG });
-          billetKgG += r.billetKgG;
+          if (r.alloy == null) {
+            noAlloyG += r.billetKgG;
+            billetKgG += r.billetKgG;
+            continue;
+          }
+          const done = Math.min(r.billetKgG, pressed.get(r.alloy) ?? 0);
+          pressed.set(r.alloy, (pressed.get(r.alloy) ?? 0) - done);
+          const left = r.billetKgG - done;
+          if (left > 0) needs.push({ day: d, alloy: r.alloy, billetKgG: left });
+          billetKgG += left;
         }
         planRows.push({ id: p.id, number: p.number, status: p.status, day: d, billetKgG, noAlloyG });
       }
@@ -116,13 +138,16 @@ export const foundryCastPlanRouter = {
         from stock_ledger l join ${cast} c on c.id = l.item_ref and c.company_id = l.company_id
         where l.company_id = ${ctx.companyId} and l.item_kind = 'billet'
         group by c.alloy`);
-      // Metal still to come from the plan: accepted lines in full; an opened line until its cast puts
-      // logs on the ledger (what is on the ledger is already in the stock above).
+      // Metal still to come from the plan: accepted lines in full; an opened line until its cast has
+      // MADE that much (its production rows: melt logs net of cancels, or a receipt); what is made is in
+      // the stock above. Cuts and issues only move billets between places (+ at the rack or floor), so
+      // they never count as made (fix round 1).
       const coming = await ctx.db.all<{ alloy: string; g: number }>(sql`
         select x.alloy, coalesce(sum(case
           when x.status = 'accepted' then x.kg_g
           when x.status = 'opened' and c.status in ('open', 'closing') then max(0, x.kg_g - coalesce((
-            select sum(l.qty_g) from stock_ledger l where l.company_id = x.company_id and l.item_kind = 'billet' and l.item_ref = x.cast_id and l.qty_g > 0
+            select sum(l.qty_g) from stock_ledger l where l.company_id = x.company_id and l.item_kind = 'billet' and l.item_ref = x.cast_id
+              and l.voucher_type in ('melt', 'melt_cancel', 'log_receipt')
           ), 0))
           else 0 end), 0) as g
         from ${castPlanLine} x left join ${cast} c on c.id = x.cast_id and c.company_id = x.company_id
@@ -181,8 +206,13 @@ export const foundryCastPlanRouter = {
 
     /** Accept a proposal line (the weight may be edited before it is accepted). */
     accept: actionProcedure("foundry.plan")
-      .input(z.object({ day, alloyId: id, kgG: grams, proposedG: z.number().int().min(0).max(500_000_000), note }))
+      .input(z.object({ day, alloyId: id, kgG: grams, proposedG: z.number().int().min(0).max(500_000_000), note, clientRequestId: clientRequestIdSchema.optional() }))
       .mutation(async ({ ctx, input }) => {
+        // A second tap or a retry with the same key answers the first line, never a second accepted line.
+        const { clientRequestId, ...content } = input;
+        const replay = await openFloorReplay(ctx.db, ctx.companyId, "foundry.castPlan.accept", clientRequestId, content);
+        const prior = priorAnswer<{ id: string }>(replay);
+        if (prior) return prior;
         const [a] = await ctx.db
           .select({ id: alloy.id, code: alloy.code, status: alloy.status })
           .from(alloy)
@@ -192,7 +222,7 @@ export const foundryCastPlanRouter = {
         if (a.status !== "active") bad(`Alloy ${a.code} is retired`);
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
         const rowId = crypto.randomUUID();
-        await atomicBatch(ctx.db, [
+        const won = await keyedBatch<{ id: string }>(ctx.db, ctx.companyId, replay, [
           ctx.db.insert(castPlanLine).values({
             id: rowId,
             companyId: ctx.companyId,
@@ -206,9 +236,17 @@ export const foundryCastPlanRouter = {
             note: input.note || null,
             createdBy: ctx.session.user.id,
           }),
-          auditInsert(ctx, { action: "foundry.castPlan.accept", subjectType: "cast_plan_line", subjectId: rowId, meta: { day: input.day, alloy: a.code, kgG: input.kgG, proposedG: input.proposedG } }),
-        ]);
-        return { id: rowId };
+          auditInsert(ctx, {
+            id: replay?.id,
+            action: "foundry.castPlan.accept",
+            subjectType: "cast_plan_line",
+            subjectId: rowId,
+            meta: { day: input.day, alloy: a.code, kgG: input.kgG, proposedG: input.proposedG, ...replayMeta(replay, clientRequestId, { id: rowId }) },
+          }),
+        ], (e) => {
+          throw e;
+        });
+        return won ?? { id: rowId, replayed: false };
       }),
 
     /** Change an accepted line's weight, day or note. An opened or dropped line stays as it is. */

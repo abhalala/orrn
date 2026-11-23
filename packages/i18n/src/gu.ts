@@ -860,6 +860,7 @@ const guBase = {
       billetsOnce: "એક રન પર એક cast. બીજી cast નવો રન છે.",
       shortStock: "આ cast માટે બિલેટ સ્ટોકમાં {kg} {massUnit} દેખાય છે. રન તોલેલા {massUnit} સાથે નોંધાશે; cast પર બિલેટ {short} {massUnit} ઓછા દેખાશે. સ્ટોક કેમ ઓછો છે તે કહો.",
       shortStockNoFigure: "આ cast માટે બિલેટ સ્ટોકમાં {kg} {massUnit} દેખાય છે. રન તોલેલા {massUnit} સાથે નોંધાશે; cast પર બિલેટ ઓછા દેખાશે. સ્ટોક કેમ ઓછો છે તે કહો.",
+      floorShort: "{cast}: {floor} પર {have} {massUnit} છે અને રનમાં {need} {massUnit} વપરાયા. રન નોંધાશે; બિલેટ અપાય કે ગણતરી થાય ત્યાં સુધી ફ્લોર પર સ્ટોક શૂન્યથી ઓછો દેખાશે.",
       pressedLength: "પ્રેસની લંબાઈ",
       pressedLengthHint: "વૈકલ્પિક. ભર્યા પછી જ પીસ ગુણ્યા કટ લંબાઈ તપાસાય છે.",
       pcsOrdered: "મોકલેલા {pcs} પીસ",
@@ -983,6 +984,7 @@ const guBase = {
         late_entry_unapproved: "પછીથી ભરેલો આ રન મંજૂરીની રાહ જુએ છે",
         downtime_open: "પહેલાં ખુલ્લો બંધ સમય પૂરો કરો",
         trial_result_missing: "die ટ્રાયલ પાસ થયો કે ફેલ તે કહો",
+        billets_not_homogenized: "6xxx cast ના હોમોજેનાઇઝ કર્યા વગરના લોગ પ્રેસમાં જઈ શકે નહીં; પહેલાં તેમને હોમોજેનાઇઝ કરો",
       },
       errors: {
         generic: "સર્વરે આ સ્વીકાર્યું નથી.",

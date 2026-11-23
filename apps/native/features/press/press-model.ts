@@ -111,6 +111,7 @@ export const GATE_KEYS: Record<CloseGateError, MessageKey> = {
   late_entry_unapproved: "press.console.gates.late_entry_unapproved",
   downtime_open: "press.console.gates.downtime_open",
   trial_result_missing: "press.console.gates.trial_result_missing",
+  billets_not_homogenized: "press.console.gates.billets_not_homogenized",
 };
 
 /** Start refusals (`canStartRun`): the phone shows why a run waits, never starts it. */

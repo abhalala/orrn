@@ -41,7 +41,23 @@ import {
 } from "../lib/dieFiles";
 import { nextDocNumber } from "../lib/docNumber";
 import { foundryAbort, isFoundryAbort, resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
-import { activePlaceSql, billetPlace, billetPlaces, castAt, castAtAbort, pressFloorFor, voucherRows, type BilletPlaceKind } from "../lib/foundryDepth";
+import {
+  activePlaceSql,
+  billetPlace,
+  billetPlaces,
+  castAt,
+  castAtAbort,
+  homogLeft,
+  homogPcsAbort,
+  keyedBatch,
+  openFloorReplay,
+  pressFloorFor,
+  priorAnswer,
+  voucherRows,
+  type BilletPlaceKind,
+} from "../lib/foundryDepth";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { replayMeta } from "../lib/requestReplay";
 import { bad, loadCast, type Ctx } from "../lib/foundryKit";
 import { companySettings } from "../lib/press";
 import { nextCompanySeq } from "../lib/sequence";
@@ -52,6 +68,14 @@ const pcs = z.number().int().min(1).max(100_000);
 const note = z.string().trim().max(300).optional();
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day like 2026-11-22");
 const LIST_MAX = 200;
+/** A floor write's replay key (AGENTS.md "Replay-safe floor writes"): a repeat answers the first result. */
+const clientRequestId = clientRequestIdSchema.optional();
+
+/** The request's content for its replay fingerprint: the input without its key. */
+function contentOf<T extends { clientRequestId?: string }>(input: T): Omit<T, "clientRequestId"> {
+  const { clientRequestId: _key, ...rest } = input;
+  return rest;
+}
 
 const num = (v: unknown) => Number(v ?? 0);
 const kgText = (g: number) => (g / 1000).toLocaleString("en-IN", { maximumFractionDigits: 3 });
@@ -109,15 +133,23 @@ async function loadBatch(ctx: Pick<Ctx, "db" | "companyId">, batchId: string) {
   return row;
 }
 
-/** Log pieces a cast has (melt logs or the receipt) and the pieces already on live batches. */
+/** Log pieces a cast has: its locked melts' logs, or the receipt of a bought-in cast. */
+function castLogsPcsSql(companyId: string, castId: string) {
+  return sql<number>`(coalesce((select sum(m.logs_pcs) from ${melt} m where m.company_id = ${companyId} and m.cast_id = ${castId} and m.status = 'locked' and m.cancelled_at is null), 0)
+    + coalesce((select sum(r.pcs) from ${logReceipt} r where r.company_id = ${companyId} and r.cast_id = ${castId}), 0))`;
+}
+
+/** Log pieces of a cast on batches that are not void. */
+function castOnBatchesPcsSql(companyId: string, castId: string) {
+  return sql<number>`coalesce((select sum(l.pcs) from ${homogLine} l join ${homogBatch} b on b.id = l.batch_id and b.company_id = l.company_id
+    where l.company_id = ${companyId} and l.cast_id = ${castId} and b.status <> 'void'), 0)`;
+}
+
+/** Log pieces a cast has and the pieces already on live batches. */
 async function castLogPieces(ctx: Ctx, castId: string): Promise<{ logs: number; onBatches: number }> {
-  const [r] = await ctx.db.all<{ melted: number; bought: number; batched: number }>(sql`
-    select
-      coalesce((select sum(m.logs_pcs) from ${melt} m where m.company_id = ${ctx.companyId} and m.cast_id = ${castId} and m.status = 'locked' and m.cancelled_at is null), 0) as melted,
-      coalesce((select sum(r.pcs) from ${logReceipt} r where r.company_id = ${ctx.companyId} and r.cast_id = ${castId}), 0) as bought,
-      coalesce((select sum(l.pcs) from ${homogLine} l join ${homogBatch} b on b.id = l.batch_id and b.company_id = l.company_id
-        where l.company_id = ${ctx.companyId} and l.cast_id = ${castId} and b.status <> 'void'), 0) as batched`);
-  return { logs: num(r?.melted) + num(r?.bought), onBatches: num(r?.batched) };
+  const [r] = await ctx.db.all<{ logs: number; batched: number }>(sql`
+    select ${castLogsPcsSql(ctx.companyId, castId)} as logs, ${castOnBatchesPcsSql(ctx.companyId, castId)} as batched`);
+  return { logs: num(r?.logs), onBatches: num(r?.batched) };
 }
 
 const homog = router({
@@ -236,10 +268,16 @@ const homog = router({
         await atomicBatch(ctx.db, [
           ctx.db.insert(homogLine).values({ id: lineId, companyId: ctx.companyId, batchId: b.id, castId: c.id, pcs: input.pcs, kgG: input.kgG, createdBy: ctx.session.user.id }),
           foundryAbort(ctx.db, ctx.companyId, sql`not exists (select 1 from ${homogBatch} hb where hb.id = ${b.id} and hb.company_id = ${ctx.companyId} and hb.status = 'loading')`),
+          // Two loads at once never put more pieces on batches than the cast has logs.
+          foundryAbort(ctx.db, ctx.companyId, sql`${castOnBatchesPcsSql(ctx.companyId, c.id)} > ${castLogsPcsSql(ctx.companyId, c.id)}`),
           auditInsert(ctx, { action: "foundry.homog.load", subjectType: "homog_batch", subjectId: b.id, meta: { number: b.number, cast: c.number, pcs: input.pcs, kgG: input.kgG } }),
         ]);
       } catch (e) {
         if (String((e as Error)?.message ?? e).includes("UNIQUE constraint failed: homog_line.batch_id, homog_line.cast_id")) bad(`${c.number} is already on ${b.number}`);
+        if (isFoundryAbort(e) && (await loadBatch(ctx, b.id)).status === "loading") {
+          const now = await castLogPieces(ctx, c.id);
+          bad(`${c.number} has ${Math.max(0, now.logs - now.onBatches)} logs left to homogenize`);
+        }
         abortOr(e, `${b.number} is no longer loading`);
       }
       return { id: lineId };
@@ -370,6 +408,8 @@ async function loadReceipt(ctx: Pick<Ctx, "db" | "companyId">, receiptId: string
   return r;
 }
 
+type ReceiveAnswer = { id: string; number: string; castId: string };
+
 const logs = router({
   receipts: companyProcedure
     .input(z.object({ limit: z.number().int().min(1).max(LIST_MAX).default(50) }).default({ limit: 50 }))
@@ -417,9 +457,14 @@ const logs = router({
         vendorCastNo: z.string().trim().max(40).optional(),
         challanNo: z.string().trim().max(40).optional(),
         note,
+        clientRequestId,
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Before any check or number: a retry of a receipt that landed answers it and burns no OL number.
+      const replay = await openFloorReplay(ctx.db, ctx.companyId, "foundry.logs.receive", input.clientRequestId, contentOf(input));
+      const prior = priorAnswer<ReceiveAnswer>(replay);
+      if (prior) return prior;
       const [v] = await ctx.db.select().from(vendor).where(and(eq(vendor.id, input.vendorId), eq(vendor.companyId, ctx.companyId))).limit(1);
       if (!v) throw new TRPCError({ code: "NOT_FOUND", message: "Vendor not found" });
       if (v.status !== "active") bad(`${v.name} is not an active vendor`);
@@ -434,8 +479,12 @@ const logs = router({
       const castId = crypto.randomUUID();
       const receiptId = crypto.randomUUID();
       const userId = ctx.session.user.id;
-      try {
-        await atomicBatch(ctx.db, [
+      const answer: ReceiveAnswer = { id: receiptId, number: doc.number, castId };
+      const won = await keyedBatch<ReceiveAnswer>(
+        ctx.db,
+        ctx.companyId,
+        replay,
+        [
           ctx.db.insert(cast).values({
             id: castId,
             companyId: ctx.companyId,
@@ -487,16 +536,24 @@ const logs = router({
           }),
           foundryAbort(ctx.db, ctx.companyId, sql`not ${activePlaceSql(ctx.companyId, store.id, ["billet_store"])}`),
           auditInsert(ctx, {
+            id: replay?.id,
             action: "foundry.logs.receive",
             subjectType: "log_receipt",
             subjectId: receiptId,
-            meta: { number: doc.number, vendor: v.name, alloy: a.code, pcs: input.pcs, kgG: input.kgG, vendorCastNo: input.vendorCastNo ?? null },
+            meta: {
+              number: doc.number,
+              vendor: v.name,
+              alloy: a.code,
+              pcs: input.pcs,
+              kgG: input.kgG,
+              vendorCastNo: input.vendorCastNo ?? null,
+              ...replayMeta(replay, input.clientRequestId, answer),
+            },
           }),
-        ]);
-      } catch (e) {
-        abortOr(e, `The billet store ${store.code} was retired; reactivate it first`);
-      }
-      return { id: receiptId, number: doc.number, castId };
+        ],
+        (e) => abortOr(e, `The billet store ${store.code} was retired; reactivate it first`),
+      );
+      return won ?? { ...answer, replayed: false };
     }),
 
   /** Step 1 of a mill test certificate upload (PDF or photo): a signed PUT into the die-files bucket. */
@@ -568,21 +625,19 @@ async function soleRack(ctx: Ctx): Promise<{ id: string; code: string }> {
   return racks[0]!;
 }
 
-/** Pieces of the cast cut so far (for the homogenizing gate). */
-async function cutPieces(ctx: Ctx, castId: string): Promise<number> {
-  const [r] = await ctx.db.select({ n: sql<number>`coalesce(sum(${billetCut.logPcs}), 0)` }).from(billetCut).where(and(eq(billetCut.companyId, ctx.companyId), eq(billetCut.castId, castId)));
-  return num(r?.n);
+/**
+ * The homogenizing gate for logs leaving the billet store (#41, fix round 1): on only when the plant
+ * setting is on and the cast is 6xxx. `pcs` = homogenized log pieces not yet cut or issued whole.
+ */
+async function homogGate(ctx: Ctx, c: { id: string; alloy: string | null; source: "melt" | "bought_in" }): Promise<{ on: boolean; pcs: number }> {
+  const settings = readFloorSettings(await companySettings(ctx.db, ctx.companyId));
+  const on = homogCutAllowance({ required: settings.foundry.requireHomogenizing, alloy: c.alloy, source: c.source, releasedPcs: 0, cutPcs: 0 }) !== null;
+  if (!on) return { on, pcs: Number.POSITIVE_INFINITY };
+  return { on, pcs: Math.max(0, (await homogLeft(ctx.db, ctx.companyId, c.id)).pcs) };
 }
 
-/** Pieces of the cast that came out of released homogenizing batches. */
-async function releasedHomogPieces(ctx: Ctx, castId: string): Promise<number> {
-  const [r] = await ctx.db
-    .select({ n: sql<number>`coalesce(sum(${homogLine.pcs}), 0)` })
-    .from(homogLine)
-    .innerJoin(homogBatch, and(eq(homogBatch.id, homogLine.batchId), eq(homogBatch.companyId, homogLine.companyId)))
-    .where(and(eq(homogLine.companyId, ctx.companyId), eq(homogLine.castId, castId), eq(homogBatch.status, "released")));
-  return num(r?.n);
-}
+type CutAnswer = { id: string; endG: number; yieldBp: number };
+type IssueAnswer = { id: string };
 
 const billets = router({
   /** Billet places (store, racks, press floors) with the press each floor serves, and the active press lines. */
@@ -634,9 +689,14 @@ const billets = router({
         toLocationId: id.optional(),
         endStreamId: id.optional(),
         note,
+        clientRequestId,
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // First: a retry of a cut that took the logs answers the first cut, not "only 0 kg at BILLET".
+      const replay = await openFloorReplay(ctx.db, ctx.companyId, "foundry.billets.cut", input.clientRequestId, contentOf(input));
+      const prior = priorAnswer<CutAnswer>(replay);
+      if (prior) return prior;
       const c = await loadCast(ctx, input.castId);
       if (c.status === "cancelled") bad(`${c.number} is cancelled`);
       const f = billetCutFigures(input);
@@ -647,9 +707,10 @@ const billets = router({
       }
       const from = input.fromLocationId ? await billetPlace(ctx.db, ctx.companyId, input.fromLocationId, ["billet_store"]) : await resolveBilletStore(ctx.db, ctx.companyId);
       const to = input.toLocationId ? await billetPlace(ctx.db, ctx.companyId, input.toLocationId, ["billet_rack"]) : await soleRack(ctx);
-      const settings = readFloorSettings(await companySettings(ctx.db, ctx.companyId));
-      const allowed = homogCutAllowance({ required: settings.foundry.requireHomogenizing, alloy: c.alloy, source: c.source, releasedPcs: await releasedHomogPieces(ctx, c.id), cutPcs: await cutPieces(ctx, c.id) });
-      if (allowed !== null && input.logPcs > allowed) bad(allowed === 0 ? `Homogenize the logs of ${c.number} before cutting them` : `Only ${allowed} logs of ${c.number} have been homogenized and not cut`);
+      const gate = await homogGate(ctx, c);
+      const homogRefusal = (allowed: number): never =>
+        bad(allowed === 0 ? `Homogenize the logs of ${c.number} before cutting them` : `Only ${allowed} logs of ${c.number} have been homogenized and not cut`);
+      if (gate.on && input.logPcs > gate.pcs) homogRefusal(gate.pcs);
       const have = await castAt(ctx.db, ctx.companyId, c.id, from.id);
       if (have < input.logG) bad(`Only ${kgText(Math.max(0, have))} kg of ${c.number} is at ${from.code}`);
       const stream = await chargeStream(ctx, input.endStreamId);
@@ -658,8 +719,12 @@ const billets = router({
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const rowId = crypto.randomUUID();
       const userId = ctx.session.user.id;
-      try {
-        await atomicBatch(ctx.db, [
+      const answer: CutAnswer = { id: rowId, endG: f.endG, yieldBp: f.yieldBp };
+      const won = await keyedBatch<CutAnswer>(
+        ctx.db,
+        ctx.companyId,
+        replay,
+        [
           ctx.db.insert(billetCut).values({
             id: rowId,
             companyId: ctx.companyId,
@@ -695,17 +760,36 @@ const billets = router({
           }),
           castAtAbort(ctx.db, ctx.companyId, c.id, from.id),
           foundryAbort(ctx.db, ctx.companyId, sql`not ${activePlaceSql(ctx.companyId, to.id, ["billet_rack"])}`),
+          // Two cuts at once never cut more logs than came out of released batches.
+          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id)] : []),
           auditInsert(ctx, {
+            id: replay?.id,
             action: "foundry.billets.cut",
             subjectType: "billet_cut",
             subjectId: rowId,
-            meta: { cast: c.number, machine: input.machine, logPcs: input.logPcs, logG: input.logG, billetPcs: input.billetPcs, billetG: input.billetG, endG: f.endG, yieldBp: f.yieldBp },
+            meta: {
+              cast: c.number,
+              machine: input.machine,
+              logPcs: input.logPcs,
+              logG: input.logG,
+              billetPcs: input.billetPcs,
+              billetG: input.billetG,
+              endG: f.endG,
+              yieldBp: f.yieldBp,
+              ...replayMeta(replay, input.clientRequestId, answer),
+            },
           }),
-        ]);
-      } catch (e) {
-        abortOr(e, `The logs of ${c.number} at ${from.code} changed; check the stock and cut again`);
-      }
-      return { id: rowId, endG: f.endG, yieldBp: f.yieldBp };
+        ],
+        async (e) => {
+          // Say which guard tripped, from what is true now.
+          if (isFoundryAbort(e) && gate.on) {
+            const now = await homogGate(ctx, c);
+            if (input.logPcs > now.pcs) homogRefusal(now.pcs);
+          }
+          abortOr(e, `The logs of ${c.number} at ${from.code} changed; check the stock and cut again`);
+        },
+      );
+      return won ?? { ...answer, replayed: false };
     }),
 
   cuts: companyProcedure
@@ -740,8 +824,11 @@ const billets = router({
 
   /** Billets to a press floor: −kg at the store or rack, +kg at the floor of that press. */
   issue: actionProcedure("foundry.billets")
-    .input(z.object({ castId: id, pressLineId: id, fromLocationId: id, pcs, kgG: grams, note }))
+    .input(z.object({ castId: id, pressLineId: id, fromLocationId: id, pcs, kgG: grams, note, clientRequestId }))
     .mutation(async ({ ctx, input }) => {
+      const replay = await openFloorReplay(ctx.db, ctx.companyId, "foundry.billets.issue", input.clientRequestId, contentOf(input));
+      const prior = priorAnswer<IssueAnswer>(replay);
+      if (prior) return prior;
       const c = await loadCast(ctx, input.castId);
       if (c.status === "cancelled") bad(`${c.number} is cancelled`);
       const [line] = await ctx.db.select({ id: pressLine.id, code: pressLine.code }).from(pressLine).where(and(eq(pressLine.id, input.pressLineId), eq(pressLine.companyId, ctx.companyId))).limit(1);
@@ -749,14 +836,23 @@ const billets = router({
       const floor = await pressFloorFor(ctx.db, ctx.companyId, line.id);
       if (!floor) bad(`Add a press floor location for ${line.code} first (Masters → Locations)`);
       const from = await billetPlace(ctx.db, ctx.companyId, input.fromLocationId, ["billet_store", "billet_rack"]);
+      // Whole logs from the store to a press pass the same homogenizing gate as a cut (a rack holds cut billets, already gated).
+      const gate = from.kind === "billet_store" ? await homogGate(ctx, c) : { on: false, pcs: Number.POSITIVE_INFINITY };
+      const homogRefusal = (allowed: number): never =>
+        bad(allowed === 0 ? `Homogenize the logs of ${c.number} before issuing them` : `Only ${allowed} logs of ${c.number} have been homogenized and not cut or issued`);
+      if (gate.on && input.pcs > gate.pcs) homogRefusal(gate.pcs);
       const have = await castAt(ctx.db, ctx.companyId, c.id, from.id);
       if (have < input.kgG) bad(`Only ${kgText(Math.max(0, have))} kg of ${c.number} is at ${from.code}`);
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const rowId = crypto.randomUUID();
       const userId = ctx.session.user.id;
-      try {
-        await atomicBatch(ctx.db, [
+      const answer: IssueAnswer = { id: rowId };
+      const won = await keyedBatch<IssueAnswer>(
+        ctx.db,
+        ctx.companyId,
+        replay,
+        [
           ctx.db.insert(billetIssue).values({ id: rowId, companyId: ctx.companyId, serverSeq: seq, castId: c.id, pressLineId: line.id, fromLocationId: from.id, toLocationId: floor!.id, pcs: input.pcs, kgG: input.kgG, issuedAt: at, note: input.note ?? null, createdBy: userId }),
           ...voucherRows(ctx.db, {
             companyId: ctx.companyId,
@@ -772,12 +868,24 @@ const billets = router({
           }),
           castAtAbort(ctx.db, ctx.companyId, c.id, from.id),
           foundryAbort(ctx.db, ctx.companyId, sql`not ${activePlaceSql(ctx.companyId, floor!.id, ["press_floor"])}`),
-          auditInsert(ctx, { action: "foundry.billets.issue", subjectType: "billet_issue", subjectId: rowId, meta: { cast: c.number, press: line.code, from: from.code, pcs: input.pcs, kgG: input.kgG } }),
-        ]);
-      } catch (e) {
-        abortOr(e, `The billets of ${c.number} at ${from.code} changed; check the stock and issue again`);
-      }
-      return { id: rowId };
+          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id)] : []),
+          auditInsert(ctx, {
+            id: replay?.id,
+            action: "foundry.billets.issue",
+            subjectType: "billet_issue",
+            subjectId: rowId,
+            meta: { cast: c.number, press: line.code, from: from.code, pcs: input.pcs, kgG: input.kgG, ...replayMeta(replay, input.clientRequestId, answer) },
+          }),
+        ],
+        async (e) => {
+          if (isFoundryAbort(e) && gate.on) {
+            const now = await homogGate(ctx, c);
+            if (input.pcs > now.pcs) homogRefusal(now.pcs);
+          }
+          abortOr(e, `The billets of ${c.number} at ${from.code} changed; check the stock and issue again`);
+        },
+      );
+      return won ?? { ...answer, replayed: false };
     }),
 
   issues: companyProcedure
@@ -872,8 +980,23 @@ const rejects = router({
 
   /** Reject logs or billets with a reason: −kg where they lay, +kg back as scrap to a return stream. */
   create: actionProcedure("foundry.reject")
-    .input(z.object({ kind: z.enum(foundryRejectKinds), castId: id, locationId: id, reasonCodeId: id, note: z.string().trim().max(500).optional(), pcs, kgG: grams, streamId: id.optional() }))
+    .input(
+      z.object({
+        kind: z.enum(foundryRejectKinds),
+        castId: id,
+        locationId: id,
+        reasonCodeId: id,
+        note: z.string().trim().max(500).optional(),
+        pcs,
+        kgG: grams,
+        streamId: id.optional(),
+        clientRequestId,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const replay = await openFloorReplay(ctx.db, ctx.companyId, "foundry.reject", input.clientRequestId, contentOf(input));
+      const prior = priorAnswer<{ id: string }>(replay);
+      if (prior) return prior;
       const c = await loadCast(ctx, input.castId);
       if (c.status === "cancelled") bad(`${c.number} is cancelled`);
       const place = await billetPlace(ctx.db, ctx.companyId, input.locationId, REJECT_PLACES[input.kind]);
@@ -905,14 +1028,18 @@ const rejects = router({
           ],
         }),
         castAtAbort(ctx.db, ctx.companyId, c.id, place.id),
-        auditInsert(ctx, { action: input.kind === "log" ? "foundry.reject.log" : "foundry.reject.billet", subjectType: "foundry_reject", subjectId: rowId, meta: { cast: c.number, at: place.code, reason: reason.code, pcs: input.pcs, kgG: input.kgG, stream: stream.code } }),
+        auditInsert(ctx, {
+          id: replay?.id,
+          action: input.kind === "log" ? "foundry.reject.log" : "foundry.reject.billet",
+          subjectType: "foundry_reject",
+          subjectId: rowId,
+          meta: { cast: c.number, at: place.code, reason: reason.code, pcs: input.pcs, kgG: input.kgG, stream: stream.code, ...replayMeta(replay, input.clientRequestId, { id: rowId }) },
+        }),
       ];
-      try {
-        await atomicBatch(ctx.db, statements);
-      } catch (e) {
-        abortOr(e, `The stock of ${c.number} at ${place.code} changed; check it and reject again`);
-      }
-      return { id: rowId };
+      const won = await keyedBatch<{ id: string }>(ctx.db, ctx.companyId, replay, statements, (e) =>
+        abortOr(e, `The stock of ${c.number} at ${place.code} changed; check it and reject again`),
+      );
+      return won ?? { id: rowId, replayed: false };
     }),
 });
 

@@ -49,6 +49,9 @@ describe("homogenizing", () => {
     expect(homogRecipeError({ ...HOMOG_DEFAULT_RECIPE, soakMin: 5 })).toBe("soak_range");
     expect(alloyNeedsHomogenizing("6063")).toBe(true);
     expect(alloyNeedsHomogenizing("1100")).toBe(false);
+    // Fix round 1: registry prefixes name the same 6xxx alloys; other series and look-alikes do not.
+    for (const code of ["AA6063", "aa-6061", "EN AW-6063", "AW 6082", "6063T5"]) expect({ code, gated: alloyNeedsHomogenizing(code) }).toEqual({ code, gated: true });
+    for (const code of ["AA1100", "EN AW-5052", "HE9", "60", "A6063X", ""]) expect({ code, gated: alloyNeedsHomogenizing(code) }).toEqual({ code, gated: false });
     expect(homogCutAllowance({ required: false, alloy: "6063", source: "melt", releasedPcs: 0, cutPcs: 0 })).toBeNull();
     expect(homogCutAllowance({ required: true, alloy: "1100", source: "melt", releasedPcs: 0, cutPcs: 0 })).toBeNull();
     expect(homogCutAllowance({ required: true, alloy: "6063", source: "melt", releasedPcs: 20, cutPcs: 5 })).toBe(15);

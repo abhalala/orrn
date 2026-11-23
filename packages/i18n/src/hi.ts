@@ -6012,6 +6012,7 @@ export const hi = {
         late_entry_unapproved: "बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है",
         downtime_open: "पहले खुली रुकावट बंद करें",
         trial_result_missing: "बताएं कि die ट्रायल पास हुआ या फेल",
+        billets_not_homogenized: "6xxx cast के बिना होमोजेनाइज़ किए लॉग प्रेस में नहीं जा सकते; पहले उन्हें होमोजेनाइज़ करें",
       },
       errors: {
         generic: "सर्वर ने इसे स्वीकार नहीं किया।",
@@ -6104,6 +6105,7 @@ export const hi = {
       billetsOnce: "एक रन पर एक cast। दूसरी cast नया रन है।",
       shortStock: "इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट {short} {massUnit} कम दिखेंगे। बताएं कि स्टॉक कम क्यों है।",
       shortStockNoFigure: "इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है।",
+      floorShort: "{cast}: {floor} पर {have} {massUnit} है और रन में {need} {massUnit} लगे। रन दर्ज होगा; बिलेट देने या गिनती होने तक फ़्लोर पर स्टॉक शून्य से कम दिखेगा।",
       pressedLength: "प्रेस की लंबाई",
       pressedLengthHint: "वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है।",
       pcsOrdered: "भेजे गए {pcs} पीस",

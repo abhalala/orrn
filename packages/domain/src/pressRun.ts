@@ -279,7 +279,9 @@ export type CloseGateError =
   | "time_unconfirmed"
   | "late_entry_unapproved"
   | "downtime_open"
-  | "trial_result_missing";
+  | "trial_result_missing"
+  /** XE FOUNDRY (#41): a press with no floor takes 6xxx logs from the billet store that were not homogenized (setting on). Added by the server. */
+  | "billets_not_homogenized";
 
 const validReason = (s: string | null | undefined) => typeof s === "string" && s.trim().length >= 1 && s.trim().length <= MAX_PRESS_REASON;
 

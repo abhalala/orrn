@@ -36,6 +36,7 @@ import {
 } from "./cast-plan-model";
 import { gToKgText } from "./melt-form";
 import { todayIn } from "./melt-times";
+import { useRequestKey } from "./request-key";
 import { ErrorLine, LoadFailed, Note, Panel, useTimeZone } from "./ui";
 
 /**
@@ -273,7 +274,16 @@ function PlanSheet({ mode, row, line, onClose }: { mode: "accept" | "edit"; row:
     refresh();
     done();
   };
-  const accept = useMutation(trpc.foundry.castPlan.accept.mutationOptions({ onSuccess: onSuccess(t("fdy2.plan.accept.saved")) }));
+  const acceptKey = useRequestKey();
+  const accepted = onSuccess(t("fdy2.plan.accept.saved"));
+  const accept = useMutation(
+    trpc.foundry.castPlan.accept.mutationOptions({
+      onSuccess: () => {
+        acceptKey.landed();
+        accepted();
+      },
+    }),
+  );
   const update = useMutation(trpc.foundry.castPlan.update.mutationOptions({ onSuccess: onSuccess(t("fdy2.plan.accept.updated")) }));
   const post = mode === "accept" ? accept : update;
   const check = checkPlanDraft(d);
@@ -282,7 +292,10 @@ function PlanSheet({ mode, row, line, onClose }: { mode: "accept" | "edit"; row:
   const submit = () => {
     setTried(true);
     if (!check.ok) return;
-    if (mode === "accept" && row?.alloyId) accept.mutate({ day: check.day, alloyId: row.alloyId, kgG: check.kgG, proposedG: row.castG, ...(check.note ? { note: check.note } : {}) });
+    if (mode === "accept" && row?.alloyId) {
+      const body = { day: check.day, alloyId: row.alloyId, kgG: check.kgG, proposedG: row.castG, ...(check.note ? { note: check.note } : {}) };
+      accept.mutate({ ...body, clientRequestId: acceptKey.keyFor(body) });
+    }
     if (mode === "edit" && line) update.mutate({ id: line.id, kgG: check.kgG, day: check.day, ...(check.note ? { note: check.note } : {}) });
   };
   return (

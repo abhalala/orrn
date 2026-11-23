@@ -25,6 +25,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { blankReceive, mtcFileOk, receiveInput, sizeParts, type ReceiveDraft, type ReceiveField } from "./logs-model";
 import { uploadMtc } from "./logs-mtc";
 import { todayIn } from "./melt-times";
+import { useRequestKey } from "./request-key";
 import { ErrorLine, FieldSelect, LoadFailed, useTimeZone } from "./ui";
 
 type Row = inferRouterOutputs<AppRouter>["foundry"]["logs"]["receipts"]["items"][number];
@@ -137,9 +138,11 @@ function ReceiveSheet({ open, onClose, onReceived }: { open: boolean; onClose():
   const [tried, setTried] = useState(false);
   const labels = useRef(new Map<string, string>());
   const set = (patch: Partial<ReceiveDraft>) => setForm((f) => ({ ...f, ...patch }));
+  const key = useRequestKey();
   const receive = useMutation(
     trpc.foundry.logs.receive.mutationOptions({
       onSuccess: (r) => {
+        key.landed();
         toast.success(t("fdy2.logs.form.received", { number: r.number }));
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.logs.pathKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.stock.pathKey() });
@@ -179,7 +182,7 @@ function ReceiveSheet({ open, onClose, onReceived }: { open: boolean; onClose():
             onClick={() => {
               setTried(true);
               if (!parsed.ok) return;
-              receive.mutate(parsed.input);
+              receive.mutate({ ...parsed.input, clientRequestId: key.keyFor(parsed.input) });
             }}
           >
             {t("fdy2.logs.form.save")}

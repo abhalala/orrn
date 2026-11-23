@@ -42,6 +42,7 @@ import {
   type IssueDraft,
   type StockPlace,
 } from "./billets-model";
+import { useRequestKey } from "./request-key";
 import { ErrorLine, FieldSelect, LoadFailed, Note, Panel } from "./ui";
 
 /**
@@ -221,9 +222,11 @@ function CutSheet({ open, onClose, places }: { open: boolean; onClose(): void; p
   const check = checkCut(d, logs);
   const preview = cutPreview(d);
   const issue = tried && !check.ok ? check.issue : null;
+  const key = useRequestKey();
   const post = useMutation(
     trpc.foundry.billets.cut.mutationOptions({
       onSuccess: () => {
+        key.landed();
         toast.success(t("fdy2.billets.cut.saved"));
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.billets.pathKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.stock.pathKey() });
@@ -253,7 +256,7 @@ function CutSheet({ open, onClose, places }: { open: boolean; onClose(): void; p
             data-testid="cut-save"
             onClick={() => {
               setTried(true);
-              if (check.ok) post.mutate(check.input);
+              if (check.ok) post.mutate({ ...check.input, clientRequestId: key.keyFor(check.input) });
             }}
           >
             {t("fdy2.billets.cut.save")}
@@ -348,9 +351,11 @@ function IssueSheet({ open, onClose, places, lines }: { open: boolean; onClose()
   const pick = rack.find((c) => c.value === d.cast);
   const check = checkIssue(d, rack);
   const issue = tried && !check.ok ? check.issue : null;
+  const key = useRequestKey();
   const post = useMutation(
     trpc.foundry.billets.issue.mutationOptions({
       onSuccess: () => {
+        key.landed();
         toast.success(t("fdy2.billets.issue.saved"));
         void queryClient.invalidateQueries({ queryKey: trpc.foundry.billets.pathKey() });
         done();
@@ -379,7 +384,7 @@ function IssueSheet({ open, onClose, places, lines }: { open: boolean; onClose()
             data-testid="issue-save"
             onClick={() => {
               setTried(true);
-              if (check.ok) post.mutate(check.input);
+              if (check.ok) post.mutate({ ...check.input, clientRequestId: key.keyFor(check.input) });
             }}
           >
             {t("fdy2.billets.issue.save")}

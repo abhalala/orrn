@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -421,7 +421,8 @@ export const companyRouter = router({
           const used = await ctx.db
             .select({ id: cast.id })
             .from(cast)
-            .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month)))
+            // A bought-in cast (OL-n) is not a cast of the plant's book (XE FOUNDRY fix round 1).
+            .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month), ne(cast.source, "bought_in")))
             .limit(1)
             .get();
           if (used) {

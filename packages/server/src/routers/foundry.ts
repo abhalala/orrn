@@ -103,6 +103,7 @@ import {
 } from "../lib/foundry";
 import { nameKey } from "../lib/purchase";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
+import { castAt, castAtSql, meltLogsPlace } from "../lib/foundryDepth";
 import { nextCompanySeq } from "../lib/sequence";
 import {
   diagnoseStoreCancel,
@@ -866,7 +867,8 @@ const castsRouter = router({
       let noCastThatMonth = sql`1 = 1`;
       if (input.start) {
         const [year, month] = input.start.period.split("-").map(Number) as [number, number];
-        noCastThatMonth = sql`not exists (select 1 from ${cast} c0 where c0.company_id = ${ctx.companyId} and c0.year = ${year} and c0.month = ${month})`;
+        // A bought-in cast (OL-n, its own series) is not a cast of the plant's book (fix round 1).
+        noCastThatMonth = sql`not exists (select 1 from ${cast} c0 where c0.company_id = ${ctx.companyId} and c0.year = ${year} and c0.month = ${month} and c0.source <> 'bought_in')`;
       }
       const landed = and(eq(company.id, ctx.companyId), noCastThatMonth);
       // Council round 1, A3: only this key, against the row's value when the write runs.
@@ -880,7 +882,11 @@ const castsRouter = router({
       ]);
       if (input.start) {
         const [year, month] = input.start.period.split("-").map(Number) as [number, number];
-        const [used] = await ctx.db.select({ id: cast.id }).from(cast).where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month))).limit(1);
+        const [used] = await ctx.db
+          .select({ id: cast.id })
+          .from(cast)
+          .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month), ne(cast.source, "bought_in")))
+          .limit(1);
         if (used) bad("That month already has a cast; the book can only be continued before the first cast");
       }
       return { start: input.start };
@@ -1781,6 +1787,11 @@ const meltsRouter = router({
       const billetsShort = () =>
         bad(`The press has already used billets of ${c.number}; this melt can no longer be cancelled`);
       if (Number(onHand?.g ?? 0) < m.logsG) billetsShort();
+      // XE FOUNDRY (fix round 1): the reversal posts at the billet store, which must still hold the logs.
+      const logsAt = await meltLogsPlace(ctx.db, companyId, m.id, c.id);
+      const storeShort = (haveG: number): never =>
+        bad(`Only ${fmtKg(Math.max(0, haveG))} kg of ${c.number} logs is left at ${logsAt!.code}; this melt can no longer be cancelled`);
+      if (logsAt && logsAt.haveG < m.logsG) storeShort(logsAt.haveG);
       const txns = await liveMeltDraws(ctx, m.id);
       const blocked = storeReturnBlock(txns);
       if (blocked) bad(blocked);
@@ -1808,6 +1819,7 @@ const meltsRouter = router({
               isNull(melt.cancelledAt),
               sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open' and oc.server_seq = ${seq})`,
               sql`${billetsSql} >= ${melt.logsG}`,
+              logsAt ? sql`${castAtSql(companyId, c.id, logsAt.id)} >= ${melt.logsG}` : undefined,
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} mm where mm.id = ${m.id} and mm.company_id = ${companyId} and mm.server_seq = ${seq} and mm.cancelled_at is not null)`),
@@ -1842,6 +1854,10 @@ const meltsRouter = router({
           if (castNow.status !== "open") bad(castStateMessage(castNow));
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) billetsShort();
+          if (logsAt) {
+            const haveNow = await castAt(ctx.db, companyId, c.id, logsAt.id);
+            if (haveNow < m.logsG) storeShort(haveNow);
+          }
           const drawsNow = await liveMeltDraws(ctx, m.id);
           const blockedNow = storeReturnBlock(drawsNow);
           if (blockedNow) bad(blockedNow);
