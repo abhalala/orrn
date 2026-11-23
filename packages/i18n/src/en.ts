@@ -6968,6 +6968,7 @@ export const en = {
       ageing__oven__update: "Oven changed",
       ageing__override__request: "Ageing release sent for approval",
       price__settings__update: "Price settings changed",
+      cost__settings__update: "Cost settings changed",
       price__rate__propose: "Rate change sent for approval",
       price__rate__activate: "Rate change approved",
       price__rate__reject: "Rate change rejected",

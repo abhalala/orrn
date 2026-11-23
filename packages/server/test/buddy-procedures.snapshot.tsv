@@ -116,6 +116,15 @@ complaints.investigate	mutation	deny	reversible
 complaints.list	query	allow	reversible
 complaints.open	mutation	deny	reversible
 complaints.reply	mutation	deny	reversible
+costing.capacity	query	allow	reversible
+costing.dies	query	allow	reversible
+costing.forecast	query	allow	reversible
+costing.orderLines	query	allow	reversible
+costing.profitability	query	allow	reversible
+costing.runs	query	allow	reversible
+costing.sections	query	allow	reversible
+costing.settings.get	query	allow	reversible
+costing.settings.update	mutation	deny	reversible
 count.cancel	mutation	allow	irreversible
 count.close	mutation	allow	irreversible
 count.get	query	allow	reversible

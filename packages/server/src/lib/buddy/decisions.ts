@@ -87,6 +87,9 @@ export const BUDDY_DECISIONS = {
     // person's grant (the same `price.view` / `order.price` gates). No pricing change is in `changes`,
     // so every pricing mutation is denied to the buddy until it is decided by name.
     pricing: allow,
+    // XE parity lane COST: reads (cost per kg, capacity, forecast, dies due) run under the person's grant
+    // (`cost.view`, and `order.price` for margins). The one change, the costing settings, is denied by name.
+    costing: allow,
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -220,6 +223,8 @@ export const BUDDY_DECISIONS = {
     "pricing.worksOrder.issue": deny("Numbers a works order for the floor (XE-PRICE default deny)."),
     "pricing.enquiries.create": deny("Writes an enquiry (XE-PRICE default deny until reviewed)."),
     "pricing.enquiries.update": deny("Changes an enquiry (XE-PRICE default deny until reviewed)."),
+    // XE parity lane COST: default deny.
+    "costing.settings.update": deny("Changes the plant's cost rates and the low-margin line (XE COST default deny)."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

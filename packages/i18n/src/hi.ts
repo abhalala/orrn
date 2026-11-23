@@ -6949,6 +6949,7 @@ export const hi = {
       ageing__oven__update: "ओवन बदला",
       ageing__override__request: "एजिंग रिलीज़ की मंज़ूरी मांगी",
       price__settings__update: "दाम की सेटिंग बदली",
+      cost__settings__update: "लागत की सेटिंग बदली",
       price__rate__propose: "रेट बदलाव की मंज़ूरी मांगी",
       price__rate__activate: "रेट बदलाव मंज़ूर हुआ",
       price__rate__reject: "रेट बदलाव नामंज़ूर हुआ",

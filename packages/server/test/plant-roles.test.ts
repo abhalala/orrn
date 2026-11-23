@@ -120,6 +120,9 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // XE-PRICE (lane PRICE).
   "price.view": ["admin", "office", "manager", "accountant"],
   "price.manage": ["admin", "office", "manager"],
+  // XE parity lane COST: admin reads cost but holds no order.price, so never a margin.
+  "cost.view": ["admin", "manager", "accountant"],
+  "cost.manage": ["admin", "manager"],
   "quote.manage": ["office", "manager"],
   "enquiry.manage": ["office", "manager"],
   // XE-BILL.

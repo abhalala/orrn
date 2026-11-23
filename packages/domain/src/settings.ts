@@ -38,6 +38,9 @@ export const COMPANY_MODULES = [
   // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
   "billing",
   "einvoice",
+  // XE parity lane COST: cost per kg, margins, capacity, forecast, die maintenance due. Opt-in: on only
+  // when the plant's list names it (`costingOn`; TODO(xe-bill): move to OPT_IN_MODULES once BILL merges).
+  "costing",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 

@@ -56,6 +56,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "ageing.writeOff",
   "ageing.writeOffUndo",
   "price.settings.update",
+  "cost.settings.update",
   "price.rate.propose",
   "price.rate.activate",
   "price.rate.reject",

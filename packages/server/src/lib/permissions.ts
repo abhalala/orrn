@@ -156,6 +156,9 @@ export const PLANT_ACTIONS = [
   "invoice.issue", // draft and issue invoices and credit notes, generate IRN and e-way bill
   "invoice.cancel", // ask to cancel an issued invoice (approval invoice_cancel)
   "payment.record", // record and void payments received
+  // XE parity lane COST (module `costing`, opt-in). Rates and margins also take `order.price`.
+  "cost.view", // cost per kg, capacity, forecast, dies due, the outlook page
+  "cost.manage", // costing settings: stage rates, low-margin line, press hours, die fallbacks
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -325,6 +328,10 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "invoice.issue": ["office", "manager", "accountant"],
   "invoice.cancel": ["office", "manager", "accountant"],
   "payment.record": ["office", "accountant", "manager"],
+  // XE parity lane COST: the people who run the plant's numbers read cost; the accountant reads it too.
+  // Margins (rate minus cost) also need `order.price`, so admin sees cost but never a margin.
+  "cost.view": ["admin", "manager", "accountant"],
+  "cost.manage": ["admin", "manager"],
   "support.request": [
     "admin",
     "manager",
