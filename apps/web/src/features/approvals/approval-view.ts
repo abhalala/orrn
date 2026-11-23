@@ -316,6 +316,11 @@ const PRICE_CHANGE_TITLES = {
   customer: "price.approval.subject.customer",
 } as const satisfies Record<string, MessageKey>;
 
+/** Halves as days: 3 is "1.5", 4 is "2". */
+function halfDaysText(halves: number): string {
+  return halves % 2 === 0 ? String(halves / 2) : `${Math.trunc(halves / 2)}.5`;
+}
+
 export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }, fmt?: Fmt): ApprovalSubject {
   const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
   const U = fmt ? massUnit(fmt) : "kg";
@@ -437,6 +442,26 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       vars: { number: text(m.number) },
       href: invoiceId ? `/billing/${invoiceId}` : null,
       openKey: invoiceId ? "approvals.openInvoice" : null,
+    };
+  }
+  if (row.kind === "leave_request") {
+    // XE-HR: who, which kind of leave, which days. Halves on the wire, days on screen. Decided here, read in full on /hr/leave.
+    const halves = num(m.halves) ?? 0;
+    const day = (v: unknown) => (typeof v === "string" ? (fmt ? fmt.day(v) : v) : "");
+    const from = day(m.from);
+    const to = day(m.to);
+    const vars = { name: text(m.name), code: text(m.code), kind: text(m.leaveKind), from, to, days: halfDaysText(halves), count: halves / 2 };
+    return { kindKey, titleKey: from === to ? "approvals.subject.leaveRequestOne" : "approvals.subject.leaveRequest", vars, href: "/hr/leave", openKey: "approvals.openLeave" };
+  }
+  if (row.kind === "payroll_run") {
+    // XE-HR: the month and the head count only; the money is never in an approval row.
+    const month = text(m.month);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.payrollRun",
+      vars: { month, headcount: num(m.headcount) ?? 0 },
+      href: /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? `/payroll/${month}` : null,
+      openKey: /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? "approvals.openPayroll" : null,
     };
   }
   if (row.kind === "melt_correct") {

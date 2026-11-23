@@ -210,3 +210,27 @@ describe("Orders and Dies from More for the packer-set roles", () => {
     expect(reachableTabs(null)).toEqual(["today"]);
   });
 });
+
+describe("More > My work (XE-HR)", () => {
+  const keys = (m: Me) => moreRows(m).map((r) => r.key);
+
+  test("shown only when the hr module is on and the person holds leave.apply; payroll alone does not show it", () => {
+    expect(keys(me("packer", ["hr"]))).toEqual(["dies", "customers", "me", "guides", "settings"]);
+    expect(keys(me("packer"))).not.toContain("me");
+    expect(keys(me("packer", ["payroll"]))).not.toContain("me");
+    expect(keys(me("packer", ["billing"]))).not.toContain("me");
+    expect(keys({ ...me("packer", ["hr"]), company: null })).not.toContain("me");
+  });
+
+  test("the row opens More's own My work screen and is named by the existing title key", () => {
+    const row = moreRows(me("manager", ["hr"])).find((r) => r.key === "me")!;
+    expect(row).toMatchObject({ href: "/more/me", labelKey: "native.hr.title", icon: "user" });
+  });
+
+  test("My work sits just before Guides, whatever else More lists", () => {
+    for (const role of ["manager", "supervisor", "office", "die_room"] as const) {
+      const k = keys(me(role, ["hr"]));
+      expect({ role, at: k.indexOf("me") }).toEqual({ role, at: k.indexOf("guides") - 1 });
+    }
+  });
+});

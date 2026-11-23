@@ -172,6 +172,36 @@ describe("approvalSubject", () => {
     expect(approvalSubject(row({ kind: "invoice_cancel", subjectId: "a/../b", meta: { number: "X" } })).href).toBeNull();
   });
 
+  test("leave_request (XE-HR): who, which leave, which days in halves over two; opens the leave screen", () => {
+    expect(approvalSubject(row({ kind: "leave_request", subjectId: "lr-1", meta: { employeeId: "e1", code: "E07", name: "Ramesh", leaveKind: "Casual", from: "2026-11-03", to: "2026-11-05", halves: 6 } }))).toEqual({
+      kindKey: "approvals.kind.leave_request",
+      titleKey: "approvals.subject.leaveRequest",
+      vars: { name: "Ramesh", code: "E07", kind: "Casual", from: "2026-11-03", to: "2026-11-05", days: "3", count: 3 },
+      href: "/hr/leave",
+      openKey: "approvals.openLeave",
+    });
+    // One day, and a half day: the single-day sentence and "0.5".
+    const one = approvalSubject(row({ kind: "leave_request", subjectId: "lr-2", meta: { code: "E07", name: "Ramesh", leaveKind: "Casual", from: "2026-11-03", to: "2026-11-03", halves: 1 } }));
+    expect(one.titleKey).toBe("approvals.subject.leaveRequestOne");
+    expect(one.vars).toMatchObject({ days: "0.5", count: 0.5 });
+    const { t } = createI18n("en");
+    expect(t(approvalSubject(row({ kind: "leave_request", subjectId: "lr-1", meta: { code: "E07", name: "Ramesh", leaveKind: "Casual", from: "2026-11-03", to: "2026-11-05", halves: 6 } })).titleKey, { name: "Ramesh", code: "E07", kind: "Casual", from: "3 Nov", to: "5 Nov", days: "3", count: 3 })).toBe("Ramesh (E07): Casual, 3 Nov to 5 Nov, 3 days");
+  });
+
+  test("payroll_run (XE-HR): the month and the head count, never money; opens that month", () => {
+    const s = approvalSubject(row({ kind: "payroll_run", subjectId: "run-1", meta: { month: "2026-11", headcount: 42, version: 2, netPaise: 12345600 } }));
+    expect(s).toEqual({
+      kindKey: "approvals.kind.payroll_run",
+      titleKey: "approvals.subject.payrollRun",
+      vars: { month: "2026-11", headcount: 42 },
+      href: "/payroll/2026-11",
+      openKey: "approvals.openPayroll",
+    });
+    expect(JSON.stringify(s)).not.toContain("12345600");
+    // A month that does not look like one is never a link.
+    expect(approvalSubject(row({ kind: "payroll_run", subjectId: "run-1", meta: { month: "../x", headcount: 1 } })).href).toBeNull();
+  });
+
   test("dispatch_late_entry (arch 52): the dispatch, opens it; the review sheet reads the time the truck left", async () => {
     const { lateDispatchOf, lateHours } = await import("./approval-view");
     const meta = { dispatchId: "d-7", dispatchCode: "D-0007", occurredAt: Date.UTC(2026, 10, 10, 1, 0), reason: "Line down" };

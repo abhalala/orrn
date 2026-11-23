@@ -102,11 +102,27 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // Billing and costing are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 2);
-    expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
-    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - 1);
-    expect(keys(visibleItems(ALL, me("owner", ["billing", "costing"])))).toHaveLength(ALL.length);
+    // Billing, Costing, People and Payroll are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
+    const optIn = ["billing", "costing", "people", "payroll", "mywork"];
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - optIn.length);
+    for (const k of optIn) expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain(k);
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - 4);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "costing", "hr", "payroll"])))).toHaveLength(ALL.length);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "hr", "payroll"])))).toEqual(expect.arrayContaining(["billing", "people", "payroll"]));
+  });
+
+  test("People, Payroll and My work follow the module and the role (XE-HR)", () => {
+    const more = (role: CompanyRole, modules: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules)));
+    // Supervisor marks attendance and approves leave; anyone with an employee card applies for leave.
+    expect(more("supervisor", ["hr"])).toEqual(expect.arrayContaining(["people", "mywork"]));
+    expect(more("supervisor", ["hr"])).not.toContain("payroll");
+    expect(more("accountant", ["hr", "payroll"])).toEqual(expect.arrayContaining(["people", "payroll"]));
+    expect(more("manager", ["hr", "payroll"])).toEqual(expect.arrayContaining(["people", "payroll", "mywork"]));
+    // Payroll without the module, and People without the module, stay hidden whatever the role.
+    expect(more("manager", ["hr"])).not.toContain("payroll");
+    expect(more("manager", ["payroll"])).not.toContain("people");
+    expect(more("viewer", ["hr", "payroll"])).not.toContain("payroll");
+    expect(more("viewer", ["hr", "payroll"])).not.toContain("people");
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {

@@ -7,15 +7,15 @@ import { extraTabs, visibleTabs } from "@/lib/nav";
 
 import { showsAgeing } from "@/features/ageing/model";
 
-export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast" | "furnaces" | "alloys" | "nitriding" | "makers" | "ageing";
+export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast" | "furnaces" | "alloys" | "nitriding" | "makers" | "ageing" | "me";
 
 export type MoreRow = {
   key: MoreRowKey;
   /** The More stack's own screens, or a tab screen reached from More (Orders, Dies). */
-  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast" | "/more/furnaces" | "/more/alloys" | "/more/nitriding" | "/more/makers" | "/more/ageing";
-  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title" | "foundry.masters.furnaces" | "foundry.masters.alloys" | "dieRoom.status.at_nitriding" | "dieRoom.makers.withMakers" | "nav.ageing";
+  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast" | "/more/furnaces" | "/more/alloys" | "/more/nitriding" | "/more/makers" | "/more/ageing" | "/more/me";
+  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title" | "foundry.masters.furnaces" | "foundry.masters.alloys" | "dieRoom.status.at_nitriding" | "dieRoom.makers.withMakers" | "nav.ageing" | "native.hr.title";
   /** A Feather glyph. */
-  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet" | "tool" | "percent" | "archive" | "truck" | "thermometer";
+  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet" | "tool" | "percent" | "archive" | "truck" | "thermometer" | "user";
   /** Company modules (lower case) any one of which keeps the row. No entry: always shown. */
   modules?: readonly string[];
 };
@@ -36,6 +36,7 @@ const ALLOYS_ROW: MoreRow = { key: "alloys", href: "/more/alloys", labelKey: "fo
 const NITRIDING_ROW: MoreRow = { key: "nitriding", href: "/more/nitriding", labelKey: "dieRoom.status.at_nitriding", icon: "archive" };
 const MAKERS_ROW: MoreRow = { key: "makers", href: "/more/makers", labelKey: "dieRoom.makers.withMakers", icon: "truck" };
 const AGEING_ROW: MoreRow = { key: "ageing", href: "/more/ageing", labelKey: "nav.ageing", icon: "thermometer" };
+const MY_WORK_ROW: MoreRow = { key: "me", href: "/more/me", labelKey: "native.hr.title", icon: "user" };
 const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.dies", icon: "disc" };
 
 /**
@@ -58,6 +59,16 @@ export function showsDieWorkLists(me: Pick<Me, "company"> | null | undefined): b
   return moduleOn && canAny(me as Me, ["die.card", "die.maker"]);
 }
 
+/** My work (XE-HR): attendance, leave and payslips for a person the office linked to a login: module `hr` on and leave.apply held. */
+export function showsMyWork(me: Pick<Me, "company"> | null | undefined): boolean {
+  return !!me?.company && anyModuleOn(me.company.modules, ["hr"]) && canAny(me as Me, ["leave.apply"]);
+}
+
+/** Payslips on the phone need the `payroll` module as well (the server refuses them otherwise). */
+export function showsMyPayslips(me: Pick<Me, "company"> | null | undefined): boolean {
+  return showsMyWork(me) && anyModuleOn(me?.company?.modules, ["payroll"]);
+}
+
 export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] {
   const modules = me?.company?.modules;
   // The die room has a Dies tab: More does not list a second "Dies" that opens the read-only list.
@@ -75,8 +86,13 @@ export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] 
   const withDieWork = me?.company && showsDieWorkLists(me) ? [NITRIDING_ROW, MAKERS_ROW, ...withMasters] : withMasters;
   // Ageing is the first item for anyone who works or reads the ovens (spec 5: under More, never a sixth tab).
   const withAgeing = me?.company && showsAgeing(me as Me) ? [AGEING_ROW, ...withDieWork] : withDieWork;
-  if (!extra.includes("orders")) return withAgeing;
+  // My work sits just before Guides, for a person who is on the HR list (module `hr`, leave.apply).
+  const withMine = me?.company && showsMyWork(me) ? (() => {
+    const g = withAgeing.findIndex((r) => r.key === "guides");
+    return g < 0 ? [...withAgeing, MY_WORK_ROW] : [...withAgeing.slice(0, g), MY_WORK_ROW, ...withAgeing.slice(g)];
+  })() : withAgeing;
+  if (!extra.includes("orders")) return withMine;
   // Orders sits right after Dies, before Customers.
-  const at = withAgeing.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
-  return [...withAgeing.slice(0, at + 1), ORDERS_ROW, ...withAgeing.slice(at + 1)];
+  const at = withMine.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
+  return [...withMine.slice(0, at + 1), ORDERS_ROW, ...withMine.slice(at + 1)];
 }

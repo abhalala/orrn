@@ -34,6 +34,10 @@ export default function MoreLayout() {
       <Stack.Screen name="ageing/index" options={{ title: t("nav.ageing") }} />
       <Stack.Screen name="ageing/[id]" options={{ title: t("nav.ageing") }} />
       <Stack.Screen name="ageing/load" options={{ title: t("ageing.load.title") }} />
+      <Stack.Screen name="me/index" options={{ title: t("native.hr.title") }} />
+      <Stack.Screen name="me/leave" options={{ title: t("native.hr.leave.title") }} />
+      <Stack.Screen name="me/payslips" options={{ title: t("native.hr.payslips.title") }} />
+      <Stack.Screen name="me/payslip/[id]" options={{ title: t("payroll.payslip.title") }} />
     </Stack>
   );
 }
