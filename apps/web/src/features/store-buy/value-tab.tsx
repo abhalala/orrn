@@ -1,4 +1,4 @@
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -62,7 +62,7 @@ function NowSection() {
           <span className="text-muted-foreground">{t("store2.money.noRate")}</span>
         ) : (
           <span data-no-truncate="">
-            {t("store2.money.perUnit", { rate: rupees(r.avgRatePaise), unit: unitShort(t, r.unit, 1000, fmt) })}
+            {t("store2.money.perUnit", { rate: rupees(r.avgRatePaise), unit: unitShort(t, r.unit, 1000) })}
           </span>
         ),
     },
@@ -107,7 +107,7 @@ function NowSection() {
 }
 
 function MonthSection() {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const monthId = `value-month-${useId().replace(/:/g, "")}`;
   const now = useMemo(() => new Date(), []);
@@ -118,9 +118,7 @@ function MonthSection() {
   const label = (m: string) => {
     const p = monthParts(m);
     if (!p) return m;
-    return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", { month: "long", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
-      new Date(Date.UTC(p.year, p.month - 1, 1)),
-    );
+    return t("store2.value.monthYear", { month: t(`store2.value.monthName.m${p.month}` as MessageKey), year: String(p.year) });
   };
 
   const pair = (qty: number, paise: number, unit: string) => (

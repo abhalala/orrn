@@ -285,7 +285,7 @@ export function PoFormPage({ id, indentId }: { id?: string; indentId?: string })
                       />
                     </Field>
                     <Field
-                      label={unit ? t("store2.po.form.rate", { unit: unitShort(t, unit, 1000, fmt) }) : t("store2.po.form.rateNoUnit")}
+                      label={unit ? t("store2.po.form.rate", { unit: unitShort(t, unit, 1000) }) : t("store2.po.form.rateNoUnit")}
                       hint={t("store2.po.form.rateHint")}
                       error={lineProblemText(line.key, "rate")}
                     >

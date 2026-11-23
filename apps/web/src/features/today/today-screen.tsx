@@ -10,6 +10,7 @@ import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
 import { TodayFoundryTile } from "@/features/foundry/today-tile";
+import { TodayStoreLowTile } from "@/features/store-buy/today-tile";
 import { TodayAgeingTile } from "@/features/ageing/today-tile";
 import { TodayQaTile } from "@/features/qa/flags";
 import { TodayPressTile } from "@/features/press/today-tile";
@@ -196,6 +197,9 @@ export function TodayScreen() {
       {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} alerts={data.pressAlerts} /> : null}
       <Can do="cast.enter">
         <TodayFoundryTile />
+      </Can>
+      <Can do="store.txn">
+        <TodayStoreLowTile />
       </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
       {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}

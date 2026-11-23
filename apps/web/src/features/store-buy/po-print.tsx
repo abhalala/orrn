@@ -144,7 +144,8 @@ export function PoPrintScreen({ id }: { id: string }) {
                 <td className="px-2 py-2 break-words">{l.itemName}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{formatQty(l.qtyMilli, l.unit, fmt)}</td>
                 <td className="px-2 py-2">{unitShort(t, l.unit, l.qtyMilli, fmt)}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{rupees(l.ratePaise)}</td>
+                {/* Rates are per kg (or per piece...) whatever unit the plant prints weights in. */}
+                <td className="px-2 py-2 text-right tabular-nums">{t("store2.money.perUnit", { rate: rupees(l.ratePaise), unit: unitShort(t, l.unit, 1000) })}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{bpText(l.gstBp)}%</td>
                 <td className="px-2 py-2 text-right tabular-nums">{rupees(l.amountPaise)}</td>
               </tr>
