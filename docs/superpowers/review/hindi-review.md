@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10230 screen strings in 55 groups, 45 guides with 866 strings.
+Counts: 10239 screen strings in 55 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7158,7 +7158,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### jw (305)
+### jw (314)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7214,6 +7214,12 @@ Please check, Lalubhai:
 | `refusal.noYard` | Pick the yard the bundles come back to | वह यार्ड चुनें जहाँ बंडल वापस आएँगे |
 | `refusal.processKindMismatch` | That process does not belong to this kind of step | यह प्रोसेस इस तरह के स्टेप का नहीं है |
 | `refusal.vendorLocation` | This place belongs to a job-work vendor; change it on the vendor | यह जगह एक जॉब वर्क वेंडर की है; इसे वेंडर पर बदलें |
+| `refusal.codeAmbiguous` | More than one bundle matches {code}; scan the full number | {code} से एक से ज़्यादा बंडल मिलते हैं; पूरा नंबर स्कैन करें |
+| `refusal.codeNotFound` | No bundle has the number {code} | {code} नंबर का कोई बंडल नहीं है |
+| `refusal.noBundles` | Scan at least one bundle | कम से कम एक बंडल स्कैन करें |
+| `refusal.tooManyBundles` | At most {n} bundles go on one step | एक स्टेप पर ज़्यादा से ज़्यादा {n} बंडल जाते हैं |
+| `refusal.rejectsLeaveOne` | Bundle {serial} has {pcs} pieces; rejects must leave at least one | बंडल {serial} में {pcs} पीस हैं; रिजेक्ट के बाद कम से कम एक बचना चाहिए |
+| `refusal.outputSection` | Pick the section of each new bundle | हर नए बंडल का सेक्शन चुनें |
 | `refusal.consumedInput` | Bundle {serial} was used up on {step}; it cannot come back | बंडल {serial} {step} पर इस्तेमाल हो चुका है; यह वापस नहीं आ सकता |
 | `subtitle` | Bundles out at vendors, the finishing line, the draw bench and fabrication | वेंडर के पास बंडल, फ़िनिशिंग लाइन, ड्रॉ बेंच और फ़ैब्रिकेशन |
 | `loadFailed` | Job work did not load. Check the connection and try again. | जॉब वर्क नहीं खुला। कनेक्शन देखें और फिर कोशिश करें। |
@@ -7416,6 +7422,9 @@ Please check, Lalubhai:
 | `receive.outputs` | New bundles | नए बंडल |
 | `receive.section` | Section | सेक्शन |
 | `receive.pickSection` | Pick the section | सेक्शन चुनें |
+| `receive.findSection` | Find another section | दूसरा सेक्शन खोजें |
+| `receive.findSectionHint` | Type at least two letters of the section code. A drawn or cut piece may be a new section. | सेक्शन कोड के कम से कम दो अक्षर लिखें। ड्रॉ या कटिंग के बाद पीस नया सेक्शन हो सकता है। |
+| `receive.sameSection` | Same as the input ({section}) | इनपुट जैसा ({section}) |
 | `receive.length` | Length | लंबाई |
 | `receive.pcs` | Pieces | पीस |
 | `receive.weight` | Weight | वज़न |

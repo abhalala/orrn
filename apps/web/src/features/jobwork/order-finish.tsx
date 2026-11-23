@@ -13,8 +13,7 @@ import { finishParts } from "./model";
 /**
  * Under an order line (row 33): has its finish been done? From `process.forOrder` (the server tallies the bundles per line):
  * finished, at the vendor, on the line, not finished yet. Shows nothing for a line that asks for no finish, for an order
- * with no such line, and while the module is off (the server refuses the read, which says nothing here). One request serves
- * every line of the order.
+ * with no such line, and while the job-work module is off (the query is not sent). One request serves every line of the order.
  */
 export function OrderLineFinish({ orderId, lineId }: { orderId: string; lineId: string }) {
   const { t } = useT();

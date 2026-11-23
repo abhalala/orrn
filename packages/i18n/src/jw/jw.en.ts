@@ -74,6 +74,12 @@ const jwBaseEn = {
     noYard: "Pick the yard the bundles come back to",
     processKindMismatch: "That process does not belong to this kind of step",
     vendorLocation: "This place belongs to a job-work vendor; change it on the vendor",
+    codeAmbiguous: "More than one bundle matches {code}; scan the full number",
+    codeNotFound: "No bundle has the number {code}",
+    noBundles: "Scan at least one bundle",
+    tooManyBundles: "At most {n} bundles go on one step",
+    rejectsLeaveOne: "Bundle {serial} has {pcs} pieces; rejects must leave at least one",
+    outputSection: "Pick the section of each new bundle",
     consumedInput: "Bundle {serial} was used up on {step}; it cannot come back",
   },
 };

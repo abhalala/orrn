@@ -4,6 +4,7 @@ import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Plus, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -81,6 +82,9 @@ export function ReceiveSheet({ data, open, onOpenChange }: { data: StepDetail; o
   const [passes, setPasses] = useState("");
   const [note, setNote] = useState("");
   const [tried, setTried] = useState(false);
+  // Draw bench and fabrication make a new size: their output may be any active section, found by search.
+  const [sectionSearch, setSectionSearch] = useState("");
+  const [extraDies, setExtraDies] = useState<{ id: string; code: string }[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,6 +101,8 @@ export function ReceiveSheet({ data, open, onOpenChange }: { data: StepDetail; o
     setMinutes("");
     setPasses(step.passes ? String(step.passes) : "");
     setNote("");
+    setSectionSearch("");
+    setExtraDies([]);
     setTried(false);
     // Only when the sheet opens (or the step changes under it).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,6 +116,24 @@ export function ReceiveSheet({ data, open, onOpenChange }: { data: StepDetail; o
     for (const i of inputs) if (!seen.has(i.dieId)) seen.set(i.dieId, i.sectionCode);
     return [...seen].map(([id, code]) => ({ id, code }));
   }, [inputs]);
+  const anySection = mode === "new" && (kind === "draw" || kind === "fabricate");
+  const searchText = sectionSearch.trim();
+  const found = useQuery({
+    ...trpc.die.list.queryOptions({ search: searchText, status: "active", limit: 20, offset: 0 }),
+    enabled: open && anySection && searchText.length >= 2,
+    staleTime: 30_000,
+  });
+  const dieOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const d of [...dies, ...extraDies]) if (!seen.has(d.id)) seen.set(d.id, d.code);
+    for (const d of found.data?.items ?? []) if (!seen.has(d.id)) seen.set(d.id, d.sectionCode);
+    return [...seen].map(([id, code]) => ({ id, code }));
+  }, [dies, extraDies, found.data]);
+  const pickDie = (n: number, dieId: string) => {
+    const hit = dieOptions.find((d) => d.id === dieId);
+    if (hit && !dies.some((d) => d.id === dieId)) setExtraDies((x) => (x.some((d) => d.id === dieId) ? x : [...x, hit]));
+    setOut(n, { dieId });
+  };
   const sameRes = useMemo(() => previewSame({ inputs: stillOut, drafts: same, scrapDraft: scrap, coat }), [stillOut, same, scrap, coat]);
   const newRes = useMemo(() => previewNew({ inputs, picked, outputs, rejectDraft: reject, scrapDraft: scrap, coat }), [inputs, picked, outputs, reject, scrap, coat]);
   const preview: ReturnPreview = mode === "same" ? sameRes.preview : newRes.preview;
@@ -232,16 +256,21 @@ export function ReceiveSheet({ data, open, onOpenChange }: { data: StepDetail; o
           </fieldset>
           <div className="flex min-w-0 flex-col gap-3">
             <p className="m-0 text-[14px] font-semibold">{t("jw.receive.outputs")}</p>
+            {anySection ? (
+              <Field label={t("jw.receive.findSection")} hint={t("jw.receive.findSectionHint")}>
+                <TextInput value={sectionSearch} maxLength={60} onChange={(e) => setSectionSearch(e.currentTarget.value)} data-testid="output-section-search" />
+              </Field>
+            ) : null}
             {outputs.map((o, n) => {
               const problem = newRes.preview.rowProblems[`out-${n}`];
               return (
                 <Panel key={n} className="flex min-w-0 flex-col gap-3 p-3 sm:p-3" data-testid="output-row">
                   <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                    {dies.length > 1 ? (
+                    {dies.length > 1 || anySection ? (
                       <Field label={t("jw.receive.section")} className="sm:col-span-2" error={tried && !o.dieId && newRes.lines.length > 0 ? t("jw.error.section") : undefined}>
-                        <FieldSelect value={o.dieId} onChange={(e) => setOut(n, { dieId: e.currentTarget.value })} data-testid="output-die">
-                          <option value="">{t("jw.receive.pickSection")}</option>
-                          {dies.map((d) => (
+                        <FieldSelect value={o.dieId} onChange={(e) => pickDie(n, e.currentTarget.value)} data-testid="output-die">
+                          <option value="">{dies.length === 1 ? t("jw.receive.sameSection", { section: dies[0]!.code }) : t("jw.receive.pickSection")}</option>
+                          {dieOptions.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.code}
                             </option>

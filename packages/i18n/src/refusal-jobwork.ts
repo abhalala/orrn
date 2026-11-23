@@ -43,6 +43,17 @@ export const JOBWORK_REFUSALS: readonly RefusalEntry[] = [
   { id: "jwNoYard", key: jw("noYard"), re: /^Pick the yard the bundles come back to$/ },
   { id: "jwProcessKindMismatch", key: jw("processKindMismatch"), re: /^That process does not belong to this kind of step$/ },
   { id: "jwVendorLocation", key: jw("vendorLocation"), re: /^This place belongs to a job-work vendor; change it on the vendor$/ },
+  { id: "jwCodeAmbiguous", key: jw("codeAmbiguous"), re: new RegExp(`^More than one bundle matches ${S}; scan the full number$`), vars: (m) => ({ code: m[1]! }) },
+  { id: "jwCodeNotFound", key: jw("codeNotFound"), re: new RegExp(`^No bundle has the number ${S}$`), vars: (m) => ({ code: m[1]! }) },
+  { id: "jwNoBundles", key: jw("noBundles"), re: /^Scan at least one bundle$/ },
+  { id: "jwTooManyBundles", key: jw("tooManyBundles"), re: /^At most (\d+) bundles go on one step$/, vars: (m) => ({ n: m[1]! }) },
+  {
+    id: "jwRejectsLeaveOne",
+    key: jw("rejectsLeaveOne"),
+    re: new RegExp(`^Bundle ${S} has (\\d+) pieces; rejects must leave at least one$`),
+    vars: (m) => ({ serial: m[1]!, pcs: m[2]! }),
+  },
+  { id: "jwOutputSection", key: jw("outputSection"), re: /^Pick the section of each new bundle$/ },
   { id: "jwConsumedInput", key: jw("consumedInput"), re: new RegExp(`^Bundle ${S} was used up on ${S}; it cannot come back$`), vars: (m) => ({ serial: m[1]!, step: m[2]! }) },
 ];
 

@@ -13,9 +13,20 @@ type Code = "BAD_REQUEST" | "CONFLICT" | "NOT_FOUND";
 type V = Record<string, string | number>;
 const s = (v: V, k: string) => String(v[k] ?? "");
 
-export type JobworkRefusalCode = ProcessRefusalCode | "vendor_code_taken" | "vendor_has_stock" | "consumed_input" | "vendor_location";
+export type JobworkRefusalCode =
+  | ProcessRefusalCode
+  | "vendor_code_taken"
+  | "vendor_has_stock"
+  | "consumed_input"
+  | "vendor_location"
+  | "code_ambiguous"
+  | "code_not_found"
+  | "no_bundles"
+  | "too_many_bundles"
+  | "rejects_leave_one"
+  | "output_section";
 
-/** Code to sentence. Variables: serial, step, code. */
+/** Code to sentence. Variables: serial, step, code, n, pcs. */
 export const JOBWORK_REFUSALS: Record<JobworkRefusalCode, (v: V) => { code: Code; message: string }> = {
   bundle_at_vendor: (v) => ({ code: "BAD_REQUEST", message: `Bundle ${s(v, "serial")} is out for job work on ${s(v, "step")}` }),
   bundle_in_process: (v) => ({ code: "BAD_REQUEST", message: `Bundle ${s(v, "serial")} is on process step ${s(v, "step")}` }),
@@ -38,6 +49,12 @@ export const JOBWORK_REFUSALS: Record<JobworkRefusalCode, (v: V) => { code: Code
   no_yard: () => ({ code: "BAD_REQUEST", message: "Pick the yard the bundles come back to" }),
   process_kind_mismatch: () => ({ code: "BAD_REQUEST", message: "That process does not belong to this kind of step" }),
   vendor_location: () => ({ code: "BAD_REQUEST", message: "This place belongs to a job-work vendor; change it on the vendor" }),
+  code_ambiguous: (v) => ({ code: "BAD_REQUEST", message: `More than one bundle matches ${s(v, "code")}; scan the full number` }),
+  code_not_found: (v) => ({ code: "NOT_FOUND", message: `No bundle has the number ${s(v, "code")}` }),
+  no_bundles: () => ({ code: "BAD_REQUEST", message: "Scan at least one bundle" }),
+  too_many_bundles: (v) => ({ code: "BAD_REQUEST", message: `At most ${s(v, "n")} bundles go on one step` }),
+  rejects_leave_one: (v) => ({ code: "BAD_REQUEST", message: `Bundle ${s(v, "serial")} has ${s(v, "pcs")} pieces; rejects must leave at least one` }),
+  output_section: () => ({ code: "BAD_REQUEST", message: "Pick the section of each new bundle" }),
   consumed_input: (v) => ({ code: "BAD_REQUEST", message: `Bundle ${s(v, "serial")} was used up on ${s(v, "step")}; it cannot come back` }),
 };
 

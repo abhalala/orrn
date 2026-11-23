@@ -121,11 +121,11 @@ async function pickBundles(ctx: Ctx, input: { bundleIds?: string[]; codes?: stri
   for (const code of input.codes ?? []) {
     const r = await resolveCode(ctx.db, ctx.companyId, code);
     if (r.kind === "bundle") out.push(r.bundleId);
-    else if (r.kind === "ambiguous") throw new TRPCError({ code: "BAD_REQUEST", message: `More than one bundle matches ${code}; scan the full number` });
-    else throw new TRPCError({ code: "NOT_FOUND", message: `Bundle not found: ${code}` });
+    else if (r.kind === "ambiguous") throw jobworkRefusal("code_ambiguous", { code });
+    else throw jobworkRefusal("code_not_found", { code });
   }
-  if (out.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Scan at least one bundle" });
-  if (out.length > MAX_STEP_BUNDLES) throw new TRPCError({ code: "BAD_REQUEST", message: `At most ${MAX_STEP_BUNDLES} bundles on one step` });
+  if (out.length === 0) throw jobworkRefusal("no_bundles");
+  if (out.length > MAX_STEP_BUNDLES) throw jobworkRefusal("too_many_bundles", { n: MAX_STEP_BUNDLES });
   const seen = new Set<string>();
   for (const b of out) {
     if (seen.has(b)) {
@@ -461,7 +461,7 @@ async function receiveStep(c: Ctx, input: z.infer<typeof receiveInput>, kinds: r
       if (seen.has(r.bundleId)) throw jobworkRefusal("bundle_twice", { serial: await serialOf(r.bundleId) });
       seen.add(r.bundleId);
       const i = await takeInput(r.bundleId);
-      if (r.rejectPcs >= i.pcs) throw new TRPCError({ code: "BAD_REQUEST", message: `Bundle ${i.serial} has ${i.pcs} pieces; rejects must leave at least one` });
+      if (r.rejectPcs >= i.pcs) throw jobworkRefusal("rejects_leave_one", { serial: i.serial, pcs: i.pcs });
       closing.push(i);
     }
     outputG = same.reduce((a, r) => a + r.weightG, 0);
@@ -620,7 +620,7 @@ async function receiveStep(c: Ctx, input: z.infer<typeof receiveInput>, kinds: r
       const line = lines.length === 1 ? lines[0]! : null;
       const castId = casts.length === 1 ? casts[0]! : null;
       for (const o of outs) {
-        if (!o.dieId && dies.length !== 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the section of each new bundle" });
+        if (!o.dieId && dies.length !== 1) throw jobworkRefusal("output_section");
       }
       const outDies = [...new Set(outs.map((o) => o.dieId ?? dies[0]!))];
       const foundDies = await c.db.select({ id: die.id }).from(die).where(and(eq(die.companyId, c.companyId), inArray(die.id, outDies)));
