@@ -14,11 +14,11 @@ import { validateShifts, type Shift } from "./shifts";
 // ---------------------------------------------------------------------------
 
 /**
- * Allowed `company.modules` keys (lower case). An empty list (or one naming only opt-in keys) means
- * every STANDARD module is on. The opt-in keys at the end are statutory modules (XE-BILL): they are on
- * only when the list names them, so a plant on `[]` never gets billing by default.
+ * The ten floor modules that existed before XE parity (owner rule 2026-11-23, "prod with modules off").
+ * Pinned as a literal: an empty list (or one naming only opt-in keys) switches on exactly these. Never add
+ * a key here; a new module goes after them in `COMPANY_MODULES` and is opt-in.
  */
-export const COMPANY_MODULES = [
+export const STANDARD_MODULES = [
   "customers",
   "dies",
   "bundles",
@@ -29,41 +29,74 @@ export const COMPANY_MODULES = [
   "ageing",
   "store",
   "purchase",
-  // XE parity lane REG (#18, #34): the complaint register.
+] as const;
+export type StandardModule = (typeof STANDARD_MODULES)[number];
+
+/**
+ * Allowed `company.modules` keys (lower case): the standard ones, then every XE module. Each XE key is
+ * OPT-IN: on only when the plant's list names it, so a real plant (Fourcubes included) gets none of them
+ * until the owner switches it on per plant in Godseye. The dev demo plant names them all (dev seed).
+ */
+export const COMPANY_MODULES = [
+  ...STANDARD_MODULES,
+  // XE parity lane REG (#18, #34): the complaint register (staff and party portal).
   "complaints",
   // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
   "qa",
-  // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
+  // XE-PRICE: price master, quotations, proforma, works order print, enquiries, order line price sheet.
   "pricing",
   // XE parity lane MAINT (#63 to #68): assets, preventive plans, work orders, spares, readings.
   "maintenance",
-  // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
+  // XE-BILL: tax invoice, GST, payments; e-invoice and e-way bill.
   "billing",
   "einvoice",
   // XE parity lane COST: cost per kg, margins, capacity, forecast, die maintenance due. Opt-in (OPT_IN_MODULES).
   "costing",
+  // XE ADM riding on old screens (PROD-GATE): plant lists (department, designation, packing mode, die
+  // category), bank accounts, transit insurance, number formats, approver rules, tool room extras.
+  "masters_plus",
+  // XE ADM: the plant document register.
+  "docs",
+  // XE REG: office registers, the owner's morning page and mail, billet need on a plan, recut reasons,
+  // order progress on the party portal.
+  "mis",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
 /**
- * Statutory modules: on only when `company.modules` names them (never by an empty list). `payroll` is
- * reserved here for wave 3: it joins `COMPANY_MODULES` when its lane builds it, and is opt-in from then.
+ * Opt-in modules: on only when `company.modules` names them (never by an empty list). Every key of
+ * `COMPANY_MODULES` that is not standard is here (a domain test pins it). `payroll`, `maintenance`,
+ * `costing` and `jobwork` are reserved for the open XE lanes: each joins `COMPANY_MODULES` when its lane
+ * builds it, and is opt-in from then.
  */
-export const OPT_IN_MODULES = ["billing", "einvoice", "payroll", "costing"] as const;
+export const OPT_IN_MODULES = [
+  "complaints",
+  "qa",
+  "pricing",
+  "billing",
+  "einvoice",
+  "masters_plus",
+  "docs",
+  "mis",
+  "payroll",
+  "maintenance",
+  "costing",
+  "jobwork",
+] as const;
 export type OptInModule = (typeof OPT_IN_MODULES)[number];
-
-/** The modules an empty list switches on (every module but the opt-in ones). */
-export const STANDARD_MODULES = COMPANY_MODULES.filter((m) => !(OPT_IN_MODULES as readonly string[]).includes(m)) as Exclude<
-  CompanyModule,
-  OptInModule
->[];
 
 export function isCompanyModule(value: unknown): value is CompanyModule {
   return typeof value === "string" && (COMPANY_MODULES as readonly string[]).includes(value);
 }
 
+export function isStandardModule(value: unknown): value is StandardModule {
+  return typeof value === "string" && (STANDARD_MODULES as readonly string[]).includes(value);
+}
+
+/** Opt-in: a listed opt-in key, or any module key that is not standard (belt and braces for a new key). */
 export function isOptInModule(value: unknown): value is OptInModule {
-  return typeof value === "string" && (OPT_IN_MODULES as readonly string[]).includes(value);
+  if (typeof value !== "string") return false;
+  return (OPT_IN_MODULES as readonly string[]).includes(value) || (isCompanyModule(value) && !isStandardModule(value));
 }
 
 /**
@@ -75,7 +108,7 @@ export function isOptInModule(value: unknown): value is OptInModule {
 export function isModuleOn(modules: readonly string[] | null | undefined, module: CompanyModule): boolean {
   const list = (modules ?? []).map((m) => m.trim().toLowerCase());
   if (isOptInModule(module)) return list.includes(module);
-  if (!list.some((m) => isCompanyModule(m) && !isOptInModule(m))) return true;
+  if (!list.some((m) => isStandardModule(m))) return true;
   return list.includes(module);
 }
 

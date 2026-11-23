@@ -2,6 +2,7 @@ import {
   castSeriesFirstSeq,
   formatDocNumberWith,
   isFormattableDocType,
+  isModuleOn,
   readDocFormats,
   type DocFormats,
   formatBundleNo,
@@ -75,7 +76,7 @@ type SeriesSettings = {
 };
 
 /** Read the tenant's numbering settings, falling back to defaults for anything malformed. */
-function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
+function readSettings(raw: Record<string, unknown> | null, modules: unknown = []): SeriesSettings {
   const tz = raw?.timezone;
   const timezone = typeof tz === "string" && isValidTimezone(tz) ? tz : DEFAULT_TIMEZONE;
   const pl = raw?.plSeries;
@@ -86,7 +87,14 @@ function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
     if (typeof prefix === "string" && prefix.length <= MAX_PL_PREFIX_LENGTH) plPrefix = prefix;
     if (typeof start === "number" && Number.isInteger(start) && start >= 1) plStart = start;
   }
-  return { timezone, plPrefix, plStart, castSeriesStart: readCastSeriesStart(raw?.castSeriesStart), docFormats: readDocFormats(raw?.docFormats) };
+  return {
+    timezone,
+    plPrefix,
+    plStart,
+    castSeriesStart: readCastSeriesStart(raw?.castSeriesStart),
+    // PROD-GATE: number formats are part of the opt-in `masters_plus`; off = the numbers as before.
+    docFormats: isModuleOn(Array.isArray(modules) ? (modules as string[]) : [], "masters_plus") ? readDocFormats(raw?.docFormats) : {},
+  };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -148,9 +156,9 @@ export async function allocateDocNumbers(
 ): Promise<DocNumberBlock> {
   if (!Number.isInteger(count) || count < 0) throw new RangeError(`Invalid count ${count}`);
 
-  const [co] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
+  const [co] = await db.select({ settings: company.settings, modules: company.modules }).from(company).where(eq(company.id, companyId)).limit(1);
   if (!co) throw new Error("Unable to allocate document number: unknown company");
-  const settings = readSettings(co.settings);
+  const settings = readSettings(co.settings, co.modules);
 
   const period = docPeriod(docType, at, settings.timezone);
   if (count === 0) return { period, seqs: [], numbers: [] };
@@ -200,9 +208,9 @@ export async function allocatePartyBundleNumbers(
   createdBy: string | null = null,
 ): Promise<DocNumberBlock> {
   if (!Number.isInteger(count) || count < 0) throw new RangeError(`Invalid count ${count}`);
-  const [co] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
+  const [co] = await db.select({ settings: company.settings, modules: company.modules }).from(company).where(eq(company.id, companyId)).limit(1);
   if (!co) throw new Error("Unable to allocate document number: unknown company");
-  const settings = readSettings(co.settings);
+  const settings = readSettings(co.settings, co.modules);
   const period = partyBundlePeriod(policy, zonedYmd(settings.timezone, at.getTime()));
   if (count === 0) return { period, seqs: [], numbers: [] };
   const seqs = await bumpSeries(db, { companyId, docType: "party_bundle", period, scope: customerId, start: 1, count, createdBy });

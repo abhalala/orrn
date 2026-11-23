@@ -29,6 +29,7 @@ import {
 } from "@orrn/domain";
 import { buddyRevokePlantStatements, buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
+import { assertModule } from "../lib/moduleGate";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { companyTimezone, DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow, zonedYmd } from "../lib/dayWindow";
@@ -366,6 +367,8 @@ export const companyRouter = router({
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
       if (input.morningSummary !== undefined) {
+        // PROD-GATE: the morning mail belongs to the opt-in `mis` module.
+        await assertModule(ctx, "mis");
         const was = readMorningSummarySettings(row.settings?.morningSummary);
         patch.morningSummary = {
           enabled: input.morningSummary.enabled ?? was.enabled,

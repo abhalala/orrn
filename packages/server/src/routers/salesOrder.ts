@@ -5,7 +5,7 @@
  * order lines carry no prices, and the floor needs them (Pack suggests the open line for a section,
  * Dispatch links bundles to lines; ruling PL8-R1).
  */
-import { confirmBlockers } from "@orrn/domain";
+import { confirmBlockers, isModuleOn } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
@@ -43,6 +43,7 @@ import {
   type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
+import { companyModules } from "../lib/moduleGate";
 import { priceRate } from "@orrn/db/schema/pricing";
 import { planOrderEditPricing, pricingCompany, pricingToday } from "../lib/pricing";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
@@ -1017,7 +1018,8 @@ export const salesOrderRouter = router({
       const floor = await companyFloor(ctx.db, ctx.companyId);
       // Rates only for `order.price` holders while the plant shows prices on orders (C23).
       const showRates = canPrice(ctx.role) && floor.floor.priceOnSalesOrder;
-      const extras = await orderDetailExtras(ctx.db, ctx.companyId, order, { showRates });
+      const pricingOn = showRates && isModuleOn(await companyModules(ctx.db, ctx.companyId), "pricing");
+      const extras = await orderDetailExtras(ctx.db, ctx.companyId, order, { showRates, pricingOn });
       const totals = sumBalances(lines);
       const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
       return {

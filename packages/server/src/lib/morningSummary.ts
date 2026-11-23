@@ -17,7 +17,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { auditLog } from "@orrn/db/schema/audit";
 import { user } from "@orrn/db/schema/auth";
 import { company, membership } from "@orrn/db/schema/tenant";
-import { morningSummaryDue, morningSummaryLines, readMorningSummarySettings } from "@orrn/domain";
+import { isModuleOn, morningSummaryDue, morningSummaryLines, readMorningSummarySettings } from "@orrn/domain";
 
 import type { OrrnDb } from "./atomic";
 import { companyTimezone, zonedOffsetMs, zonedYmd } from "./dayWindow";
@@ -40,11 +40,13 @@ export type MorningRunResult = { companyId: string; outcome: "sent" | "already" 
 
 export async function runMorningSummaries(db: OrrnDb, at: Date, send: MorningSender, log: Log = console): Promise<MorningRunResult[]> {
   const plants = await db
-    .select({ id: company.id, name: company.name, settings: company.settings })
+    .select({ id: company.id, name: company.name, settings: company.settings, modules: company.modules })
     .from(company)
     .where(and(eq(company.status, "active"), sql`json_extract(${company.settings}, '$.morningSummary.enabled') = 1`));
   const out: MorningRunResult[] = [];
   for (const p of plants) {
+    // PROD-GATE: the morning mail is part of the opt-in `mis` module; a plant without it gets none.
+    if (!isModuleOn(Array.isArray(p.modules) ? p.modules : [], "mis")) continue;
     const settings = (p.settings ?? {}) as Record<string, unknown>;
     const s = readMorningSummarySettings(settings.morningSummary);
     const tz = companyTimezone(settings);

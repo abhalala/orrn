@@ -15,7 +15,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 
 import type { Context } from "../context";
 import { auditInsert } from "../lib/audit";
-import { diffPackingListRevisions, type PlDiffRow } from "@orrn/domain";
+import { diffPackingListRevisions, isModuleOn, type PlDiffRow } from "@orrn/domain";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb } from "../lib/atomic";
 import { batchAbortUnless, isBatchAbort } from "../lib/orders";
 import { errorText, salesOrderLineCode } from "../lib/pack";
@@ -25,6 +25,7 @@ import { nextDocNumber } from "../lib/docNumber";
 import { buildPlSnapshotV2, type PlBuildInput, type PlSnapshotV2 } from "../lib/packingListSnapshot";
 import { nextCompanySeq } from "../lib/sequence";
 import { plantPlExtras } from "../lib/plantPrint";
+import { companyModules } from "../lib/moduleGate";
 import { actionProcedure, companyProcedure, router } from "../index";
 
 /** The dispatch fields a packing list snapshot reads (a full `dispatch` row satisfies it). */
@@ -214,8 +215,12 @@ export async function packingListWriteBatch(
   });
   const built = buildPlSnapshotV2({ ...input, revision, showBranding, showOriginalSo });
   // XE ADM #21, #76: mode of packing and transit insurance from the plant masters, frozen on the snapshot.
-  const extras = await plantPlExtras(db, opts.companyId, [opts.dispatchRow.id, ...(opts.extraDispatches ?? []).map((x) => x.id)], built.header.date, input.company.settings);
-  const snapshot: PlSnapshotV2 = { ...built, header: { ...built.header, packingMode: extras.packingMode, transitInsurance: extras.transitInsurance } };
+  // Opt-in `masters_plus` (PROD-GATE): with it off the header carries neither key, exactly as before.
+  let snapshot: PlSnapshotV2 = built;
+  if (isModuleOn(await companyModules(db, opts.companyId), "masters_plus")) {
+    const extras = await plantPlExtras(db, opts.companyId, [opts.dispatchRow.id, ...(opts.extraDispatches ?? []).map((x) => x.id)], built.header.date, input.company.settings);
+    snapshot = { ...built, header: { ...built.header, packingMode: extras.packingMode, transitInsurance: extras.transitInsurance } };
+  }
   const code = opts.plNumber;
 
   const statements: BatchItem<"sqlite">[] = [

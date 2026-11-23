@@ -15,8 +15,9 @@ export const MODULE_OFF_MESSAGE = "That module is not on for this plant";
 
 /**
  * Top-level router key -> module. Every MUTATION under these routers passes `assertModule` in
- * `companyProcedure` (router level, so a procedure added later is covered without remembering).
- * Reads are not gated: the floor reads masters across modules (a packer picks the die inside pack
+ * `companyProcedure` (router level, so a procedure added later is covered without remembering), and so
+ * does every READ of an opt-in module (`isOptInModule`: every XE key; owner rule 2026-11-23). Reads of a
+ * standard module are not gated: the floor reads masters across modules (a packer picks the die inside pack
  * with `bundles` on even when `dies` is off; platform spec §4). A direct `die.create` still needs
  * `dies`. Routers that land later register here (append-only): press, ageing, plans, dieRoom.
  */
@@ -40,8 +41,11 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   vendor: "purchase",
   // XE parity lane REG: the complaint register (reads call assertModule too, routers/complaint.ts).
   complaints: "complaints",
-  // XE ADM: tooling, receive inspections, die cost and category ride the die room module.
-  toolRoom: "dies",
+  // XE ADM (PROD-GATE): the plant masters and rules, and the tool room extras (tooling, receive
+  // inspections, die cost and category), are opt-in `masters_plus`; the register is `docs`.
+  masters: "masters_plus",
+  toolRoom: "masters_plus",
+  docs: "docs",
   // XE parity lane QA.
   qa: "qa",
   // XE-PRICE: price master, quotes, proforma, works order, enquiries (routers/pricing.ts).
@@ -63,6 +67,15 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
 export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "stock.move": "bundles",
   "stock.openingBalance": "bundles",
+  // XE REG (PROD-GATE): the office registers and the owner's morning page ride `reports`; opt-in `mis`.
+  "reports.rejections": "mis",
+  "reports.recuts": "mis",
+  "reports.wip": "mis",
+  "reports.planActual": "mis",
+  "reports.unpacked": "mis",
+  "reports.materials": "mis",
+  "reports.billetNeed": "mis",
+  "reports.morning": "mis",
 };
 
 /**

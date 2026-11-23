@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 
 import type { Context } from "./context";
 import { errorMetaOf, TRPCMetaError } from "./lib/errorMeta";
+import { isOptInModule } from "@orrn/domain";
+
 import { assertModule, moduleForPath } from "./lib/moduleGate";
 import { PORTAL_REFUSALS, resolvePortalAccess } from "./lib/portal";
 import { COMPANY_HEADER, IMPERSONATE_HEADER } from "./lib/tenantContext";
@@ -103,10 +105,11 @@ export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, ty
   await assertStrongSignIn({ ...ctx, companyId: ctx.companyId, membership: ctx.membership });
 
   // FP-PF-07: a mutation of a module that is off for this plant is refused at the router level
-  // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads are not gated.
-  if (type === "mutation") {
-    const module = moduleForPath(path);
-    if (module) await assertModule({ db: ctx.db, companyId: ctx.companyId }, module);
+  // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads of a standard module are not gated;
+  // reads of an opt-in (XE) module are (PROD-GATE, owner rule 2026-11-23): off means nothing is served.
+  const module = moduleForPath(path);
+  if (module && (type === "mutation" || isOptInModule(module))) {
+    await assertModule({ db: ctx.db, companyId: ctx.companyId }, module);
   }
 
   return next({
