@@ -170,6 +170,13 @@ export async function discardDraft(ctx: BillCtx, invoiceId: string): Promise<voi
 
 export type CreditInput = { againstInvoiceId: string; reason: "return" | "rate_difference" | "other"; note: string; lines: CreditLineInput[] };
 
+/**
+ * Credit note states that still reduce the invoice. `cancel_pending` counts (fix round 2): the note is live at
+ * the IRP until its cancel lands, and it goes back to issued if the cancel never does.
+ */
+const LIVE_CREDIT = ["issued", "irn_pending", "cancel_pending"] as const;
+const LIVE_CREDIT_SQL = sql.raw(`('issued', 'irn_pending', 'cancel_pending')`);
+
 async function creditedSoFar(db: OrrnDb, companyId: string, invoiceId: string, exceptId?: string): Promise<number> {
   const [r] = await db
     .select({ n: sql<number>`coalesce(sum(${invoice.totalPaise}), 0)` })
@@ -179,7 +186,7 @@ async function creditedSoFar(db: OrrnDb, companyId: string, invoiceId: string, e
         eq(invoice.companyId, companyId),
         eq(invoice.againstInvoiceId, invoiceId),
         eq(invoice.kind, "credit_note"),
-        inArray(invoice.status, ["issued", "irn_pending"]),
+        inArray(invoice.status, [...LIVE_CREDIT]),
         exceptId ? sql`${invoice.id} <> ${exceptId}` : undefined,
       ),
     );
@@ -316,7 +323,7 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
       ? sql`${sourcesStillCurrent(ctx.companyId, row.id)} and ${noForeignNumber(ctx.companyId, row.id)}`
       : sql`exists (select 1 from invoice o where o.id = ${row.againstInvoiceId} and o.company_id = ${ctx.companyId} and o.status = 'issued')
           and (select coalesce(sum(c.total_paise), 0) from invoice c where c.company_id = ${ctx.companyId} and c.against_invoice_id = ${row.againstInvoiceId}
-                and c.kind = 'credit_note' and c.status in ('issued', 'irn_pending')) + ${snapshot.totals.totalPaise}
+                and c.kind = 'credit_note' and c.status in ${LIVE_CREDIT_SQL}) + ${snapshot.totals.totalPaise}
               <= (select o.total_paise from invoice o where o.id = ${row.againstInvoiceId})`;
   const landed = issuedLanded(ctx.companyId, row.id, seq);
   const numberOf = sql`(select i.number from invoice i where i.id = ${row.id})`;
@@ -445,7 +452,7 @@ export async function requestCancel(ctx: BillCtx, invoiceId: string, reason: str
 /** SQL: the document `invoiceId` may be cancelled at `atMs` (mirrors `cancelRefusal`, checked at write time). */
 function cancellableSql(companyId: string, invoiceId: string, atMs: number): SQL {
   return sql`exists (select 1 from invoice i where i.id = ${invoiceId} and i.company_id = ${companyId} and i.status in ('issued', 'irn_pending')
-      and not exists (select 1 from invoice c where c.company_id = ${companyId} and c.against_invoice_id = i.id and c.kind = 'credit_note' and c.status in ('issued', 'irn_pending'))
+      and not exists (select 1 from invoice c where c.company_id = ${companyId} and c.against_invoice_id = i.id and c.kind = 'credit_note' and c.status in ${LIVE_CREDIT_SQL})
       and not exists (select 1 from payment_allocation pa join payment p on p.id = pa.payment_id where pa.company_id = ${companyId} and pa.invoice_id = i.id and p.status = 'active')
       and (i.irn_status <> 'generated' or (i.ewb_status <> 'active' and i.irn_generated_at > ${atMs - 24 * 60 * 60 * 1000})))`;
 }
@@ -465,7 +472,8 @@ export const invoiceCancelDecision: ApprovalApplier = (ctx, row, decision) => {
   const landed = sql`exists (select 1 from approval a where a.id = ${row.id} and a.company_id = ${companyId} and a.server_seq = ${seq} and a.status = ${decision})`;
   const at = ctx.decidedAt.getTime();
   const cancelled = sql`exists (select 1 from invoice i where i.id = ${row.subjectId} and i.company_id = ${companyId} and i.status = 'cancelled' and i.server_seq = ${seq})`;
-  const needsIrp = sql`(${invoice.irnStatus} = 'generated' or ${invoice.irnCallAt} is not null)`;
+  // A live IRN, or a call whose outcome is unknown (fix round 2: a later refusal never clears that).
+  const needsIrp = sql`(${invoice.irnStatus} = 'generated' or ${invoice.irnUnknownSince} is not null)`;
   return [
     billingAbortUnless(db, companyId, sql`not (${landed}) or ${cancellableSql(companyId, row.subjectId, at)}`),
     db
@@ -517,14 +525,15 @@ const paidSql = (companyId: string, invoiceIdSql: SQL) =>
        where pa.company_id = ${companyId} and pa.invoice_id = ${invoiceIdSql} and p.status = 'active'), 0)`;
 const creditedSql = (companyId: string, invoiceIdSql: SQL) =>
   sql`coalesce((select sum(c.total_paise) from invoice c where c.company_id = ${companyId} and c.against_invoice_id = ${invoiceIdSql}
-       and c.kind = 'credit_note' and c.status in ('issued', 'irn_pending')), 0)`;
+       and c.kind = 'credit_note' and c.status in ${LIVE_CREDIT_SQL}), 0)`;
 
 /** Issued invoices with what is paid and credited, for one customer or all. */
-export async function receivableInvoices(db: OrrnDb, companyId: string, customerId?: string): Promise<(ReceivableInvoice & { customerId: string })[]> {
+export async function receivableInvoices(db: OrrnDb, companyId: string, customerId?: string): Promise<(ReceivableInvoice & { customerId: string; status: string })[]> {
   const rows = await db
     .select({
       id: invoice.id,
       customerId: invoice.customerId,
+      status: invoice.status,
       number: invoice.number,
       invoiceDate: invoice.invoiceDate,
       totalPaise: invoice.totalPaise,
@@ -570,6 +579,8 @@ export async function recordPayment(ctx: BillCtx, input: PaymentInput): Promise<
     for (const a of input.allocations) {
       const inv = byId.get(a.invoiceId);
       if (!inv) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      // Still owed while its cancel waits for the IRP, but it takes no payment (the cancel would not see it).
+      if (inv.status !== "issued") throw new TRPCError({ code: "BAD_REQUEST", message: `${inv.number} is being cancelled: it takes no payment` });
       if (a.amountPaise > inv.totalPaise - inv.paidPaise - inv.creditedPaise) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `More than what is due on ${inv.number}` });
       }

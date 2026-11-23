@@ -23112,6 +23112,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "irn_unknown_since": {
+          "name": "irn_unknown_since",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "irn_error": {
           "name": "irn_error",
           "type": "text",

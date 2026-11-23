@@ -641,6 +641,7 @@ const receivablesRouter = router({
     .query(async ({ ctx, input }) => {
       const list = await receivableInvoices(ctx.db, ctx.companyId, input.customerId);
       return list
+        .filter((i) => i.status === "issued") // a cancel_pending invoice takes no payment
         .map((i) => ({ id: i.id, number: i.number, invoiceDate: i.invoiceDate, totalPaise: i.totalPaise, duePaise: invoiceOutstanding(i) }))
         .filter((i) => i.duePaise > 0)
         .sort((a, b) => a.invoiceDate.localeCompare(b.invoiceDate));

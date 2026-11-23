@@ -12,7 +12,7 @@ import { ewbRequired, irnCancelRefusal } from "@orrn/domain";
 
 import { router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { cancelEwb, cancelIrn, generateEwb, generateIrn, refreshFailedIrn, resetFailedIrn } from "../lib/billing/einvoiceFlow";
+import { cancelEwb, cancelIrn, generateEwb, generateIrn, portalCheckOpen, recordPortalCheck, refreshFailedIrn, resetFailedIrn } from "../lib/billing/einvoiceFlow";
 import { einvoiceProcedure } from "../lib/billing/gate";
 import { currentIrpAdapter } from "../lib/billing/irp";
 
@@ -56,6 +56,8 @@ export const einvoiceRouter = router({
         canCancelIrn: row.status === "cancel_pending" && (row.irnStatus !== "generated" || irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now, ewbActive: row.ewbStatus === "active" }) === null),
         /** The IRN is past its 24 h: the only way back is a credit note (the screen says so). */
         irnWindowClosed: row.irnStatus === "generated" && irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now, ewbActive: false }) === "window",
+        /** The IRP can no longer be asked whether an IRN was made: the office checks the IRP portal and records it. */
+        portalCheckNeeded: portalCheckOpen(row, now),
         ewbStatus: row.ewbStatus,
         ewbNo: row.ewbNo,
         ewbNeeded: ewbRequired(row.totalPaise),
@@ -97,6 +99,30 @@ export const einvoiceRouter = router({
       if (!out.ok) throw new TRPCError({ code: "BAD_REQUEST", message: out.message });
       await ctx.db.batch([auditInsert(ctx, { action: "invoice.irn.cancel", subjectType: "invoice", subjectId: row.id, meta: { outcome: out.outcome } })]);
       return { ok: true, outcome: out.outcome };
+    }),
+  /**
+   * Fix round 2, finding 3: what the office saw on the IRP portal for a document whose IRN outcome the IRP
+   * no longer answers for. Recorded with who and when (audit `invoice.irn.portal_check`, same batch).
+   */
+  recordPortalCheck: einvoiceProcedure("invoice.cancel")
+    .input(
+      z.discriminatedUnion("seen", [
+        z.object({ id, seen: z.literal("none"), note: z.string().trim().min(3).max(300) }),
+        z.object({
+          id,
+          seen: z.literal("found"),
+          irn: z.string().trim().regex(/^[0-9a-fA-F]{64}$/, "An IRN is 64 letters and digits"),
+          ackNo: z.string().trim().regex(/^\d{1,20}$/).nullish(),
+          note: z.string().trim().min(3).max(300),
+        }),
+      ]),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const row = await owned(ctx, input.id);
+      const { id: _id, ...seen } = input;
+      const out = await recordPortalCheck(ctx, row.id, seen, Date.now());
+      if (!out.ok) throw new TRPCError({ code: out.code === "not_found" ? "NOT_FOUND" : "BAD_REQUEST", message: out.message });
+      return { status: out.status };
     }),
   ewbGenerate: einvoiceProcedure("invoice.issue")
     .input(z.object({ id, distanceKm: z.number().int().min(0).max(4000), vehicleNo: z.string().trim().min(4).max(15), transporterId: z.string().trim().max(15).nullish(), transporterName: z.string().trim().max(100).nullish() }))

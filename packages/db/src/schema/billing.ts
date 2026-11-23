@@ -205,8 +205,15 @@ export const invoice = sqliteTable(
     signedQrCode: text("signed_qr_code"),
     irnAttempts: integer("irn_attempts").notNull().default(0),
     irnNextTryAt: integer("irn_next_try_at", { mode: "timestamp_ms" }),
-    /** When the last IRN generate call left for the relay (stamped before the call). Null = no call ever sent. */
+    /** When the newest IRN generate call left for the relay (stamped just before it goes). Times the "may be in flight" wait. */
     irnCallAt: integer("irn_call_at", { mode: "timestamp_ms" }),
+    /**
+     * When the OLDEST generate call whose outcome is still unknown left (fix round 2). Null = every call that
+     * left was answered with a definite "no IRN". While set, an IRN may exist that orrn has not heard of: a
+     * cancel or "Try again" looks it up first. Only a lookup, the office's portal check, or a refusal of the
+     * one unknown call clears it; a later refusal never does.
+     */
+    irnUnknownSince: integer("irn_unknown_since", { mode: "timestamp_ms" }),
     irnError: text("irn_error"),
     irnGeneratedAt: integer("irn_generated_at", { mode: "timestamp_ms" }),
     irnCancelledAt: integer("irn_cancelled_at", { mode: "timestamp_ms" }),

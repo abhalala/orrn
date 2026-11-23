@@ -123,6 +123,7 @@ CREATE TABLE `invoice` (
 	`irn_attempts` integer DEFAULT 0 NOT NULL,
 	`irn_next_try_at` integer,
 	`irn_call_at` integer,
+	`irn_unknown_since` integer,
 	`irn_error` text,
 	`irn_generated_at` integer,
 	`irn_cancelled_at` integer,
