@@ -24,6 +24,13 @@ describe("pack cut length, three boxes", () => {
     expect(lengthMmOf({ typed: "mm", text: "abc" })).toBeNull();
     expect(lengthBoxTexts({ typed: "in", text: "" })).toEqual({ ft: "", in: "", mm: "" });
   });
+  it("zero, negative and unsafe lengths stay invalid without plausible derived values", () => {
+    expect(lengthBoxTexts({ typed: "ft", text: "0" })).toEqual({ ft: "0", in: "", mm: "" });
+    expect(lengthBoxTexts({ typed: "in", text: "-1" })).toEqual({ ft: "", in: "-1", mm: "" });
+    const tooLong = "9".repeat(100);
+    expect(lengthMmOf({ typed: "ft", text: tooLong })).toBeNull();
+    expect(lengthBoxTexts({ typed: "ft", text: tooLong })).toEqual({ ft: tooLong, in: "", mm: "" });
+  });
   it("a default in mm shows typed in the mm box", () => {
     expect(lengthTypedFromMm(3658)).toEqual({ typed: "mm", text: "3658" });
     expect(lengthTypedFromMm(0)).toEqual({ typed: "mm", text: "" });

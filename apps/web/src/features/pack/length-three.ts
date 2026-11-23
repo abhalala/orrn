@@ -29,12 +29,12 @@ export function lengthBoxTexts(v: LengthTyped): Record<LengthBox, string> {
   const n = parseDecimal(v.text);
   if (n === null || v.text.trim() === "") return own;
   const mm = lengthMmOf(v);
+  if (mm === null) return own;
   if (v.typed === "mm") {
-    if (mm === null) return own;
     return { ...own, ft: trim3(n / 304.8), in: trim3(n / 25.4) };
   }
-  if (v.typed === "ft") return { ...own, in: trim3(n * 12), mm: mm === null ? "" : String(mm) };
-  return { ...own, ft: trim3(n / 12), mm: mm === null ? "" : String(mm) };
+  if (v.typed === "ft") return { ...own, in: trim3(n * 12), mm: String(mm) };
+  return { ...own, ft: trim3(n / 12), mm: String(mm) };
 }
 
 export function lengthTyped(v: LengthTyped): boolean {
