@@ -16,7 +16,17 @@ export type IrnData = {
   AckDt: string;
   SignedInvoice: string;
   SignedQRCode: string;
+  /** By-document lookups: the IRN's state at the IRP (see `IRN_STATUS_CANCELLED`). Absent on a generate answer. */
+  Status?: string;
 };
+
+// IRP rule: verify against IRIS sandbox docs. The cancel answer for an IRN that is already cancelled. Recalled
+// from india-compliance's ignored-codes table ("9999: Invoice is not active"), never checked against IRIS. It is
+// only a reason to look the IRN up again, never proof on its own: a wrong code fails closed.
+export const IRP_ALREADY_CANCELLED_CODES: ReadonlySet<string> = new Set(["9999"]);
+// IRP rule: verify against IRIS sandbox docs. The `Status` a by-document lookup gives a cancelled IRN
+// ("ACT" live, "CNL" cancelled), and whether the lookup returns cancelled IRNs at all, are unverified.
+export const IRN_STATUS_CANCELLED = "CNL";
 
 export type EwbData = { EwbNo: string | number; EwbDt: string; EwbValidTill: string };
 
@@ -35,7 +45,13 @@ export interface IrpAdapter {
   cancelEwb(to: RelayTarget, input: { ewbNo: string; reasonCode: string; remark: string }): Promise<RelayResponse<{ ewayBillNo: string; cancelDate: string }>>;
 }
 
-const RELAY_TIMEOUT_MS = 15_000;
+/** The Worker aborts a relay call after this long (the relay itself may go on: see `RELAY_UPSTREAM_MAX_MS`). */
+export const RELAY_TIMEOUT_MS = 15_000;
+/**
+ * The longest the relay keeps one call going after it arrives: `apps/gst-relay/src/upstream.ts` gives each IRP
+ * request `TIMEOUT_MS` = 10 s, and one call is at most an auth request plus the call itself, with no retry.
+ */
+export const RELAY_UPSTREAM_MAX_MS = 2 * 10_000;
 
 export function relayIrpAdapter(config: { url: string; secret: string; fetch?: typeof fetch }): IrpAdapter {
   const base = config.url.replace(/\/+$/, "");
@@ -126,6 +142,7 @@ export type FakeIrpScript = {
 export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: FakeIrpScript = { calls: [] }): IrpAdapter & { script: FakeIrpScript } {
   const issued = new Map<string, IrnData>();
   const ewbs = new Map<string, EwbData>();
+  const cancelled = new Set<string>();
   let ack = 112_610_000_000_000;
   const ackDt = () => {
     const ist = new Date(clock().getTime() + 330 * 60_000).toISOString();
@@ -158,10 +175,12 @@ export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: Fak
     async irnByDocument({ gstin }, doc) {
       script.calls.push({ op: "byDocument", body: doc });
       const found = issued.get(`${gstin}|${doc.docType}|${doc.docNo}`);
-      return found ? { ok: true, data: found } : { ok: false, code: "2283", message: "IRN details not found", retryable: false };
+      return found ? { ok: true, data: { ...found, Status: cancelled.has(found.Irn) ? IRN_STATUS_CANCELLED : "ACT" } } : { ok: false, code: "2283", message: "IRN details not found", retryable: false };
     },
     async cancelIrn(_gstin, input) {
       script.calls.push({ op: "cancel", body: input });
+      if (cancelled.has(input.irn)) return { ok: false, code: [...IRP_ALREADY_CANCELLED_CODES][0]!, message: "Invoice is not active", retryable: false };
+      cancelled.add(input.irn);
       return { ok: true, data: { Irn: input.irn, CancelDate: ackDt() } };
     },
     async ewbByIrn(_gstin, payload) {
