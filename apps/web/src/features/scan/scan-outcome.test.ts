@@ -7,6 +7,7 @@ import { SCAN_REFUSALS } from "@orrn/server/lib/scanRefusal";
 
 import { ageingRefusalMessage } from "@orrn/server/lib/ageingRefusals";
 import { QA_REFUSALS } from "@orrn/server/lib/qaRefusals";
+import { JOBWORK_REFUSALS } from "@orrn/server/lib/processRefusals";
 import { addOutcome, ageingDispatchRefusal, blockMessage, blockOf, blocksOf, offBandText, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, scanErrorText, type ScanResultRow } from "./scan-outcome";
 
 const { t } = createI18n("en");
@@ -274,8 +275,8 @@ describe("W3-AG-W: dispatch refuses a bundle in ageing", () => {
   };
 
   test("each of the three server sentences maps to its own words with the bundle and batch", () => {
-    expect(ageingDispatchRefusal(failure("bundle_in_ageing"))).toEqual({ key: "ageing.refusal.bundleInAgeing", vars: { serial: "26J12", batch: "AG-38" } });
-    expect(ageingDispatchRefusal(failure("bundle_ageing_held"))).toEqual({ key: "ageing.refusal.bundleAgeingHeld", vars: { serial: "26J12", batch: "AG-38" } });
+    expect(ageingDispatchRefusal(failure("bundle_in_ageing"))).toEqual({ key: "ageing.refusal.bundleInAgeing", vars: { serial: "26J12", batch: "AG-38", step: "AG-38" } });
+    expect(ageingDispatchRefusal(failure("bundle_ageing_held"))).toEqual({ key: "ageing.refusal.bundleAgeingHeld", vars: { serial: "26J12", batch: "AG-38", step: "AG-38" } });
     expect(ageingDispatchRefusal(failure("bundle_not_aged"))?.key).toBe("ageing.refusal.bundleNotAged");
   });
 
@@ -308,5 +309,16 @@ describe("XE parity lane QA: dispatch refuses a bundle on quality hold", () => {
       expect(scanErrorText(createI18n(lang).t, failure, "dispatch")).toContain("26J12");
     }
     expect(scanErrorText(createI18n("hi").t, failure, "dispatch")).not.toBe(r.message);
+describe("XE JOBWORK: dispatch refuses a bundle at a job-work vendor or on a process step", () => {
+  test("both server sentences map to jw.refusal words with the bundle and step, in en, hi and gu", () => {
+    const vendor = JOBWORK_REFUSALS.bundle_at_vendor({ serial: "26J12", step: "JW/26-27/4" });
+    const line = JOBWORK_REFUSALS.bundle_in_process({ serial: "26J12", step: "PS/26-27/9" });
+    expect(ageingDispatchRefusal({ message: vendor.message, data: { code: vendor.code } })?.key).toBe("jw.refusal.bundleAtVendor");
+    expect(ageingDispatchRefusal({ message: line.message, data: { code: line.code } })?.key).toBe("jw.refusal.bundleInProcess");
+    for (const lang of ["en", "hi", "gu"] as const) {
+      const said = scanErrorText(createI18n(lang).t, { message: vendor.message, data: { code: vendor.code } }, "dispatch");
+      expect(said).toContain("26J12");
+      expect(said).toContain("JW/26-27/4");
+    }
   });
 });
