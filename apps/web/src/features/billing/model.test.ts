@@ -14,6 +14,7 @@ import {
   irnWord,
   orNull,
   percentToBp,
+  portalCheckInput,
   paiseToBox,
   ratesFromBoxes,
   recentMonths,
@@ -234,5 +235,15 @@ describe("payments search", () => {
     expect(paymentsSearch({ invoiceId: "i1" })).toEqual({});
     expect(paymentsSearch({ customerId: 5 })).toEqual({});
     expect(paymentsSearch({ customerId: "c1" })).toEqual({ customerId: "c1", invoiceId: undefined });
+  });
+});
+
+describe("IRP portal check form", () => {
+  test("none needs only what was seen; found needs a 64-character IRN; the ack no is optional digits", () => {
+    expect(portalCheckInput({ seen: "none", irn: "", ackNo: "", note: "  No IRN on the portal " })).toEqual({ ok: true, input: { seen: "none", note: "No IRN on the portal" } });
+    expect(portalCheckInput({ seen: "none", irn: "", ackNo: "", note: "ok" })).toEqual({ ok: false, field: "note" });
+    expect(portalCheckInput({ seen: "found", irn: "abc", ackNo: "", note: "Seen" })).toEqual({ ok: false, field: "irn" });
+    expect(portalCheckInput({ seen: "found", irn: "f".repeat(64), ackNo: "12a", note: "Seen" })).toEqual({ ok: false, field: "ackNo" });
+    expect(portalCheckInput({ seen: "found", irn: "f".repeat(64), ackNo: "", note: "Seen on portal" })).toEqual({ ok: true, input: { seen: "found", irn: "f".repeat(64), ackNo: null, note: "Seen on portal" } });
   });
 });

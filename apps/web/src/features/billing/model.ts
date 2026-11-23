@@ -126,6 +126,26 @@ export function docActions(d: DocFacts): DocActions {
   };
 }
 
+/**
+ * The IRP portal check form (fix round 2): what the office saw, checked the same way as the server
+ * (`einvoice.recordPortalCheck`). `field` names the first field to fix.
+ */
+export type PortalCheckForm = { seen: "none" | "found"; irn: string; ackNo: string; note: string };
+export type PortalCheckInput = { seen: "none"; note: string } | { seen: "found"; irn: string; ackNo: string | null; note: string };
+export function portalCheckInput(f: PortalCheckForm): { ok: true; input: PortalCheckInput } | { ok: false; field: "irn" | "ackNo" | "note" } {
+  const note = f.note.trim();
+  if (f.seen === "found") {
+    const irn = f.irn.trim();
+    const ackNo = f.ackNo.trim();
+    if (!/^[0-9a-fA-F]{64}$/.test(irn)) return { ok: false, field: "irn" };
+    if (ackNo !== "" && !/^\d{1,20}$/.test(ackNo)) return { ok: false, field: "ackNo" };
+    if (note.length < 3) return { ok: false, field: "note" };
+    return { ok: true, input: { seen: "found", irn, ackNo: ackNo || null, note } };
+  }
+  if (note.length < 3) return { ok: false, field: "note" };
+  return { ok: true, input: { seen: "none", note } };
+}
+
 export type IrnWord = "none" | "pending" | "retrying" | "generated" | "failed" | "cancelled";
 
 export function irnWord(irnStatus: string): IrnWord {

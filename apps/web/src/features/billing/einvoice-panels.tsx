@@ -16,7 +16,7 @@ import { useFmt } from "@/shared/lib/fmt";
 import { instantText } from "@/shared/lib/fmt-text";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { irnWord, type BillDoc, type DocActions } from "./model";
+import { irnWord, portalCheckInput, type BillDoc, type DocActions } from "./model";
 import { ReasonDialog } from "./reason-dialog";
 import { errorText } from "./ui";
 
@@ -43,6 +43,7 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
   const status = useQuery({ ...trpc.einvoice.status.queryOptions({ id: doc.id }), retry: false });
   const [cancelOpen, setCancelOpen] = useState(false);
   const [code, setCode] = useState<(typeof REASON_CODES)[number]>("2");
+  const [portalOpen, setPortalOpen] = useState(false);
 
   const generate = useMutation({
     ...trpc.einvoice.generate.mutationOptions(),
@@ -96,6 +97,7 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
         </dl>
       ) : null}
       {doc.irn.error ? <p className="m-0 text-[13px]">{doc.irn.error}</p> : null}
+      {status.data?.portalCheckNeeded ? <p className="m-0 text-[13px]">{t("bill.irn.portal.needed")}</p> : null}
       {word === "retrying" && doc.irn.nextTryAt ? <p className="m-0 text-[13px] text-muted-foreground">{t("bill.irn.nextTry", { when: instantText(fmt, doc.irn.nextTryAt) })}</p> : null}
       {relay.data && !relay.data.configured ? <p className="m-0 text-[13px] text-muted-foreground">{t("bill.irn.notSetUp")}</p> : null}
       {off ? <p className="m-0 text-[13px] text-muted-foreground">{t("bill.irn.moduleOff")}</p> : null}
@@ -104,6 +106,13 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
           <Can do="invoice.issue">
             <Button loading={generate.isPending} disabled={off || relay.data?.configured === false} onClick={() => generate.mutate({ id: doc.id })}>
               {word === "failed" ? t("common.retry") : t("bill.irn.generate")}
+            </Button>
+          </Can>
+        ) : null}
+        {status.data?.portalCheckNeeded ? (
+          <Can do="invoice.cancel">
+            <Button variant="secondary" onClick={() => setPortalOpen(true)}>
+              {t("bill.irn.portal.open")}
             </Button>
           </Can>
         ) : null}
@@ -130,7 +139,77 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
         }
         onConfirm={(remark) => cancel.mutate({ id: doc.id, reasonCode: code, remark })}
       />
+      <PortalCheckDialog id={doc.id} open={portalOpen} onOpenChange={setPortalOpen} onDone={refresh} />
     </section>
+  );
+}
+
+/** Fix round 2: the office records what the IRP portal shows once the IRP no longer answers for the document. */
+function PortalCheckDialog({ id, open, onOpenChange, onDone }: { id: string; open: boolean; onOpenChange: (v: boolean) => void; onDone: () => Promise<void> }) {
+  const { t } = useT();
+  const [seen, setSeen] = useState<"none" | "found">("none");
+  const [irn, setIrn] = useState("");
+  const [ackNo, setAckNo] = useState("");
+  const [note, setNote] = useState("");
+  const [tried, setTried] = useState(false);
+  const checked = portalCheckInput({ seen, irn, ackNo, note });
+  const record = useMutation({
+    ...trpc.einvoice.recordPortalCheck.mutationOptions(),
+    onSuccess: async () => {
+      onOpenChange(false);
+      await onDone();
+      toast.success(t("bill.irn.portal.saved"));
+    },
+    onError: (e) => toast.error(errorText(e, t("errors.generic"))),
+  });
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("bill.irn.portal.title")}
+      description={t("bill.irn.portal.hint")}
+      actions={
+        <>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            loading={record.isPending}
+            onClick={() => {
+              setTried(true);
+              if (checked.ok) record.mutate({ id, ...checked.input });
+            }}
+          >
+            {t("bill.irn.portal.save")}
+          </Button>
+        </>
+      }
+    >
+      <Field label={t("bill.irn.portal.seen")}>
+        <Select
+          value={seen}
+          onValueChange={(v) => setSeen(v as "none" | "found")}
+          options={[
+            { value: "none", label: t("bill.irn.portal.none") },
+            { value: "found", label: t("bill.irn.portal.found") },
+          ]}
+          placeholder={t("bill.irn.portal.seen")}
+        />
+      </Field>
+      {seen === "found" ? (
+        <>
+          <Field label={t("bill.irn.portal.irn")} error={tried && !checked.ok && checked.field === "irn" ? t("bill.irn.portal.irn") : undefined}>
+            <TextInput value={irn} onChangeText={setIrn} maxLength={64} />
+          </Field>
+          <Field label={t("bill.irn.portal.ackNo")} error={tried && !checked.ok && checked.field === "ackNo" ? t("bill.irn.portal.ackNo") : undefined}>
+            <TextInput value={ackNo} onChangeText={setAckNo} maxLength={20} />
+          </Field>
+        </>
+      ) : null}
+      <Field label={t("bill.irn.portal.note")} error={tried && !checked.ok && checked.field === "note" ? t("bill.irn.portal.note") : undefined}>
+        <TextInput value={note} onChangeText={setNote} maxLength={300} />
+      </Field>
+    </Dialog>
   );
 }
 

@@ -223,6 +223,7 @@ einvoice.cancelIrn	mutation	deny	reversible
 einvoice.ewbCancel	mutation	deny	reversible
 einvoice.ewbGenerate	mutation	deny	reversible
 einvoice.generate	mutation	deny	reversible
+einvoice.recordPortalCheck	mutation	deny	reversible
 einvoice.relayStatus	query	deny	reversible
 einvoice.status	query	deny	reversible
 foundry.alloys.create	mutation	allow	reversible

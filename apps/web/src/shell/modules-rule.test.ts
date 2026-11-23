@@ -23,7 +23,11 @@ function files(dir: string, out: string[] = []): string[] {
 
 describe("modules rule (B1)", () => {
   test("no client file keeps its own 'empty list = all on' check", () => {
-    const offenders = ROOTS.flatMap((r) => files(r)).filter((p) => /modules\.length\s*(===|>|!==)\s*0/.test(readFileSync(p, "utf8")));
+    const offenders = ROOTS.flatMap((r) => files(r)).filter((p) => {
+      const text = readFileSync(p, "utf8");
+      // Any spelling: `modules.length === 0`, or a copied list checked the same way (`list.length === 0 || list.includes(...)`).
+      return /modules\.length\s*(===|>|!==)\s*0/.test(text) || /(\w+)\.length\s*===\s*0\s*\|\|\s*\1\.includes\(/.test(text);
+    });
     expect(offenders).toEqual([]);
   });
 
