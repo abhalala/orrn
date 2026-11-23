@@ -113,6 +113,10 @@ describe("row 33: out-challan, the bundles at the vendor, and the return", () =>
     expect(lengths.items.reduce((a, r) => a + Number(r.bundles), 0)).toBe(1);
     const yards = await p.owner.stock.byYard({ dieId: p.dieA });
     expect(JSON.stringify(yards)).not.toContain(vendorLoc.id);
+    // The stock-age report counts only what is in the plant: 50 of 230 kg.
+    const age = await p.owner.analytics.stockAge({});
+    expect(age.rows.reduce((a, r) => a + r.bundles, 0)).toBe(1);
+    expect(age.rows.reduce((a, r) => a + r.kgG, 0)).toBe(kg(50));
     const listed = await p.owner.bundle.listBundles({ locationId: vendorLoc.id });
     expect(listed.items.map((b: { serial: string }) => b.serial).sort()).toEqual([s1!, s2!].sort());
 

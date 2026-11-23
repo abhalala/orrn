@@ -276,6 +276,8 @@ export async function stockAge(db: OrrnDb, companyId: string, nowMs: number, f: 
   const edge = (days: number) => sql.raw(String(localMidnight(timezone, addDays(today, -days))));
   const bucket = sql`case when b.created_at >= ${edge(7)} then 0 when b.created_at >= ${edge(30)} then 1 when b.created_at >= ${edge(90)} then 2 else 3 end`;
   const where = [sql`b.company_id = ${companyId}`, sql`b.status = 'available'`];
+  // XE JOBWORK: a bundle out at a job-work vendor is not plant stock (it sits at a location of kind vendor).
+  where.push(sql`not exists (select 1 from location vl where vl.id = b.location_id and vl.company_id = b.company_id and vl.kind = 'vendor')`);
   if (f.plantOnly) where.push(sql`so.customer_id is null`);
   else if (f.customerId) where.push(sql`so.customer_id = ${f.customerId}`);
   const rows = await db.all<{ cust: string; bucket: number; bundles: number; kg_g: number }>(sql`
