@@ -83,7 +83,7 @@ export function CheckSheet({ open, onOpenChange, preset }: { open: boolean; onOp
   const planDims = run.data?.plan?.dimensions;
   useEffect(() => {
     if (planDims && planDims.length > 0) setDims(draftsFromPlan(planDims));
-  }, [planDims]);
+  }, [planDims, open]);
 
   const record = useMutation(
     trpc.qa.checks.record.mutationOptions({

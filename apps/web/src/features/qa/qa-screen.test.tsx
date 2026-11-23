@@ -82,7 +82,7 @@ async function render(node: ReactNode, opts: { role?: Role; modules?: string[]; 
   return { q, cleanup, text: () => document.body.textContent ?? "" };
 }
 
-const seedHolds = (qc: QueryClient) => qc.setQueryData(trpc.qa.holds.list.queryOptions({ open: true, limit: 100 }).queryKey, { items: [HOLD], nextCursor: null } as never);
+const seedHolds = (qc: QueryClient) => qc.setQueryData(trpc.qa.holds.list.queryOptions({ open: true, limit: 100, cursor: 0 }).queryKey, { items: [HOLD], nextCursor: null } as never);
 
 describe("/qa On hold (row 29)", () => {
   test("a supervisor sees the held bundle with its reason, and can hold and release", async () => {

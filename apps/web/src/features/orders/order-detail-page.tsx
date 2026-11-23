@@ -406,8 +406,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
                 {/* FP-AG-15: the line's pieces on the ageing side, beneath the Aged cell. */}
                 <OrderLineAged salesOrderId={order.id} lineId={line.lineId} />
-                {/* XE parity lane QA (row 37): the alloy is short, with the substitutes allowed. Nothing otherwise. */}
-                <OrderLineAlloy lineId={line.lineId} />
+                {/* XE parity lane QA (row 37): on an open order, the alloy is short, with the substitutes allowed. Nothing otherwise. */}
+                {status === "booking" || status === "confirmed" || status === "dispatching" ? <OrderLineAlloy lineId={line.lineId} /> : null}
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,

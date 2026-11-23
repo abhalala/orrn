@@ -4,7 +4,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,6 +19,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { useQaInvalidate, type QaHoldRow } from "./hooks";
 import { Block, QaFormSheet } from "./ui";
 
+const PAGE = 100;
+
 /**
  * Row 29: the quality hold, separate from the sales hold. "Open holds" lists bundles the dispatch scan
  * refuses; "Hold log" is every hold with who released it and the note. Holding needs `qa.hold`,
@@ -28,7 +30,9 @@ export function HoldsTab({ log, onLog }: { log: boolean; onLog(log: boolean): vo
   const { t } = useT();
   const fmt = useFmt();
   const when = useCompanyWhen();
-  const list = useQuery({ ...trpc.qa.holds.list.queryOptions({ open: !log, limit: 100 }), meta: INLINE_ERROR_META });
+  const [offset, setOffset] = useState(0);
+  useEffect(() => setOffset(0), [log]);
+  const list = useQuery({ ...trpc.qa.holds.list.queryOptions({ open: !log, limit: PAGE, cursor: offset }), placeholderData: keepPreviousData, meta: INLINE_ERROR_META });
   const [holding, setHolding] = useState(false);
   const [releasing, setReleasing] = useState<QaHoldRow | null>(null);
 
@@ -108,6 +112,7 @@ export function HoldsTab({ log, onLog }: { log: boolean; onLog(log: boolean): vo
           loading={list.isLoading}
           label={log ? t("qa.holds.log") : t("qa.holds.open")}
           empty={<EmptyState title={log ? t("qa.holds.logEmpty") : t("qa.holds.empty")} />}
+          page={list.data && (offset > 0 || list.data.nextCursor !== null) ? { offset, limit: PAGE, onChange: setOffset } : undefined}
         />
       )}
       <HoldSheet open={holding} onOpenChange={setHolding} />
