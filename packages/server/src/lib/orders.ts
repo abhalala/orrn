@@ -31,6 +31,8 @@ import {
   type SalesOrderStatus,
 } from "@orrn/db/schema/sales";
 
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+
 import { chunk, type OrrnDb, type SqliteBatchItem } from "./atomic";
 
 /** Fallback when neither the customer nor the company sets one: 5 % of the line's kg. */
@@ -710,6 +712,21 @@ export function batchAbortUnless(db: OrrnDb, table: BatchAbortTable, landed: SQL
   if (table === "packing_list_line") return db.insert(packingListLine).select(select);
   if (table === "pack_reject") return db.insert(packReject).select(select);
   return db.insert(salesOrderLine).select(select);
+}
+
+/**
+ * `batchAbortUnless` on any table (review ADM S2): the same NULL-id insert, so the whole batch fails
+ * unless `landed` holds. Catch it with `isBatchAbortOn(e, tableName)`.
+ */
+export function batchAbortUnlessOn(db: OrrnDb, target: SQLiteTable, landed: SQL): SqliteBatchItem {
+  const nulls = Object.fromEntries(Object.entries(getTableColumns(target)).map(([key, column]) => [key, sql`null`.as(column.name)]));
+  const from = db.select({ one: sql`1` }).from(company).limit(1).as("abort_src");
+  const select = db.select(nulls).from(from).where(sql`not (${landed})`) as never;
+  return db.insert(target).select(select);
+}
+
+export function isBatchAbortOn(e: unknown, tableName: string): boolean {
+  return isBatchAbort(e, tableName as BatchAbortTable);
 }
 
 export function isBatchAbort(e: unknown, table: BatchAbortTable): boolean {

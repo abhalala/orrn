@@ -12,11 +12,13 @@ import type { Messages } from "./en";
 import { refusalGu } from "./native/refusal.gu";
 import { guAdminLimits } from "./gu-more/admin-limits";
 import { guAgeing } from "./gu-more/ageing";
+import { guReg } from "./gu-more/reg";
 import { guAgeingWeb } from "./gu-more/ageing-web";
 import { guApprovals } from "./gu-more/approvals";
 import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBuddy } from "./gu-more/buddy";
+import { guQa } from "./gu-more/qa";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -79,6 +81,8 @@ export const GU_FLOOR_NAMESPACES = [
   "foundry.title", "foundry.common", "foundry.today", "foundry.casts", "foundry.newCast", "foundry.cast", "foundry.melt", "foundry.spectro", "foundry.stock",
   // W2-FD-S: a refused foundry write reaches the furnace floor
   "foundry.refusal",
+  // XE parity lane QA: a quality refusal reaches the scan, pack and the melt lock on the floor
+  "qa.refusal",
   // Final explore M5: the press overview and a press's line board (its queue) are where the press role
   // lands; Today's stock-age tile and the chart table toggle are on the owner's floor Today
   "press.title", "press.board", "press.queue", "press.summary.title", "press.report.title", "reports.todayTile", "charts",
@@ -1851,6 +1855,7 @@ export const gu = mergeGu(
   guBase,
   guAdminLimits,
   guAgeing,
+  guReg,
   guAgeingWeb,
   guApprovals,
   guAuth,
@@ -1871,6 +1876,7 @@ export const gu = mergeGu(
   guPrintingQueue,
   guIngest,
   guBuddy,
+  guQa,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1891,4 +1897,6 @@ export const gu = mergeGu(
   typeof guPrintingPrinters &
   typeof guPrintingQueue &
   typeof guIngest &
-  typeof guBuddy satisfies GuMessages;
+  typeof guBuddy &
+  typeof guReg &
+  typeof guQa satisfies GuMessages;

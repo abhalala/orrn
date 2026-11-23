@@ -25,6 +25,7 @@ import { requestIdFor } from "@/features/dispatch/request-key";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
+import { MemberAssign } from "./member-assign";
 import { invitableRoles, isExpired, validEmail } from "./model";
 
 type Outputs = inferRouterOutputs<AppRouter>;
@@ -64,6 +65,11 @@ export function TeamTab() {
       key: "role",
       header: t("settings.team.role"),
       cell: (m) => <Badge tone={m.role === "owner" || m.role === "admin" ? "brand" : "neutral"}>{t(`roles.${m.role}`)}</Badge>,
+    },
+    {
+      key: "assign",
+      header: `${t("adm.kindOne.department")} / ${t("adm.kindOne.designation")}`,
+      cell: (m) => <MemberAssign member={m} name={m.user.name || m.user.email} />,
     },
     { key: "joined", header: t("settings.team.joined"), hideOnPhone: true, cell: (m) => <span className="whitespace-nowrap">{when(m.createdAt)}</span> },
     {

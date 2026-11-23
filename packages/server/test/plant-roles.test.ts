@@ -104,6 +104,19 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "ingest.merge": ["admin"],
   // Item 16 (owner decision "Price-viewers tick, admin approves").
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE parity lane REG.
+  "complaint.open": ["office", "supervisor", "manager", "admin", "packer"],
+  "complaint.manage": ["office", "supervisor", "manager", "admin"],
+  "mis.view": ["admin"],
+  // XE parity lane ADM.
+  "docs.manage": ["admin", "manager", "office"],
+  "approvalRule.manage": ["admin"],
+  "refFormat.manage": ["admin"],
+  // XE parity lane QA.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
   // XE-PRICE (lane PRICE).
   "price.view": ["admin", "office", "manager", "accountant"],
   "price.manage": ["admin", "office", "manager"],

@@ -18,6 +18,7 @@ import { FileImage } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { RunQualityFlag } from "@/features/qa/flags";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { useMe } from "@/shared/lib/me";
@@ -121,6 +122,8 @@ function StationBody({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz
   return (
     <div className="flex min-w-0 flex-col gap-4 text-[17px] leading-7" data-slot="station" data-status={status}>
       <BannerBlock banner={banner} data={data} tz={tz} actions={actions} />
+      {/* XE parity lane QA: first piece, a due in-process check, readings out of the plan. Nothing when all is well. */}
+      <RunQualityFlag runId={data.run.id} />
       {/* While counting, the stepper comes first: it is what the person is here to do. A manager or admin (press.close without press.run) sees it read-only and can log. */}
       {counting ? (
         <Can do={STATION_ACTION.countingPanel} fallback={<p className="m-0 text-[15px] text-muted-foreground">{t("press.console.countingBody")}</p>}>

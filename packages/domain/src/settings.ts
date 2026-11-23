@@ -25,6 +25,10 @@ export const COMPANY_MODULES = [
   "ageing",
   "store",
   "purchase",
+  // XE parity lane REG (#18, #34): the complaint register.
+  "complaints",
+  // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
+  "qa",
   // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
   "pricing",
 ] as const;

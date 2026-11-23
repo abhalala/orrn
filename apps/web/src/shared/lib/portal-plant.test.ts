@@ -4,7 +4,7 @@ import { isPartyProcedure, pickPortalPlant, portalAccessUnreachable } from "./po
 
 describe("x-orrn-company for the portal", () => {
   test("only party procedures carry the header", () => {
-    for (const name of ["portal.me", "portal.today", "portal.sections.visible", "portal.orders.list", "portal.orders.create", "portal.dispatches.get", "portal.packingList.get", "portal.certificate.get"]) {
+    for (const name of ["portal.me", "portal.today", "portal.sections.visible", "portal.orders.list", "portal.orders.create", "portal.dispatches.get", "portal.packingList.get", "portal.certificate.get", "portal.complaints.list", "portal.complaints.get", "portal.complaints.create"]) {
       expect(isPartyProcedure(name)).toBe(true);
     }
     // Plant-side procedures share the namespace and must never get a party plant header.

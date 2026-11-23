@@ -232,11 +232,16 @@ export const dieFileRouter = router({
   commit: fileEditor.input(z.object({ uploadId: z.string().min(1).max(4100) })).mutation(async ({ ctx, input }) => {
     const ticket = await readUploadTicket(input.uploadId, clockNow().getTime(), DIE_FILE_COMMIT_GRACE_MS);
     if (!ticket) throw new TRPCError({ code: "BAD_REQUEST", message: "This upload has expired; pick the file again" });
-    if (ticket.companyId !== ctx.companyId || ticket.userId !== ctx.session.user.id) {
+    // Review ADM S3: a plant document ticket (section "_docs", DOC_TICKET_SECTION in plantDocs.ts) is
+    // never a die file; refuse it before any head or delete so a committed document keeps its object.
+    if (ticket.companyId !== ctx.companyId || ticket.userId !== ctx.session.user.id || ticket.sectionId === "_docs") {
       throw new TRPCError({ code: "NOT_FOUND", message: "Upload not found" });
     }
     const bucket = dieFilesBucket();
     const key = ticketKey(ticket);
+    // XE QA review N5: a calibration certificate ticket (section "qa-<instrument>") is never a die file;
+    // refuse it before any head or delete so a saved certificate keeps its object.
+    if (ticket.sectionId.startsWith("qa-")) throw new TRPCError({ code: "NOT_FOUND", message: "Upload not found" });
     const [already] = await ctx.db
       .select({ id: dieFile.id })
       .from(dieFile)

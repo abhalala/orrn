@@ -21,6 +21,7 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
   cast: (id) => `/casts/${id}`,
   purchase_lot: (id) => `/purchase/${id}`,
   count_session: (id) => `/stock/count/${id}`,
+  complaint: (id) => `/complaints/${id}`,
   // XE-PRICE: a rate opens the price master, a quote its page, an enquiry the enquiry list.
   price_rate: () => "/pricing",
   quote: (id) => `/pricing/quotes/${id}`,

@@ -12,6 +12,8 @@
  * A bucket-level lifecycle rule could not do this: it cannot tell a committed object from an orphan.
  * Runbook: docs/R2_BUCKETS.md.
  */
+import { plantDocument } from "@orrn/db/schema/admin";
+import { qaInstrument } from "@orrn/db/schema/qa";
 import { dieFile } from "@orrn/db/schema/dies";
 import { env } from "@orrn/env/server";
 import { inArray } from "drizzle-orm";
@@ -47,6 +49,12 @@ export async function purgeOrphanDieFiles(
     for (const part of chunk(old, IN_LIST_CHUNK)) {
       const rows = await db.select({ key: dieFile.r2Key }).from(dieFile).where(inArray(dieFile.r2Key, part));
       for (const r of rows) referenced.add(r.key);
+      // XE ADM #80: document register files live under `{companyId}/dies/_docs/` and are kept too.
+      const docs = await db.select({ key: plantDocument.r2Key }).from(plantDocument).where(inArray(plantDocument.r2Key, part));
+      for (const r of docs) if (r.key) referenced.add(r.key);
+      // XE QA (row 38): an instrument's calibration certificate lives in this bucket as `{co}/dies/qa-{instrument}/{file}`.
+      const certs = await db.select({ key: qaInstrument.certificateKey }).from(qaInstrument).where(inArray(qaInstrument.certificateKey, part));
+      for (const r of certs) if (r.key) referenced.add(r.key);
     }
     const orphans = old.filter((k) => !referenced.has(k));
     // R2 deletes up to 1000 keys per call.

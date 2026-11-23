@@ -24,6 +24,8 @@ export const docTypes = [
   "die_maker_job",
   "cert",
   "party_bundle",
+  // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
+  "complaint",
   // XE-PRICE: quotation Q-, proforma invoice PI-, works order WO- (per FY).
   "quote",
   "proforma",

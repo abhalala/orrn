@@ -98,6 +98,8 @@ export const bundle = sqliteTable(
     // SQL defaults (not JS) on bulk-inserted rows: a JS default is bound as a parameter that
     // pushChunkedInserts does not count (D1's 100-parameter limit).
     recut: integer("recut", { mode: "boolean" }).notNull().default(sql`0`),
+    /** Why a recut bundle was cut shorter (XE parity #31, migration 0056); typed at pack, null on older rows. */
+    recutReason: text("recut_reason"),
     weightSource: text("weight_source", { enum: bundleWeightSources }),
     /** Required when typed while a scale node is configured (1-500). */
     weightOverrideReason: text("weight_override_reason"),

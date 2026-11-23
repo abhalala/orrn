@@ -71,6 +71,8 @@ function buildWorkbookV2(pl: V2Snapshot, opts: PackingListModelOptions = {}) {
     ["Vehicle", h.vehicleNo ?? ""],
     ["Driver", [h.driverName, h.driverPhone].filter(Boolean).join(" · ")],
     ["Transporter", h.transporter ?? ""],
+    ["Packing", h.packingMode ?? ""],
+    ["Transit insurance", h.transitInsurance ? `${h.transitInsurance.policyNo}, ${h.transitInsurance.insurer}` : ""],
     ["PO numbers", h.poNumbers.join(", ")],
     ["Invoice", [h.invoiceNumber, h.invoiceDate].filter(Boolean).join(" · ")],
     ["Dispatch", plDispatchCodesText(pl)],

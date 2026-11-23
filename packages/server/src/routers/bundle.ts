@@ -37,6 +37,7 @@ import { legacyBundleMap } from "@orrn/db/schema/legacy";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
+import { assertFirstPiece } from "../lib/qa";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
@@ -86,6 +87,8 @@ const bundleRowSchema = z.object({
   scaleReadingG: z.number().int().positive().max(10_000_000).nullable().optional(),
   /** Required for a typed weight while the plant's edge node reports a scale (`weightNeedsReason`). */
   weightOverrideReason: z.string().trim().min(1).max(500).nullable().optional(),
+  /** XE parity REG #31: why a bundle was cut shorter than its trolley line. Kept only on a real recut. */
+  recutReason: z.string().trim().max(200).nullable().optional(),
 });
 
 const rejectRowSchema = z.object({
@@ -627,6 +630,9 @@ export const bundleRouter = router({
         if (copy?.status === "at_maker") throw new TRPCError({ code: "BAD_REQUEST", message: `Die copy ${copy.code} is at the die maker` });
       }
 
+      // XE QA (row 24): with the plant setting on, packing waits for the run's first piece to pass.
+      await assertFirstPiece(ctx.db, ctx.companyId, { sectionId: input.dieId, dieInstanceId: chosenCopyId, ageingRowId: input.ageingRowId ?? null });
+
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {
         dieId: input.dieId,
@@ -730,6 +736,7 @@ export const bundleRouter = router({
         packedSalesOrderLineId: salesOrderLineId,
         partyNo: partyNos[idx]!,
         recut: Boolean(ageingRow && row.lengthMm < ageingRow.lengthMm),
+        recutReason: ageingRow && row.lengthMm < ageingRow.lengthMm ? row.recutReason || null : null,
         weightSource: weights[idx]!.weightSource,
         weightOverrideReason: weights[idx]!.weightOverrideReason,
         scaleReadingG: weights[idx]!.scaleReadingG,

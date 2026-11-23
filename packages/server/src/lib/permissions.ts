@@ -130,6 +130,20 @@ export const PLANT_ACTIONS = [
   // Item 16 (owner decision "Price-viewers tick, admin approves"): read only, the review of a model-read table, its
   // page image, the tick and the list of tables waiting for a check. A price column also takes order.price.
   "ingest.check",
+  // XE parity lane REG. Complaints (#18, #34): raise one against a bundle; investigate, reply and close it.
+  "complaint.open",
+  "complaint.manage",
+  // The owner's morning summary on screen and its mail settings (#81, #82): owner and plant admin.
+  "mis.view",
+  // XE parity lane ADM (wave 1): the document register, approver rules per kind, number formats.
+  "docs.manage", // add, edit, retire plant documents and their files (#80)
+  "approvalRule.manage", // who may approve each approval kind, and thresholds (#78)
+  "refFormat.manage", // number formats per doc type (#77)
+  // XE parity lane QA (migration 0055). `qc.enter` stays the press station's reject entry.
+  "qa.check", // record a quality check (incoming, first piece, in process, clearance, dimensions, mechanical, ultrasonic), place a lot at an inspection point, record a calibration
+  "qa.hold", // put a bundle on quality hold
+  "qa.release", // release a bundle from quality hold, with a note
+  "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
   // XE-PRICE (lane PRICE): the price master, quotations, proforma and enquiries. `order.price` stays the
   // gate for rates on order lines; these cover the master and the documents built on it.
   "price.view", // read the price master, quotations, proformas and line breakdowns
@@ -277,6 +291,22 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "ingest.merge": ["admin"],
   // Item 16: the people who see prices tick a model-read table; the admin approves it.
   "ingest.check": ["admin", "office", "manager", "accountant"],
+  // XE parity lane REG. Anyone who handles bundles for the customer may raise a complaint; the office
+  // and the supervisors investigate, reply and close. The morning summary is the owner's and the admin's.
+  "complaint.open": ["office", "supervisor", "manager", "admin", "packer"],
+  "complaint.manage": ["office", "supervisor", "manager", "admin"],
+  "mis.view": ["admin"],
+  // XE ADM: documents are kept by the office and managers; approver rules and number formats are the
+  // plant admin's (as settings are).
+  "docs.manage": ["admin", "manager", "office"],
+  "approvalRule.manage": ["admin"],
+  "refFormat.manage": ["admin"],
+  // XE parity lane QA: the floor people who already judge quality record checks (press first piece, the
+  // foundry's incoming lots, the store's bought-in material); a supervisor or manager holds and releases.
+  "qa.check": ["press", "supervisor", "manager", "foundry", "storekeeper"],
+  "qa.hold": ["supervisor", "manager"],
+  "qa.release": ["supervisor", "manager"],
+  "qa.masters": ["manager", "admin"],
   // XE-PRICE: the people who see order rates read the master; the office desk and the manager change it.
   "price.view": ["admin", "office", "manager", "accountant"],
   "price.manage": ["admin", "office", "manager"],
@@ -403,6 +433,23 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   // XE-PRICE: a master rate change or a line override below the computed rate. Never the requester.
   price_change: ["owner", "admin", "manager"],
 };
+
+/** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */
+export const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
+
+/**
+ * Roles a plant's approver rule may name (XE ADM #78, review B1). Floor roles and the read-only viewer
+ * never decide a request; the owner is always an approver anyway.
+ */
+export const APPROVAL_CAPABLE_ROLES: readonly CompanyRole[] = ["owner", "admin", "manager", "supervisor", "foundry", "accountant", "office", "storekeeper", "die_room"];
+
+/** The roles a rule for this kind may name: approval-capable, and able to read what the kind decides. */
+export function approvalRuleRoles(kind: string): readonly CompanyRole[] {
+  if (kind === "dc_note") {
+    return APPROVAL_CAPABLE_ROLES.filter((role) => PURCHASE_READ_ACTIONS.some((a) => ROLE_ACTIONS[role].has(a)));
+  }
+  return APPROVAL_CAPABLE_ROLES;
+}
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {
   return Boolean(role && APPROVER_ROLES[kind].includes(role));

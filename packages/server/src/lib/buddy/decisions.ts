@@ -71,6 +71,16 @@ export const BUDDY_DECISIONS = {
     foundry: allow,
     audit: allow,
     transporter: allow,
+    // XE parity lane REG: the complaint register's reads; its writes are named in `paths` (denied).
+    complaints: allow,
+    // XE parity lane ADM (wave 1). Kept from the buddy until the owner reviews them: bank accounts,
+    // approver rules and number formats are plant settings, die cost is money, documents mint file links.
+    masters: deny("XE wave 1: bank accounts, approver rules and number formats are plant settings (§4.2), not yet reviewed for the buddy."),
+    toolRoom: deny("XE wave 1: tooling and die cost (money), not yet reviewed for the buddy."),
+    docs: deny("XE wave 1: the document register mints signed file links, which would leave orrn through the chat."),
+    // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
+    // buddy cannot hold, release or record a check until the owner decides.
+    qa: allow,
     // XE-PRICE: the price master, quotes, proformas, works orders and enquiries. Reads run under the
     // person's grant (the same `price.view` / `order.price` gates). No pricing change is in `changes`,
     // so every pricing mutation is denied to the buddy until it is decided by name.
@@ -107,6 +117,11 @@ export const BUDDY_DECISIONS = {
     // Delta round decision 1 (B1, D-M1): the link's token comes from the request key, which Confirm sets to the draft id
     // that Hermes and the audit log know. The buddy links the person to the die screen instead.
     "die.share.create": deny("Mints a public share link, which would leave orrn through the chat; the person makes it on the die screen."),
+    // XE parity lane REG: a complaint's words go to the customer; a person writes them on the complaint screen.
+    "complaints.open": deny("Raising a complaint is a person's act on the bundle or complaint screen."),
+    "complaints.investigate": deny("The investigation is a person's record on the complaint screen."),
+    "complaints.reply": deny("The reply goes to the customer; a person writes it on the complaint screen."),
+    "complaints.close": deny("Closing a complaint is a person's act on the complaint screen."),
     "reports.ageing": {
       kind: "allow",
       unless: { field: "format", values: ["csv"], reason: "§10 scan: the CSV form is a download." },
@@ -175,6 +190,22 @@ export const BUDDY_DECISIONS = {
     "ingest.vision.nextBatch": deny("Hands out page image tickets for the next batch; the images come from the browser only."),
     "ingest.vision.finishRest": deny("Skips the pages not read yet; that is a check against the pages, made in the browser."),
     "ingest.vision.waiting": allow, // "Tables waiting for a check", a read-only list.
+    // XE parity lane QA: quality writes are a person's judgement at the piece or the gauge; not reviewed for the buddy yet.
+    "qa.instruments.certificateUrl": deny("A signed link to a file; file bytes and links stay with the person (as die files)."),
+    "qa.checks.record": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.holds.hold": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.holds.release": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.beginCertificate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.calibrate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.commitCertificate": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.instruments.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.plans.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.settings.update": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.stations.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.substitutes.remove": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     // XE-PRICE: every pricing change is denied by default (fix round 1 of PR #15); decide each by name to allow it.
     "pricing.rates.propose": deny("Proposes a master rate or a customer term; prices go through a person (XE-PRICE default deny)."),
     "pricing.settings.update": deny("Changes which metal list prices every order and the GST estimate (XE-PRICE default deny)."),

@@ -21,6 +21,7 @@ export const refusalEn = {
     retiredNoReadings: "{code} is retired. It takes no readings.",
     sectionDeleted: "{code} belongs to a die that was deleted. It can't be issued.",
     alreadyIssued: "{code} is already issued to {line}.",
+    copyFailedInspection: "{code} failed its receive inspection. It cannot be issued until it passes.",
     copyOnTrialIssue: "{code} is on trial. It goes only to a trial run until the trial passes or a manager releases it.",
     runHasDie: "{run} already has a die or has started. Only a queued run takes a die.",
     notCopyOfRunDie: "{code} is not a copy of the die {run} needs.",

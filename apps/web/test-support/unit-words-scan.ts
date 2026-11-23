@@ -45,6 +45,8 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "buddy.field.", why: "the buddy draft card labels the raw input value Confirm sends, which is stored in these fixed units whatever the plant's setting" },
   { prefix: "devices.collectors", why: "machine data units (mm/s, bar)" },
   { prefix: "press.alerts.unit", why: "machine data units (mm/s)" },
+  { prefix: "qa.sheet.dims.", why: "a dimension check reads the section drawing, whose nominals and tolerances are in mm (stored as micrometres)" },
+  { prefix: "qa.plans.ramSpeed", why: "machine data units (mm/s), as the press collector reports them" },
   { prefix: "purchase.errors.rate", why: "a rate is rupees per kg; the rate's basis is not a plant choice" },
   { prefix: "purchase.charts.rate", why: "a rate is rupees per kg" },
   { prefix: "purchase.new.rate", why: "a rate is rupees per kg" },

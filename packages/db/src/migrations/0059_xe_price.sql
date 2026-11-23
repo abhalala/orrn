@@ -1,5 +1,5 @@
--- XE-PRICE (lane PRICE, CONTRACTS migration 0058): price master (price_rate), quote + quote_line, proforma, works_order, enquiry,
--- and sales_order_line.price_breakup. Additive only. Generated as 0055 and renumbered to the lane's reserved 0058; the lead orders the journal.
+-- XE-PRICE (lane PRICE): price master (price_rate), quote + quote_line, proforma, works_order, enquiry,
+-- and sales_order_line.price_breakup. Additive only. Reserved as 0058; renumbered to 0059 at merge (QA took 0058).
 
 CREATE TABLE `enquiry` (
 	`id` text PRIMARY KEY NOT NULL,

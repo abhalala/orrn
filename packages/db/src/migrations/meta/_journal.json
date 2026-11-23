@@ -388,10 +388,31 @@
       "breakpoints": true
     },
     {
+      "idx": 56,
+      "version": "6",
+      "when": 1795387132417,
+      "tag": "0056_xe_reg",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1795387281727,
+      "tag": "0057_xe_adm",
+      "breakpoints": true
+    },
+    {
       "idx": 58,
       "version": "6",
-      "when": 1795387283054,
-      "tag": "0058_xe_price",
+      "when": 1795397982233,
+      "tag": "0058_xe_qa",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1795400204415,
+      "tag": "0059_xe_price",
       "breakpoints": true
     }
   ]

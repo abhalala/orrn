@@ -28,7 +28,10 @@ import { ageingEn } from "./ageing/ageing.en";
 import { priceMasterEn } from "./price/master.en";
 import { priceDocsEn } from "./price/docs.en";
 import { ingestEn } from "./ingest/en";
+import { admEn } from "./adm/en";
+import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
+import { regEn } from "./reg/en";
 
 export const en = {
   common: {
@@ -225,7 +228,10 @@ export const en = {
   },
 
   nav: {
+    qa: "Quality",
     ageing: "Ageing",
+    complaints: "Complaints",
+    owner: "Owner",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3790,7 +3796,9 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
         pricing: "Prices and quotes",
       },
       moduleHints: {
@@ -3803,7 +3811,9 @@ export const en = {
         press: "Press runs and the press console",
         ageing: "Ageing batches and readings",
         store: "Store items, GRN and issues",
+        qa: "Quality checks, holds and instruments",
         purchase: "Scrap vendors, lots and D/C notes",
+        complaints: "Customer complaints on a bundle, with the trace and the reply",
         pricing: "Price master, quotes, proformas and enquiries",
       },
       save: "Save plan",
@@ -6503,7 +6513,12 @@ export const en = {
 
   ingest: ingestEn,
 
+  adm: admEn,
+
   buddy: buddyEn,
+
+  reg: regEn,
+  qa: qaEn,
 
   reasons: {
     kinds: {
@@ -6659,7 +6674,9 @@ export const en = {
         press: "Press",
         ageing: "Ageing",
         store: "Store",
+        qa: "Quality",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
         pricing: "Prices and quotes",
       },
     },
@@ -6869,6 +6886,7 @@ export const en = {
       cast: "Cast",
       purchase_lot: "Purchase lot",
       count_session: "Stock count",
+      complaint: "Complaint",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
       ingest_artifact: "Import file",
@@ -6877,6 +6895,11 @@ export const en = {
       ingest_hole: "Import layout",
       buddy_draft: "Buddy change",
       buddy_grant: "Hermes connection",
+      qa_check: "Quality check",
+      qa_temper: "Temper",
+      qa_station: "Inspection point",
+      qa_alloy_substitute: "Alloy substitute",
+      qa_instrument: "Instrument",
       price_rate: "Price rate",
       quote: "Quote",
       proforma: "Proforma invoice",
@@ -6976,6 +6999,11 @@ export const en = {
       count__voidRequested: "Void of missing bundles asked",
       customer__aliases__add: "Customer names added",
       customer__create: "Customer added",
+      complaint__open: "Complaint raised",
+      complaint__investigate: "Complaint investigation saved",
+      complaint__reply: "Complaint answered",
+      complaint__close: "Complaint closed",
+      mis__morning__sent: "Morning summary sent",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
       customer__update: "Customer changed",
@@ -7112,6 +7140,19 @@ export const en = {
       portal__user__accept: "Party login accepted",
       portal__user__grant: "Party login given",
       portal__user__revoke: "Party login turned off",
+      qa__check__record: "Quality check recorded",
+      qa__hold: "Bundle put on quality hold",
+      qa__release: "Bundle released from quality hold",
+      qa__place: "Put at an inspection point",
+      qa__settings__update: "Quality switches changed",
+      qa__temper__save: "Temper saved",
+      qa__plan__save: "Quality plan saved",
+      qa__station__save: "Inspection point saved",
+      qa__substitute__save: "Alloy substitute saved",
+      qa__substitute__remove: "Alloy substitute removed",
+      qa__instrument__save: "Instrument saved",
+      qa__instrument__calibrate: "Instrument calibrated",
+      qa__instrument__certificate: "Calibration certificate saved",
       press__alert__ack: "Press alert acknowledged",
       press__alert__ackEnded: "Ended press alerts acknowledged",
       press__alert__threshold: "Press alert limits changed",
@@ -7178,6 +7219,28 @@ export const en = {
       vendor__create: "Vendor added",
       vendor__merge: "Vendors merged",
       vendor__update: "Vendor changed",
+      plant_master__create: "Plant list choice added",
+      plant_master__starters: "Standard choices added to a plant list",
+      plant_master__update: "Plant list choice changed",
+      bank_account__create: "Bank account added",
+      bank_account__update: "Bank account changed",
+      bank_account__default: "Default bank account set",
+      bank_account__restore: "Bank account brought back",
+      bank_account__retire: "Bank account retired",
+      company__insurance__update: "Transit insurance changed",
+      company__number_format__update: "Document numbering changed",
+      company__approval_rule__update: "Who approves a request changed",
+      membership__assign: "Team member's department or designation changed",
+      order_line__packing_mode: "Mode of packing set on an order line",
+      dispatch__packing_mode: "Mode of packing set on a load",
+      tooling__create: "Tooling piece added",
+      tooling__update: "Tooling piece status changed",
+      die_copy__cost: "Die copy cost changed",
+      tooling__min_stock: "Tooling minimum to keep changed",
+      die__category: "Die category set",
+      plant_document__create: "Document added",
+      plant_document__update: "Document changed",
+      plant_document__file: "Document file attached",
     },
   },
 

@@ -163,6 +163,10 @@ describe("die issue lock (FP-DR-16, C6, C43)", () => {
 
   test("refusals", () => {
     expect(canIssueDie({ copy, openIssueForCopy: true, pressLineId: "p1" })).toEqual({ ok: false, refusal: "open_issue_exists" });
+    // XE ADM #59: a copy that failed its receive inspection is never issued; a pass or none issues.
+    expect(canIssueDie({ copy, openIssueForCopy: false, pressLineId: "p1", inspection: "fail" })).toEqual({ ok: false, refusal: "copy_failed_inspection" });
+    expect(canIssueDie({ copy, openIssueForCopy: false, pressLineId: "p1", inspection: "pass" })).toEqual({ ok: true });
+    expect(canIssueDie({ copy, openIssueForCopy: false, pressLineId: "p1", inspection: null })).toEqual({ ok: true });
     expect(canIssueDie({ copy: { ...copy, status: "at_nitriding" }, openIssueForCopy: false, pressLineId: "p1" })).toEqual({
       ok: false,
       refusal: "copy_not_available",

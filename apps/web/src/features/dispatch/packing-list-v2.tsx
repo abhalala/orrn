@@ -43,6 +43,13 @@ function PlHeader({ view, code }: { view: PlView; code: string }) {
     { key: "vehicle", label: t("packingList.vehicle"), value: view.vehicleNo, mono: true },
     { key: "driver", label: t("packingList.driver"), value: [view.driverName, view.driverPhone].filter(Boolean).join(" · ") || null },
     { key: "transporter", label: t("packingList.transporter"), value: view.transporter },
+    { key: "packingMode", label: t("adm.pl.packingMode"), value: view.packingMode },
+    {
+      key: "insurance",
+      label: t("adm.pl.insurance"),
+      value: view.transitInsurance ? t("adm.pl.insuranceValue", { policy: view.transitInsurance.policyNo, insurer: view.transitInsurance.insurer }) : null,
+      mono: false,
+    },
     { key: "po", label: t("packingList.po"), value: view.poNumbers.length > 0 ? view.poNumbers.join(", ") : null, mono: true },
     { key: "invoice", label: t("packingList.invoice"), value: view.invoiceNumber ? [view.invoiceNumber, view.invoiceDate ? formatShipDate(view.invoiceDate, { locale }) : null].filter(Boolean).join(" · ") : null, mono: true },
   ];

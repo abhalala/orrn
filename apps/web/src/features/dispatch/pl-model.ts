@@ -61,6 +61,10 @@ export type PlView = {
   driverName: string | null;
   driverPhone: string | null;
   transporter: string | null;
+  /** XE ADM #76: mode of packing; null when none was set or on older snapshots. */
+  packingMode: string | null;
+  /** XE ADM #21: "Policy {no}, {insurer}" text parts; null when not printed. */
+  transitInsurance: { policyNo: string; insurer: string; validTo: string | null } | null;
   poNumbers: string[];
   invoiceNumber: string | null;
   invoiceDate: string | null;
@@ -91,6 +95,8 @@ export function plViewOf(pl: PackingListSnapshot): PlView | null {
     driverName: h.driverName,
     driverPhone: h.driverPhone,
     transporter: h.transporter,
+    packingMode: h.packingMode ?? null,
+    transitInsurance: h.transitInsurance ?? null,
     poNumbers: h.poNumbers,
     invoiceNumber: h.invoiceNumber,
     invoiceDate: h.invoiceDate,

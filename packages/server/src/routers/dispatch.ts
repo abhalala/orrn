@@ -44,6 +44,7 @@ import {
   type SqliteBatchItem,
 } from "../lib/atomic";
 import { heldElsewhere, type BundleBlock } from "../lib/bundleHold";
+import { assertNoQaHold, isQaAbort, qaHoldGuardStatements } from "../lib/qa";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextDocNumber } from "../lib/docNumber";
@@ -1213,6 +1214,8 @@ async function addByCodes(
     const toAdd = refuseOutsideOrder(classified, new Set(picks.keys()));
     // W3-AG-S: a bundle in the oven or held in ageing (or never aged, under requireAgeing) does not load.
     await assertDispatchAgeing(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
+    // XE QA (row 29): a bundle on quality hold does not load (scan and the office's add by serial).
+    await assertNoQaHold(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
     const report: ScanReport = {
       added: [],
       linked: [],
@@ -1307,6 +1310,8 @@ async function addByCodes(
       ...addUnassignedAudits(ctx, d.id, toAdd.filter((b) => unassignedIds.has(b.id))),
       // Review m6: none went onto a trolley since the read (else re-read: refused by name).
       ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, toAdd.map((b) => b.id)),
+      // XE QA (review B1): no quality hold landed since the read (else re-read: refused by name).
+      ...(await qaHoldGuardStatements(ctx.db, ctx.companyId, toAdd.map((b) => b.id))),
     );
 
     await atomicBatch(ctx.db, statements);
@@ -1330,7 +1335,7 @@ async function addByCodes(
     // A concurrent scan inserted one of these first and the whole batch
     // rolled back; re-read once so it lands in alreadyInDispatch.
     // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
-    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
+    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e) || isQaAbort(e)) return run();
     throw e;
   }
 }
@@ -2431,6 +2436,8 @@ export const dispatchRouter = router({
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
         await assertDispatchAgeing(ctx.db, ctx.companyId, [b.id]);
+        // XE QA (review B1): a bundle on quality hold does not load from the office either.
+        await assertNoQaHold(ctx.db, ctx.companyId, [b.id]);
 
         // The §E6 order, same as a scan: void, dispatched, held, held for an order, unassigned, wrong customer, owned die.
         const classified = await classifyBundles(
@@ -2525,6 +2532,7 @@ export const dispatchRouter = router({
           ...addUnassignedAudits(ctx, d.id, verdict.note === "unassigned" ? [b] : []),
           // Review m6: not put on a trolley since the read (else re-read: refused by name).
           ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, [b.id]),
+          ...(await qaHoldGuardStatements(ctx.db, ctx.companyId, [b.id])),
         );
 
         await atomicBatch(ctx.db, statements);
@@ -2544,7 +2552,7 @@ export const dispatchRouter = router({
         // A concurrent scan of the same bundle inserted first; the batch rolled
         // back, so re-read: this time it reports "already in this dispatch".
         // A hold that landed meanwhile (FP-OP-17): re-read, this time it is refused by name.
-        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e) || isQaAbort(e)) return run();
         throw e;
       }
     }),
@@ -2771,6 +2779,8 @@ export const dispatchRouter = router({
       );
 
       await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
+      // XE QA (review B1): a bundle put on quality hold while on the draft does not reserve.
+      await assertNoQaHold(ctx.db, ctx.companyId, bundleIds);
       const notAvailable = bundles.filter((b) => b.status !== "available");
       if (notAvailable.length > 0) {
         throw new TRPCError({
@@ -2833,11 +2843,17 @@ export const dispatchRouter = router({
         ),
         // Review m6: none went onto a trolley since the read.
         ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, bundleIds),
+        // XE QA (review B1): and no quality hold landed since the read.
+        ...(await qaHoldGuardStatements(ctx.db, ctx.companyId, bundleIds)),
       );
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
         if (isAgeingAbort(e)) await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
+        if (isQaAbort(e)) {
+          await assertNoQaHold(ctx.db, ctx.companyId, bundleIds);
+          throw new TRPCError({ code: "CONFLICT", message: "This dispatch changed meanwhile. Reload and try again." });
+        }
         throw e;
       }
       return { success: true };
@@ -2960,6 +2976,8 @@ export const dispatchRouter = router({
         });
       }
       await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
+      // XE QA (review B1): a bundle on quality hold never leaves (late entry and the phone come here too).
+      await assertNoQaHold(ctx.db, ctx.companyId, bundleIds);
       // A bundle that went into a reallocation request after it was scanned can't leave until the
       // request is decided (read here, and in the completing UPDATE below).
       const pendingHere = await bundlesPendingReallocation(ctx.db, ctx.companyId, bundleIds);
@@ -3207,10 +3225,16 @@ export const dispatchRouter = router({
           },
         ),
       );
+      // XE QA (review B1): a quality hold placed after the read fails the completion whole.
+      statements.push(...(await qaHoldGuardStatements(ctx.db, ctx.companyId, bundleIds)));
 
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        if (isQaAbort(e)) {
+          await assertNoQaHold(ctx.db, ctx.companyId, bundleIds);
+          throw new TRPCError({ code: "CONFLICT", message: "Bundles on this dispatch changed. Reload and try again." });
+        }
         if (!isBatchAbort(e, "packing_list_line")) throw e;
         // Our completion did not land. Say why: the dispatch moved on, an overdraw appeared
         // (another dispatch completed against the same line, or a link was added), or bundles changed.

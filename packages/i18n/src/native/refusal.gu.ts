@@ -19,6 +19,7 @@ export const refusalGu = {
     retiredNoReadings: "{code} બંધ છે. તેનું રીડિંગ લેવાતું નથી.",
     sectionDeleted: "{code} જે die ની છે તે કાઢી નાખી છે. તેને issue કરી શકાતી નથી.",
     alreadyIssued: "{code} પહેલેથી {line} ને issue છે.",
+    copyFailedInspection: "{code} આવક તપાસમાં નાપાસ થઈ. પાસ થાય ત્યાં સુધી તેને issue કરી શકાય નહીં.",
     copyOnTrialIssue: "{code} ટ્રાયલ પર છે. ટ્રાયલ પાસ થાય અથવા મેનેજર છોડે ત્યાં સુધી તે ફક્ત ટ્રાયલ રન પર જશે.",
     runHasDie: "{run} પાસે પહેલેથી die છે અથવા તે શરૂ થઈ ગયો છે. ફક્ત કતારના રનને die મળે છે.",
     notCopyOfRunDie: "{code} એ die ની copy નથી જે {run} ને જોઈએ છે.",

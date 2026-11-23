@@ -28,6 +28,7 @@ import { HoldNote, PlPendingNote, ReleaseButton } from "@/features/dispatch/hold
 import { LateEntryNote } from "@/features/dispatch/late-entry-note";
 import { offBandNote, offBandStops } from "@/features/dispatch/off-band";
 import { useCan, usePackingListScope } from "@/features/dispatch/hooks";
+import { DispatchPackingMode } from "@/features/dispatch/packing-mode";
 import { OrderPanel } from "@/features/dispatch/order-panel";
 import { ValueCard } from "@/features/dispatch/value-card";
 import { TruckPanel } from "@/features/dispatch/truck-panel";
@@ -346,6 +347,12 @@ function DispatchDetail({ data }: { data: DetailData }) {
       {data.salesOrder && status !== "cancelled" ? <OrderPanel order={data.salesOrder} items={items} editable={editable} /> : null}
 
       {status !== "cancelled" ? <ValueCard value={data.value} /> : null}
+
+      {status !== "cancelled" ? (
+        <Can do={["dispatch.scan", "dispatch.complete"]}>
+          <DispatchPackingMode dispatchId={d.id} current={(d as { packingModeId?: string | null }).packingModeId ?? null} />
+        </Can>
+      ) : null}
 
       {status === "completed" ? (
         <>
