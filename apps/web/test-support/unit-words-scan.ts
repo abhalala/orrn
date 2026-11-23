@@ -17,6 +17,7 @@ const DICT: Record<string, unknown> = { en, hi, gu };
  * Anything not listed here must use {massUnit}, {sectionUnit} or {lengthUnit} (or carry the figure with its unit already).
  */
 export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
+  { prefix: "bill.", why: "a tax invoice is billed per kg: the quantity and the rate are in kg, the unit code of the HSN, whatever unit the plant shows on screen" },
   { prefix: "units.", why: "the unit words themselves (and the names in the pickers)" },
   { prefix: "settings.", why: "Settings names the units it lets a plant choose" },
   { prefix: "packingList.", why: "the packing list view mirrors the paper, which keeps kg and feet and inches until the paper has its own setting" },

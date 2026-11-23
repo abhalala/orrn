@@ -27,6 +27,7 @@ export function PortalDispatchesPage() {
     { key: "code", header: t("portal.dispatches.code"), cell: (d) => <span className="font-mono font-semibold whitespace-nowrap">{d.code}</span> },
     { key: "date", header: t("portal.dispatches.date"), cell: (d) => <span className="whitespace-nowrap">{portalDispatchDay(fmt, d)}</span> },
     { key: "pl", header: t("portal.dispatches.plNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.plNumber ?? ""}</span> },
+    { key: "invoice", header: t("portal.dispatches.invoiceNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.invoiceNumber ?? ""}</span> },
     { key: "vehicle", header: t("portal.dispatches.vehicle"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.vehicleNo ?? ""}</span> },
     { key: "bundles", header: t("portal.dispatches.bundlesLabel"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{countText(fmt, d.bundles)}</span> },
     { key: "weight", header: t("portal.dispatches.weight"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, d.weightG)}</span> },

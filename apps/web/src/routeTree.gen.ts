@@ -59,6 +59,7 @@ import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/custo
 import { Route as TenantComplaintsIndexRouteImport } from './routes/_tenant/complaints.index'
 import { Route as TenantCastsIndexRouteImport } from './routes/_tenant/casts.index'
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
+import { Route as TenantBillingIndexRouteImport } from './routes/_tenant/billing.index'
 import { Route as TenantAgeingIndexRouteImport } from './routes/_tenant/ageing.index'
 import { Route as PortalPortalIndexRouteImport } from './routes/_portal/portal.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
@@ -125,6 +126,11 @@ import { Route as TenantComplaintsIdRouteImport } from './routes/_tenant/complai
 import { Route as TenantCastsNewRouteImport } from './routes/_tenant/casts.new'
 import { Route as TenantCastsInboxRouteImport } from './routes/_tenant/casts.inbox'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
+import { Route as TenantBillingSettingsRouteImport } from './routes/_tenant/billing.settings'
+import { Route as TenantBillingPaymentsRouteImport } from './routes/_tenant/billing.payments'
+import { Route as TenantBillingOutstandingRouteImport } from './routes/_tenant/billing.outstanding'
+import { Route as TenantBillingNewRouteImport } from './routes/_tenant/billing.new'
+import { Route as TenantBillingIdRouteImport } from './routes/_tenant/billing.$id'
 import { Route as TenantAgeingLoadRouteImport } from './routes/_tenant/ageing.load'
 import { Route as TenantAgeingHistoryRouteImport } from './routes/_tenant/ageing.history'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
@@ -437,6 +443,11 @@ const TenantCastsIndexRoute = TenantCastsIndexRouteImport.update({
 const TenantBundlesIndexRoute = TenantBundlesIndexRouteImport.update({
   id: '/bundles/',
   path: '/bundles/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBillingIndexRoute = TenantBillingIndexRouteImport.update({
+  id: '/billing/',
+  path: '/billing/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantAgeingIndexRoute = TenantAgeingIndexRouteImport.update({
@@ -768,6 +779,32 @@ const TenantCastsInboxRoute = TenantCastsInboxRouteImport.update({
 const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
   id: '/bundles/$id',
   path: '/bundles/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBillingSettingsRoute = TenantBillingSettingsRouteImport.update({
+  id: '/billing/settings',
+  path: '/billing/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBillingPaymentsRoute = TenantBillingPaymentsRouteImport.update({
+  id: '/billing/payments',
+  path: '/billing/payments',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBillingOutstandingRoute =
+  TenantBillingOutstandingRouteImport.update({
+    id: '/billing/outstanding',
+    path: '/billing/outstanding',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantBillingNewRoute = TenantBillingNewRouteImport.update({
+  id: '/billing/new',
+  path: '/billing/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBillingIdRoute = TenantBillingIdRouteImport.update({
+  id: '/billing/$id',
+  path: '/billing/$id',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantAgeingLoadRoute = TenantAgeingLoadRouteImport.update({
@@ -1177,6 +1214,11 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof PublicInviteTokenRoute
   '/ageing/history': typeof TenantAgeingHistoryRoute
   '/ageing/load': typeof TenantAgeingLoadRoute
+  '/billing/$id': typeof TenantBillingIdRoute
+  '/billing/new': typeof TenantBillingNewRoute
+  '/billing/outstanding': typeof TenantBillingOutstandingRoute
+  '/billing/payments': typeof TenantBillingPaymentsRoute
+  '/billing/settings': typeof TenantBillingSettingsRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/casts/inbox': typeof TenantCastsInboxRoute
   '/casts/new': typeof TenantCastsNewRoute
@@ -1243,6 +1285,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof PlatformAdminIndexRoute
   '/portal/': typeof PortalPortalIndexRoute
   '/ageing/': typeof TenantAgeingIndexRoute
+  '/billing/': typeof TenantBillingIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
   '/casts/': typeof TenantCastsIndexRoute
   '/complaints/': typeof TenantComplaintsIndexRoute
@@ -1358,6 +1401,11 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof PublicInviteTokenRoute
   '/ageing/history': typeof TenantAgeingHistoryRoute
   '/ageing/load': typeof TenantAgeingLoadRoute
+  '/billing/$id': typeof TenantBillingIdRoute
+  '/billing/new': typeof TenantBillingNewRoute
+  '/billing/outstanding': typeof TenantBillingOutstandingRoute
+  '/billing/payments': typeof TenantBillingPaymentsRoute
+  '/billing/settings': typeof TenantBillingSettingsRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/casts/inbox': typeof TenantCastsInboxRoute
   '/casts/new': typeof TenantCastsNewRoute
@@ -1424,6 +1472,7 @@ export interface FileRoutesByTo {
   '/admin': typeof PlatformAdminIndexRoute
   '/portal': typeof PortalPortalIndexRoute
   '/ageing': typeof TenantAgeingIndexRoute
+  '/billing': typeof TenantBillingIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
   '/casts': typeof TenantCastsIndexRoute
   '/complaints': typeof TenantComplaintsIndexRoute
@@ -1545,6 +1594,11 @@ export interface FileRoutesById {
   '/_public/invite/$token': typeof PublicInviteTokenRoute
   '/_tenant/ageing/history': typeof TenantAgeingHistoryRoute
   '/_tenant/ageing/load': typeof TenantAgeingLoadRoute
+  '/_tenant/billing/$id': typeof TenantBillingIdRoute
+  '/_tenant/billing/new': typeof TenantBillingNewRoute
+  '/_tenant/billing/outstanding': typeof TenantBillingOutstandingRoute
+  '/_tenant/billing/payments': typeof TenantBillingPaymentsRoute
+  '/_tenant/billing/settings': typeof TenantBillingSettingsRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
   '/_tenant/casts/inbox': typeof TenantCastsInboxRoute
   '/_tenant/casts/new': typeof TenantCastsNewRoute
@@ -1611,6 +1665,7 @@ export interface FileRoutesById {
   '/_platform/admin/': typeof PlatformAdminIndexRoute
   '/_portal/portal/': typeof PortalPortalIndexRoute
   '/_tenant/ageing/': typeof TenantAgeingIndexRoute
+  '/_tenant/billing/': typeof TenantBillingIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
   '/_tenant/casts/': typeof TenantCastsIndexRoute
   '/_tenant/complaints/': typeof TenantComplaintsIndexRoute
@@ -1728,6 +1783,11 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/ageing/history'
     | '/ageing/load'
+    | '/billing/$id'
+    | '/billing/new'
+    | '/billing/outstanding'
+    | '/billing/payments'
+    | '/billing/settings'
     | '/bundles/$id'
     | '/casts/inbox'
     | '/casts/new'
@@ -1794,6 +1854,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/portal/'
     | '/ageing/'
+    | '/billing/'
     | '/bundles/'
     | '/casts/'
     | '/complaints/'
@@ -1909,6 +1970,11 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/ageing/history'
     | '/ageing/load'
+    | '/billing/$id'
+    | '/billing/new'
+    | '/billing/outstanding'
+    | '/billing/payments'
+    | '/billing/settings'
     | '/bundles/$id'
     | '/casts/inbox'
     | '/casts/new'
@@ -1975,6 +2041,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/portal'
     | '/ageing'
+    | '/billing'
     | '/bundles'
     | '/casts'
     | '/complaints'
@@ -2095,6 +2162,11 @@ export interface FileRouteTypes {
     | '/_public/invite/$token'
     | '/_tenant/ageing/history'
     | '/_tenant/ageing/load'
+    | '/_tenant/billing/$id'
+    | '/_tenant/billing/new'
+    | '/_tenant/billing/outstanding'
+    | '/_tenant/billing/payments'
+    | '/_tenant/billing/settings'
     | '/_tenant/bundles/$id'
     | '/_tenant/casts/inbox'
     | '/_tenant/casts/new'
@@ -2161,6 +2233,7 @@ export interface FileRouteTypes {
     | '/_platform/admin/'
     | '/_portal/portal/'
     | '/_tenant/ageing/'
+    | '/_tenant/billing/'
     | '/_tenant/bundles/'
     | '/_tenant/casts/'
     | '/_tenant/complaints/'
@@ -2603,6 +2676,13 @@ declare module '@tanstack/react-router' {
       path: '/bundles'
       fullPath: '/bundles/'
       preLoaderRoute: typeof TenantBundlesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/': {
+      id: '/_tenant/billing/'
+      path: '/billing'
+      fullPath: '/billing/'
+      preLoaderRoute: typeof TenantBillingIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/ageing/': {
@@ -3065,6 +3145,41 @@ declare module '@tanstack/react-router' {
       path: '/bundles/$id'
       fullPath: '/bundles/$id'
       preLoaderRoute: typeof TenantBundlesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/settings': {
+      id: '/_tenant/billing/settings'
+      path: '/billing/settings'
+      fullPath: '/billing/settings'
+      preLoaderRoute: typeof TenantBillingSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/payments': {
+      id: '/_tenant/billing/payments'
+      path: '/billing/payments'
+      fullPath: '/billing/payments'
+      preLoaderRoute: typeof TenantBillingPaymentsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/outstanding': {
+      id: '/_tenant/billing/outstanding'
+      path: '/billing/outstanding'
+      fullPath: '/billing/outstanding'
+      preLoaderRoute: typeof TenantBillingOutstandingRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/new': {
+      id: '/_tenant/billing/new'
+      path: '/billing/new'
+      fullPath: '/billing/new'
+      preLoaderRoute: typeof TenantBillingNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/billing/$id': {
+      id: '/_tenant/billing/$id'
+      path: '/billing/$id'
+      fullPath: '/billing/$id'
+      preLoaderRoute: typeof TenantBillingIdRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/ageing/load': {
@@ -3691,6 +3806,11 @@ interface TenantRouteChildren {
   TenantTodayRoute: typeof TenantTodayRoute
   TenantAgeingHistoryRoute: typeof TenantAgeingHistoryRoute
   TenantAgeingLoadRoute: typeof TenantAgeingLoadRoute
+  TenantBillingIdRoute: typeof TenantBillingIdRoute
+  TenantBillingNewRoute: typeof TenantBillingNewRoute
+  TenantBillingOutstandingRoute: typeof TenantBillingOutstandingRoute
+  TenantBillingPaymentsRoute: typeof TenantBillingPaymentsRoute
+  TenantBillingSettingsRoute: typeof TenantBillingSettingsRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
   TenantCastsInboxRoute: typeof TenantCastsInboxRoute
   TenantCastsNewRoute: typeof TenantCastsNewRoute
@@ -3753,6 +3873,7 @@ interface TenantRouteChildren {
   TenantStoreReceiveRoute: typeof TenantStoreReceiveRoute
   TenantVendorsIdRoute: typeof TenantVendorsIdRoute
   TenantAgeingIndexRoute: typeof TenantAgeingIndexRoute
+  TenantBillingIndexRoute: typeof TenantBillingIndexRoute
   TenantBundlesIndexRoute: typeof TenantBundlesIndexRoute
   TenantCastsIndexRoute: typeof TenantCastsIndexRoute
   TenantComplaintsIndexRoute: typeof TenantComplaintsIndexRoute
@@ -3832,6 +3953,11 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantTodayRoute: TenantTodayRoute,
   TenantAgeingHistoryRoute: TenantAgeingHistoryRoute,
   TenantAgeingLoadRoute: TenantAgeingLoadRoute,
+  TenantBillingIdRoute: TenantBillingIdRoute,
+  TenantBillingNewRoute: TenantBillingNewRoute,
+  TenantBillingOutstandingRoute: TenantBillingOutstandingRoute,
+  TenantBillingPaymentsRoute: TenantBillingPaymentsRoute,
+  TenantBillingSettingsRoute: TenantBillingSettingsRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
   TenantCastsInboxRoute: TenantCastsInboxRoute,
   TenantCastsNewRoute: TenantCastsNewRoute,
@@ -3894,6 +4020,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantStoreReceiveRoute: TenantStoreReceiveRoute,
   TenantVendorsIdRoute: TenantVendorsIdRoute,
   TenantAgeingIndexRoute: TenantAgeingIndexRoute,
+  TenantBillingIndexRoute: TenantBillingIndexRoute,
   TenantBundlesIndexRoute: TenantBundlesIndexRoute,
   TenantCastsIndexRoute: TenantCastsIndexRoute,
   TenantComplaintsIndexRoute: TenantComplaintsIndexRoute,

@@ -6,6 +6,7 @@ import { Boxes, CalendarClock, ClipboardList, Cylinder, Factory, Flame, Layers, 
 import { useMe } from "@/shared/lib/me";
 
 import { ReportsGate } from "./report-chrome";
+import { SalesRegisterCard } from "./sales-register-card";
 
 /** `/reports`: the four office reports (reports.read). */
 export function ReportsIndex() {
@@ -38,6 +39,7 @@ export function ReportsIndex() {
             </li>
           ))}
         </ul>
+        <SalesRegisterCard />
       </ReportsGate>
     </>
   );

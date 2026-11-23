@@ -98,7 +98,10 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit"]);
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
+    // Billing is opt-in: a plant with no modules named has it off, and naming it turns it on without touching the rest.
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 1);
+    expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {

@@ -161,6 +161,17 @@ describe("approvalSubject", () => {
     expect(t("approvals.noteFrom", { name: "Office Ola" })).toBe("Note from Office Ola");
   });
 
+  test("invoice_cancel (XE-BILL): the invoice number, opens the invoice", () => {
+    expect(approvalSubject(row({ kind: "invoice_cancel", subjectId: "inv-1", meta: { invoiceId: "inv-1", number: "FC/26-27/0007", kind: "invoice" } }))).toEqual({
+      kindKey: "approvals.kind.invoice_cancel",
+      titleKey: "approvals.subject.invoiceCancel",
+      vars: { number: "FC/26-27/0007" },
+      href: "/billing/inv-1",
+      openKey: "approvals.openInvoice",
+    });
+    expect(approvalSubject(row({ kind: "invoice_cancel", subjectId: "a/../b", meta: { number: "X" } })).href).toBeNull();
+  });
+
   test("dispatch_late_entry (arch 52): the dispatch, opens it; the review sheet reads the time the truck left", async () => {
     const { lateDispatchOf, lateHours } = await import("./approval-view");
     const meta = { dispatchId: "d-7", dispatchCode: "D-0007", occurredAt: Date.UTC(2026, 10, 10, 1, 0), reason: "Line down" };

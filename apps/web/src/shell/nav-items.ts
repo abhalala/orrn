@@ -6,6 +6,7 @@ import {
   BookMarked,
   Boxes,
   Building2,
+  FileText,
   ClipboardCheck,
   ChartColumn,
   Cylinder,
@@ -75,6 +76,9 @@ const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.re
 /** The foundry: who enters casts and melts, closes them, and who reads reports (the cast pages are readable by any member). */
 const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.close", "reports.read"];
 
+/** Billing: who reads invoices, issues them, records payments or sets up GST. */
+const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
+
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
@@ -89,6 +93,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   // XE parity REG: the complaint register and the owner's morning page.
   { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
   { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
+  // XE-BILL: tax invoices, payments, outstanding and the accounts exports. Opt-in module, hidden while it is off.
+  { key: "billing", to: "/billing", labelKey: "nav.billing", icon: FileText, requires: BILLING_PEOPLE, module: "billing" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },

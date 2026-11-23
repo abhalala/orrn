@@ -22,12 +22,13 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
   purchase_lot: (id) => `/purchase/${id}`,
   count_session: (id) => `/stock/count/${id}`,
   complaint: (id) => `/complaints/${id}`,
+  invoice: (id) => `/billing/${id}`,
 };
 
 export const AUDIT_SUBJECT_TYPES = Object.keys(SUBJECT_PATHS);
 
 /** Subject types with words but no screen of their own (final fixes 5, L15: they stayed English in Hindi). */
-const WORDS_ONLY = ["bundle_transfer", "sales_order_line", "buddy_draft", "buddy_grant"] as const;
+const WORDS_ONLY = ["bundle_transfer", "sales_order_line", "buddy_draft", "buddy_grant", "payment", "gst_hsn"] as const;
 
 /** The screen for a subject, or null when the type has none. */
 export function subjectPath(subjectType: string, subjectId: string | null): string | null {
