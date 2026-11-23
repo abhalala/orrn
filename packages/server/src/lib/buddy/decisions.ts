@@ -202,6 +202,23 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE FOUNDRY (rows 41-47, 50): writes are denied by default until reviewed for drafts.
+    "foundry.homog.create": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.addLine": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.removeLine": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.start": deny("XE FOUNDRY write: the furnace start takes the server clock on the floor."),
+    "foundry.homog.reading": deny("XE FOUNDRY write: a furnace reading is read off the pyrometer on the floor."),
+    "foundry.homog.out": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.release": deny("XE FOUNDRY write: the homogenizing verdict is a supervisor's act on the screen."),
+    "foundry.homog.void": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.logs.receive": deny("XE FOUNDRY write: posts bought-in logs to the stock ledger (not reviewed for drafts yet)."),
+    "foundry.logs.beginMtc": deny("Mill test certificate upload: the bytes come from the browser only."),
+    "foundry.logs.commitMtc": deny("Mill test certificate upload: the bytes come from the browser only."),
+    "foundry.logs.mtcUrl": deny("§10 scan: mints a signed file link, which would leave orrn through the chat."),
+    "foundry.billets.cut": deny("XE FOUNDRY write: posts a billet cut to the stock ledger (not reviewed for drafts yet)."),
+    "foundry.billets.issue": deny("XE FOUNDRY write: moves billets on the stock ledger (not reviewed for drafts yet)."),
+    "foundry.rejects.create": deny("XE FOUNDRY write: takes logs or billets out of stock (not reviewed for drafts yet)."),
+    "foundry.chargeMix.setChemistry": deny("XE FOUNDRY write: a plant master (not reviewed for drafts yet)."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

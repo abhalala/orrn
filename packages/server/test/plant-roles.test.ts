@@ -117,6 +117,13 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE parity lane FOUNDRY.
+  "foundry.homog": ["foundry", "supervisor"],
+  "foundry.homogRelease": ["supervisor", "manager"],
+  "foundry.logs": ["foundry", "supervisor", "storekeeper"],
+  "foundry.billets": ["foundry", "supervisor"],
+  "foundry.reject": ["foundry", "supervisor"],
+  "foundry.plan": ["supervisor", "office", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
