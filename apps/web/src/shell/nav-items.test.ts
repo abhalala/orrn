@@ -31,6 +31,9 @@ describe("visibleItems", () => {
       "foundry",
       "ageing",
       "qa",
+      "jobwork",
+      "drawbench",
+      "fabrication",
       "reports",
       "complaints",
       "owner",
@@ -81,9 +84,52 @@ describe("visibleItems", () => {
     expect(has("owner", ["ageing"])).toBe(true);
   });
 
+  test("Job work shows for the roles that send, receive, see cost or run the line, and for no one else (XE JOBWORK)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("jobwork");
+    for (const role of ["owner", "admin", "manager", "office", "supervisor", "storekeeper", "accountant", "press", "operator"] as const) {
+      expect({ role, jobwork: has(role) }).toEqual({ role, jobwork: true });
+    }
+    for (const role of ["viewer", "packer", "foundry", "die_room"] as const) {
+      expect({ role, jobwork: has(role) }).toEqual({ role, jobwork: false });
+    }
+  });
+
+  test("Draw bench and Fabrication show for process.run holders only", () => {
+    const more = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules)));
+    for (const role of ["owner", "manager", "supervisor", "press", "operator"] as const) {
+      expect(more(role)).toEqual(expect.arrayContaining(["drawbench", "fabrication"]));
+    }
+    // Storekeeper and accountant reach job work through challans and cost, but do not run the bench or fabrication.
+    for (const role of ["storekeeper", "accountant", "office", "viewer", "packer"] as const) {
+      expect({ role, drawbench: more(role).includes("drawbench"), fabrication: more(role).includes("fabrication") }).toEqual({ role, drawbench: false, fabrication: false });
+    }
+  });
+
+  test("each of the three is its own module: switching one off hides only it, for everyone", () => {
+    const more = (modules: string[]) => keys(visibleItems(TENANT_MORE, me("owner", modules)));
+    const all = ["jobwork", "drawbench", "fabrication"];
+    expect(more(["ageing"])).not.toEqual(expect.arrayContaining(["jobwork"]));
+    for (const off of all) {
+      const shown = more(all.filter((m) => m !== off));
+      expect({ off, hidden: !shown.includes(off), others: all.filter((m) => m !== off).every((m) => shown.includes(m)) }).toEqual({ off, hidden: true, others: true });
+    }
+    // The module word is case-insensitive, like the others.
+    expect(more(["JobWork"])).toContain("jobwork");
+  });
+
+  test("the three entries open /jobwork, /drawbench and /fabrication, and a step page belongs to Job work", () => {
+    const item = (k: string) => TENANT_MORE.find((i) => i.key === k)!;
+    expect(item("jobwork").to).toBe("/jobwork");
+    expect(item("drawbench").to).toBe("/drawbench");
+    expect(item("fabrication").to).toBe("/fabrication");
+    expect(isItemActive(item("jobwork"), "/jobwork/new")).toBe(true);
+    expect(isItemActive(item("jobwork"), "/jobwork/abc/challan")).toBe(true);
+    expect(isItemActive(item("drawbench"), "/jobwork/abc")).toBe(false);
+  });
+
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "purchase", "dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "jobwork", "drawbench", "fabrication", "purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {

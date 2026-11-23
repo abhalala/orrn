@@ -47,6 +47,7 @@ export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
   { prefix: "press.alerts.unit", why: "machine data units (mm/s)" },
   { prefix: "qa.sheet.dims.", why: "a dimension check reads the section drawing, whose nominals and tolerances are in mm (stored as micrometres)" },
   { prefix: "qa.plans.ramSpeed", why: "machine data units (mm/s), as the press collector reports them" },
+  { prefix: "jw.rate.", why: "a rate or declared value is rupees per kg, whatever unit the plant weighs in" },
   { prefix: "purchase.errors.rate", why: "a rate is rupees per kg; the rate's basis is not a plant choice" },
   { prefix: "purchase.charts.rate", why: "a rate is rupees per kg" },
   { prefix: "purchase.new.rate", why: "a rate is rupees per kg" },

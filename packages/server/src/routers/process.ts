@@ -861,10 +861,116 @@ async function startStep(c: Ctx, kind: Exclude<ProcessKind, "jobwork">, input: z
   });
 }
 
+const listInput =
+  z
+    .object({
+      kind: z.enum(["jobwork", "finish", "draw", "fabricate"]).optional(),
+      status: z.enum(["open", "partial", "done", "cancelled"]).optional(),
+      vendorId: id.optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+      offset: z.number().int().min(0).default(0),
+    })
+    .default({ limit: 50, offset: 0 });
+
+/** The register query; `kinds` narrows it for a kind router (draw bench, fabrication). */
+async function listSteps(ctx: Ctx, input: z.infer<typeof listInput>, kinds?: readonly ProcessKind[]) {
+  const where = and(
+    eq(processStep.companyId, ctx.companyId),
+    input.kind ? eq(processStep.kind, input.kind) : undefined,
+    kinds ? inArray(processStep.kind, [...kinds]) : undefined,
+    input.status ? eq(processStep.status, input.status) : undefined,
+    input.vendorId ? eq(processStep.vendorId, input.vendorId) : undefined,
+  );
+  const rows = await ctx.db
+    .select({
+      id: processStep.id,
+      number: processStep.number,
+      kind: processStep.kind,
+      process: processStep.process,
+      status: processStep.status,
+      vendorId: processStep.vendorId,
+      vendorName: processVendor.name,
+      finishCode: processStep.finishCode,
+      sentAt: processStep.sentAt,
+      doneAt: processStep.doneAt,
+      expectedReturn: processStep.expectedReturn,
+      inputG: processStep.inputG,
+      inputPcs: processStep.inputPcs,
+      outputG: sql<number>`(select coalesce(sum(r.output_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
+      lossG: sql<number>`(select coalesce(sum(r.loss_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
+      rejectG: sql<number>`(select coalesce(sum(r.reject_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
+      amountPaise: sql<number>`(select coalesce(sum(r.amount_paise), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
+      bundles: sql<number>`(select count(*) from process_input pi where pi.company_id = ${ctx.companyId} and pi.step_id = ${processStep.id})`,
+      bundlesOut: sql<number>`(select count(*) from process_input pi where pi.company_id = ${ctx.companyId} and pi.step_id = ${processStep.id} and pi.return_id is null)`,
+    })
+    .from(processStep)
+    .leftJoin(processVendor, and(eq(processVendor.id, processStep.vendorId), eq(processVendor.companyId, processStep.companyId)))
+    .where(where)
+    .orderBy(desc(processStep.sentAt), desc(processStep.number))
+    .limit(input.limit + 1)
+    .offset(input.offset);
+  const items = rows.slice(0, input.limit).map((r) => {
+    const outputG = Number(r.outputG);
+    const amount = Number(r.amountPaise);
+    return money(ctx, {
+      ...r,
+      outputG,
+      lossG: Number(r.lossG),
+      rejectG: Number(r.rejectG),
+      bundles: Number(r.bundles),
+      bundlesOut: Number(r.bundlesOut),
+      amountPaise: amount as number | null,
+      costPerKgPaise: (outputG > 0 ? Math.round((amount * 1000) / outputG) : null) as number | null,
+    }, ["amountPaise", "costPerKgPaise"]);
+  });
+  return { items, nextOffset: rows.length > input.limit ? input.offset + input.limit : null };
+}
+
+/** One step with inputs, returns, outputs and totals; `kinds` narrows it for a kind router. */
+async function getStep(ctx: Ctx, stepId: string, kinds?: readonly ProcessKind[]) {
+  const c = ctx;
+  const step = await readStep(c, stepId);
+  if (kinds && !kinds.includes(step.kind as ProcessKind)) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+  const vendor = step.vendorId ? await readVendor(c, step.vendorId) : null;
+  const inputs = await ctx.db
+    .select({ bundleId: processInput.bundleId, serial: processInput.serial, dieId: processInput.dieId, sectionCode: die.sectionCode, weightG: processInput.weightG, pcs: processInput.pcs, lengthMm: processInput.lengthMm, returnId: processInput.returnId })
+    .from(processInput)
+    .innerJoin(die, and(eq(die.id, processInput.dieId), eq(die.companyId, processInput.companyId)))
+    .where(and(eq(processInput.companyId, ctx.companyId), eq(processInput.stepId, step.id)))
+    .orderBy(asc(processInput.createdAt), asc(processInput.serial));
+  const returns = await ctx.db.select().from(processReturn).where(and(eq(processReturn.companyId, ctx.companyId), eq(processReturn.stepId, step.id))).orderBy(asc(processReturn.line));
+  const outputs = await ctx.db
+    .select({ returnId: processOutput.returnId, bundleId: processOutput.bundleId, serial: bundle.serial, inputBundleId: processOutput.inputBundleId, weightG: processOutput.weightG, pcs: processOutput.pcs, lengthMm: processOutput.lengthMm, rejectPcs: processOutput.rejectPcs, rejectG: processOutput.rejectG })
+    .from(processOutput)
+    .innerJoin(bundle, and(eq(bundle.id, processOutput.bundleId), eq(bundle.companyId, processOutput.companyId)))
+    .where(and(eq(processOutput.companyId, ctx.companyId), eq(processOutput.stepId, step.id)));
+  const totalOut = returns.reduce((a, r) => a + r.outputG, 0);
+  const totalAmount = returns.reduce((a, r) => a + r.amountPaise, 0);
+  const moneyKeys = ["ratePaisePerKg", "valuePaisePerKg"] as const;
+  return {
+    step: money(c, { ...step }, moneyKeys),
+    vendor: vendor ? money(c, { id: vendor.id, code: vendor.code, name: vendor.name, gstin: vendor.gstin, address: vendor.address, state: vendor.state, phone: vendor.phone, ratePaisePerKg: vendor.ratePaisePerKg }, ["ratePaisePerKg"]) : null,
+    inputs,
+    returns: returns.map((r) => money(c, { ...r, ratePaisePerKg: r.ratePaisePerKg as number | null, amountPaise: r.amountPaise as number | null }, ["ratePaisePerKg", "amountPaise"])),
+    outputs,
+    totals: money(c, {
+      inputG: step.inputG,
+      outputG: totalOut,
+      lossG: returns.reduce((a, r) => a + r.lossG, 0),
+      rejectG: returns.reduce((a, r) => a + r.rejectG, 0),
+      scrapG: returns.reduce((a, r) => a + r.scrapG, 0),
+      amountPaise: totalAmount as number | null,
+      costPerKgPaise: (totalOut > 0 ? Math.round((totalAmount * 1000) / totalOut) : null) as number | null,
+    }, ["amountPaise", "costPerKgPaise"]),
+    bundlesOut: inputs.filter((i) => !i.returnId).length,
+    canSeeCost: seesCost(c),
+  };
+}
+
 /**
  * The draw bench (row 54, module `drawbench`) and fabrication (row 56, module `fabrication`): the same
- * engine behind their own routers, so the router-level module gate covers each. Reads (register, step)
- * stay on `process.steps`.
+ * engine behind their own routers, so the router-level module gate covers each one's writes. `list` and
+ * `get` here are the register and step read narrowed to the router's kind (reads are never module gated).
  */
 function kindRouter(kind: "draw" | "fabricate") {
   return router({
@@ -877,6 +983,8 @@ function kindRouter(kind: "draw" | "fabricate") {
     cancel: actionProcedure("process.run")
       .input(cancelInput)
       .mutation(async ({ ctx, input }) => cancelStep(ctx as Ctx, input, [kind])),
+    list: companyProcedure.input(listInput).query(async ({ ctx, input }) => listSteps(ctx as Ctx, { ...input, kind: undefined }, [kind])),
+    get: companyProcedure.input(z.object({ id })).query(async ({ ctx, input }) => getStep(ctx as Ctx, input.id, [kind])),
   });
 }
 export const drawbenchRouter = kindRouter("draw");
@@ -938,69 +1046,7 @@ const stepsRouter = router({
     .mutation(async ({ ctx, input }) => cancelStep(ctx as Ctx, input, ["jobwork", "finish"])),
 
   /** The register (rows 33, 55): every step, newest first, filtered by kind, status and vendor. */
-  list: companyProcedure
-    .input(
-      z
-        .object({
-          kind: z.enum(["jobwork", "finish", "draw", "fabricate"]).optional(),
-          status: z.enum(["open", "partial", "done", "cancelled"]).optional(),
-          vendorId: id.optional(),
-          limit: z.number().int().min(1).max(200).default(50),
-          offset: z.number().int().min(0).default(0),
-        })
-        .default({ limit: 50, offset: 0 }),
-    )
-    .query(async ({ ctx, input }) => {
-      const where = and(
-        eq(processStep.companyId, ctx.companyId),
-        input.kind ? eq(processStep.kind, input.kind) : undefined,
-        input.status ? eq(processStep.status, input.status) : undefined,
-        input.vendorId ? eq(processStep.vendorId, input.vendorId) : undefined,
-      );
-      const rows = await ctx.db
-        .select({
-          id: processStep.id,
-          number: processStep.number,
-          kind: processStep.kind,
-          process: processStep.process,
-          status: processStep.status,
-          vendorId: processStep.vendorId,
-          vendorName: processVendor.name,
-          finishCode: processStep.finishCode,
-          sentAt: processStep.sentAt,
-          doneAt: processStep.doneAt,
-          expectedReturn: processStep.expectedReturn,
-          inputG: processStep.inputG,
-          inputPcs: processStep.inputPcs,
-          outputG: sql<number>`(select coalesce(sum(r.output_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
-          lossG: sql<number>`(select coalesce(sum(r.loss_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
-          rejectG: sql<number>`(select coalesce(sum(r.reject_g), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
-          amountPaise: sql<number>`(select coalesce(sum(r.amount_paise), 0) from process_return r where r.company_id = ${ctx.companyId} and r.step_id = ${processStep.id})`,
-          bundles: sql<number>`(select count(*) from process_input pi where pi.company_id = ${ctx.companyId} and pi.step_id = ${processStep.id})`,
-          bundlesOut: sql<number>`(select count(*) from process_input pi where pi.company_id = ${ctx.companyId} and pi.step_id = ${processStep.id} and pi.return_id is null)`,
-        })
-        .from(processStep)
-        .leftJoin(processVendor, and(eq(processVendor.id, processStep.vendorId), eq(processVendor.companyId, processStep.companyId)))
-        .where(where)
-        .orderBy(desc(processStep.sentAt), desc(processStep.number))
-        .limit(input.limit + 1)
-        .offset(input.offset);
-      const items = rows.slice(0, input.limit).map((r) => {
-        const outputG = Number(r.outputG);
-        const amount = Number(r.amountPaise);
-        return money(ctx as Ctx, {
-          ...r,
-          outputG,
-          lossG: Number(r.lossG),
-          rejectG: Number(r.rejectG),
-          bundles: Number(r.bundles),
-          bundlesOut: Number(r.bundlesOut),
-          amountPaise: amount as number | null,
-          costPerKgPaise: (outputG > 0 ? Math.round((amount * 1000) / outputG) : null) as number | null,
-        }, ["amountPaise", "costPerKgPaise"]);
-      });
-      return { items, nextOffset: rows.length > input.limit ? input.offset + input.limit : null };
-    }),
+  list: companyProcedure.input(listInput).query(async ({ ctx, input }) => listSteps(ctx as Ctx, input)),
 
   /** Row 33: what is out at vendors now, with days out, the age bucket and overdue. */
   pending: companyProcedure.input(z.object({ vendorId: id.optional() }).optional()).query(async ({ ctx, input }) => {
@@ -1041,44 +1087,7 @@ const stepsRouter = router({
     return { items, buckets, today };
   }),
 
-  get: companyProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
-    const c = ctx as Ctx;
-    const step = await readStep(c, input.id);
-    const vendor = step.vendorId ? await readVendor(c, step.vendorId) : null;
-    const inputs = await ctx.db
-      .select({ bundleId: processInput.bundleId, serial: processInput.serial, dieId: processInput.dieId, sectionCode: die.sectionCode, weightG: processInput.weightG, pcs: processInput.pcs, lengthMm: processInput.lengthMm, returnId: processInput.returnId })
-      .from(processInput)
-      .innerJoin(die, and(eq(die.id, processInput.dieId), eq(die.companyId, processInput.companyId)))
-      .where(and(eq(processInput.companyId, ctx.companyId), eq(processInput.stepId, step.id)))
-      .orderBy(asc(processInput.createdAt), asc(processInput.serial));
-    const returns = await ctx.db.select().from(processReturn).where(and(eq(processReturn.companyId, ctx.companyId), eq(processReturn.stepId, step.id))).orderBy(asc(processReturn.line));
-    const outputs = await ctx.db
-      .select({ returnId: processOutput.returnId, bundleId: processOutput.bundleId, serial: bundle.serial, inputBundleId: processOutput.inputBundleId, weightG: processOutput.weightG, pcs: processOutput.pcs, lengthMm: processOutput.lengthMm, rejectPcs: processOutput.rejectPcs, rejectG: processOutput.rejectG })
-      .from(processOutput)
-      .innerJoin(bundle, and(eq(bundle.id, processOutput.bundleId), eq(bundle.companyId, processOutput.companyId)))
-      .where(and(eq(processOutput.companyId, ctx.companyId), eq(processOutput.stepId, step.id)));
-    const totalOut = returns.reduce((a, r) => a + r.outputG, 0);
-    const totalAmount = returns.reduce((a, r) => a + r.amountPaise, 0);
-    const moneyKeys = ["ratePaisePerKg", "valuePaisePerKg"] as const;
-    return {
-      step: money(c, { ...step }, moneyKeys),
-      vendor: vendor ? money(c, { id: vendor.id, code: vendor.code, name: vendor.name, gstin: vendor.gstin, address: vendor.address, state: vendor.state, phone: vendor.phone, ratePaisePerKg: vendor.ratePaisePerKg }, ["ratePaisePerKg"]) : null,
-      inputs,
-      returns: returns.map((r) => money(c, { ...r, ratePaisePerKg: r.ratePaisePerKg as number | null, amountPaise: r.amountPaise as number | null }, ["ratePaisePerKg", "amountPaise"])),
-      outputs,
-      totals: money(c, {
-        inputG: step.inputG,
-        outputG: totalOut,
-        lossG: returns.reduce((a, r) => a + r.lossG, 0),
-        rejectG: returns.reduce((a, r) => a + r.rejectG, 0),
-        scrapG: returns.reduce((a, r) => a + r.scrapG, 0),
-        amountPaise: totalAmount as number | null,
-        costPerKgPaise: (totalOut > 0 ? Math.round((totalAmount * 1000) / totalOut) : null) as number | null,
-      }, ["amountPaise", "costPerKgPaise"]),
-      bundlesOut: inputs.filter((i) => !i.returnId).length,
-      canSeeCost: seesCost(c),
-    };
-  }),
+  get: companyProcedure.input(z.object({ id })).query(async ({ ctx, input }) => getStep(ctx as Ctx, input.id)),
 
   /**
    * Row 33: the A4 delivery challan for job work (GST rule 55(1)(c), section 143), as a snapshot the

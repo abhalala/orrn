@@ -10,6 +10,7 @@ import { useMemo } from "react";
 
 import { BundleAgeing } from "@/features/ageing/bundle-trace";
 import { BundleComplaints } from "@/features/complaints/bundle-complaints";
+import { BundleStepBadge } from "@/features/jobwork/bundle-step";
 import { BundleActions } from "@/features/stock/bundle-actions";
 import { BundleFacts } from "@/features/stock/bundle-facts";
 import { BundleHero } from "@/features/stock/bundle-hero";
@@ -204,6 +205,7 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
         />
         <BundleAgeing bundleId={bundle.id} />
         <BundleComplaints bundleId={bundle.id} serial={bundle.serial} pcs={bundle.quantity} />
+        <BundleStepBadge bundleId={bundle.id} />
         <BundleTimeline entries={timeline} activeDispatch={activeDispatch} />
       </BundleActions>
     </>

@@ -19,6 +19,7 @@ export const PAPERS: { file: string; what: string }[] = [
   { file: "features/foundry/certificate-view.tsx", what: "the foundry test certificate" },
   { file: "features/portal/certificate-page.tsx", what: "the portal test certificate" },
   { file: "features/die-room/share-page.tsx", what: "the die share page a party opens from a link" },
+  { file: "features/jobwork/challan-view.tsx", what: "the job-work delivery challan" },
 ];
 
 const PLANT_STYLE = [/\buseFmt\s*\(/, /\buseLengthUnit\s*\(/, /\buseCompanyWhen\s*\(/, /\buseTenantFmt\s*\(/];

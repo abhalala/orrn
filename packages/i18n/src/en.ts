@@ -3247,6 +3247,7 @@ export const en = {
         scrap_store: "Scrap store",
         store: "Central store",
         wip: "Work in progress",
+        vendor: "Job-work vendor",
       },
       holdsEmpty: "Empty",
       holdsBundles: "{count} {count:bundle|bundles}",

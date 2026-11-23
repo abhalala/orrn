@@ -72,6 +72,10 @@ describe("PAGE_ALIASES", () => {
       ["excel", "ingest"],
       ["kanta", "purchase"],
       ["order book", "orders"],
+      ["anodise", "jobwork"],
+      ["powder coat", "jobwork"],
+      ["draw bench", "drawbench"],
+      ["cnc", "fabrication"],
     ];
     const pages = TENANT.map((i) => pageItem(i.key));
     for (const [q, key] of cases) {
@@ -107,7 +111,7 @@ describe("PAGE_SECTIONS", () => {
   });
   test("brief examples are present", () => {
     const ids = new Set(PAGE_SECTIONS.map((s) => s.id));
-    for (const id of ["masters.alloys", "dies.issues", "dies.makers", "ageing.load", "ageing.history", "orders.plan", "press.alerts"]) {
+    for (const id of ["masters.alloys", "dies.issues", "dies.makers", "ageing.load", "ageing.history", "jobwork.new", "orders.plan", "press.alerts"]) {
       expect({ id, ok: ids.has(id) }).toEqual({ id, ok: true });
     }
   });

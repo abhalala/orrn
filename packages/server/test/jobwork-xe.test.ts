@@ -351,6 +351,29 @@ describe("rows 54, 55, 56: in-house steps on the same engine", () => {
     expect(fin.number).toBe("PS/2026-27/1");
   });
 
+  test("draw bench with job work off: its own register and step read; another kind's step is not found there; job-work writes are off", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [t1, t2] = await p.pack(p.dieA, [{ kg: 10 }, { kg: 12 }]);
+    const fin = await p.as("press").process.steps.start({ process: "anodise", codes: [t2!] });
+    await env.db.update(company).set({ modules: ["dies", "bundles", "dispatches", "customers", "orders", "drawbench"] }).where(eq(company.id, p.companyId));
+    const st = await p.as("press").drawbench.start({ passes: 1, codes: [t1!] });
+    const list = await p.as("press").drawbench.list({ limit: 50, offset: 0 });
+    expect(list.items.map((r) => r.id)).toEqual([st.id]);
+    const got = await p.as("press").drawbench.get({ id: st.id });
+    expect(got.step).toMatchObject({ kind: "draw", status: "open" });
+    expect(got.inputs).toHaveLength(1);
+    await expect(p.as("press").drawbench.get({ id: fin.id })).rejects.toMatchObject({ message: "Not found" });
+    // Reads are never module gated (moduleGate.ts): the register still lists both kinds; writes are.
+    expect((await p.as("press").process.steps.list({ limit: 50, offset: 0 })).items).toHaveLength(2);
+    await expect(p.as("press").process.steps.start({ process: "anodise", codes: [t2!] })).rejects.toMatchObject({ message: MODULE_OFF });
+    // Tenancy: another plant never reads this step.
+    const other = await plant();
+    await env.db.update(company).set({ modules: ["dies", "bundles", "dispatches", "customers", "orders", "drawbench"] }).where(eq(company.id, other.companyId));
+    await expect(other.as("press").drawbench.get({ id: st.id })).rejects.toMatchObject({ message: "Not found" });
+    expect((await other.as("press").drawbench.list({ limit: 50, offset: 0 })).items).toEqual([]);
+  });
+
   test("fabrication: cut to length on the same bundles with rejects and the time taken; in-house finishing records batch and chemicals", async () => {
     setClock(NOON);
     const p = await plant();

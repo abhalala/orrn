@@ -3234,6 +3234,7 @@ export const hi = {
         scrap_store: "स्क्रैप स्टोर",
         store: "सेंट्रल स्टोर",
         wip: "काम चालू",
+        vendor: "जॉब वर्क वेंडर",
       },
       holdsEmpty: "खाली",
       holdsBundles: "{count} bundle",

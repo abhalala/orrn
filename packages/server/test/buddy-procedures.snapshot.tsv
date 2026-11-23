@@ -191,12 +191,16 @@ docs.files.url	query	deny	reversible
 docs.list	query	deny	reversible
 docs.update	mutation	deny	reversible
 drawbench.cancel	mutation	deny	irreversible
+drawbench.get	query	allow	reversible
+drawbench.list	query	allow	reversible
 drawbench.receive	mutation	deny	reversible
 drawbench.start	mutation	deny	reversible
 edge.enroll	mutation	deny	reversible
 edge.overview	query	deny	reversible
 edge.revoke	mutation	deny	irreversible
 fabrication.cancel	mutation	deny	irreversible
+fabrication.get	query	allow	reversible
+fabrication.list	query	allow	reversible
 fabrication.receive	mutation	deny	reversible
 fabrication.start	mutation	deny	reversible
 foundry.alloys.create	mutation	allow	reversible
