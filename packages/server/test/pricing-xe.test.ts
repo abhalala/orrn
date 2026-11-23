@@ -757,3 +757,91 @@ describe("fix round 1, advisor follow-ups", () => {
     SLOW,
   );
 });
+
+describe("re-check of PR #15", () => {
+  test(
+    "X1: a quote can't be dated before today, and stays valid at most 90 days",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const line = { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 100_000, pcs: 10 };
+      await expect(p.office.pricing.quotes.create({ customerId: p.customerId, quoteDate: "2026-11-01", lines: [line] })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "A quote can't be dated before today. Prices come from the master on its date",
+      });
+      await expect(p.office.pricing.quotes.create({ customerId: p.customerId, validUntil: "2027-02-14", lines: [line] })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "A quote can stay valid for at most 90 days",
+      });
+      const q = await p.office.pricing.quotes.create({ customerId: p.customerId, validUntil: "2027-02-13", lines: [line] });
+      const got = await p.office.pricing.quotes.get({ id: q.id });
+      await expect(
+        p.office.pricing.quotes.update({ id: q.id, serverSeq: got.quote.serverSeq, customerId: p.customerId, quoteDate: "2026-11-10", lines: [line] }),
+      ).rejects.toMatchObject({ message: "A quote can't be dated before today. Prices come from the master on its date" });
+      // A week later the draft keeps its old date; validity counts from today, not the old date.
+      setClockForTests(new Date("2026-11-22T06:30:00.000Z"));
+      await expect(
+        p.office.pricing.quotes.update({ id: q.id, serverSeq: got.quote.serverSeq, customerId: p.customerId, validUntil: "2027-02-21", lines: [line] }),
+      ).rejects.toMatchObject({ message: "A quote can stay valid for at most 90 days" });
+      await p.office.pricing.quotes.update({ id: q.id, serverSeq: got.quote.serverSeq, customerId: p.customerId, validUntil: "2027-02-20", lines: [line] });
+      expect((await p.office.pricing.quotes.get({ id: q.id })).quote).toMatchObject({ quoteDate: "2026-11-15", validUntil: "2027-02-20" });
+    },
+    SLOW,
+  );
+
+  test(
+    "X2: a rate typed above the master on a line added to a confirmed order is kept as a line override",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }]);
+      await confirmOrder(p.owner, orderId);
+      const got = await p.office.orders.get({ id: orderId });
+      const l = got.lines[0]!;
+      await p.office.orders.update({
+        id: orderId,
+        serverSeq: got.order.serverSeq,
+        lines: [
+          { id: l.lineId, sectionId: l.sectionId, cutLengthMm: l.cutLengthMm, kgG: l.orderedG, pcs: l.orderedPcs ?? 100, finish: l.finish, tierRank: 1 },
+          { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 100_000, pcs: 10, finish: null, tierRank: 1, ratePaise: 31_000 },
+        ],
+      });
+      const rows = await lineRows(orderId);
+      expect(rows.map((r) => r.ratePaise)).toEqual([29_500, 31_000]);
+      const b = rows[1]!.priceBreakup as unknown as PriceBreakup;
+      expect(b.finalPaisePerKg).toBe(31_000);
+      expect(b.computedPaisePerKg).toBe(29_500);
+      expect(b.override).toMatchObject({ ratePaise: 31_000, reason: "Typed on the line, above the master rate", approvalId: null });
+      const rate = await env.db.select().from(priceRate).where(and(eq(priceRate.companyId, p.companyId), eq(priceRate.kind, "line"), eq(priceRate.key, rows[1]!.id))).all();
+      expect(rate).toHaveLength(1);
+      expect(rate[0]).toMatchObject({ status: "active", paise: 31_000, effectiveFrom: "2026-11-15", id: b.override!.rateId });
+    },
+    SLOW,
+  );
+
+  test(
+    "R2: a confirmed order with fixed prices can't change customer; a booking drops the quoted breakdown",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const other = await env.seedCustomer(p.companyId);
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }]);
+      await confirmOrder(p.owner, orderId);
+      let got = await p.office.orders.get({ id: orderId });
+      await expect(p.office.orders.update({ id: orderId, serverSeq: got.order.serverSeq, customerId: other })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Prices are fixed for this customer; the customer can't change",
+      });
+      const q = await p.office.pricing.quotes.create({ customerId: p.customerId, lines: [{ sectionId: p.dieB, cutLengthMm: 3_658, kgG: 100_000, pcs: 10 }] });
+      const made = await p.office.pricing.quotes.convert({ id: q.id, poNumber: "PO-R2" });
+      expect((await lineRows(made.orderId))[0]!.priceBreakup).not.toBeNull();
+      got = await p.office.orders.get({ id: made.orderId });
+      await p.office.orders.update({ id: made.orderId, serverSeq: got.order.serverSeq, customerId: other });
+      expect((await lineRows(made.orderId))[0]!.priceBreakup).toBeNull();
+      await confirmOrder(p.owner, made.orderId);
+      expect((await lineRows(made.orderId))[0]).toMatchObject({ ratePaise: 29_500 });
+      expect((await lineRows(made.orderId))[0]!.priceBreakup).not.toBeNull();
+    },
+    SLOW,
+  );
+});

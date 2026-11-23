@@ -183,6 +183,13 @@ const enquiryInput = z.object({
   note: text(1000).nullish(),
 });
 
+/** Re-check X1: the longest a quote may stay valid; a quote is never dated before today. */
+export const MAX_QUOTE_VALID_DAYS = 90;
+function assertQuoteWindow(today: string, quoteDate: string, validUntil: string): void {
+  if (quoteDate < today) bad("A quote can't be dated before today. Prices come from the master on its date");
+  if (validUntil > addDaysYmd(quoteDate, MAX_QUOTE_VALID_DAYS)) bad(`A quote can stay valid for at most ${MAX_QUOTE_VALID_DAYS} days`);
+}
+
 export const pricingDocsProcedures = {
   quotes: router({
     list: actionProcedure("price.view")
@@ -267,9 +274,11 @@ export const pricingDocsProcedures = {
         if (input.enquiryId) await assertEnquiry(ctx.db, ctx.companyId, input.enquiryId);
         const at = clockNow();
         const co = await pricingCompany(ctx.db, ctx.companyId);
-        const quoteDate = input.quoteDate ?? pricingToday(co.settings, at);
+        const today = pricingToday(co.settings, at);
+        const quoteDate = input.quoteDate ?? today;
         const validUntil = input.validUntil ?? addDaysYmd(quoteDate, co.pricing.quoteValidDays);
         if (validUntil < quoteDate) bad("The quote can't run out before its date");
+        assertQuoteWindow(today, quoteDate, validUntil);
         const priced = await priceQuote(ctx.db, ctx.companyId, input, quoteDate);
         const { period, numbers } = await allocateDocNumbers(ctx.db, ctx.companyId, "quote", at, 1, ctx.session.user.id);
         const quoteId = crypto.randomUUID();
@@ -316,6 +325,12 @@ export const pricingDocsProcedures = {
         const quoteDate = input.quoteDate ?? q.quoteDate;
         const validUntil = input.validUntil ?? q.validUntil;
         if (validUntil < quoteDate) bad("The quote can't run out before its date");
+        {
+          const today = pricingToday((await pricingCompany(ctx.db, ctx.companyId)).settings, clockNow());
+          // A date kept as it was may lie in the past (an older draft); a changed date follows the create rule.
+          if (quoteDate !== q.quoteDate) assertQuoteWindow(today, quoteDate, validUntil);
+          else if (validUntil !== q.validUntil) assertQuoteWindow(today, quoteDate < today ? today : quoteDate, validUntil);
+        }
         const priced = await priceQuote(ctx.db, ctx.companyId, input, quoteDate);
         const seq = await nextCompanySeq(ctx, ctx.companyId);
         const landed = and(eq(quote.id, q.id), eq(quote.companyId, ctx.companyId), eq(quote.serverSeq, seq));

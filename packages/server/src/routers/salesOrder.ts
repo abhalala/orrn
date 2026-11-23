@@ -43,7 +43,8 @@ import {
   type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
-import { planOrderEditPricing } from "../lib/pricing";
+import { priceRate } from "@orrn/db/schema/pricing";
+import { planOrderEditPricing, pricingCompany, pricingToday } from "../lib/pricing";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
@@ -523,6 +524,9 @@ function shownLines(
   return { lineIds: kept.map((l) => l.lineId), ...orderedTotalsOf(kept) };
 }
 
+/** Re-check X2: the reason stored on a typed rate kept above the master on an added line. */
+const TYPED_ABOVE_REASON = "Typed on the line, above the master rate";
+
 export const salesOrderRouter = router({
   // Wave 1 (FP-OP, W1-OP-S): confirm / close / cancel, quote, repriceWeight, timeline, lineBundles,
   // reallocate, plantStock, matchStock, late, suggestLine.
@@ -568,6 +572,10 @@ export const salesOrderRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Bundles are linked to this order; the customer can't change" });
         }
         await assertCustomer(ctx.db, ctx.companyId, input.customerId!);
+        // Re-check R2: frozen prices belong to the customer they were made for.
+        if (order.status !== "booking" && existing.some((l) => l.row.priceBreakup != null)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Prices are fixed for this customer; the customer can't change" });
+        }
       }
 
       // Lines: diff the full set against what is stored.
@@ -846,8 +854,21 @@ export const salesOrderRouter = router({
           ),
         );
       }
+      // Re-check R2: on a booking, a quoted breakdown made for the old customer is dropped, so confirm
+      // prices those lines for the new customer.
+      if (customerChanged) {
+        statements.push(
+          ctx.db
+            .update(salesOrderLine)
+            .set({ priceBreakup: null })
+            .where(and(eq(salesOrderLine.companyId, ctx.companyId), eq(salesOrderLine.salesOrderId, order.id), sql`${salesOrderLine.priceBreakup} is not null`)),
+        );
+      }
       if (poCheck) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: nextCustomer, poNumber: nextPo }));
       const firstNew = lineSeq - additions.length + 1;
+      // Re-check X2: a rate typed above the master on a line added to a confirmed order is kept as
+      // an active line override (no approval: at or above the computed rate, as requestOverride).
+      const typedOverrides: { lineId: string; ratePaise: number; computed: number; rateId: string }[] = [];
       pushChunkedInserts(
         statements,
         (rows) => ctx.db.insert(salesOrderLine).values(rows),
@@ -861,12 +882,43 @@ export const salesOrderRouter = router({
             createdBy: userId,
           });
           const frozen = pricing.addBreakups[i];
+          if (frozen && typeof row.ratePaise === "number" && row.ratePaise > frozen.finalPaisePerKg) {
+            const rateId = crypto.randomUUID();
+            typedOverrides.push({ lineId: row.id, ratePaise: row.ratePaise, computed: frozen.computedPaisePerKg, rateId });
+            const kept = {
+              ...frozen,
+              override: { ratePaise: row.ratePaise, reason: TYPED_ABOVE_REASON, rateId, approvalId: null, approvedBy: null, requestedBy: userId },
+              finalPaisePerKg: row.ratePaise,
+            };
+            return { ...row, ratePaise: row.ratePaise, priceBreakup: kept as unknown as Record<string, unknown> };
+          }
           // Every row binds the same keys (fixed parameter count per row).
           return frozen
             ? { ...row, ratePaise: frozen.finalPaisePerKg, priceBreakup: frozen as unknown as Record<string, unknown> }
             : { ...row, priceBreakup: null };
         }),
       );
+      const typedOn = typedOverrides.length > 0 ? pricingToday((await pricingCompany(ctx.db, ctx.companyId)).settings, clockNow()) : "";
+      for (const t of typedOverrides) {
+        statements.push(
+          ctx.db.insert(priceRate).values({
+            id: t.rateId,
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            kind: "line",
+            key: t.lineId,
+            paise: t.ratePaise,
+            effectiveFrom: typedOn,
+            status: "active",
+            detail: { computedPaisePerKg: t.computed, orderId: order.id },
+            reason: TYPED_ABOVE_REASON,
+            approvalId: null,
+            decidedBy: null,
+            decidedAt: null,
+            createdBy: userId,
+          }),
+        );
+      }
       statements.push(
         auditInsert(ctx, {
           action: "order.update",
