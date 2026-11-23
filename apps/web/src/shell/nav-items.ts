@@ -28,10 +28,12 @@ import {
   Users,
   Warehouse,
   UploadCloud,
+  MessageSquareWarning,
+  Sunrise,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints";
 
 export type NavItem = {
   key: string;
@@ -83,6 +85,9 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
+  // XE parity REG: the complaint register and the owner's morning page.
+  { key: "complaints", to: "/complaints", labelKey: "nav.complaints", icon: MessageSquareWarning, requires: ["complaint.open", "complaint.manage"], module: "complaints" },
+  { key: "owner", to: "/owner", labelKey: "nav.owner", icon: Sunrise, requires: ["mis.view"] },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },

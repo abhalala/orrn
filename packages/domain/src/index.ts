@@ -22,3 +22,4 @@ export * from "./dispatchLate";
 export * from "./ageing";
 export * from "./invites";
 export * from "./units/index";
+export * from "./reg";

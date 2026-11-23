@@ -11,6 +11,7 @@ import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
 import { ingestHi } from "./ingest/hi";
 import { buddyHi } from "./buddy/hi";
+import { regHi } from "./reg/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -216,6 +217,8 @@ export const hi = {
 
   nav: {
     ageing: "एजिंग",
+    complaints: "शिकायतें",
+    owner: "मालिक",
     main: "मुख्य",
     today: "आज",
     pack: "पैकिंग",
@@ -3771,6 +3774,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        complaints: "शिकायतें",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3783,6 +3787,7 @@ export const hi = {
         ageing: "एजिंग बैच और रीडिंग",
         store: "स्टोर आइटम, GRN और इशू",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
+        complaints: "बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6474,6 +6479,8 @@ export const hi = {
 
   buddy: buddyHi,
 
+  reg: regHi,
+
   reasons: {
     kinds: {
       downtime: "रुकावट",
@@ -6629,6 +6636,7 @@ export const hi = {
         ageing: "एजिंग",
         store: "स्टोर",
         purchase: "स्क्रैप खरीद",
+        complaints: "शिकायतें",
       },
     },
     letterhead: {
@@ -6837,6 +6845,7 @@ export const hi = {
       cast: "कास्ट",
       purchase_lot: "खरीद का लॉट",
       count_session: "स्टॉक की गिनती",
+      complaint: "शिकायत",
       bundle_transfer: "बंडल ट्रांसफर",
       sales_order_line: "ऑर्डर लाइन",
       ingest_artifact: "इम्पोर्ट की फ़ाइल",
@@ -6925,6 +6934,11 @@ export const hi = {
       count__voidRequested: "गायब बंडल void करने को कहा",
       customer__aliases__add: "ग्राहकों के नाम जोड़े",
       customer__create: "ग्राहक जोड़ा",
+      complaint__open: "शिकायत दर्ज हुई",
+      complaint__investigate: "शिकायत की जाँच सेव हुई",
+      complaint__reply: "शिकायत का जवाब दिया",
+      complaint__close: "शिकायत बंद हुई",
+      mis__morning__sent: "सुबह का सारांश भेजा",
       customer__delete: "ग्राहक हटाया",
       customer__import: "ग्राहक इंपोर्ट किए",
       customer__update: "ग्राहक बदला",

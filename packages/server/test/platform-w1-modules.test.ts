@@ -48,6 +48,7 @@ const MUTATIONS: { module: CompanyModule; path: string; call: (c: Caller) => Pro
   { module: "purchase", path: "vendor.merge", call: (c) => c.vendor.merge({} as never) },
   { module: "bundles", path: "stock.move", call: (c) => c.stock.move({} as never) },
   { module: "bundles", path: "stock.openingBalance", call: (c) => c.stock.openingBalance() },
+  { module: "complaints", path: "complaints.open", call: (c) => c.complaints.open({} as never) },
 ];
 
 async function failure(p: Promise<unknown>): Promise<{ code?: string; message: string } | null> {

@@ -105,6 +105,8 @@ export function BundlesStep({
   const [armed, setArmed] = useState(true);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState(false);
+  // Optional note when this bundle is cut shorter than the trolley line it came from.
+  const [recut, setRecut] = useState("");
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
 
   const defaultLength = draft.defaults.lengthMm;
@@ -140,6 +142,7 @@ export function BundlesStep({
     setFilledFrom(null);
     setReason("");
     setReasonError(false);
+    setRecut("");
   };
 
   // A steady weight fills an empty weight field (or one still holding the last scale fill). After a
@@ -165,6 +168,9 @@ export function BundlesStep({
   const overrideLengthTyped = override && (len.mm.trim() || len.feet.trim() || len.inches.trim());
   const overrideLength = overrideLengthTyped ? lengthFromInput({ unit, ...len }) : null;
   const liveLength = overrideLength ?? defaultLength;
+  // A trolley line is the source and this bundle is shorter than the line's cut length.
+  const trolleyCut = draft.defaults.ageingRowId ? (draft.defaults.trolleyCutMm ?? 0) : 0;
+  const recutShown = (len: number) => trolleyCut > 0 && len > 0 && len < trolleyCut;
   const liveWeightG = parseWeightG(weight);
   const livePieces = parsePieces(pieces);
   // The verdict is the server's (kg/12 ft, band position, drift): nothing is worked out on this screen.
@@ -204,6 +210,7 @@ export function BundlesStep({
     else if (next.pieces) piecesRef.current?.focus();
     if (weightG === null || pcs === null || next.length || (typedNeedsWhy && !reason.trim())) return null;
     const ownPo = override ? po.trim() : "";
+    const recutNote = recutShown(overrideLength ?? defaultLength) ? recut.trim() : "";
     // Provenance is sent only when a scale is connected; without one every weight is typed.
     const prov = typedWeightNeedsReason(viewState)
       ? weightProvenance({ weightG, filledFromG: filledFrom, lastStableG: scale.lastStableG })
@@ -215,6 +222,7 @@ export function BundlesStep({
       ...(ownPo && ownPo !== (draft.defaults.po ?? "") ? { po: ownPo } : {}),
       ...(prov ? { weightSource: prov.weightSource, ...(prov.scaleReadingG ? { scaleReadingG: prov.scaleReadingG } : {}) } : {}),
       ...(prov?.weightSource === "manual" && reason.trim() ? { weightOverrideReason: reason.trim() } : {}),
+      ...(recutNote ? { recutReason: recutNote } : {}),
     };
   };
 
@@ -268,6 +276,7 @@ export function BundlesStep({
     return (
       parseWeightG(weight) !== b.weightG ||
       parsePieces(pieces) !== b.pieces ||
+      (recutShown(b.lengthMm ?? defaultLength) ? recut.trim() : "") !== (b.recutReason ?? "").trim() ||
       override !== (b.lengthMm !== undefined || b.po !== undefined) ||
       (override &&
         (len.mm.trim() !== was.mm || len.feet.trim() !== was.feet || len.inches.trim() !== was.inches || po !== (b.po ?? "")))
@@ -290,6 +299,7 @@ export function BundlesStep({
     setFilledFrom(b.weightSource === "scale" ? (b.scaleReadingG ?? null) : null);
     setReason(b.weightOverrideReason ?? "");
     setReasonError(false);
+    setRecut(b.recutReason ?? "");
     // After React has written the bundle's values; skipped if the person moved on in that frame.
     const before = typeof document === "undefined" ? null : document.activeElement;
     requestAnimationFrame(() => {
@@ -503,6 +513,27 @@ export function BundlesStep({
               </div>
             </div>
           </div>
+
+          {recutShown(liveLength) ? (
+            <div data-slot="recut-reason" className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor={`${uid}-recut`} className="text-[14px] font-semibold leading-5">
+                {t("reg.recut.label")}
+              </label>
+              <TextInput
+                id={`${uid}-recut`}
+                value={recut}
+                onChange={(e) => setRecut(e.currentTarget.value)}
+                maxLength={200}
+                autoComplete="off"
+                placeholder={t("reg.recut.placeholder")}
+                aria-describedby={`${uid}-recut-hint`}
+                className="h-12 text-[16px]"
+              />
+              <p id={`${uid}-recut-hint`} className="m-0 text-[13px] text-muted-foreground">
+                {t("reg.recut.hint")}
+              </p>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="lg" className="max-sm:flex-1 sm:min-w-[200px]">

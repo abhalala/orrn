@@ -27,6 +27,8 @@ import { orderErrorLines } from "./errors";
 import { } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import { BiggerScreenNote, PLAN_STATUS_TONE } from "./plan-board-page";
+import { PlanBilletsCard, PlanLineReadiness, usePlanBillets } from "./plan-billets";
+import { rowsByLine } from "./plan-billets-model";
 import { dieTitle } from "./view";
 import { useFmt } from "@/shared/lib/fmt";
 import { dayTimeAt, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
@@ -46,6 +48,7 @@ export function PlanDetailPage({ id }: { id: string }) {
 
   const plan = useQuery(trpc.plans.get.queryOptions({ id }));
   const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
+  const billets = usePlanBillets(id);
   const isDraft = plan.data?.plan.status === "draft";
   const isProduction = (plan.data?.plan.purpose ?? "production") === "production";
   const dieIds = (plan.data?.dies ?? []).map((d) => d.sectionId);
@@ -157,6 +160,7 @@ export function PlanDetailPage({ id }: { id: string }) {
   const pressLineText = pl ? `${pl.code} ${pl.name}` : null;
   const label = (mm: number) => fmt.q("bundle.length", mm);
   const draft = p.status === "draft";
+  const billetRows = rowsByLine(billets.data?.rows ?? []);
 
   return (
     <>
@@ -272,6 +276,7 @@ export function PlanDetailPage({ id }: { id: string }) {
                               {l.orderNumber} · {label(l.cutLengthMm)} · {kgGrouped3(fmt, l.kgG)} {massUnit(fmt)}
                             </p>
                           </div>
+                          {billetRows.get(l.id) ? <PlanLineReadiness row={billetRows.get(l.id)!} alloy={billetRows.get(l.id)!.alloy} /> : null}
                           {draft && lines.length > 1 ? (
                             <Can do="order.plan">
                               <Button variant="ghost" disabled={change.isPending} onClick={() => change.mutate({ remove: [l.salesOrderLineId] })}>
@@ -287,6 +292,8 @@ export function PlanDetailPage({ id }: { id: string }) {
             );
           })}
         </ul>
+
+        <PlanBilletsCard planId={id} />
 
         {draft && isProduction ? (
           <OtherLines

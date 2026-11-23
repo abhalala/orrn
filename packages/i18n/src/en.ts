@@ -27,6 +27,7 @@ import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
 import { ingestEn } from "./ingest/en";
 import { buddyEn } from "./buddy/en";
+import { regEn } from "./reg/en";
 
 export const en = {
   common: {
@@ -224,6 +225,8 @@ export const en = {
 
   nav: {
     ageing: "Ageing",
+    complaints: "Complaints",
+    owner: "Owner",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3784,6 +3787,7 @@ export const en = {
         ageing: "Ageing",
         store: "Store",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3796,6 +3800,7 @@ export const en = {
         ageing: "Ageing batches and readings",
         store: "Store items, GRN and issues",
         purchase: "Scrap vendors, lots and D/C notes",
+        complaints: "Customer complaints on a bundle, with the trace and the reply",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6492,6 +6497,8 @@ export const en = {
 
   buddy: buddyEn,
 
+  reg: regEn,
+
   reasons: {
     kinds: {
       downtime: "Downtime",
@@ -6647,6 +6654,7 @@ export const en = {
         ageing: "Ageing",
         store: "Store",
         purchase: "Scrap purchase",
+        complaints: "Complaints",
       },
     },
     letterhead: {
@@ -6855,6 +6863,7 @@ export const en = {
       cast: "Cast",
       purchase_lot: "Purchase lot",
       count_session: "Stock count",
+      complaint: "Complaint",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
       ingest_artifact: "Import file",
@@ -6943,6 +6952,11 @@ export const en = {
       count__voidRequested: "Void of missing bundles asked",
       customer__aliases__add: "Customer names added",
       customer__create: "Customer added",
+      complaint__open: "Complaint raised",
+      complaint__investigate: "Complaint investigation saved",
+      complaint__reply: "Complaint answered",
+      complaint__close: "Complaint closed",
+      mis__morning__sent: "Morning summary sent",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
       customer__update: "Customer changed",

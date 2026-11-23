@@ -25,6 +25,8 @@ export const COMPANY_MODULES = [
   "ageing",
   "store",
   "purchase",
+  // XE parity lane REG (#18, #34): the complaint register.
+  "complaints",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
