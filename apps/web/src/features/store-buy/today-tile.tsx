@@ -70,7 +70,8 @@ export function TodayStoreLowTile() {
         {items.slice(0, 8).map((i) => {
           const clicked = made[i.itemId];
           // Once the list refetched after the click, the live indent decides (someone may have cancelled it).
-          const done = clicked && low.dataUpdatedAt <= clicked.at ? clicked : null;
+          // The "made" words stay while the live indent is still the one the click got.
+          const done = clicked && (low.dataUpdatedAt <= clicked.at || i.indent?.number === clicked.number) ? clicked : null;
           const number = i.indent?.number ?? done?.number ?? null;
           return (
             <li key={i.itemId} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3">
