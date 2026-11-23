@@ -149,6 +149,9 @@ export const FOUNDRY_FILES = [
   "routers/foundryMelt.ts",
   "routers/foundryTrace.ts",
   "lib/foundryKit.ts",
+  "routers/foundryDepth.ts",
+  "routers/foundryPlan.ts",
+  "lib/foundryDepth.ts",
 ];
 
 function badSentences(src: string): string[] {
