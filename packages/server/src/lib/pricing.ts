@@ -281,8 +281,13 @@ export async function planConfirmFreeze(
   const co = await pricingCompany(db, companyId);
   if (!co.moduleOn || !co.priceOnSalesOrder) return none;
   const onDate = pricingToday(co.settings, opts.at);
-  const rows = await loadPricingRows(db, companyId, { onDate, metalSource: co.pricing.metalSource, customerId: order.customerId, lineIds: lines.map((l) => l.id) });
-  if (!masterReady(rows, co.pricing.metalSource, onDate)) return none;
+  const loaded = await loadPricingRows(db, companyId, { onDate, metalSource: co.pricing.metalSource, customerId: order.customerId, lineIds: lines.map((l) => l.id) });
+  if (!masterReady(loaded, co.pricing.metalSource, onDate)) return none;
+  // A per-order add-on already carried by a kept (quoted) line is not charged again on the others.
+  const chargedOnce = new Set(
+    allLines.flatMap((l) => ((l.priceBreakup as PriceBreakup | null)?.components ?? []).filter((c) => c.basis === "order").map((c) => c.key)),
+  );
+  const rows = loaded.filter((r) => r.kind !== "component" || componentInfo(r).basis !== "order" || !chargedOnce.has(r.key));
   const sections = new Map(
     (
       await mapInChunks([...new Set(lines.map((l) => l.dieId))], (part) =>
@@ -358,7 +363,8 @@ export type OrderEditPricing = {
  *   is replaced; per-order add-ons were charged at confirm and are not charged again). When the
  *   master can't price it: refused if the order already has a frozen line, else added as before.
  * - Off: an `order.price` holder may change a frozen line's rate on the order; the breakdown takes it
- *   as an override and the change is audited, so a rate is never stuck.
+ *   as an override and the change is audited, so a rate is never stuck. A section, alloy or finish
+ *   change clears the breakdown (it would describe another product).
  */
 export async function planOrderEditPricing(
   db: OrrnDb,
@@ -388,12 +394,17 @@ export async function planOrderEditPricing(
     const frozen = c.stored.priceBreakup as PriceBreakup | null;
     if (!frozen) continue;
     const rateChanged = c.ratePaise !== undefined && c.ratePaise !== c.stored.ratePaise;
+    const productChanged = c.next.dieId !== c.stored.dieId || !sameKey(c.next.alloy, c.stored.alloy) || !sameKey(c.next.finish, c.stored.finish);
     if (on) {
       if (rateChanged) throw new TRPCError({ code: "BAD_REQUEST", message: FROZEN_RATE_MESSAGE });
-      const productChanged = c.next.dieId !== c.stored.dieId || !sameKey(c.next.alloy, c.stored.alloy) || !sameKey(c.next.finish, c.stored.finish);
       if (!productChanged) continue;
       if (confirmed) throw new TRPCError({ code: "BAD_REQUEST", message: FROZEN_PRODUCT_MESSAGE });
       out.breakupPatch.set(c.id, null);
+    } else if (productChanged) {
+      // Pricing off: the old breakdown describes another product, so it goes; the rate stays as typed
+      // (and is audited when it changes).
+      out.breakupPatch.set(c.id, null);
+      if (rateChanged) out.corrections.push({ lineId: c.id, lineNo: c.stored.lineNo, fromPaise: c.stored.ratePaise, toPaise: c.ratePaise ?? null });
     } else if (rateChanged && c.ratePaise != null) {
       out.breakupPatch.set(c.id, {
         ...frozen,

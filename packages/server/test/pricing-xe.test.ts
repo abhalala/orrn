@@ -713,3 +713,47 @@ describe("fix round 1 (review of PR #15)", () => {
     SLOW,
   );
 });
+
+describe("fix round 1, advisor follow-ups", () => {
+  test(
+    "B1: a per-order add-on carried by a quoted line is not charged again on a line added before confirm",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      await setRate(p, { kind: "component", label: "Packing", basis: "order", always: true, paise: 50_000 });
+      const q = await p.office.pricing.quotes.create({ customerId: p.customerId, lines: [{ sectionId: p.dieB, cutLengthMm: 3_658, kgG: 1_000_000, pcs: 100 }] });
+      expect((await p.office.pricing.quotes.get({ id: q.id })).lines[0]!.ratePaise).toBe(29_500 + 50);
+      const made = await p.office.pricing.quotes.convert({ id: q.id, poNumber: "PO-PK" });
+      const got = await p.office.orders.get({ id: made.orderId });
+      const l = got.lines[0]!;
+      await p.office.orders.update({
+        id: made.orderId,
+        serverSeq: got.order.serverSeq,
+        lines: [
+          { id: l.lineId, sectionId: l.sectionId, cutLengthMm: l.cutLengthMm, kgG: l.orderedG, pcs: l.orderedPcs ?? 100, finish: l.finish, tierRank: 1 },
+          { sectionId: p.dieB, cutLengthMm: 3_658, kgG: 1_000_000, pcs: 100, finish: null, tierRank: 1 },
+        ],
+      });
+      await confirmOrder(p.owner, made.orderId);
+      expect((await lineRows(made.orderId)).map((r) => r.ratePaise)).toEqual([29_550, 29_500]);
+    },
+    SLOW,
+  );
+
+  test(
+    "S4: with the module off, a section change on a frozen line clears its breakdown",
+    async () => {
+      const p = await plant();
+      await readyMaster(p);
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 100 }]);
+      await confirmOrder(p.owner, orderId);
+      const { company } = await import("@orrn/db/schema");
+      await env.db.update(company).set({ modules: ["customers", "dies", "orders", "bundles", "dispatches"] }).where(eq(company.id, p.companyId));
+      const got = await p.office.orders.get({ id: orderId });
+      const l = got.lines[0]!;
+      await p.office.orders.update({ id: orderId, serverSeq: got.order.serverSeq, lines: [{ id: l.lineId, sectionId: p.dieA, cutLengthMm: l.cutLengthMm, kgG: l.orderedG, pcs: l.orderedPcs ?? 100, finish: l.finish, tierRank: 1 }] });
+      expect((await lineRows(orderId))[0]).toMatchObject({ dieId: p.dieA, ratePaise: 29_500, priceBreakup: null });
+    },
+    SLOW,
+  );
+});
