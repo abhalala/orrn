@@ -66,4 +66,13 @@ export const fdy2CEn = {
       },
     },
   },
+  trace: {
+    title: "Bought-in logs",
+    receipt: "Receipt {number}, received {day}",
+    vendor: "Vendor {vendor}",
+    vendorCast: "Vendor cast {cast}",
+    challan: "Challan {challan}",
+    qty: "{pcs} pcs, {kg} {massUnit}",
+    mtc: "Mill test certificate on file",
+  },
 };

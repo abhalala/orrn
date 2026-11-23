@@ -13,7 +13,7 @@ import { MELT_TONE, verdictTone, type MeltStatus } from "./model";
 import { SpectroFileLink } from "./spectro-file-link";
 import { LoadFailed } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { dateText, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /** One branch: a heading with a count, its rows below. */
 function Branch({ title, count, children, testId }: { title: string; count?: number; children: ReactNode; testId: string }) {
@@ -45,6 +45,20 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
   if (!d) return <Skeleton className="h-40 rounded-card" />;
   return (
     <ul className="m-0 flex list-none flex-col gap-4 p-0" data-testid="trace-tree">
+      {d.boughtIn ? (
+        <Branch title={t("fdy2.trace.title")} testId="trace-bought-in">
+          <ul className={ROWS}>
+            <li className={ROW}>
+              <UiLink to="/foundry/logs" className="font-mono font-semibold">{t("fdy2.trace.receipt", { number: d.boughtIn.number, day: dateText(fmt, `${d.boughtIn.receivedOn}T12:00:00Z`) })}</UiLink>
+              {d.boughtIn.vendorName ? <span>{t("fdy2.trace.vendor", { vendor: d.boughtIn.vendorName })}</span> : null}
+              {d.boughtIn.vendorCastNo ? <span className="font-mono">{t("fdy2.trace.vendorCast", { cast: d.boughtIn.vendorCastNo })}</span> : null}
+              {d.boughtIn.challanNo ? <span className="text-muted-foreground">{t("fdy2.trace.challan", { challan: d.boughtIn.challanNo })}</span> : null}
+              <span className="tabular-nums">{t("fdy2.trace.qty", { pcs: d.boughtIn.pcs, kg: kgGrouped1(fmt, d.boughtIn.kgG) })}</span>
+              {d.boughtIn.hasMtc ? <span className="text-muted-foreground">{t("fdy2.trace.mtc")}</span> : null}
+            </li>
+          </ul>
+        </Branch>
+      ) : null}
       <Branch title={t("foundry.cast.trace.lots")} count={d.lotsIn.length} testId="trace-lots">
         {d.lotsIn.length === 0 ? (
           <p className="m-0 pl-3 text-[14px] text-muted-foreground">{t("foundry.cast.trace.noLots")}</p>

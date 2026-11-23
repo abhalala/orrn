@@ -24,7 +24,8 @@ import { dispatch } from "@orrn/db/schema/dispatch";
 import { alloy, cast, furnace, melt, meltInput, meltReading, returnStream, spectroResult } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { pressRun } from "@orrn/db/schema/press";
-import { purchaseLot, scrapGrade, scrapItem } from "@orrn/db/schema/purchase";
+import { purchaseLot, scrapGrade, scrapItem, vendor } from "@orrn/db/schema/purchase";
+import { logReceipt } from "@orrn/db/schema/foundryDepth";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { stockLedger } from "@orrn/db/schema/stock";
 
@@ -152,8 +153,30 @@ async function castChain(ctx: Ctx, castId: string) {
     row.weightG += b.weightG ?? 0;
     customers.set(b.customerId, row);
   }
+  // XE FOUNDRY (#42): a bought-in cast traces to its receipt and the vendor lot (no melts, no lots in).
+  const [receipt] =
+    c.source === "bought_in"
+      ? await ctx.db
+          .select({
+            id: logReceipt.id,
+            number: logReceipt.number,
+            receivedOn: logReceipt.receivedOn,
+            vendorId: logReceipt.vendorId,
+            vendorName: vendor.name,
+            vendorCastNo: logReceipt.vendorCastNo,
+            challanNo: logReceipt.challanNo,
+            pcs: logReceipt.pcs,
+            kgG: logReceipt.kgG,
+            hasMtc: sql<number>`${logReceipt.mtcKey} is not null`,
+          })
+          .from(logReceipt)
+          .leftJoin(vendor, and(eq(vendor.id, logReceipt.vendorId), eq(vendor.companyId, logReceipt.companyId)))
+          .where(and(eq(logReceipt.companyId, ctx.companyId), eq(logReceipt.castId, c.id)))
+          .limit(1)
+      : [];
   return {
-    cast: { id: c.id, number: c.number, legacyCode: c.legacyCode, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt },
+    cast: { id: c.id, number: c.number, legacyCode: c.legacyCode, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt, source: c.source },
+    boughtIn: receipt ? { ...receipt, hasMtc: Boolean(Number(receipt.hasMtc)) } : null,
     melts: melts.map((m) => {
       // FINAL-FIXES-4 (FP-FD-11): the newest live result that has a file, so the trace can open it (`spectro.file`).
       const filed = spectro.find((s) => s.meltId === m.id && Number(s.hasFile) === 1);

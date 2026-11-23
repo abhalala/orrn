@@ -152,6 +152,7 @@ export const FOUNDRY_FILES = [
   "routers/foundryDepth.ts",
   "routers/foundryPlan.ts",
   "lib/foundryDepth.ts",
+  "routers/foundryCastPlan.ts",
 ];
 
 function badSentences(src: string): string[] {

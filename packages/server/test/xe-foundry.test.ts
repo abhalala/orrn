@@ -7,7 +7,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 
-import { auditLog, cast, stockLedger } from "@orrn/db/schema";
+import { auditLog, bundle, cast, stockLedger } from "@orrn/db/schema";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
@@ -400,5 +400,21 @@ describe("#46 casting plan", () => {
     expect((await errOf(q.as("foundry").foundry.castPlan.open({ id: other.id }))).code).toBe("NOT_FOUND");
     expect((await q.as("viewer").foundry.castPlan.propose({ from: day, to: day })).lines).toEqual([]);
     expect((await errOf(p.as("viewer").foundry.castPlan.propose({ from: day, to: "2020-01-01" }))).code).toBe("BAD_REQUEST");
+  });
+});
+
+describe("#42 a bundle from bought-in logs traces to the vendor lot", () => {
+  test("bundle -> cast -> receipt -> vendor, with the vendor's cast number; another plant's bundle is Not found", async () => {
+    const p = await plant();
+    const q = await plant();
+    const r = await p.receive();
+    const die = await p.section({ alloy: "6063" });
+    const [b] = await env.seedBundles(p.companyId, die, 1);
+    await env.db.update(bundle).set({ castId: r.castId }).where(eq(bundle.id, b!.id));
+    const got = await p.as("viewer").foundry.casts.traceBundle({ serial: b!.serial });
+    expect(got.chain?.cast).toMatchObject({ id: r.castId, number: "OL-1", source: "bought_in" });
+    expect(got.chain?.boughtIn).toMatchObject({ id: r.id, number: "OL-1", vendorId: p.vendorId, vendorName: "Balaji Billets", vendorCastNo: "BB-778", pcs: 10, kgG: kg(2_000), hasMtc: false });
+    expect(got.chain?.melts).toEqual([]);
+    expect((await errOf(q.as("viewer").foundry.casts.traceBundle({ serial: b!.serial }))).code).toBe("NOT_FOUND");
   });
 });

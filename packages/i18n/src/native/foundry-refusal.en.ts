@@ -123,4 +123,6 @@ export const foundryRefusalEn = {
   pressFloor: "Add a press floor location for {line} first. It is under Masters, Locations.",
   reasonNote: "Add a note for this reason.",
   noHold: "{code} cannot hold this item.",
+  planRange: "Look at 31 days or fewer at a time.",
+  planLineState: "This plan line is no longer accepted. It was opened or dropped.",
 };

@@ -99,7 +99,7 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   // XE FOUNDRY (#41): a melt never takes a homogenizing furnace.
   { id: "fd_homogFurnace", key: "foundry.refusal.homogFurnace", re: /^(.+) is a homogenizing furnace; pick a melting furnace$/, vars: (m) => ({ furnace: m[1]! }) },
   // XE FOUNDRY depth (rows 41-47, 50)
-  { id: "fd_x_notFound", key: "foundry.refusal.notFoundDepth", re: /^(?:Homogenizing batch|Log receipt|Vendor|Reason|Scrap item|Location) not found$/ },
+  { id: "fd_x_notFound", key: "foundry.refusal.notFoundDepth", re: /^(?:Homogenizing batch|Log receipt|Vendor|Reason|Scrap item|Location|Plan line) not found$/ },
   { id: "fd_x_addScrapStream", key: "foundry.refusal.addScrapStream", re: /^Add the plant scrap return stream first \(Foundry → Stock\)$/ },
   { id: "fd_x_streamNotTakenBack", key: "foundry.refusal.streamNotTakenBack", re: /^(.+) is not a stream the furnace takes back$/, vars: (m) => ({ name: m[1]! }) },
   { id: "fd_x_meltingFurnace", key: "foundry.refusal.meltingFurnace", re: /^(.+) is a melting furnace; pick a homogenizing furnace$/, vars: (m) => ({ furnace: m[1]! }) },
@@ -136,6 +136,9 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_x_pressFloor", key: "foundry.refusal.pressFloor", re: new RegExp(`^Add a press floor location for ${S} first \\(Masters → Locations\\)$`), vars: (m) => ({ line: m[1]! }) },
   { id: "fd_x_reasonNote", key: "foundry.refusal.reasonNote", re: /^Add a note for this reason$/ },
   { id: "fd_x_noHold", key: "foundry.refusal.noHold", re: new RegExp(`^${S} does not hold \\S+$`), vars: (m) => ({ code: m[1]! }) },
+  // XE FOUNDRY casting plan (#46).
+  { id: "fd_x_planRange", key: "foundry.refusal.planRange", re: /^Look at 31 days or fewer at a time$/ },
+  { id: "fd_x_planLineState", key: "foundry.refusal.planLineState", re: /^Only an accepted plan line can (?:be changed|be dropped|open a cast)$/ },
 ];
 
 registerRefusals(FOUNDRY_REFUSALS);

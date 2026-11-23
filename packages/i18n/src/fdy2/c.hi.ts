@@ -66,4 +66,13 @@ export const fdy2CHi = {
       },
     },
   },
+  trace: {
+    title: "बाहर से खरीदे लॉग",
+    receipt: "रसीद {number}, {day} को आई",
+    vendor: "वेंडर {vendor}",
+    vendorCast: "वेंडर कास्ट {cast}",
+    challan: "चालान {challan}",
+    qty: "{pcs} पीस, {kg} {massUnit}",
+    mtc: "मिल टेस्ट सर्टिफ़िकेट फ़ाइल में है",
+  },
 };
