@@ -3813,6 +3813,7 @@ export const en = {
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
         maintenance: "Maintenance",
+        devices: "Plant devices",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3831,6 +3832,7 @@ export const en = {
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
         maintenance: "Assets, preventive plans, work orders and machine readings",
+        devices: "Weighbridge, scanner and tensile tester capture, device health. Off until switched on",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6723,6 +6725,7 @@ export const en = {
         billing: "Tax invoices",
         einvoice: "E-invoice",
         maintenance: "Maintenance",
+        devices: "Plant devices",
       },
     },
     letterhead: {
