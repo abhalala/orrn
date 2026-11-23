@@ -83,6 +83,11 @@ export const BUDDY_DECISIONS = {
     // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
+    // XE parity lane JOBWORK: reads (register, pending at vendors, challan snapshot, finish per line). No
+    // process write is listed in `changes`, so the buddy cannot send, receive or cancel a step.
+    process: allow,
+    drawbench: allow,
+    fabrication: allow,
     // XE-PRICE: the price master, quotes, proformas, works orders and enquiries. Reads run under the
     // person's grant (the same `price.view` / `order.price` gates). No pricing change is in `changes`,
     // so every pricing mutation is denied to the buddy until it is decided by name.
@@ -232,6 +237,18 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE parity lane JOBWORK: material leaves the plant or is used up; a person at the gate or the line decides. Not reviewed for the buddy.
+    "process.vendors.save": deny("A job-work vendor and its stock place (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.send": deny("Sends bundles out of the plant on a job-work challan (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.start": deny("Puts bundles on an in-house process step (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.receive": deny("Weighs a return and writes stock and loss (XE JOBWORK); not reviewed for the buddy."),
+    "process.steps.cancel": deny("Brings bundles back from a step (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.start": deny("Puts bundles on the draw bench (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.receive": deny("Uses up bundles into drawn output and writes stock (XE JOBWORK); not reviewed for the buddy."),
+    "drawbench.cancel": deny("Brings bundles back from the draw bench (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.start": deny("Puts bundles on a fabrication job (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.receive": deny("Weighs fabricated output and writes stock (XE JOBWORK); not reviewed for the buddy."),
+    "fabrication.cancel": deny("Brings bundles back from a fabrication job (XE JOBWORK); not reviewed for the buddy."),
     // XE-PRICE: every pricing change is denied by default (fix round 1 of PR #15); decide each by name to allow it.
     "pricing.rates.propose": deny("Proposes a master rate or a customer term; prices go through a person (XE-PRICE default deny)."),
     "pricing.settings.update": deny("Changes which metal list prices every order and the GST estimate (XE-PRICE default deny)."),

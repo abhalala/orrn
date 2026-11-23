@@ -44,6 +44,11 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   toolRoom: "dies",
   // XE parity lane QA.
   qa: "qa",
+  // XE parity lane JOBWORK: one process-step engine behind three routers (job work and the finishing
+  // line, the draw bench, fabrication); each step mutation also calls assertModule for its step's kind.
+  process: "jobwork",
+  drawbench: "drawbench",
+  fabrication: "fabrication",
   // XE-PRICE: price master, quotes, proforma, works order, enquiries (routers/pricing.ts).
   pricing: "pricing",
   // XE-BILL: both opt-in; their reads are gated in lib/billing/gate.ts too.

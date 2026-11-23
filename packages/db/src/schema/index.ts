@@ -26,6 +26,7 @@ export * from "./printing";
 export * from "./pricing";
 export * from "./purchase";
 export * from "./qa";
+export * from "./process";
 export * from "./reasons";
 export * from "./sales";
 export * from "./series";

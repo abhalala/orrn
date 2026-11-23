@@ -20,6 +20,7 @@ export const PAPERS: { file: string; what: string }[] = [
   { file: "features/foundry/data-sheet-view.tsx", what: "the cast data sheet (XE FOUNDRY #45)" },
   { file: "features/portal/certificate-page.tsx", what: "the portal test certificate" },
   { file: "features/die-room/share-page.tsx", what: "the die share page a party opens from a link" },
+  { file: "features/jobwork/challan-view.tsx", what: "the job-work delivery challan" },
   { file: "features/pricing/docs/quote-print.ts", what: "the printed quote" },
   { file: "features/pricing/docs/proforma-print.ts", what: "the printed proforma invoice" },
   { file: "features/pricing/docs/works-order-page.tsx", what: "the works order" },

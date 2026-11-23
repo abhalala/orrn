@@ -408,6 +408,13 @@ export const VOUCHER_ROLE: Readonly<Record<LedgerVoucherType, { role: LedgerPost
   press_run: { role: "flow", group: "press" },
   press_run_reopen: { role: "flow", group: "press" },
   cast_tail: { role: "adjust", group: "cast_tail" },
+  // XE JOBWORK process steps: inputs used up (process_in) become new output (process_out) and plant
+  // scrap (process_scrap); the weight that went nowhere is the step's loss (an adjustment). A send to a
+  // vendor and the return are plain `move` rows.
+  process_in: { role: "flow", group: "process" },
+  process_out: { role: "flow", group: "process" },
+  process_scrap: { role: "flow", group: "process" },
+  process_loss: { role: "adjust", group: "process_loss" },
   // XE FOUNDRY: bought-in logs come in; a cut turns log weight into billets plus end-cut scrap (the billet
   // class nets the end cut out, the scrap class takes it in); an issue only moves billets to a press floor;
   // a reject takes logs or billets out to a return stream.

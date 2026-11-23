@@ -13,6 +13,8 @@ import {
   Cylinder,
   Factory,
   Flame,
+  Hammer,
+  Handshake,
   Thermometer,
   House,
   Inbox,
@@ -20,6 +22,7 @@ import {
   ListChecks,
   PackagePlus,
   Printer,
+  Ruler,
   Tags,
   Calculator,
   Rocket,
@@ -40,7 +43,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "jobwork" | "drawbench" | "fabrication";
 
 export type NavItem = {
   key: string;
@@ -83,6 +86,8 @@ const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.clo
 
 /** Quality (XE parity lane QA): who checks, holds, releases, keeps its lists, or reads reports. */
 const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.masters", "reports.read"];
+/** Job work: who sends, receives or sees cost on a challan, and who runs the in-house line (`process.run`). The pages gate each button. */
+const JOBWORK_PEOPLE: readonly Action[] = ["jobwork.send", "jobwork.receive", "jobwork.cost", "process.run"];
 /** Billing: who reads invoices, issues them, records payments or sets up GST. */
 const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
 
@@ -97,6 +102,10 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
   // XE parity lane QA: what waits for a check, quality holds, registers and instruments.
   { key: "qa", to: "/qa", labelKey: "nav.qa", icon: BadgeCheck, requires: QA_PEOPLE, module: "qa" },
+  // XE JOBWORK: challans out to vendors, the in-house finishing line, the draw bench and fabrication, each its own module.
+  { key: "jobwork", to: "/jobwork", labelKey: "nav.jobwork", icon: Handshake, requires: JOBWORK_PEOPLE, module: "jobwork" },
+  { key: "drawbench", to: "/drawbench", labelKey: "nav.drawbench", icon: Ruler, requires: ["process.run"], module: "drawbench" },
+  { key: "fabrication", to: "/fabrication", labelKey: "nav.fabrication", icon: Hammer, requires: ["process.run"], module: "fabrication" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   // XE parity REG: the complaint register and the owner's morning page.

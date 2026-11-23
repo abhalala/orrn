@@ -83,6 +83,9 @@ export const PAGE_ALIASES: Readonly<Record<string, readonly string[]>> = {
     "બિલેટ",
   ],
   ageing: ["aging", "oven", "trolley", "heat treatment", "एजिंग", "ओवन", "ट्रॉली", "એજિંગ", "ઓવન", "ટ્રોલી"],
+  jobwork: ["job work", "jobwork", "vendor job", "anodise", "anodising", "powder coat", "pvd", "finishing", "coating", "जॉब वर्क"],
+  drawbench: ["draw bench", "drawing", "tube", "rod", "ड्रॉ बेंच"],
+  fabrication: ["cut to length", "punch", "cnc", "drill", "machining", "फ़ैब्रिकेशन"],
   reports: ["analytics", "report", "रिपोर्ट", "રિપોર્ટ"],
   purchase: [
     "scrap",
@@ -231,6 +234,16 @@ export const PAGE_SECTIONS: readonly PageSection[] = [
     labelKey: "ageing.history.title",
     to: "/ageing/history",
     terms: ["history", "oven", "recipe", "verdict", "इतिहास", "ઇતિહાસ"],
+  },
+
+  // Job work (the register, At vendors, the line and the vendors are tabs on /jobwork; only the new challan is its own page)
+  {
+    id: "jobwork.new",
+    parentKey: "jobwork",
+    labelKey: "jw.new.title",
+    to: "/jobwork/new",
+    terms: ["new job work", "send to vendor", "send bundles", "anodise", "powder coat", "vehicle", "expected return"],
+    requires: ["jobwork.send"],
   },
 
   // Reports (cards on the reports index are hidden by module; the same module gates the section)

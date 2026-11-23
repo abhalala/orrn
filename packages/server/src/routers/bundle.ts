@@ -38,6 +38,7 @@ import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { assertFirstPiece } from "../lib/qa";
+import { assertNotConsumed, assertNotInProcess } from "../lib/process";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
@@ -1172,7 +1173,7 @@ export const bundleRouter = router({
         const pattern = `%${input.search}%`;
         filters.push(sql`(${bundle.serial} LIKE ${pattern} OR ${bundle.poNumber} LIKE ${pattern} OR ${bundle.partyNo} LIKE ${pattern})`);
       }
-      filters.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input)));
+      filters.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input, { plantOnly: false })));
       const conditions = [eq(bundle.companyId, ctx.companyId), ...(input.status ? [eq(bundle.status, input.status)] : []), ...filters];
 
       const items = await ctx.db
@@ -1426,6 +1427,10 @@ export const bundleRouter = router({
           ? voidRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null })
           : restoreRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null });
 
+      // XE JOBWORK: a bundle on a process step is not voided from here (its step owns it), and a bundle a
+      // step used up into new output is never restored (the outputs carry its kg).
+      if (input.toStatus === "void") await assertNotInProcess(ctx.db, ctx.companyId, [existing.id]);
+      else if (existing.status === "void") await assertNotConsumed(ctx.db, ctx.companyId, existing.id, existing.serial);
       // A bundle in the oven or held in ageing is not voided from here: the trolley owns it (W3-AG-S).
       if (input.toStatus === "void") {
         const open = (await openBundleRows(ctx.db, ctx.companyId, [existing.id])).get(existing.id);

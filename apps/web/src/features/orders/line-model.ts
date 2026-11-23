@@ -11,7 +11,7 @@ import { copyChoiceInput, dieTitle } from "./view";
 
 export type QtyBasis = "pcs" | "kg";
 export type WeightBasis = "copy_current" | "band_start";
-export type Finish = "none" | "anodise" | "pvd";
+export type Finish = "none" | "anodise" | "pvd" | "powder_coat";
 
 export type LineDraft = {
   key: string;
@@ -207,7 +207,7 @@ export type StoredLineDetail = {
  */
 export function draftFromLine(key: string, line: StoredLine, d: StoredLineDetail, unit: LengthUnit, withRate: boolean): LineDraft {
   const basis: QtyBasis = d.qtyBasis === "pcs" || d.qtyBasis === "kg" ? d.qtyBasis : line.orderedG > 0 || line.orderedPcs == null ? "kg" : "pcs";
-  const finish: Finish = line.finish === "anodise" || line.finish === "pvd" ? line.finish : "none";
+  const finish: Finish = line.finish === "anodise" || line.finish === "pvd" || line.finish === "powder_coat" ? line.finish : "none";
   const draft: LineDraft = {
     key,
     id: line.lineId,

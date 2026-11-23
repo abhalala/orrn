@@ -69,6 +69,10 @@ export const appRouter = router({
   docs: lazy(() => import("./plantDocs").then((m) => m.plantDocsRouter)),
   // XE parity lane QA.
   qa: lazy(() => import("./qa").then((m) => m.qaRouter)),
+  // XE parity lane JOBWORK: job work, in-house finishing, draw bench, fabrication (one engine, three modules).
+  process: lazy(() => import("./process").then((m) => m.processRouter)),
+  drawbench: lazy(() => import("./process").then((m) => m.drawbenchRouter)),
+  fabrication: lazy(() => import("./process").then((m) => m.fabricationRouter)),
   // XE-PRICE: price master, quotes, proforma, works order, enquiries (module `pricing`).
   pricing: lazy(() => import("./pricing").then((m) => m.pricingRouter)),
   // XE-BILL (opt-in modules).

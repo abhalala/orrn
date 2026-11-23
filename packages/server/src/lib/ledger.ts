@@ -146,7 +146,7 @@ function lineByRowNumber(offset: number, step = 1, minus = 0): SQL<number> {
  */
 export function packRows(
   ctx: PostingCtx,
-  voucher: { type: "pack" | "opening"; id: string },
+  voucher: { type: "pack" | "opening" | "process_out"; id: string },
   bundles: readonly { id: string; weightG: number; locationId: string | null }[],
 ): SqliteBatchItem[] {
   const out: SqliteBatchItem[] = [];
@@ -174,7 +174,7 @@ export function packRows(
 }
 
 /** EXISTS: `locationId` is, right now, an active yard of the company (where bundles may be put). */
-export function activeYard(db: OrrnDb, companyId: string, locationId: string): SQL {
+export function activeYard(db: OrrnDb, companyId: string, locationId: string, kind: LocationKind = "yard"): SQL {
   return exists(
     db
       .select({ one: sql`1` })
@@ -184,7 +184,7 @@ export function activeYard(db: OrrnDb, companyId: string, locationId: string): S
           eq(location.id, locationId),
           eq(location.companyId, companyId),
           eq(location.active, true),
-          eq(location.kind, "yard"),
+          eq(location.kind, kind),
         ),
       ),
   );
@@ -232,6 +232,8 @@ export function moveRows(
      * system have it"); a bundle that fails it is neither posted nor moved.
      */
     onlyIf?: SQL;
+    /** XE JOBWORK: the target's kind (default a yard; `vendor` when bundles go out for job work). */
+    toKind?: LocationKind;
   },
 ): SqliteBatchItem[] {
   const { db, companyId } = ctx;
@@ -244,7 +246,7 @@ export function moveRows(
       inArray(bundle.status, [...IN_STOCK_STATUSES]),
       sql`${bundle.locationId} is not ${input.toLocationId}`,
       // Evaluated at write time: a location retired or re-typed after the request read it takes no bundle.
-      activeYard(db, companyId, input.toLocationId),
+      activeYard(db, companyId, input.toLocationId, input.toKind ?? "yard"),
       input.onlyIf,
     );
     out.push(

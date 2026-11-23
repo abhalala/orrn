@@ -53,6 +53,7 @@ const PAGE_GUARDS: Readonly<Record<string, readonly Guard[]>> = {
   "/foundry/stock": [],
   "/ageing/load": [{ can: "ageing.load" }],
   "/ageing/history": [],
+  "/jobwork/new": [{ can: "jobwork.send" }],
   "/reports/production": [],
   "/reports/die-life": [],
   "/reports/stock-age": [],
@@ -106,6 +107,10 @@ const MODULE_DIR: Readonly<Record<NavModule, string>> = {
   customers: "customers",
   bundles: "stock",
   complaints: "complaints",
+  // The draw bench and fabrication screens live beside job work, in the one feature folder.
+  jobwork: "jobwork",
+  drawbench: "jobwork",
+  fabrication: "jobwork",
   maintenance: "maintenance",
 };
 
@@ -140,7 +145,7 @@ function commandKey(id: string): string {
 }
 
 /** First path segments whose router name differs from the path. */
-const PATH_ROUTER: Readonly<Record<string, string>> = { casts: "foundry", pack: "bundle", stock: "bundle" };
+const PATH_ROUTER: Readonly<Record<string, string>> = { casts: "foundry", pack: "bundle", stock: "bundle", jobwork: "process" };
 
 /** The module of a page's own router: the router named by its first path segment (store, orders, vendor, ...). */
 function pageModule(to: string): string | null {
@@ -340,6 +345,8 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     expect(pageModule("/vendors")).toBe("purchase");
     expect(pageModule("/orders/plan")).toBe("orders");
     expect(pageModule("/casts/new")).toBe("foundry");
+    // Job work pages read from the `process` router, which the server gates to the jobwork module.
+    expect(pageModule("/jobwork/new")).toBe("jobwork");
   });
 
   test("the gate reader resolves spread lists and never returns an empty gate (CodeRabbit)", () => {

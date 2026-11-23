@@ -43,6 +43,9 @@ export const docTypes = [
   // XE FOUNDRY: homogenizing batches HB-, bought-in log receipts OL- (per FY).
   "homog",
   "log_receipt",
+  // XE JOBWORK: job-work challans JW/{FY}/{seq} and in-house process steps PS/{FY}/{seq}.
+  "jobwork",
+  "process_step",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

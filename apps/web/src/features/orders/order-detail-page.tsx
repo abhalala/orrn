@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { OrderCostPanel } from "@/features/costing/order-cost-panel";
 import { OrderLineAged } from "@/features/ageing/order-aged";
+import { OrderLineFinish } from "@/features/jobwork/order-finish";
 import { bookDateText } from "@/shared/lib/fmt-text";
 import { OrderLineAlloy } from "@/features/qa/flags";
 import { Can } from "@/shared/components/can";
@@ -392,7 +393,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                   {" · "}
                   {fmt.q("bundle.length", line.cutLengthMm)}
                   {d?.alloy || d?.temper ? ` · ${[d.alloy, d.temper].filter(Boolean).join(" / ")}` : ""}
-                  {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" ? line.finish : "none"}`)}` : ""}
+                  {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" || line.finish === "powder_coat" ? line.finish : "none"}`)}` : ""}
                 </p>
                 <p className="m-0 font-mono text-[14px] tabular-nums">
                   {line.orderedPcs != null ? `${countText(fmt, line.orderedPcs)} ${t("units.pcs")} · ` : ""}
@@ -425,6 +426,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                 </Can>
                 {/* XE parity lane QA (row 37): on an open order, the alloy is short, with the substitutes allowed. Nothing otherwise. */}
                 {status === "booking" || status === "confirmed" || status === "dispatching" ? <OrderLineAlloy lineId={line.lineId} /> : null}
+                {/* XE JOBWORK: whether the line's finish is done, at a vendor, on the line or still to do. */}
+                <OrderLineFinish orderId={order.id} lineId={line.lineId} />
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,

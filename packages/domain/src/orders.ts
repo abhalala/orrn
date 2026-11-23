@@ -53,7 +53,7 @@ export type WeightBasis = (typeof WEIGHT_BASES)[number];
 export const QTY_BASES = ["pcs", "kg"] as const;
 export type QtyBasis = (typeof QTY_BASES)[number];
 /** Line finish (C20: `6061` is an alloy, never a finish). */
-export const LINE_FINISHES = ["none", "anodise", "pvd"] as const;
+export const LINE_FINISHES = ["none", "anodise", "pvd", "powder_coat"] as const;
 export type LineFinish = (typeof LINE_FINISHES)[number];
 /** `sales_order.source`: portal rows are created in `booking` only (C29). */
 export const SALES_ORDER_SOURCES = ["office", "portal"] as const;

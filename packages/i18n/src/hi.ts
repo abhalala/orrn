@@ -9,6 +9,7 @@ import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
+import { jwHi } from "./jw/jw.hi";
 import { priceMasterHi } from "./price/master.hi";
 import { priceDocsHi } from "./price/docs.hi";
 import { ingestHi } from "./ingest/hi";
@@ -229,6 +230,9 @@ export const hi = {
     ageing: "एजिंग",
     complaints: "शिकायतें",
     owner: "मालिक",
+    jobwork: "जॉब वर्क",
+    drawbench: "ड्रॉ बेंच",
+    fabrication: "फ़ैब्रिकेशन",
     maintenance: "मेंटेनेंस",
     main: "मुख्य",
     today: "आज",
@@ -3247,6 +3251,7 @@ export const hi = {
         scrap_store: "स्क्रैप स्टोर",
         store: "सेंट्रल स्टोर",
         wip: "काम चालू",
+        vendor: "जॉब वर्क वेंडर",
         billet_rack: "बिलेट रैक",
         press_floor: "प्रेस फ़्लोर",
       },
@@ -3794,6 +3799,9 @@ export const hi = {
         foundry: "फ़ाउंड्री",
         press: "प्रेस",
         ageing: "एजिंग",
+        jobwork: "जॉब वर्क और फ़िनिशिंग",
+        drawbench: "ड्रॉ बेंच",
+        fabrication: "फ़ैब्रिकेशन",
         store: "स्टोर",
         qa: "गुणवत्ता",
         purchase: "स्क्रैप खरीद",
@@ -3813,6 +3821,9 @@ export const hi = {
         foundry: "कास्ट, मेल्ट और स्पेक्ट्रो",
         press: "प्रेस रन और प्रेस कंसोल",
         ageing: "एजिंग बैच और रीडिंग",
+        jobwork: "जॉब वर्क चालान, वेंडर और फ़िनिशिंग लाइन",
+        drawbench: "ड्रॉ बेंच रन",
+        fabrication: "कटिंग, पंचिंग और CNC स्टेप",
         store: "स्टोर आइटम, GRN और इशू",
         qa: "गुणवत्ता जांच, होल्ड और उपकरण",
         purchase: "स्क्रैप वेंडर, लॉट और D/C नोट",
@@ -5518,6 +5529,7 @@ export const hi = {
       none: "मिल फ़िनिश",
       anodise: "एनोडाइज़",
       pvd: "PVD",
+      powder_coat: "पाउडर कोटिंग",
     },
     weightBasis: {
       copy_current: "कॉपी का ताज़ा वज़न",
@@ -6514,6 +6526,7 @@ export const hi = {
   },
 
   ageing: ageingHi.ageing,
+  jw: jwHi,
 
   price: { ...priceMasterHi, ...priceDocsHi },
 
@@ -6701,6 +6714,9 @@ export const hi = {
         foundry: "फ़ाउंड्री",
         press: "प्रेस",
         ageing: "एजिंग",
+        jobwork: "जॉब वर्क",
+        drawbench: "ड्रॉ बेंच",
+        fabrication: "फ़ैब्रिकेशन",
         store: "स्टोर",
         qa: "गुणवत्ता",
         purchase: "स्क्रैप खरीद",
@@ -6934,6 +6950,8 @@ export const hi = {
       qa_station: "जांच स्थान",
       qa_alloy_substitute: "मिश्रधातु विकल्प",
       qa_instrument: "उपकरण",
+      process_step: "प्रोसेस स्टेप",
+      process_vendor: "जॉब वर्क वेंडर",
       price_rate: "दाम का रेट",
       quote: "कोटेशन",
       proforma: "प्रोफार्मा इनवॉइस",
@@ -7254,6 +7272,11 @@ export const hi = {
       press__alert__ack: "प्रेस अलर्ट देखा",
       press__alert__ackEnded: "खत्म हुए प्रेस अलर्ट देखे",
       press__alert__threshold: "प्रेस अलर्ट की सीमा बदली",
+      process__cancel: "प्रोसेस स्टेप रद्द किया",
+      process__receive: "प्रोसेस स्टेप से बंडल वापस आए",
+      process__send: "बंडल जॉब वर्क पर भेजे",
+      process__start: "प्रोसेस स्टेप शुरू किया",
+      process__vendor__save: "जॉब वर्क वेंडर सेव किया",
       press__run__close: "प्रेस रन दर्ज किया",
       press_downtime__start: "प्रेस रुका (डाउनटाइम)",
       press_downtime__stop: "प्रेस फिर चालू",

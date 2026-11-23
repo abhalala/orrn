@@ -21,6 +21,7 @@ import { dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
 
 import { chunk, mapInChunks, type OrrnDb } from "./atomic";
+import { notInProcessSql } from "./process";
 import { lineBalances, type LineBalance } from "./orders";
 import { classifyBundles, type ScanBundle } from "./scan";
 
@@ -171,6 +172,8 @@ export async function suggestBundlesFor(
           eq(bundle.companyId, companyId),
           eq(bundle.status, "available"),
           or(inArray(bundle.salesOrderLineId, part), inArray(bundle.heldForLineId, part)),
+          // XE JOBWORK: not out for job work or on a process step.
+          notInProcessSql(companyId),
         ),
       )
       .orderBy(asc(bundle.createdAt), asc(bundle.serial))
@@ -193,6 +196,7 @@ export async function suggestBundlesFor(
           eq(bundle.status, "available"),
           isNull(bundle.salesOrderLineId),
           isNull(bundle.heldForLineId),
+          notInProcessSql(companyId),
           or(...part.map((w) => and(eq(bundle.dieId, w.dieId), eq(bundle.lengthMm, w.lengthMm)))),
         ),
       )

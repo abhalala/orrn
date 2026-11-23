@@ -37,6 +37,10 @@ export const COMPANY_MODULES = [
   "pricing",
   // XE parity lane MAINT (#63 to #68): assets, preventive plans, work orders, spares, readings.
   "maintenance",
+  // XE parity lane JOBWORK: job-work to vendors and in-house finishing, the draw bench, fabrication.
+  "jobwork",
+  "drawbench",
+  "fabrication",
   // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
   "billing",
   "einvoice",

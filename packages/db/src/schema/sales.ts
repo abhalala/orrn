@@ -29,7 +29,7 @@ export const openSalesOrderStatuses = ["booking", "confirmed", "dispatching"] as
  */
 export const salesOrderSources = ["office", "portal", "ingest"] as const;
 /** Line finish (C20: an alloy such as 6061 is never a finish). */
-export const salesOrderFinishes = ["none", "anodise", "pvd"] as const;
+export const salesOrderFinishes = ["none", "anodise", "pvd", "powder_coat"] as const;
 /** Which side the clerk committed on a line. */
 export const salesOrderQtyBases = ["pcs", "kg"] as const;
 /** What the line's kg/12ft snapshot was taken from (C21). */
@@ -128,7 +128,7 @@ export const salesOrderLine = sqliteTable(
     cutLengthMm: integer("cut_length_mm").notNull(),
     pcs: integer("pcs"),
     kgG: integer("kg_g").notNull(),
-    /** none / anodise / pvd / 6061 … (OI-09: recorded and printed only, no job-work flow yet). */
+    /** none / anodise / pvd / powder_coat (XE JOBWORK: the line's finish requirement, checked against `bundle.finish`). */
     finish: text("finish"),
     note: text("note"),
     // FP-OP-02/03/04 (Wave 1). Pin a copy OR a tier ("this tier or better"). Weight basis snapshot:

@@ -13,6 +13,7 @@
     "./refusal-foundry": "./src/refusal-foundry.ts",
     "./refusal-ageing": "./src/refusal-ageing.ts",
     "./refusal-qa": "./src/refusal-qa.ts",
+    "./refusal-jobwork": "./src/refusal-jobwork.ts",
     "./refusal-sentences": "./src/refusal-sentences.ts",
     "./guides": "./src/guides/index.ts"
   },

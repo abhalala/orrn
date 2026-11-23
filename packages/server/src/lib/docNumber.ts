@@ -24,7 +24,7 @@ export type DocNumber = { seq: number; number: string; period: string };
 export type DocNumberBlock = { period: string; seqs: number[]; numbers: string[] };
 
 /** Prefix for the `{TYPE}-{seq}` families (spec P7). */
-const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "party_bundle" | "invoice" | "credit_note">, string> = {
+const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "party_bundle" | "invoice" | "credit_note" | "jobwork" | "process_step">, string> = {
   lot: "LOT",
   mrs: "MRS",
   grn: "GRN",
@@ -122,6 +122,11 @@ function formatNumber(docType: DocType, period: string, seq: number, settings: S
       return `${settings.plPrefix}${period}/${seq}`;
     case "cert":
       return `TC/${period}/${seq}`;
+    // XE JOBWORK: the FY sits in the number (GST rule 55 wants a challan number unique in the FY, at most 16 characters).
+    case "jobwork":
+      return `JW/${period}/${seq}`;
+    case "process_step":
+      return `PS/${period}/${seq}`;
     case "invoice":
     case "credit_note":
       return `${BILLING_NUMBER_PREFIX[docType]}${shortFinancialYear(period)}/${seq}`;

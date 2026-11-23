@@ -297,15 +297,18 @@ const AGEING_DISPATCH: readonly { re: RegExp; key: MessageKey }[] = [
   { re: /^Bundle (\S+) is not aged\b/, key: "ageing.refusal.bundleNotAged" },
   // XE parity lane QA: a bundle on quality hold is refused by name until someone releases it.
   { re: /^Bundle (\S+) is on quality hold$/, key: "qa.refusal.bundleOnHold" },
+  // XE parity lane JOBWORK: a bundle out at a job-work vendor or on an in-house process step (lib/processRefusals.ts).
+  { re: /^Bundle (\S+) is out for job work on (\S+)$/, key: "jw.refusal.bundleAtVendor" },
+  { re: /^Bundle (\S+) is on process step (\S+)$/, key: "jw.refusal.bundleInProcess" },
 ];
 
 /** The ageing wording of a failed dispatch scan or add, or null when the failure is something else. */
-export function ageingDispatchRefusal(error: unknown): { key: MessageKey; vars: { serial: string; batch: string } } | null {
+export function ageingDispatchRefusal(error: unknown): { key: MessageKey; vars: { serial: string; batch: string; step: string } } | null {
   const message = error && typeof error === "object" ? (error as TrpcLike).message : undefined;
   if (typeof message !== "string") return null;
   for (const entry of AGEING_DISPATCH) {
     const m = entry.re.exec(message);
-    if (m) return { key: entry.key, vars: { serial: m[1]!, batch: m[2] ?? "" } };
+    if (m) return { key: entry.key, vars: { serial: m[1]!, batch: m[2] ?? "", step: m[2] ?? "" } };
   }
   return null;
 }

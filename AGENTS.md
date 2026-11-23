@@ -1036,6 +1036,17 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 
 # 10. Pack, stock and dispatch
 
+## Process steps: job work, finishing line, draw bench, fabrication (XE parity lane JOBWORK)
+
+One engine (`routers/process.ts`, `lib/processSteps.ts`, `lib/process.ts`, rules in `@orrn/domain` `jobwork.ts`) for four kinds: `jobwork` (out to a vendor on a delivery challan, `JW/{FY}/{n}`), `finish` (in-house anodise or powder-coat line), `draw` (draw bench), `fabricate` (cut, punch, CNC); in-house steps are `PS/{FY}/{n}`. Modules: `jobwork` (jobwork + finish, router `process`), `drawbench` (router `drawbench`), `fabrication` (router `fabrication`); each router is gated in `ROUTER_MODULE`.
+- Tables (migration `0064_xe_jobwork`): `process_vendor` (owns a location of kind **`vendor`**, code `JW-{code}`, made on save; the stock screen cannot create or edit a vendor location: `MASTER_LOCATION_KINDS`), `process_step`, `process_input` (one row per bundle sent, `return_id` when back), `process_hold` (one open hold per bundle, partial unique index), `process_return`, `process_output`. `bundle.finish` / `bundle.finish_code` are set on a return.
+- **The hold is the gate.** `bundle.status` gets no new value. A bundle with an open `process_hold` cannot be packed, dispatched (scan, add, reserve, complete), moved, voided or loaded on a trolley: `assertNotInProcess` reads first, `processHoldGuardStatements` / `notInProcessSql` re-check inside the batch. Plant stock views (`stockFilterConditions` plantOnly, order flow ready stock, dispatch suggest) leave out bundles at a vendor location (`notAtVendorSql`). The bundle list keeps them (`plantOnly: false`).
+- **Ledger.** Send to a vendor = a move to the vendor location (`process_out`). In-house steps leave the bundle where it is. A return of the same bundles writes the loss (`process_loss`, negative, reason) and moves the bundle back to the chosen yard (`process_in`); rejects and process scrap are + rows on PLANT-SCRAP (`process_scrap`, return stream). Mode `new` consumes the inputs (status void, balance to 0) and creates new output bundles with an opening `process_in` row. The per-bundle invariant of `lib/ledger.ts` holds after every step.
+- **D1 batch aborts.** `abortBatchUnless` and raw `db.run` do not run inside a D1 batch in tests. Use `processAbortUnless` (inserts NULLs into `process_hold`; `isProcessAbort` matches the NOT NULL failure) and `db.insert(stockLedger).select(sql)` for INSERT … SELECT.
+- Actions: `jobwork.send`, `jobwork.receive` (supervisor, manager, office, storekeeper), `jobwork.masters` (admin, manager, office), `jobwork.cost` (admin, manager, office, accountant; money is hidden without it), `process.run` (supervisor, manager, press, operator). Audit: `process.vendor.save|send|start|receive|cancel`. Buddy: read only.
+- Refusals: `jobworkRefusal(code)` in `lib/processRefusals.ts`, said from `jw.refusal.*` (en, hi, gu); the table is `@orrn/i18n/refusal-jobwork` (registers on import, not in the shared table). Dispatch scan matches the two hold sentences locally in `scan/scan-outcome.ts`.
+- Not built: a `clientRequestId` on send; the order strip and Today still count bundles at a vendor as packed; QA hold (PR #17) is separate.
+
 ## Pack (FP-PK-01..05, 07, 10, 14)
 
 - **One band rule (D15).** `lib/bundleBand.ts`: a bundle's band is its die copy's band when it names a

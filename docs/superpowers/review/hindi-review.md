@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12721 screen strings in 61 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (97)
+### nav (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -200,6 +200,9 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
+| `jobwork` | Job work | जॉब वर्क |
+| `drawbench` | Draw bench | ड्रॉ बेंच |
+| `fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `maintenance` | Maintenance | मेंटेनेंस |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
@@ -2763,7 +2766,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row was already imported from an earlier copy of this file. Its row number and values match, so orrn won't add it again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (255)
+### masters (256)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2884,6 +2887,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `locations.kind.scrap_store` | Scrap store | स्क्रैप स्टोर |
 | `locations.kind.store` | Central store | सेंट्रल स्टोर |
 | `locations.kind.wip` | Work in progress | काम चालू |
+| `locations.kind.vendor` | Job-work vendor | जॉब वर्क वेंडर |
 | `locations.kind.billet_rack` | Billet rack | बिलेट रैक |
 | `locations.kind.press_floor` | Press floor | प्रेस फ़्लोर |
 | `locations.holdsEmpty` | Empty | खाली |
@@ -3164,7 +3168,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (398)
+### admin (404)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3375,6 +3379,9 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleNames.foundry` | Foundry | फ़ाउंड्री |
 | `plan.moduleNames.press` | Press | प्रेस |
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
+| `plan.moduleNames.jobwork` | Job work and finishing | जॉब वर्क और फ़िनिशिंग |
+| `plan.moduleNames.drawbench` | Draw bench | ड्रॉ बेंच |
+| `plan.moduleNames.fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `plan.moduleNames.store` | Store | स्टोर |
 | `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
@@ -3392,6 +3399,9 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleHints.foundry` | Casts, melts and spectro | कास्ट, मेल्ट और स्पेक्ट्रो |
 | `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
+| `plan.moduleHints.jobwork` | Job work challans, vendors and the finishing line | जॉब वर्क चालान, वेंडर और फ़िनिशिंग लाइन |
+| `plan.moduleHints.drawbench` | Draw bench runs | ड्रॉ बेंच रन |
+| `plan.moduleHints.fabrication` | Cutting, punching and CNC steps | कटिंग, पंचिंग और CNC स्टेप |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
 | `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
@@ -5153,7 +5163,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (400)
+### orders (401)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5259,6 +5269,7 @@ Please check, Lalubhai:
 | `finish.none` | Mill finish | मिल फ़िनिश |
 | `finish.anodise` | Anodise | एनोडाइज़ |
 | `finish.pvd` | PVD | PVD |
+| `finish.powder_coat` | Powder coat | पाउडर कोटिंग |
 | `weightBasis.copy_current` | Copy's latest weight | कॉपी का ताज़ा वज़न |
 | `weightBasis.band_start` | Band start | बैंड की शुरुआत |
 | `qtyBasis.pcs` | By pieces | पीस से |
@@ -7222,6 +7233,325 @@ Please check, Lalubhai:
 | `forOrder.packed` | Packed | पैक हुए |
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
+
+### jw (314)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Job work | जॉब वर्क |
+| `kind.jobwork` | Job work | जॉब वर्क |
+| `kind.finish` | Finishing line | फ़िनिशिंग लाइन |
+| `kind.draw` | Draw bench | ड्रॉ बेंच |
+| `kind.fabricate` | Fabrication | फ़ैब्रिकेशन |
+| `process.anodise` | Anodise | एनोडाइज़ |
+| `process.powder_coat` | Powder coat | पाउडर कोटिंग |
+| `process.pvd` | PVD | PVD |
+| `process.machining` | Machining | मशीनिंग |
+| `process.other` | Other | अन्य |
+| `process.draw` | Drawing | ड्रॉइंग |
+| `process.fabricate` | Fabrication | फ़ैब्रिकेशन |
+| `op.cut` | Cut to length | लंबाई में कटिंग |
+| `op.punch` | Punch | पंच |
+| `op.cnc` | CNC | CNC |
+| `op.drill` | Drill | ड्रिल |
+| `op.other` | Other | अन्य |
+| `status.open` | Out | बाहर |
+| `status.partial` | Part back | कुछ वापस |
+| `status.done` | Back | वापस |
+| `status.cancelled` | Cancelled | रद्द |
+| `mode.same` | Same bundles back | वही बंडल वापस |
+| `mode.new` | New bundles | नए बंडल |
+| `finishState.done` | Finished | फ़िनिश हो गया |
+| `finishState.at_vendor` | At the vendor | वेंडर के पास |
+| `finishState.in_process` | On the line | लाइन पर |
+| `finishState.pending` | Not finished yet | अभी फ़िनिश नहीं |
+| `ageBucket.d0_7` | Up to 7 days | 7 दिन तक |
+| `ageBucket.d8_15` | 8 to 15 days | 8 से 15 दिन |
+| `ageBucket.d16_30` | 16 to 30 days | 16 से 30 दिन |
+| `ageBucket.d30_plus` | Over 30 days | 30 दिन से ज़्यादा |
+| `refusal.bundleAtVendor` | Bundle {serial} is out for job work on {step} | बंडल {serial} जॉब वर्क के लिए {step} पर बाहर है |
+| `refusal.bundleInProcess` | Bundle {serial} is on process step {step} | बंडल {serial} प्रोसेस स्टेप {step} पर है |
+| `refusal.bundleNotInStock` | Bundle {serial} is not in the yard; only yard stock can go on a process step | बंडल {serial} यार्ड में नहीं है; सिर्फ़ यार्ड का स्टॉक प्रोसेस स्टेप पर जा सकता है |
+| `refusal.bundleOnDispatch` | Bundle {serial} is on a dispatch; take it off the load first | बंडल {serial} डिस्पैच पर है; पहले उसे लोड से हटाएँ |
+| `refusal.bundleOffLedger` | Bundle {serial} is not on the stock ledger yet; take the opening balance first | बंडल {serial} अभी स्टॉक लेजर पर नहीं है; पहले ओपनिंग बैलेंस लें |
+| `refusal.bundleTwice` | Bundle {serial} is listed twice | बंडल {serial} दो बार लिखा है |
+| `refusal.vendorNeeded` | Pick the job-work vendor | जॉब वर्क वेंडर चुनें |
+| `refusal.vendorInactive` | Vendor {code} is not active | वेंडर {code} चालू नहीं है |
+| `refusal.vendorCodeTaken` | Vendor code {code} is already used | वेंडर कोड {code} पहले से इस्तेमाल में है |
+| `refusal.vendorHasStock` | Vendor {code} still has bundles out; receive them first | वेंडर {code} के पास अभी बंडल बाहर हैं; पहले उन्हें वापस लें |
+| `refusal.stepClosed` | Step {step} is already closed | स्टेप {step} पहले से बंद है |
+| `refusal.inputNotOnStep` | Bundle {serial} is not on {step} | बंडल {serial} {step} पर नहीं है |
+| `refusal.inputAlreadyBack` | Bundle {serial} is already back from {step} | बंडल {serial} {step} से पहले ही वापस आ चुका है |
+| `refusal.noOutput` | Enter what came back: good weight, rejects or scrap | जो वापस आया वह लिखें: अच्छा वज़न, रिजेक्ट या स्क्रैप |
+| `refusal.negativeWeight` | Weights cannot be below zero | वज़न शून्य से कम नहीं हो सकता |
+| `refusal.gainTooHigh` | More came back than was sent, by over 5 in 100; check the weights | भेजे गए से 100 में 5 से ज़्यादा वापस आया; वज़न जाँचें |
+| `refusal.outputOverInput` | More came back than was sent; check the weights | भेजे गए से ज़्यादा वापस आया; वज़न जाँचें |
+| `refusal.cancelAfterReturn` | {step} has returns; it cannot be cancelled | {step} में वापसी हो चुकी है; इसे रद्द नहीं किया जा सकता |
+| `refusal.noYard` | Pick the yard the bundles come back to | वह यार्ड चुनें जहाँ बंडल वापस आएँगे |
+| `refusal.processKindMismatch` | That process does not belong to this kind of step | यह प्रोसेस इस तरह के स्टेप का नहीं है |
+| `refusal.vendorLocation` | This place belongs to a job-work vendor; change it on the vendor | यह जगह एक जॉब वर्क वेंडर की है; इसे वेंडर पर बदलें |
+| `refusal.codeAmbiguous` | More than one bundle matches {code}; scan the full number | {code} से एक से ज़्यादा बंडल मिलते हैं; पूरा नंबर स्कैन करें |
+| `refusal.codeNotFound` | No bundle has the number {code} | {code} नंबर का कोई बंडल नहीं है |
+| `refusal.noBundles` | Scan at least one bundle | कम से कम एक बंडल स्कैन करें |
+| `refusal.tooManyBundles` | At most {n} bundles go on one step | एक स्टेप पर ज़्यादा से ज़्यादा {n} बंडल जाते हैं |
+| `refusal.rejectsLeaveOne` | Bundle {serial} has {pcs} pieces; rejects must leave at least one | बंडल {serial} में {pcs} पीस हैं; रिजेक्ट के बाद कम से कम एक बचना चाहिए |
+| `refusal.outputSection` | Pick the section of each new bundle | हर नए बंडल का सेक्शन चुनें |
+| `refusal.consumedInput` | Bundle {serial} was used up on {step}; it cannot come back | बंडल {serial} {step} पर इस्तेमाल हो चुका है; यह वापस नहीं आ सकता |
+| `subtitle` | Bundles out at vendors, the finishing line, the draw bench and fabrication | वेंडर के पास बंडल, फ़िनिशिंग लाइन, ड्रॉ बेंच और फ़ैब्रिकेशन |
+| `loadFailed` | Job work did not load. Check the connection and try again. | जॉब वर्क नहीं खुला। कनेक्शन देखें और फिर कोशिश करें। |
+| `noAccess` | You cannot do this | आप यह नहीं कर सकते |
+| `noAccessBody` | Ask the office to give you access to job work. | ऑफ़िस से जॉब वर्क की अनुमति माँगें। |
+| `tabs.label` | Job work sections | जॉब वर्क के हिस्से |
+| `tabs.pending` | At vendors | वेंडर के पास |
+| `tabs.register` | Register | रजिस्टर |
+| `tabs.line` | In-house line | अपनी लाइन |
+| `tabs.vendors` | Vendors | वेंडर |
+| `action.newChallan` | New challan | नया चालान |
+| `action.send` | Send to vendor | वेंडर को भेजें |
+| `action.start` | Start step | स्टेप शुरू करें |
+| `action.startStep` | Start a step | स्टेप शुरू करें |
+| `action.receive` | Receive | वापस लें |
+| `action.cancelStep` | Cancel step | स्टेप रद्द करें |
+| `action.challan` | Challan | चालान |
+| `action.addVendor` | Add vendor | वेंडर जोड़ें |
+| `action.addChemical` | Add chemical | केमिकल जोड़ें |
+| `action.removeChemical` | Remove chemical | केमिकल हटाएँ |
+| `action.addLine` | Add a line | एक लाइन जोड़ें |
+| `action.removeLine` | Remove line | लाइन हटाएँ |
+| `filter.kind` | Kind | प्रकार |
+| `filter.status` | Status | स्थिति |
+| `filter.all` | All | सभी |
+| `col.number` | Number | नंबर |
+| `col.process` | Process | प्रोसेस |
+| `col.vendor` | Vendor | वेंडर |
+| `col.inHouse` | In-house | अपनी लाइन |
+| `col.sent` | Sent | भेजा |
+| `col.bundles` | Bundles | बंडल |
+| `col.bundlesOut` | {out} of {total} out | {total} में से {out} बाहर |
+| `col.weightIn` | Sent | भेजा गया |
+| `col.weightBack` | Came back | वापस आया |
+| `col.loss` | Loss | नुकसान |
+| `col.costPerKg` | Cost per good unit | अच्छे माल की लागत |
+| `col.status` | Status | स्थिति |
+| `col.code` | Code | कोड |
+| `col.name` | Name | नाम |
+| `col.gstin` | GSTIN | GSTIN |
+| `col.processes` | Processes | प्रोसेस |
+| `col.rate` | Rate | रेट |
+| `col.out` | Out now | अभी बाहर |
+| `col.bundle` | Bundle | बंडल |
+| `col.section` | Section | सेक्शन |
+| `col.length` | Length | लंबाई |
+| `col.pcs` | Pieces | पीस |
+| `col.weight` | Weight | वज़न |
+| `register.label` | Process steps | प्रोसेस स्टेप |
+| `register.empty` | No steps yet | अभी कोई स्टेप नहीं |
+| `register.emptyBody` | A challan to a vendor or a step on the line shows here once it is made. | वेंडर को चालान या लाइन पर स्टेप बनते ही यहाँ दिखेगा। |
+| `pending.empty` | Nothing is out at vendors | वेंडर के पास कुछ नहीं है |
+| `pending.emptyBody` | Bundles sent on a job-work challan show here until they come back. | जॉब वर्क चालान पर भेजे बंडल वापस आने तक यहाँ दिखते हैं। |
+| `pending.buckets` | Days out | बाहर के दिन |
+| `pending.bucketCount` | {count} {count:challan\|challans} | {count} चालान |
+| `pending.vendorTotal` | {bundles} {bundles:bundle\|bundles} out, {weight} | {bundles} बंडल बाहर, {weight} |
+| `pending.overdueCount` | {count} overdue | {count} की तारीख़ निकल गई |
+| `pending.stepTotal` | {bundles} {bundles:bundle\|bundles}, {pcs} {pcs:piece\|pieces}, {weight} | {bundles} बंडल, {pcs} पीस, {weight} |
+| `pending.expected` | Expected back {date} | वापसी की उम्मीद {date} |
+| `pending.overdue` | Overdue | तारीख़ निकल गई |
+| `pending.daysOut` | {count} {count:day\|days} out | {count} दिन से बाहर |
+| `pending.limitSoon` | {count} {count:day\|days} left to bring these back (one year rule) | इन्हें वापस लाने के लिए {count} दिन बचे (एक साल का नियम) |
+| `pending.limitOver` | Past the one year limit for job work goods | जॉब वर्क माल की एक साल की सीमा निकल चुकी है |
+| `line.now` | On the line now | अभी लाइन पर |
+| `line.steps` | {count} {count:step\|steps} on the line | लाइन पर {count} स्टेप |
+| `line.bundles` | {count} {count:bundle\|bundles} held | {count} बंडल रुके हैं |
+| `vendor.active` | Active | चालू |
+| `vendor.inactive` | Not active | चालू नहीं |
+| `vendor.empty` | No vendors yet | अभी कोई वेंडर नहीं |
+| `vendor.emptyBody` | Add the anodiser, powder coater or machinist you send bundles to. | एनोडाइज़र, पाउडर कोटर या मशीनिस्ट जोड़ें जिसे आप बंडल भेजते हैं। |
+| `vendor.out` | {bundles} {bundles:bundle\|bundles}, {weight} | {bundles} बंडल, {weight} |
+| `vendor.newTitle` | New vendor | नया वेंडर |
+| `vendor.editTitle` | Vendor {code} | वेंडर {code} |
+| `vendor.sheetHint` | Each vendor gets its own place in stock. Bundles sent to it sit there until they come back. | हर वेंडर की स्टॉक में अपनी जगह बनती है। उसे भेजे बंडल वापस आने तक वहीं रहते हैं। |
+| `vendor.saved` | Vendor {code} saved | वेंडर {code} सेव हुआ |
+| `field.vendor` | Vendor | वेंडर |
+| `field.pickVendor` | Pick a vendor | वेंडर चुनें |
+| `field.process` | Process | प्रोसेस |
+| `field.finishCode` | Finish | फ़िनिश |
+| `field.finishCodeHint` | For example the colour code or the anodic film thickness. | जैसे कलर कोड या एनोडिक फ़िल्म की मोटाई। |
+| `field.expectedReturn` | Expected back | वापसी की तारीख़ |
+| `field.expectedReturnHint` | The date the vendor promised. Leave empty if there is none. | जो तारीख़ वेंडर ने बताई। न हो तो ख़ाली छोड़ें। |
+| `field.vehicleNo` | Vehicle number | गाड़ी नंबर |
+| `field.note` | Note | नोट |
+| `field.batchNo` | Batch number | बैच नंबर |
+| `field.chemicals` | Chemicals used | इस्तेमाल हुए केमिकल |
+| `field.chemicalName` | Chemical | केमिकल |
+| `field.chemicalQty` | Quantity | मात्रा |
+| `field.passes` | Passes | पास |
+| `field.outSize` | Out size | आउट साइज़ |
+| `field.outSizeHint` | The size the bench draws to, as the setting card says. | जिस साइज़ तक बेंच खींचता है, जैसा सेटिंग कार्ड में लिखा है। |
+| `field.ops` | Operations | काम |
+| `field.vendorCode` | Code | कोड |
+| `field.vendorCodeHint` | Letters, digits and dashes, at most 12. It cannot be reused. | अक्षर, अंक और डैश, ज़्यादा से ज़्यादा 12। इसे दोबारा इस्तेमाल नहीं कर सकते। |
+| `field.vendorName` | Name | नाम |
+| `field.gstin` | GSTIN | GSTIN |
+| `field.address` | Address | पता |
+| `field.state` | State | राज्य |
+| `field.phone` | Phone | फ़ोन |
+| `field.vendorProcesses` | Processes this vendor does | यह वेंडर कौन-से प्रोसेस करता है |
+| `rate.perKg` | {rate} per kg | {rate} प्रति kg |
+| `rate.label` | Rate | रेट |
+| `rate.valuePerKg` | Declared value (rupees per kg) | घोषित मूल्य (रुपये प्रति kg) |
+| `rate.valueHint` | Goods value on the challan, not a sale. The vendor's rate is {rate} per kg. | चालान पर माल का मूल्य, बिक्री नहीं। वेंडर का रेट {rate} प्रति kg है। |
+| `rate.valueHintPlain` | Goods value on the challan, not a sale. | चालान पर माल का मूल्य, बिक्री नहीं। |
+| `rate.vendorRate` | Usual rate (rupees per kg) | सामान्य रेट (रुपये प्रति kg) |
+| `rate.vendorRateHint` | Used on each new challan unless you type another rate. | हर नए चालान पर लगता है, जब तक आप दूसरा रेट न लिखें। |
+| `rate.receiveHint` | Rupees per kg of the weight billed. Leave as it is to keep the rate on the challan. | जिस वज़न का बिल बना उसके हिसाब से रुपये प्रति kg। चालान वाला रेट रखना हो तो जैसा है वैसा छोड़ें। |
+| `rate.error` | Enter the rate in rupees, like 150.50. | रेट रुपये में लिखें, जैसे 150.50। |
+| `rate.costPerKg` | {rate} per good kg | {rate} प्रति अच्छा kg |
+| `rate.costPerKgLabel` | Cost per good kg | प्रति अच्छे kg की लागत |
+| `error.vendor` | Pick the vendor | वेंडर चुनें |
+| `error.process` | Pick the process | प्रोसेस चुनें |
+| `error.bundles` | Scan or pick at least one bundle | कम से कम एक बंडल स्कैन करें या चुनें |
+| `error.tooMany` | At most 200 bundles on one step | एक स्टेप पर ज़्यादा से ज़्यादा 200 बंडल |
+| `error.date` | The date cannot be before today | तारीख़ आज से पहले की नहीं हो सकती |
+| `error.value` | Enter the value in rupees, like 300 | मूल्य रुपये में लिखें, जैसे 300 |
+| `error.vendorCode` | Use letters, digits and dashes for the code, at most 12 | कोड में अक्षर, अंक और डैश लिखें, ज़्यादा से ज़्यादा 12 |
+| `error.vendorName` | Write the vendor's name | वेंडर का नाम लिखें |
+| `error.chemicalName` | Write the chemical's name | केमिकल का नाम लिखें |
+| `error.passes` | Passes is a whole number up to 100 | पास पूरी संख्या है, 100 तक |
+| `error.reason` | Write why | कारण लिखें |
+| `error.yard` | Pick the yard the bundles come back to | वह यार्ड चुनें जहाँ बंडल वापस आते हैं |
+| `error.section` | Pick the section of this new bundle | इस नए बंडल का सेक्शन चुनें |
+| `error.rowWeight` | Enter a weight | वज़न लिखें |
+| `error.rowRejectPcs` | Rejects is a whole number of pieces | रिजेक्ट पीस की पूरी संख्या होनी चाहिए |
+| `error.rowRejectKg` | Enter the reject weight | रिजेक्ट का वज़न लिखें |
+| `error.rowRejectsAll` | Rejects must leave at least one piece | रिजेक्ट के बाद कम से कम एक पीस बचना चाहिए |
+| `error.rowLength` | Enter a length | लंबाई लिखें |
+| `error.rowPcs` | Enter the pieces | पीस लिखें |
+| `pick.scan` | Scan or type a bundle number | बंडल नंबर स्कैन करें या लिखें |
+| `pick.scanHint` | Press Enter after each one. Serial, party number or the QR text all work. | हर एक के बाद Enter दबाएँ। सीरियल, पार्टी नंबर या QR का टेक्स्ट, सब चलते हैं। |
+| `pick.scanPlaceholder` | Scan a bundle | बंडल स्कैन करें |
+| `pick.fromStock` | Pick from stock | स्टॉक से चुनें |
+| `pick.hideStock` | Hide stock | स्टॉक छुपाएँ |
+| `pick.search` | Search the yard stock | यार्ड का स्टॉक खोजें |
+| `pick.searchPlaceholder` | Serial, order or party number | सीरियल, ऑर्डर या पार्टी नंबर |
+| `pick.stockFailed` | Stock did not load. Try again. | स्टॉक नहीं खुला। फिर कोशिश करें। |
+| `pick.noStock` | No bundles in stock match. | कोई बंडल नहीं मिला। |
+| `pick.add` | Add | जोड़ें |
+| `pick.added` | Added | जुड़ गया |
+| `pick.pcs` | {count} {count:piece\|pieces} | {count} पीस |
+| `pick.paste` | Paste a list | सूची चिपकाएँ |
+| `pick.pasteHint` | One per line, or separated by commas or spaces. | हर लाइन में एक, या कॉमा या स्पेस से अलग। |
+| `pick.count` | {count} {count:bundle\|bundles} on this step | इस स्टेप पर {count} बंडल |
+| `pick.remove` | Remove {serial} | {serial} हटाएँ |
+| `pick.repeat` | {serial} is already on the list | {serial} पहले से सूची में है |
+| `pick.repeats` | {count} repeated {count:number was\|numbers were} left out | {count} दोहराए नंबर छोड़ दिए |
+| `new.title` | New job-work challan | नया जॉब वर्क चालान |
+| `new.subtitle` | Bundles leave the plant and go on hold until they come back. | बंडल प्लांट से बाहर जाते हैं और वापस आने तक रुके रहते हैं। |
+| `new.lineTitle` | Start a step on the line | लाइन पर स्टेप शुरू करें |
+| `new.lineSubtitle` | Bundles stay where they are and go on hold until the step is received. | बंडल जहाँ हैं वहीं रहते हैं और स्टेप वापस लेने तक रुके रहते हैं। |
+| `new.mode` | What are you doing | आप क्या कर रहे हैं |
+| `new.toVendor` | Send to a vendor | वेंडर को भेजें |
+| `new.onLine` | Start on the line | अपनी लाइन पर शुरू करें |
+| `send.noVendors` | No vendors yet | अभी कोई वेंडर नहीं |
+| `send.noVendorsBody` | Someone who keeps the masters adds the vendors first. Then you can send bundles out. | पहले मास्टर संभालने वाला वेंडर जोड़ेगा। फिर आप बंडल बाहर भेज सकते हैं। |
+| `send.sent` | Challan {number} made | चालान {number} बन गया |
+| `start.title` | Start {kind} | {kind} शुरू करें |
+| `start.started` | Step {number} started | स्टेप {number} शुरू हुआ |
+| `draw.subtitle` | Tube and rod drawn to a new size, one step at a time | ट्यूब और रॉड को नए साइज़ तक खींचना, एक-एक स्टेप में |
+| `fabricate.subtitle` | Cut to length, punch, drill and CNC on bundles from the yard | यार्ड के बंडलों पर कटिंग, पंच, ड्रिल और CNC |
+| `step.notFound` | Step not found | स्टेप नहीं मिला |
+| `step.sent` | Started | शुरू हुआ |
+| `step.doneAt` | Finished | पूरा हुआ |
+| `step.bundlesOut` | {out} of {total} {total:bundle\|bundles} still out | {total} में से {out} बंडल अभी बाहर |
+| `step.cancelled` | Cancelled: {reason} | रद्द: {reason} |
+| `step.inputs` | Bundles on this step | इस स्टेप के बंडल |
+| `step.noInputs` | No bundles | कोई बंडल नहीं |
+| `step.out` | Out | बाहर |
+| `step.back` | Back | वापस |
+| `step.returns` | Returns | वापसी |
+| `step.returnN` | Return {n} | वापसी {n} |
+| `step.outputs` | New bundles made | बने नए बंडल |
+| `step.outputsHint` | Made when the inputs were used up. | तब बने जब पुराने बंडल इस्तेमाल हो गए। |
+| `step.noOutputs` | No new bundles | कोई नया बंडल नहीं |
+| `fig.in` | Sent | भेजा गया |
+| `fig.good` | Good | अच्छा |
+| `fig.rejects` | Rejects | रिजेक्ट |
+| `fig.scrap` | Process scrap | प्रोसेस स्क्रैप |
+| `fig.loss` | Loss | नुकसान |
+| `fig.gain` | Gain | बढ़त |
+| `fig.yield` | Yield | रिकवरी |
+| `fig.percent` | {value} in 100 | सौ में {value} |
+| `fig.billed` | Billed | बिल |
+| `fig.bill` | Bill {amount} | बिल {amount} |
+| `fig.coatNote` | A coat adds weight, up to 5 in 100 of what was sent. | कोटिंग से वज़न बढ़ता है, भेजे वज़न के सौ में 5 तक। |
+| `receive.title` | Receive {number} | {number} वापस लें |
+| `receive.subtitle` | Weigh what came back. The loss and the cost follow. | जो लौटा उसे तौलें। नुकसान और लागत अपने आप दिखेगी। |
+| `receive.mode` | How did it come back | माल कैसे लौटा |
+| `receive.sameHint` | The same bundles came back. Enter the weight of each after the process. | वही बंडल लौटे। प्रोसेस के बाद हर बंडल का वज़न लिखें। |
+| `receive.newHint` | The bundles on the step are used up and new bundles are made from them. | स्टेप के बंडल इस्तेमाल हो गए और उनसे नए बंडल बने। |
+| `receive.stillOut` | {count} {count:bundle\|bundles} still out | {count} बंडल अभी बाहर |
+| `receive.fillSent` | Fill the sent weights | भेजा हुआ वज़न भरें |
+| `receive.sent` | {pcs} {pcs:piece\|pieces}, sent {weight} | {pcs} पीस, भेजा {weight} |
+| `receive.cameBack` | Weight came back | लौटा वज़न |
+| `receive.rejectPcs` | Reject pieces | रिजेक्ट पीस |
+| `receive.rejectWeight` | Reject weight | रिजेक्ट वज़न |
+| `receive.usedUp` | Bundles used up | इस्तेमाल हुए बंडल |
+| `receive.outputs` | New bundles | नए बंडल |
+| `receive.section` | Section | सेक्शन |
+| `receive.pickSection` | Pick the section | सेक्शन चुनें |
+| `receive.findSection` | Find another section | दूसरा सेक्शन खोजें |
+| `receive.findSectionHint` | Type at least two letters of the section code. A drawn or cut piece may be a new section. | सेक्शन कोड के कम से कम दो अक्षर लिखें। ड्रॉ या कटिंग के बाद पीस नया सेक्शन हो सकता है। |
+| `receive.sameSection` | Same as the input ({section}) | इनपुट जैसा ({section}) |
+| `receive.length` | Length | लंबाई |
+| `receive.pcs` | Pieces | पीस |
+| `receive.weight` | Weight | वज़न |
+| `receive.scrap` | Process scrap | प्रोसेस स्क्रैप |
+| `receive.scrapHint` | Drawing ends, cut ends and chips. They go to plant scrap. | ड्रॉइंग के सिरे, कटिंग के सिरे और चिप्स। ये प्लांट स्क्रैप में जाते हैं। |
+| `receive.yard` | Yard it comes back to | माल किस यार्ड में लौटेगा |
+| `receive.yardHint` | The bundles are put in this yard. | बंडल इसी यार्ड में रखे जाते हैं। |
+| `receive.pickYard` | Pick a yard | यार्ड चुनें |
+| `receive.vendorDoc` | Vendor's challan or bill number | वेंडर का चालान या बिल नंबर |
+| `receive.vendorDocHint` | As written on the paper that came with the goods. | जैसा माल के साथ आए काग़ज़ पर लिखा है। |
+| `receive.minutes` | Minutes taken | लगे मिनट |
+| `receive.figuresEmpty` | Enter what came back to see the loss. | नुकसान देखने के लिए लौटा माल लिखें। |
+| `receive.done` | {number} received | {number} वापस ले लिया |
+| `cancel.title` | Cancel {number} | {number} रद्द करें |
+| `cancel.body` | Nothing has come back, so the bundles go back where they came from and the hold is released. | कुछ भी वापस नहीं आया, इसलिए बंडल जहाँ से गए थे वहीं लौट जाएँगे और रोक हट जाएगी। |
+| `cancel.reason` | Why is it cancelled | रद्द क्यों किया |
+| `cancel.done` | {number} cancelled | {number} रद्द हुआ |
+| `challan.title` | Delivery challan | डिलीवरी चालान |
+| `challan.back` | Back to the step | स्टेप पर वापस |
+| `challan.heading` | Delivery challan for job work | जॉब वर्क के लिए डिलीवरी चालान |
+| `challan.notForSale` | Goods sent for job work and not for sale | माल जॉब वर्क के लिए भेजा गया है, बिक्री के लिए नहीं |
+| `challan.rule` | Sent under rule 55 of the CGST Rules. To come back within one year (section 143). | CGST नियम 55 के तहत भेजा गया। एक साल के अंदर वापस आना है (धारा 143)। |
+| `challan.cancelled` | Cancelled | रद्द |
+| `challan.number` | Challan number | चालान नंबर |
+| `challan.date` | Date | तारीख़ |
+| `challan.process` | Process | प्रोसेस |
+| `challan.hsn` | HSN | HSN |
+| `challan.expected` | Expected back | वापसी की तारीख़ |
+| `challan.vehicle` | Vehicle number | गाड़ी नंबर |
+| `challan.placeOfSupply` | Place of supply | आपूर्ति का स्थान |
+| `challan.valueRate` | Value rate | मूल्य का रेट |
+| `challan.consigner` | Consigner (sent from) | भेजने वाला |
+| `challan.consignee` | Consignee (job worker) | पाने वाला (जॉब वर्कर) |
+| `challan.item` | Section | सेक्शन |
+| `challan.qty` | Quantity | मात्रा |
+| `challan.value` | Value | मूल्य |
+| `challan.total` | Total | कुल |
+| `challan.serials` | Bundle numbers | बंडल नंबर |
+| `challan.sigConsigner` | Consigner's signature | भेजने वाले के हस्ताक्षर |
+| `challan.sigTransporter` | Transporter's signature | ट्रांसपोर्टर के हस्ताक्षर |
+| `challan.sigConsignee` | Consignee's signature | पाने वाले के हस्ताक्षर |
+| `challan.notJobwork` | This step has no delivery challan. Only job work to a vendor has one. | इस स्टेप का डिलीवरी चालान नहीं है। सिर्फ़ वेंडर को भेजे जॉब वर्क का होता है। |
+| `order.title` | {finish}: finish | {finish}: फ़िनिश |
+| `order.note` | Bundles of this line by finish state | इस लाइन के बंडल फ़िनिश की स्थिति के हिसाब से |
+| `order.count` | {bundles} {bundles:bundle\|bundles}, {weight} | {bundles} बंडल, {weight} |
+| `bundle.title` | Job work | जॉब वर्क |
+| `bundle.atVendor` | At vendor | वेंडर के पास |
+| `bundle.onStep` | On a process step | प्रोसेस स्टेप पर |
+| `bundle.since` | Since {date} | {date} से |
+| `bundle.sinceAt` | {vendor}, since {date} | {vendor}, {date} से |
+| `bundle.finish` | Finish: {finish} {code} | फ़िनिश: {finish} {code} |
 
 ### price (371)
 
@@ -11355,7 +11685,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (57)
+### plantSettings (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11393,6 +11723,9 @@ Please check, Lalubhai:
 | `modules.names.foundry` | Foundry | फ़ाउंड्री |
 | `modules.names.press` | Press | प्रेस |
 | `modules.names.ageing` | Ageing | एजिंग |
+| `modules.names.jobwork` | Job work | जॉब वर्क |
+| `modules.names.drawbench` | Draw bench | ड्रॉ बेंच |
+| `modules.names.fabrication` | Fabrication | फ़ैब्रिकेशन |
 | `modules.names.store` | Store | स्टोर |
 | `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
@@ -11541,7 +11874,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (480)
+### audit (487)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11611,6 +11944,8 @@ Please check, Lalubhai:
 | `subjectTypes.qa_station` | Inspection point | जांच स्थान |
 | `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
 | `subjectTypes.qa_instrument` | Instrument | उपकरण |
+| `subjectTypes.process_step` | Process step | प्रोसेस स्टेप |
+| `subjectTypes.process_vendor` | Job-work vendor | जॉब वर्क वेंडर |
 | `subjectTypes.price_rate` | Price rate | दाम का रेट |
 | `subjectTypes.quote` | Quote | कोटेशन |
 | `subjectTypes.proforma` | Proforma invoice | प्रोफार्मा इनवॉइस |
@@ -11928,6 +12263,11 @@ Please check, Lalubhai:
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
 | `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |
+| `actions.process__cancel` | Process step cancelled | प्रोसेस स्टेप रद्द किया |
+| `actions.process__receive` | Bundles came back from a process step | प्रोसेस स्टेप से बंडल वापस आए |
+| `actions.process__send` | Bundles sent for job work | बंडल जॉब वर्क पर भेजे |
+| `actions.process__start` | Process step started | प्रोसेस स्टेप शुरू किया |
+| `actions.process__vendor__save` | Job-work vendor saved | जॉब वर्क वेंडर सेव किया |
 | `actions.press__run__close` | Press run logged | प्रेस रन दर्ज किया |
 | `actions.press_downtime__start` | Press stopped (downtime) | प्रेस रुका (डाउनटाइम) |
 | `actions.press_downtime__stop` | Press running again | प्रेस फिर चालू |

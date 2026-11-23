@@ -144,6 +144,12 @@ export const PLANT_ACTIONS = [
   "qa.hold", // put a bundle on quality hold
   "qa.release", // release a bundle from quality hold, with a note
   "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
+  // XE parity lane JOBWORK (migration 0064): job-work challans and in-house process steps.
+  "jobwork.send", // make a job-work challan (bundles out to a vendor), cancel one before anything is back
+  "jobwork.receive", // receive a challan back: the same bundles or new output, loss, rejects, rate
+  "jobwork.masters", // job-work vendors
+  "jobwork.cost", // see vendor rates, challan values and cost per kg
+  "process.run", // in-house steps: finishing line, draw bench, fabrication (start, finish, cancel)
   // XE-PRICE (lane PRICE): the price master, quotations, proforma and enquiries. `order.price` stays the
   // gate for rates on order lines; these cover the master and the documents built on it.
   "price.view", // read the price master, quotations, proformas and line breakdowns
@@ -335,6 +341,13 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE JOBWORK: the office and the floor's supervisor send and receive challans (the storekeeper
+  // weighs them at the gate); masters and money stay with the office side.
+  "jobwork.send": ["supervisor", "manager", "office", "storekeeper"],
+  "jobwork.receive": ["supervisor", "manager", "office", "storekeeper"],
+  "jobwork.masters": ["admin", "manager", "office"],
+  "jobwork.cost": ["admin", "manager", "office", "accountant"],
+  "process.run": ["supervisor", "manager", "press", "operator"],
   // XE-PRICE: the people who see order rates read the master; the office desk and the manager change it.
   "price.view": ["admin", "office", "manager", "accountant"],
   "price.manage": ["admin", "office", "manager"],
