@@ -106,6 +106,7 @@ const MODULE_DIR: Readonly<Record<NavModule, string>> = {
   customers: "customers",
   bundles: "stock",
   complaints: "complaints",
+  maintenance: "maintenance",
 };
 
 const ROLES = Object.keys({

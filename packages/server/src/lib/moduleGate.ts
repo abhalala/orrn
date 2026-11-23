@@ -49,6 +49,8 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   // XE-BILL: both opt-in; their reads are gated in lib/billing/gate.ts too.
   billing: "billing",
   einvoice: "einvoice",
+  // XE parity lane MAINT (#63 to #68): plant maintenance (reads call assertModule too, routers/maintenance.ts).
+  maint: "maintenance",
 };
 
 /**

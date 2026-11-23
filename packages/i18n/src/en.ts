@@ -33,6 +33,7 @@ import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
 import { regEn } from "./reg/en";
 import { store2En } from "./store2/en";
+import { maintEn } from "./maint/en";
 
 export const en = {
   common: {
@@ -234,6 +235,7 @@ export const en = {
     ageing: "Ageing",
     complaints: "Complaints",
     owner: "Owner",
+    maintenance: "Maintenance",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -3807,6 +3809,7 @@ export const en = {
         pricing: "Prices and quotes",
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
+        maintenance: "Maintenance",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3824,6 +3827,7 @@ export const en = {
         pricing: "Price master, quotes, proformas and enquiries",
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
+        maintenance: "Assets, preventive plans, work orders and machine readings",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6532,6 +6536,7 @@ export const en = {
   reg: regEn,
   qa: qaEn,
   store2: store2En,
+  maint: maintEn,
 
   reasons: {
     kinds: {
@@ -6693,6 +6698,7 @@ export const en = {
         pricing: "Prices and quotes",
         billing: "Tax invoices",
         einvoice: "E-invoice",
+        maintenance: "Maintenance",
       },
     },
     letterhead: {
@@ -6902,6 +6908,8 @@ export const en = {
       purchase_lot: "Purchase lot",
       count_session: "Stock count",
       complaint: "Complaint",
+      maint_asset: "Asset",
+      maint_work_order: "Work order",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
       ingest_artifact: "Import file",
@@ -7049,6 +7057,20 @@ export const en = {
       complaint__reply: "Complaint answered",
       complaint__close: "Complaint closed",
       mis__morning__sent: "Morning summary sent",
+      maint__asset__create: "Asset added",
+      maint__asset__update: "Asset changed",
+      maint__asset__addFromMasters: "Presses, furnaces and ovens added as assets",
+      maint__plan__create: "Maintenance plan added",
+      maint__plan__update: "Maintenance plan changed",
+      maint__workorder__create: "Work order raised",
+      maint__workorder__update: "Work order changed",
+      maint__workorder__move: "Work order status changed",
+      maint__spare__link: "Spare added to a work order",
+      maint__spare__unlink: "Spare taken off a work order",
+      maint__limit__create: "Reading limit added",
+      maint__limit__update: "Reading limit changed",
+      maint__reading__record: "Machine reading taken",
+      maint__settings__update: "Maintenance labour rate changed",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
       customer__update: "Customer changed",

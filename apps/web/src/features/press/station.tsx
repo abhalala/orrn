@@ -29,7 +29,8 @@ import { browserOnline } from "@/shared/lib/sign-out-core";
 
 import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
-import { OutboxBanner, queuedText, useStationSend, type SendResult } from "./outbox-hooks";
+import { OutboxBanner, queuedText, useOnline, useStationSend, type SendResult } from "./outbox-hooks";
+import { BreakdownWorkOrderButton } from "@/features/maintenance/station-breakdown";
 import { statusTone } from "./job-card";
 import { bannerOf, clockOf, elapsedText, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
 import { reasonLabel, type ReasonWording } from "./reason-label";
@@ -634,6 +635,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
   const qc = useQueryClient();
   const refresh = useRunWrite(data.run.id);
   const reasons = useQuery(trpc.press.reasons.queryOptions({ kind: "downtime" }));
+  const online = useOnline();
   const [open, setOpen] = useState(false);
   const [reasonId, setReasonId] = useState("");
   const [note, setNote] = useState("");
@@ -703,6 +705,11 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
                 {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(fmt, r.startedAt, tz) })}
               </span>
               {r.note ? <span className="basis-full text-[14px] text-muted-foreground">{r.note}</span> : null}
+              {r.reasonCode === "breakdown" ? (
+                <span className="basis-full">
+                  <BreakdownWorkOrderButton downtimeId={r.id} online={online} />
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

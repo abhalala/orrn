@@ -311,6 +311,7 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0052 | session_sign_in_method | `session.sign_in_method`: how each session was made (passkey, google, totp, password, magicLink or other) |
 | 0053 | ingest_model_checked_by | `ingest_block.model_checked_by`, `model_checked_at`: who set the vision tick and when (release 2 fix round) |
 | 0054 | buddy | orrn buddy: `buddy_link`, `buddy_grant` (token hash only), `buddy_call`, `buddy_draft` |
+| 0060 | xe_maint | XE parity lane MAINT: `maint_asset`, `maint_plan`, `maint_work_order`, `maint_wo_spare`, `maint_reading_kind`, `maint_reading`, `maint_setting` (0055 to 0059 belong to other XE lanes) |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.

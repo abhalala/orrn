@@ -163,6 +163,11 @@ export const PLANT_ACTIONS = [
   "po.manage", // make, change, issue, close and cancel store purchase orders
   "store.value", // the store's value: average rates and the month-end stock value
   "store.rate", // set valuation rates: a GRN rate other than the order's, a pending GRN rate, an item's opening rate
+  // XE parity lane MAINT (#63 to #68): plant maintenance. See the maintenance screens; set up assets, plans,
+  // reading limits and the labour rate (and see the cost); raise and work work orders and take readings.
+  "maint.view",
+  "maint.manage",
+  "maint.workorder",
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -341,6 +346,11 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "store.value": ["office", "manager", "admin", "accountant"],
   // The rate is settled by the bill in the office, not at the gate: the storekeeper does not set it.
   "store.rate": ["office", "manager", "admin", "accountant"],
+  // XE parity lane MAINT. Everyone who works near the machines (and the storekeeper who issues spares) sees
+  // maintenance; the supervisor and up set it up; the floor raises a breakdown and works the work order.
+  "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
+  "maint.manage": ["admin", "manager", "supervisor"],
+  "maint.workorder": ["admin", "manager", "supervisor", "operator", "press", "foundry"],
   "support.request": [
     "admin",
     "manager",

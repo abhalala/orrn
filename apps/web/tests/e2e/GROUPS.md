@@ -1,13 +1,13 @@
 # e2e groups A / B / C
 
-The 55 grouped spec files (A 18, B 19, C 18) run in three groups, one after another on one port pair, never together. Each group starts or
+The 56 grouped spec files (A 19, B 19, C 18) run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
 
 | Group | Spec files | Saved wall time, runs 1 / 2 |
 |---|---|---|
-| A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, preview-redirects, redirects, ui-kit | 351 s / 285 s |
+| A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, maintenance, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | approvals-inbox, audit, die-room-flows, foundry, foundry-masters, ingest-vision, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports, sign-in-methods | 276 s (failed) / 272 s (before sign-in-methods) |
 | C | ageing-masters, ageing, buddy, chain, collectors, invite-onboarding, nav-order, next-rows, orders-plan-purpose, plant-picker, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s (before plant-picker and invite-onboarding) |
 
@@ -27,6 +27,8 @@ demo owner's grant and disconnects Hermes before and after, so the floating butt
 `a11y-app` is the signed-in axe sweep (every nav screen, desktop and 375 px, light and dark, en plus hi for Today, Pack, Scan and
 Dispatch). It has no saved wall time yet (about 10 minutes on two workers). It writes every violation to
 `test-results/a11y-app/results.jsonl`; `bun scripts/axe-app-report.ts` turns that into the grouped report.
+
+`maintenance` (group A, XE parity lane MAINT, no saved wall time yet) owns its asset by a unique code and runs one work order from raised to done.
 
 A new spec goes here and into `apps/web/scripts/e2e-group.sh`. The script keeps the three membership lists in one
 place and warns about a spec in none of them. Specs create the data they change and assert on their own rows

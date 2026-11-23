@@ -35,6 +35,8 @@ export const COMPANY_MODULES = [
   "qa",
   // XE-PRICE: price master, quotations, proforma, works order print, enquiries.
   "pricing",
+  // XE parity lane MAINT (#63 to #68): assets, preventive plans, work orders, spares, readings.
+  "maintenance",
   // Opt-in (XE parity wave 1, CONTRACTS "Opt-in modules"): off until named.
   "billing",
   "einvoice",

@@ -17,6 +17,7 @@ import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
 import { regHi } from "./reg/hi";
 import { store2Hi } from "./store2/hi";
+import { maintHi } from "./maint/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -226,6 +227,7 @@ export const hi = {
     ageing: "एजिंग",
     complaints: "शिकायतें",
     owner: "मालिक",
+    maintenance: "मेंटेनेंस",
     main: "मुख्य",
     today: "आज",
     pack: "पैकिंग",
@@ -3794,6 +3796,7 @@ export const hi = {
         pricing: "भाव और कोटेशन",
         billing: "टैक्स इनवॉइस और भुगतान",
         einvoice: "ई-इनवॉइस और ई-वे बिल",
+        maintenance: "मेंटेनेंस",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3811,6 +3814,7 @@ export const hi = {
         pricing: "भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ",
         billing: "टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद",
         einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
+        maintenance: "एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6513,6 +6517,7 @@ export const hi = {
   reg: regHi,
   qa: qaHi,
   store2: store2Hi,
+  maint: maintHi,
 
   reasons: {
     kinds: {
@@ -6674,6 +6679,7 @@ export const hi = {
         pricing: "भाव और कोटेशन",
         billing: "टैक्स इनवॉइस",
         einvoice: "ई-इनवॉइस",
+        maintenance: "मेंटेनेंस",
       },
     },
     letterhead: {
@@ -6883,6 +6889,8 @@ export const hi = {
       purchase_lot: "खरीद का लॉट",
       count_session: "स्टॉक की गिनती",
       complaint: "शिकायत",
+      maint_asset: "एसेट",
+      maint_work_order: "वर्क ऑर्डर",
       bundle_transfer: "बंडल ट्रांसफर",
       sales_order_line: "ऑर्डर लाइन",
       ingest_artifact: "इम्पोर्ट की फ़ाइल",
@@ -7030,6 +7038,20 @@ export const hi = {
       complaint__reply: "शिकायत का जवाब दिया",
       complaint__close: "शिकायत बंद हुई",
       mis__morning__sent: "सुबह का सारांश भेजा",
+      maint__asset__create: "एसेट जोड़ा",
+      maint__asset__update: "एसेट बदला",
+      maint__asset__addFromMasters: "प्रेस, फर्नेस और ओवन एसेट में जोड़े",
+      maint__plan__create: "मेंटेनेंस प्लान जोड़ा",
+      maint__plan__update: "मेंटेनेंस प्लान बदला",
+      maint__workorder__create: "वर्क ऑर्डर बनाया",
+      maint__workorder__update: "वर्क ऑर्डर बदला",
+      maint__workorder__move: "वर्क ऑर्डर का स्टेटस बदला",
+      maint__spare__link: "वर्क ऑर्डर पर स्पेयर जोड़ा",
+      maint__spare__unlink: "वर्क ऑर्डर से स्पेयर हटाया",
+      maint__limit__create: "रीडिंग की सीमा जोड़ी",
+      maint__limit__update: "रीडिंग की सीमा बदली",
+      maint__reading__record: "मशीन की रीडिंग ली",
+      maint__settings__update: "मेंटेनेंस लेबर रेट बदला",
       customer__delete: "ग्राहक हटाया",
       customer__import: "ग्राहक इंपोर्ट किए",
       customer__update: "ग्राहक बदला",
