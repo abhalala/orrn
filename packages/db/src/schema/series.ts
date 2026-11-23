@@ -26,6 +26,9 @@ export const docTypes = [
   "party_bundle",
   // XE parity (lane REG, #18): the complaint register CMP-n per financial year.
   "complaint",
+  // XE JOBWORK: job-work challans JW/{FY}/{seq} and in-house process steps PS/{FY}/{seq}.
+  "jobwork",
+  "process_step",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

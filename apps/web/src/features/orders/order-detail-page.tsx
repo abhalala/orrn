@@ -383,7 +383,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                   {" · "}
                   {fmt.q("bundle.length", line.cutLengthMm)}
                   {d?.alloy || d?.temper ? ` · ${[d.alloy, d.temper].filter(Boolean).join(" / ")}` : ""}
-                  {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" ? line.finish : "none"}`)}` : ""}
+                  {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" || line.finish === "powder_coat" ? line.finish : "none"}`)}` : ""}
                 </p>
                 <p className="m-0 font-mono text-[14px] tabular-nums">
                   {line.orderedPcs != null ? `${countText(fmt, line.orderedPcs)} ${t("units.pcs")} · ` : ""}

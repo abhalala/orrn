@@ -213,6 +213,7 @@ export function LineEditor({
             <option value="none">{t("orders.finish.none")}</option>
             <option value="anodise">{t("orders.finish.anodise")}</option>
             <option value="pvd">{t("orders.finish.pvd")}</option>
+            <option value="powder_coat">{t("orders.finish.powder_coat")}</option>
           </FieldSelect>
         </Field>
         {showRates ? (

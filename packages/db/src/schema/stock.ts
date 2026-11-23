@@ -11,7 +11,9 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * central store and the plant-scrap bin (wip, for returns). There is no default location and no
  * "location 0"; legacy stock whose place is unknown has `location_id` NULL until it is moved.
  */
-export const locationKinds = ["yard", "billet_store", "scrap_store", "store", "wip"] as const;
+export const locationKinds = ["yard", "billet_store", "scrap_store", "store", "wip", "vendor"] as const;
+/** XE JOBWORK: `vendor` = a job-work vendor's place (made with the vendor, never by the location masters). Stock there is not plant stock. */
+export const MASTER_LOCATION_KINDS = ["yard", "billet_store", "scrap_store", "store", "wip"] as const;
 export type LocationKind = (typeof locationKinds)[number];
 
 export const location = sqliteTable(
@@ -111,6 +113,16 @@ export const ledgerVoucherTypes = [
    * the `cast_close` approval when the tail needed a second person. At most one per cast.
    */
   "cast_tail",
+  /**
+   * XE JOBWORK (voucher = process_return.id): `process_loss` = − (kg sent − kg back) on a bundle that
+   * came back itself (a coat that adds weight posts +); `process_scrap` = + rejects and process scrap
+   * at PLANT-SCRAP; `process_in` = − an input bundle used up into new output (the bundle goes void);
+   * `process_out` = + a new output bundle at its yard. Out to the vendor and back are plain `move` rows.
+   */
+  "process_loss",
+  "process_scrap",
+  "process_in",
+  "process_out",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

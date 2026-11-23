@@ -29,6 +29,10 @@ export const COMPANY_MODULES = [
   "complaints",
   // XE parity lane QA: quality checks, quality hold, temper master, quality plans, instruments.
   "qa",
+  // XE parity lane JOBWORK: job-work to vendors and in-house finishing, the draw bench, fabrication.
+  "jobwork",
+  "drawbench",
+  "fabrication",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 

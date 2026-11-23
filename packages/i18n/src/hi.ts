@@ -5485,6 +5485,7 @@ export const hi = {
       none: "मिल फ़िनिश",
       anodise: "एनोडाइज़",
       pvd: "PVD",
+      powder_coat: "पाउडर कोटिंग",
     },
     weightBasis: {
       copy_current: "कॉपी का ताज़ा वज़न",

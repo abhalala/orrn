@@ -5503,6 +5503,7 @@ export const en = {
       none: "Mill finish",
       anodise: "Anodise",
       pvd: "PVD",
+      powder_coat: "Powder coat",
     },
     weightBasis: {
       copy_current: "Copy's latest weight",
