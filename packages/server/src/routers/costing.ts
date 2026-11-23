@@ -162,7 +162,7 @@ export const costingRouter = router({
         .from(pressLine)
         .where(eq(pressLine.companyId, ctx.companyId))
         .orderBy(asc(pressLine.sortOrder), asc(pressLine.code));
-      return { ...co.costing, ratesToday: ratesOn(co.costing.rates, co.today), today: co.today, pressLines: lines, metalSource: co.pricing.metalSource };
+      return { ...co.costing, ratesToday: ratesOn(co.costing.rates, co.today), today: co.today, pressLines: lines, metalSource: co.pricing.metalSource, ratesAllowed: ratesAllowed(ctx.role, co) };
     }),
 
     /**

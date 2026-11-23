@@ -100,7 +100,10 @@ export function runFilter(companyId: string, opts: { from?: string; to?: string;
   return sql.join(parts, sql` and `);
 }
 
-const RUN_FROM = sql`press_run r left join press_plan pp on pp.id = r.plan_id and pp.company_id = r.company_id`;
+const PLAN_JOIN = sql`left join press_plan pp on pp.id = r.plan_id and pp.company_id = r.company_id`;
+const RUN_FROM = sql`press_run r ${PLAN_JOIN}`;
+/** Billet rows joined to their run (and its plan), for a run filter. */
+const BILLET_FROM = sql`press_billet_use bu join press_run r on r.id = bu.press_run_id and r.company_id = bu.company_id ${PLAN_JOIN}`;
 
 /** Trusted press minutes of `r`, or null. */
 const MINUTES = sql`case when r.time_unconfirmed = 0 and coalesce(r.tapped_start_at, r.started_at) is not null and coalesce(r.tapped_stop_at, r.stopped_at) is not null
@@ -167,7 +170,7 @@ type CastCost = { castId: string; number: string | null; costPaise: number | nul
 
 /** The casts the filtered runs drew billets from (billet rows, else the run's own cast). */
 function castsOfRuns(where: SQL): SQL {
-  return sql`select bu.cast_id from press_billet_use bu join ${RUN_FROM} on r.id = bu.press_run_id and r.company_id = bu.company_id where ${where}
+  return sql`select bu.cast_id from ${BILLET_FROM} where ${where}
     union select r.cast_id from ${RUN_FROM} where ${where} and r.cast_id is not null`;
 }
 
@@ -210,7 +213,7 @@ async function castCosts(db: OrrnDb, companyId: string, where: SQL): Promise<Map
 async function billetUses(db: OrrnDb, where: SQL): Promise<Map<string, { castId: string; kgG: number }[]>> {
   const rows = await db.all<{ run_id: string; cast_id: string; kg_g: number }>(sql`
     select bu.press_run_id as run_id, bu.cast_id, sum(bu.kg_g) as kg_g
-    from press_billet_use bu join ${RUN_FROM} on r.id = bu.press_run_id and r.company_id = bu.company_id
+    from ${BILLET_FROM}
     where ${where} group by bu.press_run_id, bu.cast_id`);
   const out = new Map<string, { castId: string; kgG: number }[]>();
   for (const r of rows) {
