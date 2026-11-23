@@ -181,9 +181,9 @@ describe("platform.updatePlanAndModules (platform.companies.update)", () => {
     const row = await env.db.select({ modules: company.modules }).from(company).where(eq(company.id, companyId)).get();
     expect(row!.modules).toEqual(["dies", "bundles", "purchase"]);
 
-    await expect(staff.platform.updatePlanAndModules({ companyId, plan: "growth", modules: ["dies", "payroll"] })).rejects.toMatchObject({
+    await expect(staff.platform.updatePlanAndModules({ companyId, plan: "growth", modules: ["dies", "telepathy"] })).rejects.toMatchObject({
       code: "BAD_REQUEST",
-      message: "Unknown module: payroll",
+      message: "Unknown module: telepathy",
     });
 
     const audits = await env.db

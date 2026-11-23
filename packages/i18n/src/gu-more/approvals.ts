@@ -33,6 +33,8 @@ export const guApprovals = {
       dispatch_late_entry: "મોડી ભરેલી પેકિંગ લિસ્ટ",
       price_change: "ભાવમાં ફેરફાર",
       invoice_cancel: "ઇનવોઇસ રદ કરવી",
+      leave_request: "રજાની અરજી",
+      payroll_run: "મહિનાનો પગાર",
     },
     subject: {
       dcDebit: "{lot} પર ડેબિટ નોટ {number}",
@@ -51,6 +53,9 @@ export const guApprovals = {
       offBand: "{code} પર {serial}: {kg} {sectionUnit}, {order} લાઇન {line} માં {lineKg}",
       lateDispatch: "{code}, મોડું ભરેલું",
       invoiceCancel: "{number} રદ કરવી",
+      leaveRequest: "{name} ({code}): {kind}, {from} થી {to}, {days} {count:દિવસ|દિવસ}",
+      leaveRequestOne: "{name} ({code}): {kind}, {from} ના રોજ, {days} {count:દિવસ|દિવસ}",
+      payrollRun: "{month} નો પગાર, {headcount} {headcount:વ્યક્તિ|વ્યક્તિ}",
     },
     foundry: {
       title: "આંકડા",
@@ -147,6 +152,8 @@ export const guApprovals = {
     openOrder: "ઓર્ડર ખોલો",
     openDispatch: "Dispatch ખોલો",
     openInvoice: "ઇનવોઇસ ખોલો",
+    openLeave: "રજા ખોલો",
+    openPayroll: "પગાર ખોલો",
     askedBy: "{name} એ માંગ્યું",
     someone: "કોઈએ",
     decidedBy: "{name} દ્વારા {status}",

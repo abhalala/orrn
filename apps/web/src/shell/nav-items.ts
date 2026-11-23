@@ -31,6 +31,9 @@ import {
   LifeBuoy,
   Truck,
   UserCog,
+  UserRound,
+  UsersRound,
+  Banknote,
   Users,
   Warehouse,
   UploadCloud,
@@ -40,7 +43,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "hr" | "payroll";
 
 export type NavItem = {
   key: string;
@@ -86,6 +89,9 @@ const QA_PEOPLE: readonly Action[] = ["qa.check", "qa.hold", "qa.release", "qa.m
 /** Billing: who reads invoices, issues them, records payments or sets up GST. */
 const BILLING_PEOPLE: readonly Action[] = ["invoice.read", "invoice.issue", "payment.record", "gst.settings"];
 
+/** People (XE parity lane HR): who marks, approves or reads the people register. */
+const HR_PEOPLE: readonly Action[] = ["hr.view", "attendance.mark", "leave.approve"];
+
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "ingest", to: "/ingest", labelKey: "nav.ingest", icon: UploadCloud, requires: ["ingest.upload", "ingest.merge", "ingest.check"] },
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
@@ -106,6 +112,12 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "billing", to: "/billing", labelKey: "nav.billing", icon: FileText, requires: BILLING_PEOPLE, module: "billing" },
   // XE parity lane MAINT: assets, preventive plans, work orders and readings.
   { key: "maintenance", to: "/maintenance", labelKey: "nav.maintenance", icon: Wrench, requires: ["maint.view"], module: "maintenance" },
+  // XE parity lane HR: the people register, attendance, leave, training and the incentive sheet. Opt-in module `hr`.
+  { key: "people", to: "/hr", labelKey: "nav.people", icon: UsersRound, requires: HR_PEOPLE, module: "hr" },
+  // XE parity lane HR: salary structures, the monthly run, payslips and the bank and government files. Opt-in module `payroll`.
+  { key: "payroll", to: "/payroll", labelKey: "nav.payroll", icon: Banknote, requires: ["payroll.view"], module: "payroll" },
+  // XE parity lane HR: my attendance, my leave and my payslips, for a person linked to an employee.
+  { key: "mywork", to: "/me", labelKey: "nav.myWork", icon: UserRound, requires: ["leave.apply"], module: "hr" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },

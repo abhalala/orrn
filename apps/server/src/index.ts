@@ -19,6 +19,7 @@ import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 // The dev-only routes below import their modules (and `@orrn/auth`) on first call, so none of it
 // evaluates at Worker startup (Cloudflare 10021 startup CPU cap; see routers/index.ts).
 import { collectorRoutes } from "./collector-routes";
+import { hrRoutes } from "./hr-routes";
 import { spoolRoutes } from "./spool-routes";
 import { edgeV1Routes } from "./edge-v1-routes";
 
@@ -67,6 +68,8 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 app.route("/", spoolRoutes);
 // Press collector frames and spectro watcher files from orrn-spool nodes (node-signed).
 app.route("/", collectorRoutes);
+// XE-HR: biometric devices push punches (device-token signed).
+app.route("/", hrRoutes);
 app.route("/", edgeV1Routes);
 
 if (env.NODE_ENV === "development") {

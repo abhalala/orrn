@@ -29,12 +29,15 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
   invoice: (id) => `/billing/${id}`,
   maint_asset: (id) => `/maintenance/assets/${id}`,
   maint_work_order: (id) => `/maintenance/work-orders/${id}`,
+  // XE-HR: a person opens the person page, a leave request the leave screen.
+  hr_employee: (id) => `/hr/${id}`,
+  hr_leave_request: () => "/hr/leave",
 };
 
 export const AUDIT_SUBJECT_TYPES = Object.keys(SUBJECT_PATHS);
 
 /** Subject types with words but no screen of their own (final fixes 5, L15: they stayed English in Hindi). */
-const WORDS_ONLY = ["bundle_transfer", "sales_order_line", "buddy_draft", "buddy_grant", "proforma", "payment", "gst_hsn"] as const;
+const WORDS_ONLY = ["bundle_transfer", "sales_order_line", "buddy_draft", "buddy_grant", "proforma", "payment", "gst_hsn", "hr_attendance", "hr_holiday", "hr_roster", "hr_device", "hr_opening", "hr_candidate", "hr_leave_kind", "hr_training", "hr_setting", "hr_checklist_item", "pay_run"] as const;
 
 /** The screen for a subject, or null when the type has none. */
 export function subjectPath(subjectType: string, subjectId: string | null): string | null {

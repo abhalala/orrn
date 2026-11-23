@@ -22,6 +22,8 @@ import { guBuddy } from "./gu-more/buddy";
 import { guQa } from "./gu-more/qa";
 import { guCost } from "./gu-more/cost";
 import { guStore2 } from "./gu-more/store2";
+import { guHr } from "./gu-more/hr";
+import { guHrNative } from "./gu-more/hr-native";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -1903,6 +1905,8 @@ export const gu = mergeGu(
   guQa,
   guCost,
   guStore2,
+  guHr,
+  guHrNative,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1928,4 +1932,6 @@ export const gu = mergeGu(
   typeof guCost &
   typeof guQa &
   typeof guStore2 &
-  typeof guMaint satisfies GuMessages;
+  typeof guMaint &
+  typeof guHr &
+  typeof guHrNative satisfies GuMessages;

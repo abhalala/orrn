@@ -31,6 +31,9 @@ export const APPROVAL_KINDS = [
   "price_change",
   // XE-BILL: ask to cancel an issued invoice or credit note.
   "invoice_cancel",
+  // XE-HR: a leave request (subject = the request) and a month's payroll run (subject = the run).
+  "leave_request",
+  "payroll_run",
 ] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).

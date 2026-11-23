@@ -22,6 +22,7 @@ import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantQaRouteImport } from './routes/_tenant/qa'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantOwnerRouteImport } from './routes/_tenant/owner'
+import { Route as TenantMeRouteImport } from './routes/_tenant/me'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
 import { Route as TenantCostingRouteImport } from './routes/_tenant/costing'
 import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
@@ -50,11 +51,13 @@ import { Route as TenantPurchaseIndexRouteImport } from './routes/_tenant/purcha
 import { Route as TenantPricingIndexRouteImport } from './routes/_tenant/pricing.index'
 import { Route as TenantPreviewIndexRouteImport } from './routes/_tenant/preview.index'
 import { Route as TenantPressIndexRouteImport } from './routes/_tenant/press.index'
+import { Route as TenantPayrollIndexRouteImport } from './routes/_tenant/payroll.index'
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
 import { Route as TenantOrdersIndexRouteImport } from './routes/_tenant/orders.index'
 import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
 import { Route as TenantMaintenanceIndexRouteImport } from './routes/_tenant/maintenance.index'
 import { Route as TenantIngestIndexRouteImport } from './routes/_tenant/ingest.index'
+import { Route as TenantHrIndexRouteImport } from './routes/_tenant/hr.index'
 import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
 import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispatch.index'
@@ -99,6 +102,10 @@ import { Route as TenantPreviewComingSoonRouteImport } from './routes/_tenant/pr
 import { Route as TenantPressSummaryRouteImport } from './routes/_tenant/press.summary'
 import { Route as TenantPressReportRouteImport } from './routes/_tenant/press.report'
 import { Route as TenantPressAlertsRouteImport } from './routes/_tenant/press.alerts'
+import { Route as TenantPayrollSettingsRouteImport } from './routes/_tenant/payroll.settings'
+import { Route as TenantPayrollPeopleRouteImport } from './routes/_tenant/payroll.people'
+import { Route as TenantPayrollAdjustmentsRouteImport } from './routes/_tenant/payroll.adjustments'
+import { Route as TenantPayrollMonthRouteImport } from './routes/_tenant/payroll.$month'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
 import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
 import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
@@ -119,6 +126,16 @@ import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.
 import { Route as TenantMastersBankRouteImport } from './routes/_tenant/masters.bank'
 import { Route as TenantMastersAlloysRouteImport } from './routes/_tenant/masters.alloys'
 import { Route as TenantMaintenanceReportRouteImport } from './routes/_tenant/maintenance.report'
+import { Route as TenantHrTrainingRouteImport } from './routes/_tenant/hr.training'
+import { Route as TenantHrTimesheetRouteImport } from './routes/_tenant/hr.timesheet'
+import { Route as TenantHrSettingsRouteImport } from './routes/_tenant/hr.settings'
+import { Route as TenantHrRosterRouteImport } from './routes/_tenant/hr.roster'
+import { Route as TenantHrRecruitmentRouteImport } from './routes/_tenant/hr.recruitment'
+import { Route as TenantHrLeaveRouteImport } from './routes/_tenant/hr.leave'
+import { Route as TenantHrIncentiveRouteImport } from './routes/_tenant/hr.incentive'
+import { Route as TenantHrDevicesRouteImport } from './routes/_tenant/hr.devices'
+import { Route as TenantHrAttendanceRouteImport } from './routes/_tenant/hr.attendance'
+import { Route as TenantHrIdRouteImport } from './routes/_tenant/hr.$id'
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
 import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
 import { Route as TenantFoundryRejectsRouteImport } from './routes/_tenant/foundry.rejects'
@@ -201,6 +218,7 @@ import { Route as TenantPreviewDieRoomCardRouteImport } from './routes/_tenant/p
 import { Route as TenantPreviewAgeingPageRouteImport } from './routes/_tenant/preview.ageing.$page'
 import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.runs.$id'
 import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
+import { Route as TenantPayrollSettlementEmployeeIdRouteImport } from './routes/_tenant/payroll.settlement.$employeeId'
 import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
 import { Route as TenantOrdersIdWorksOrderRouteImport } from './routes/_tenant/orders_.$id_.works-order'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
@@ -285,6 +303,11 @@ const TenantPrintingRoute = TenantPrintingRouteImport.update({
 const TenantOwnerRoute = TenantOwnerRouteImport.update({
   id: '/owner',
   path: '/owner',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMeRoute = TenantMeRouteImport.update({
+  id: '/me',
+  path: '/me',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
@@ -427,6 +450,11 @@ const TenantPressIndexRoute = TenantPressIndexRouteImport.update({
   path: '/press/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPayrollIndexRoute = TenantPayrollIndexRouteImport.update({
+  id: '/payroll/',
+  path: '/payroll/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackIndexRoute = TenantPackIndexRouteImport.update({
   id: '/pack/',
   path: '/pack/',
@@ -450,6 +478,11 @@ const TenantMaintenanceIndexRoute = TenantMaintenanceIndexRouteImport.update({
 const TenantIngestIndexRoute = TenantIngestIndexRouteImport.update({
   id: '/ingest/',
   path: '/ingest/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrIndexRoute = TenantHrIndexRouteImport.update({
+  id: '/hr/',
+  path: '/hr/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantGuidesIndexRoute = TenantGuidesIndexRouteImport.update({
@@ -673,6 +706,27 @@ const TenantPressAlertsRoute = TenantPressAlertsRouteImport.update({
   path: '/press/alerts',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPayrollSettingsRoute = TenantPayrollSettingsRouteImport.update({
+  id: '/payroll/settings',
+  path: '/payroll/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPayrollPeopleRoute = TenantPayrollPeopleRouteImport.update({
+  id: '/payroll/people',
+  path: '/payroll/people',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPayrollAdjustmentsRoute =
+  TenantPayrollAdjustmentsRouteImport.update({
+    id: '/payroll/adjustments',
+    path: '/payroll/adjustments',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPayrollMonthRoute = TenantPayrollMonthRouteImport.update({
+  id: '/payroll/$month',
+  path: '/payroll/$month',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
   id: '/packing-lists/$id',
   path: '/packing-lists/$id',
@@ -771,6 +825,56 @@ const TenantMastersAlloysRoute = TenantMastersAlloysRouteImport.update({
 const TenantMaintenanceReportRoute = TenantMaintenanceReportRouteImport.update({
   id: '/maintenance/report',
   path: '/maintenance/report',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrTrainingRoute = TenantHrTrainingRouteImport.update({
+  id: '/hr/training',
+  path: '/hr/training',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrTimesheetRoute = TenantHrTimesheetRouteImport.update({
+  id: '/hr/timesheet',
+  path: '/hr/timesheet',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrSettingsRoute = TenantHrSettingsRouteImport.update({
+  id: '/hr/settings',
+  path: '/hr/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrRosterRoute = TenantHrRosterRouteImport.update({
+  id: '/hr/roster',
+  path: '/hr/roster',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrRecruitmentRoute = TenantHrRecruitmentRouteImport.update({
+  id: '/hr/recruitment',
+  path: '/hr/recruitment',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrLeaveRoute = TenantHrLeaveRouteImport.update({
+  id: '/hr/leave',
+  path: '/hr/leave',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrIncentiveRoute = TenantHrIncentiveRouteImport.update({
+  id: '/hr/incentive',
+  path: '/hr/incentive',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrDevicesRoute = TenantHrDevicesRouteImport.update({
+  id: '/hr/devices',
+  path: '/hr/devices',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrAttendanceRoute = TenantHrAttendanceRouteImport.update({
+  id: '/hr/attendance',
+  path: '/hr/attendance',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHrIdRoute = TenantHrIdRouteImport.update({
+  id: '/hr/$id',
+  path: '/hr/$id',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantGuidesSlugRoute = TenantGuidesSlugRouteImport.update({
@@ -1209,6 +1313,12 @@ const TenantPressLinesIdRoute = TenantPressLinesIdRouteImport.update({
   path: '/press/lines/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPayrollSettlementEmployeeIdRoute =
+  TenantPayrollSettlementEmployeeIdRouteImport.update({
+    id: '/payroll/settlement/$employeeId',
+    path: '/payroll/settlement/$employeeId',
+    getParentRoute: () => TenantRoute,
+  } as any)
 const TenantPackIdLabelsRoute = TenantPackIdLabelsRouteImport.update({
   id: '/pack_/$id_/labels',
   path: '/pack/$id/labels',
@@ -1368,6 +1478,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof TenantAuditRoute
   '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/me': typeof TenantMeRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
   '/qa': typeof TenantQaRoute
@@ -1408,6 +1519,16 @@ export interface FileRoutesByFullPath {
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/hr/$id': typeof TenantHrIdRoute
+  '/hr/attendance': typeof TenantHrAttendanceRoute
+  '/hr/devices': typeof TenantHrDevicesRoute
+  '/hr/incentive': typeof TenantHrIncentiveRoute
+  '/hr/leave': typeof TenantHrLeaveRoute
+  '/hr/recruitment': typeof TenantHrRecruitmentRoute
+  '/hr/roster': typeof TenantHrRosterRoute
+  '/hr/settings': typeof TenantHrSettingsRoute
+  '/hr/timesheet': typeof TenantHrTimesheetRoute
+  '/hr/training': typeof TenantHrTrainingRoute
   '/maintenance/report': typeof TenantMaintenanceReportRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
   '/masters/bank': typeof TenantMastersBankRoute
@@ -1428,6 +1549,10 @@ export interface FileRoutesByFullPath {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/payroll/$month': typeof TenantPayrollMonthRoute
+  '/payroll/adjustments': typeof TenantPayrollAdjustmentsRoute
+  '/payroll/people': typeof TenantPayrollPeopleRoute
+  '/payroll/settings': typeof TenantPayrollSettingsRoute
   '/press/alerts': typeof TenantPressAlertsRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
@@ -1472,11 +1597,13 @@ export interface FileRoutesByFullPath {
   '/dispatch/': typeof TenantDispatchIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
   '/guides/': typeof TenantGuidesIndexRoute
+  '/hr/': typeof TenantHrIndexRoute
   '/ingest/': typeof TenantIngestIndexRoute
   '/maintenance/': typeof TenantMaintenanceIndexRoute
   '/masters/': typeof TenantMastersIndexRoute
   '/orders/': typeof TenantOrdersIndexRoute
   '/pack/': typeof TenantPackIndexRoute
+  '/payroll/': typeof TenantPayrollIndexRoute
   '/press/': typeof TenantPressIndexRoute
   '/preview/': typeof TenantPreviewIndexRoute
   '/pricing/': typeof TenantPricingIndexRoute
@@ -1505,6 +1632,7 @@ export interface FileRoutesByFullPath {
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/orders/$id/works-order': typeof TenantOrdersIdWorksOrderRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/payroll/settlement/$employeeId': typeof TenantPayrollSettlementEmployeeIdRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
   '/press/runs/$id': typeof TenantPressRunsIdRoute
   '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
@@ -1582,6 +1710,7 @@ export interface FileRoutesByTo {
   '/audit': typeof TenantAuditRoute
   '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/me': typeof TenantMeRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
   '/qa': typeof TenantQaRoute
@@ -1622,6 +1751,16 @@ export interface FileRoutesByTo {
   '/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/foundry/stock': typeof TenantFoundryStockRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/hr/$id': typeof TenantHrIdRoute
+  '/hr/attendance': typeof TenantHrAttendanceRoute
+  '/hr/devices': typeof TenantHrDevicesRoute
+  '/hr/incentive': typeof TenantHrIncentiveRoute
+  '/hr/leave': typeof TenantHrLeaveRoute
+  '/hr/recruitment': typeof TenantHrRecruitmentRoute
+  '/hr/roster': typeof TenantHrRosterRoute
+  '/hr/settings': typeof TenantHrSettingsRoute
+  '/hr/timesheet': typeof TenantHrTimesheetRoute
+  '/hr/training': typeof TenantHrTrainingRoute
   '/maintenance/report': typeof TenantMaintenanceReportRoute
   '/masters/alloys': typeof TenantMastersAlloysRoute
   '/masters/bank': typeof TenantMastersBankRoute
@@ -1642,6 +1781,10 @@ export interface FileRoutesByTo {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/payroll/$month': typeof TenantPayrollMonthRoute
+  '/payroll/adjustments': typeof TenantPayrollAdjustmentsRoute
+  '/payroll/people': typeof TenantPayrollPeopleRoute
+  '/payroll/settings': typeof TenantPayrollSettingsRoute
   '/press/alerts': typeof TenantPressAlertsRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
@@ -1686,11 +1829,13 @@ export interface FileRoutesByTo {
   '/dispatch': typeof TenantDispatchIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
   '/guides': typeof TenantGuidesIndexRoute
+  '/hr': typeof TenantHrIndexRoute
   '/ingest': typeof TenantIngestIndexRoute
   '/maintenance': typeof TenantMaintenanceIndexRoute
   '/masters': typeof TenantMastersIndexRoute
   '/orders': typeof TenantOrdersIndexRoute
   '/pack': typeof TenantPackIndexRoute
+  '/payroll': typeof TenantPayrollIndexRoute
   '/press': typeof TenantPressIndexRoute
   '/preview': typeof TenantPreviewIndexRoute
   '/pricing': typeof TenantPricingIndexRoute
@@ -1719,6 +1864,7 @@ export interface FileRoutesByTo {
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/orders/$id/works-order': typeof TenantOrdersIdWorksOrderRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/payroll/settlement/$employeeId': typeof TenantPayrollSettlementEmployeeIdRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
   '/press/runs/$id': typeof TenantPressRunsIdRoute
   '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
@@ -1801,6 +1947,7 @@ export interface FileRoutesById {
   '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/costing': typeof TenantCostingRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
+  '/_tenant/me': typeof TenantMeRoute
   '/_tenant/owner': typeof TenantOwnerRoute
   '/_tenant/printing': typeof TenantPrintingRouteWithChildren
   '/_tenant/qa': typeof TenantQaRoute
@@ -1842,6 +1989,16 @@ export interface FileRoutesById {
   '/_tenant/foundry/rejects': typeof TenantFoundryRejectsRoute
   '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
+  '/_tenant/hr/$id': typeof TenantHrIdRoute
+  '/_tenant/hr/attendance': typeof TenantHrAttendanceRoute
+  '/_tenant/hr/devices': typeof TenantHrDevicesRoute
+  '/_tenant/hr/incentive': typeof TenantHrIncentiveRoute
+  '/_tenant/hr/leave': typeof TenantHrLeaveRoute
+  '/_tenant/hr/recruitment': typeof TenantHrRecruitmentRoute
+  '/_tenant/hr/roster': typeof TenantHrRosterRoute
+  '/_tenant/hr/settings': typeof TenantHrSettingsRoute
+  '/_tenant/hr/timesheet': typeof TenantHrTimesheetRoute
+  '/_tenant/hr/training': typeof TenantHrTrainingRoute
   '/_tenant/maintenance/report': typeof TenantMaintenanceReportRoute
   '/_tenant/masters/alloys': typeof TenantMastersAlloysRoute
   '/_tenant/masters/bank': typeof TenantMastersBankRoute
@@ -1862,6 +2019,10 @@ export interface FileRoutesById {
   '/_tenant/pack/$id': typeof TenantPackIdRoute
   '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/payroll/$month': typeof TenantPayrollMonthRoute
+  '/_tenant/payroll/adjustments': typeof TenantPayrollAdjustmentsRoute
+  '/_tenant/payroll/people': typeof TenantPayrollPeopleRoute
+  '/_tenant/payroll/settings': typeof TenantPayrollSettingsRoute
   '/_tenant/press/alerts': typeof TenantPressAlertsRoute
   '/_tenant/press/report': typeof TenantPressReportRoute
   '/_tenant/press/summary': typeof TenantPressSummaryRoute
@@ -1906,11 +2067,13 @@ export interface FileRoutesById {
   '/_tenant/dispatch/': typeof TenantDispatchIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
   '/_tenant/guides/': typeof TenantGuidesIndexRoute
+  '/_tenant/hr/': typeof TenantHrIndexRoute
   '/_tenant/ingest/': typeof TenantIngestIndexRoute
   '/_tenant/maintenance/': typeof TenantMaintenanceIndexRoute
   '/_tenant/masters/': typeof TenantMastersIndexRoute
   '/_tenant/orders/': typeof TenantOrdersIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
+  '/_tenant/payroll/': typeof TenantPayrollIndexRoute
   '/_tenant/press/': typeof TenantPressIndexRoute
   '/_tenant/preview/': typeof TenantPreviewIndexRoute
   '/_tenant/pricing/': typeof TenantPricingIndexRoute
@@ -1939,6 +2102,7 @@ export interface FileRoutesById {
   '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/_tenant/orders_/$id_/works-order': typeof TenantOrdersIdWorksOrderRoute
   '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
+  '/_tenant/payroll/settlement/$employeeId': typeof TenantPayrollSettlementEmployeeIdRoute
   '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
   '/_tenant/press/runs/$id': typeof TenantPressRunsIdRoute
   '/_tenant/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
@@ -2018,6 +2182,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/costing'
     | '/dashboard'
+    | '/me'
     | '/owner'
     | '/printing'
     | '/qa'
@@ -2058,6 +2223,16 @@ export interface FileRouteTypes {
     | '/foundry/rejects'
     | '/foundry/stock'
     | '/guides/$slug'
+    | '/hr/$id'
+    | '/hr/attendance'
+    | '/hr/devices'
+    | '/hr/incentive'
+    | '/hr/leave'
+    | '/hr/recruitment'
+    | '/hr/roster'
+    | '/hr/settings'
+    | '/hr/timesheet'
+    | '/hr/training'
     | '/maintenance/report'
     | '/masters/alloys'
     | '/masters/bank'
@@ -2078,6 +2253,10 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/payroll/$month'
+    | '/payroll/adjustments'
+    | '/payroll/people'
+    | '/payroll/settings'
     | '/press/alerts'
     | '/press/report'
     | '/press/summary'
@@ -2122,11 +2301,13 @@ export interface FileRouteTypes {
     | '/dispatch/'
     | '/dispatches/'
     | '/guides/'
+    | '/hr/'
     | '/ingest/'
     | '/maintenance/'
     | '/masters/'
     | '/orders/'
     | '/pack/'
+    | '/payroll/'
     | '/press/'
     | '/preview/'
     | '/pricing/'
@@ -2155,6 +2336,7 @@ export interface FileRouteTypes {
     | '/orders/plan/$id'
     | '/orders/$id/works-order'
     | '/pack/$id/labels'
+    | '/payroll/settlement/$employeeId'
     | '/press/lines/$id'
     | '/press/runs/$id'
     | '/preview/ageing/$page'
@@ -2232,6 +2414,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/costing'
     | '/dashboard'
+    | '/me'
     | '/owner'
     | '/printing'
     | '/qa'
@@ -2272,6 +2455,16 @@ export interface FileRouteTypes {
     | '/foundry/rejects'
     | '/foundry/stock'
     | '/guides/$slug'
+    | '/hr/$id'
+    | '/hr/attendance'
+    | '/hr/devices'
+    | '/hr/incentive'
+    | '/hr/leave'
+    | '/hr/recruitment'
+    | '/hr/roster'
+    | '/hr/settings'
+    | '/hr/timesheet'
+    | '/hr/training'
     | '/maintenance/report'
     | '/masters/alloys'
     | '/masters/bank'
@@ -2292,6 +2485,10 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/payroll/$month'
+    | '/payroll/adjustments'
+    | '/payroll/people'
+    | '/payroll/settings'
     | '/press/alerts'
     | '/press/report'
     | '/press/summary'
@@ -2336,11 +2533,13 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/dispatches'
     | '/guides'
+    | '/hr'
     | '/ingest'
     | '/maintenance'
     | '/masters'
     | '/orders'
     | '/pack'
+    | '/payroll'
     | '/press'
     | '/preview'
     | '/pricing'
@@ -2369,6 +2568,7 @@ export interface FileRouteTypes {
     | '/orders/plan/$id'
     | '/orders/$id/works-order'
     | '/pack/$id/labels'
+    | '/payroll/settlement/$employeeId'
     | '/press/lines/$id'
     | '/press/runs/$id'
     | '/preview/ageing/$page'
@@ -2450,6 +2650,7 @@ export interface FileRouteTypes {
     | '/_tenant/audit'
     | '/_tenant/costing'
     | '/_tenant/dashboard'
+    | '/_tenant/me'
     | '/_tenant/owner'
     | '/_tenant/printing'
     | '/_tenant/qa'
@@ -2491,6 +2692,16 @@ export interface FileRouteTypes {
     | '/_tenant/foundry/rejects'
     | '/_tenant/foundry/stock'
     | '/_tenant/guides/$slug'
+    | '/_tenant/hr/$id'
+    | '/_tenant/hr/attendance'
+    | '/_tenant/hr/devices'
+    | '/_tenant/hr/incentive'
+    | '/_tenant/hr/leave'
+    | '/_tenant/hr/recruitment'
+    | '/_tenant/hr/roster'
+    | '/_tenant/hr/settings'
+    | '/_tenant/hr/timesheet'
+    | '/_tenant/hr/training'
     | '/_tenant/maintenance/report'
     | '/_tenant/masters/alloys'
     | '/_tenant/masters/bank'
@@ -2511,6 +2722,10 @@ export interface FileRouteTypes {
     | '/_tenant/pack/$id'
     | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
+    | '/_tenant/payroll/$month'
+    | '/_tenant/payroll/adjustments'
+    | '/_tenant/payroll/people'
+    | '/_tenant/payroll/settings'
     | '/_tenant/press/alerts'
     | '/_tenant/press/report'
     | '/_tenant/press/summary'
@@ -2555,11 +2770,13 @@ export interface FileRouteTypes {
     | '/_tenant/dispatch/'
     | '/_tenant/dispatches/'
     | '/_tenant/guides/'
+    | '/_tenant/hr/'
     | '/_tenant/ingest/'
     | '/_tenant/maintenance/'
     | '/_tenant/masters/'
     | '/_tenant/orders/'
     | '/_tenant/pack/'
+    | '/_tenant/payroll/'
     | '/_tenant/press/'
     | '/_tenant/preview/'
     | '/_tenant/pricing/'
@@ -2588,6 +2805,7 @@ export interface FileRouteTypes {
     | '/_tenant/orders/plan/$id'
     | '/_tenant/orders_/$id_/works-order'
     | '/_tenant/pack_/$id_/labels'
+    | '/_tenant/payroll/settlement/$employeeId'
     | '/_tenant/press/lines/$id'
     | '/_tenant/press/runs/$id'
     | '/_tenant/preview/ageing/$page'
@@ -2747,6 +2965,13 @@ declare module '@tanstack/react-router' {
       path: '/owner'
       fullPath: '/owner'
       preLoaderRoute: typeof TenantOwnerRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/me': {
+      id: '/_tenant/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof TenantMeRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/dashboard': {
@@ -2945,6 +3170,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPressIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/payroll/': {
+      id: '/_tenant/payroll/'
+      path: '/payroll'
+      fullPath: '/payroll/'
+      preLoaderRoute: typeof TenantPayrollIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/pack/': {
       id: '/_tenant/pack/'
       path: '/pack'
@@ -2978,6 +3210,13 @@ declare module '@tanstack/react-router' {
       path: '/ingest'
       fullPath: '/ingest/'
       preLoaderRoute: typeof TenantIngestIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/': {
+      id: '/_tenant/hr/'
+      path: '/hr'
+      fullPath: '/hr/'
+      preLoaderRoute: typeof TenantHrIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/guides/': {
@@ -3288,6 +3527,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPressAlertsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/payroll/settings': {
+      id: '/_tenant/payroll/settings'
+      path: '/payroll/settings'
+      fullPath: '/payroll/settings'
+      preLoaderRoute: typeof TenantPayrollSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/payroll/people': {
+      id: '/_tenant/payroll/people'
+      path: '/payroll/people'
+      fullPath: '/payroll/people'
+      preLoaderRoute: typeof TenantPayrollPeopleRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/payroll/adjustments': {
+      id: '/_tenant/payroll/adjustments'
+      path: '/payroll/adjustments'
+      fullPath: '/payroll/adjustments'
+      preLoaderRoute: typeof TenantPayrollAdjustmentsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/payroll/$month': {
+      id: '/_tenant/payroll/$month'
+      path: '/payroll/$month'
+      fullPath: '/payroll/$month'
+      preLoaderRoute: typeof TenantPayrollMonthRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/packing-lists/$id': {
       id: '/_tenant/packing-lists/$id'
       path: '/packing-lists/$id'
@@ -3426,6 +3693,76 @@ declare module '@tanstack/react-router' {
       path: '/maintenance/report'
       fullPath: '/maintenance/report'
       preLoaderRoute: typeof TenantMaintenanceReportRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/training': {
+      id: '/_tenant/hr/training'
+      path: '/hr/training'
+      fullPath: '/hr/training'
+      preLoaderRoute: typeof TenantHrTrainingRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/timesheet': {
+      id: '/_tenant/hr/timesheet'
+      path: '/hr/timesheet'
+      fullPath: '/hr/timesheet'
+      preLoaderRoute: typeof TenantHrTimesheetRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/settings': {
+      id: '/_tenant/hr/settings'
+      path: '/hr/settings'
+      fullPath: '/hr/settings'
+      preLoaderRoute: typeof TenantHrSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/roster': {
+      id: '/_tenant/hr/roster'
+      path: '/hr/roster'
+      fullPath: '/hr/roster'
+      preLoaderRoute: typeof TenantHrRosterRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/recruitment': {
+      id: '/_tenant/hr/recruitment'
+      path: '/hr/recruitment'
+      fullPath: '/hr/recruitment'
+      preLoaderRoute: typeof TenantHrRecruitmentRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/leave': {
+      id: '/_tenant/hr/leave'
+      path: '/hr/leave'
+      fullPath: '/hr/leave'
+      preLoaderRoute: typeof TenantHrLeaveRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/incentive': {
+      id: '/_tenant/hr/incentive'
+      path: '/hr/incentive'
+      fullPath: '/hr/incentive'
+      preLoaderRoute: typeof TenantHrIncentiveRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/devices': {
+      id: '/_tenant/hr/devices'
+      path: '/hr/devices'
+      fullPath: '/hr/devices'
+      preLoaderRoute: typeof TenantHrDevicesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/attendance': {
+      id: '/_tenant/hr/attendance'
+      path: '/hr/attendance'
+      fullPath: '/hr/attendance'
+      preLoaderRoute: typeof TenantHrAttendanceRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/hr/$id': {
+      id: '/_tenant/hr/$id'
+      path: '/hr/$id'
+      fullPath: '/hr/$id'
+      preLoaderRoute: typeof TenantHrIdRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/guides/$slug': {
@@ -4002,6 +4339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPressLinesIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/payroll/settlement/$employeeId': {
+      id: '/_tenant/payroll/settlement/$employeeId'
+      path: '/payroll/settlement/$employeeId'
+      fullPath: '/payroll/settlement/$employeeId'
+      preLoaderRoute: typeof TenantPayrollSettlementEmployeeIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/pack_/$id_/labels': {
       id: '/_tenant/pack_/$id_/labels'
       path: '/pack/$id/labels'
@@ -4320,6 +4664,7 @@ interface TenantRouteChildren {
   TenantAuditRoute: typeof TenantAuditRoute
   TenantCostingRoute: typeof TenantCostingRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
+  TenantMeRoute: typeof TenantMeRoute
   TenantOwnerRoute: typeof TenantOwnerRoute
   TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
   TenantQaRoute: typeof TenantQaRoute
@@ -4351,6 +4696,16 @@ interface TenantRouteChildren {
   TenantFoundryRejectsRoute: typeof TenantFoundryRejectsRoute
   TenantFoundryStockRoute: typeof TenantFoundryStockRoute
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
+  TenantHrIdRoute: typeof TenantHrIdRoute
+  TenantHrAttendanceRoute: typeof TenantHrAttendanceRoute
+  TenantHrDevicesRoute: typeof TenantHrDevicesRoute
+  TenantHrIncentiveRoute: typeof TenantHrIncentiveRoute
+  TenantHrLeaveRoute: typeof TenantHrLeaveRoute
+  TenantHrRecruitmentRoute: typeof TenantHrRecruitmentRoute
+  TenantHrRosterRoute: typeof TenantHrRosterRoute
+  TenantHrSettingsRoute: typeof TenantHrSettingsRoute
+  TenantHrTimesheetRoute: typeof TenantHrTimesheetRoute
+  TenantHrTrainingRoute: typeof TenantHrTrainingRoute
   TenantMaintenanceReportRoute: typeof TenantMaintenanceReportRoute
   TenantMastersAlloysRoute: typeof TenantMastersAlloysRoute
   TenantMastersBankRoute: typeof TenantMastersBankRoute
@@ -4371,6 +4726,10 @@ interface TenantRouteChildren {
   TenantPackIdRoute: typeof TenantPackIdRoute
   TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantPayrollMonthRoute: typeof TenantPayrollMonthRoute
+  TenantPayrollAdjustmentsRoute: typeof TenantPayrollAdjustmentsRoute
+  TenantPayrollPeopleRoute: typeof TenantPayrollPeopleRoute
+  TenantPayrollSettingsRoute: typeof TenantPayrollSettingsRoute
   TenantPressAlertsRoute: typeof TenantPressAlertsRoute
   TenantPressReportRoute: typeof TenantPressReportRoute
   TenantPressSummaryRoute: typeof TenantPressSummaryRoute
@@ -4411,11 +4770,13 @@ interface TenantRouteChildren {
   TenantDispatchIndexRoute: typeof TenantDispatchIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
   TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
+  TenantHrIndexRoute: typeof TenantHrIndexRoute
   TenantIngestIndexRoute: typeof TenantIngestIndexRoute
   TenantMaintenanceIndexRoute: typeof TenantMaintenanceIndexRoute
   TenantMastersIndexRoute: typeof TenantMastersIndexRoute
   TenantOrdersIndexRoute: typeof TenantOrdersIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
+  TenantPayrollIndexRoute: typeof TenantPayrollIndexRoute
   TenantPressIndexRoute: typeof TenantPressIndexRoute
   TenantPreviewIndexRoute: typeof TenantPreviewIndexRoute
   TenantPricingIndexRoute: typeof TenantPricingIndexRoute
@@ -4438,6 +4799,7 @@ interface TenantRouteChildren {
   TenantOrdersPlanIdRoute: typeof TenantOrdersPlanIdRoute
   TenantOrdersIdWorksOrderRoute: typeof TenantOrdersIdWorksOrderRoute
   TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
+  TenantPayrollSettlementEmployeeIdRoute: typeof TenantPayrollSettlementEmployeeIdRoute
   TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
   TenantPressRunsIdRoute: typeof TenantPressRunsIdRoute
   TenantPreviewAgeingPageRoute: typeof TenantPreviewAgeingPageRoute
@@ -4494,6 +4856,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantAuditRoute: TenantAuditRoute,
   TenantCostingRoute: TenantCostingRoute,
   TenantDashboardRoute: TenantDashboardRoute,
+  TenantMeRoute: TenantMeRoute,
   TenantOwnerRoute: TenantOwnerRoute,
   TenantPrintingRoute: TenantPrintingRouteWithChildren,
   TenantQaRoute: TenantQaRoute,
@@ -4525,6 +4888,16 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantFoundryRejectsRoute: TenantFoundryRejectsRoute,
   TenantFoundryStockRoute: TenantFoundryStockRoute,
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,
+  TenantHrIdRoute: TenantHrIdRoute,
+  TenantHrAttendanceRoute: TenantHrAttendanceRoute,
+  TenantHrDevicesRoute: TenantHrDevicesRoute,
+  TenantHrIncentiveRoute: TenantHrIncentiveRoute,
+  TenantHrLeaveRoute: TenantHrLeaveRoute,
+  TenantHrRecruitmentRoute: TenantHrRecruitmentRoute,
+  TenantHrRosterRoute: TenantHrRosterRoute,
+  TenantHrSettingsRoute: TenantHrSettingsRoute,
+  TenantHrTimesheetRoute: TenantHrTimesheetRoute,
+  TenantHrTrainingRoute: TenantHrTrainingRoute,
   TenantMaintenanceReportRoute: TenantMaintenanceReportRoute,
   TenantMastersAlloysRoute: TenantMastersAlloysRoute,
   TenantMastersBankRoute: TenantMastersBankRoute,
@@ -4545,6 +4918,10 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackIdRoute: TenantPackIdRoute,
   TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantPayrollMonthRoute: TenantPayrollMonthRoute,
+  TenantPayrollAdjustmentsRoute: TenantPayrollAdjustmentsRoute,
+  TenantPayrollPeopleRoute: TenantPayrollPeopleRoute,
+  TenantPayrollSettingsRoute: TenantPayrollSettingsRoute,
   TenantPressAlertsRoute: TenantPressAlertsRoute,
   TenantPressReportRoute: TenantPressReportRoute,
   TenantPressSummaryRoute: TenantPressSummaryRoute,
@@ -4585,11 +4962,13 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchIndexRoute: TenantDispatchIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
   TenantGuidesIndexRoute: TenantGuidesIndexRoute,
+  TenantHrIndexRoute: TenantHrIndexRoute,
   TenantIngestIndexRoute: TenantIngestIndexRoute,
   TenantMaintenanceIndexRoute: TenantMaintenanceIndexRoute,
   TenantMastersIndexRoute: TenantMastersIndexRoute,
   TenantOrdersIndexRoute: TenantOrdersIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
+  TenantPayrollIndexRoute: TenantPayrollIndexRoute,
   TenantPressIndexRoute: TenantPressIndexRoute,
   TenantPreviewIndexRoute: TenantPreviewIndexRoute,
   TenantPricingIndexRoute: TenantPricingIndexRoute,
@@ -4612,6 +4991,8 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantOrdersPlanIdRoute: TenantOrdersPlanIdRoute,
   TenantOrdersIdWorksOrderRoute: TenantOrdersIdWorksOrderRoute,
   TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
+  TenantPayrollSettlementEmployeeIdRoute:
+    TenantPayrollSettlementEmployeeIdRoute,
   TenantPressLinesIdRoute: TenantPressLinesIdRoute,
   TenantPressRunsIdRoute: TenantPressRunsIdRoute,
   TenantPreviewAgeingPageRoute: TenantPreviewAgeingPageRoute,
