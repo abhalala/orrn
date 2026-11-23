@@ -23,6 +23,7 @@ import { Route as TenantQaRouteImport } from './routes/_tenant/qa'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantOwnerRouteImport } from './routes/_tenant/owner'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as TenantCostingRouteImport } from './routes/_tenant/costing'
 import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
@@ -270,6 +271,11 @@ const TenantOwnerRoute = TenantOwnerRouteImport.update({
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCostingRoute = TenantCostingRouteImport.update({
+  id: '/costing',
+  path: '/costing',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantAuditRoute = TenantAuditRouteImport.update({
@@ -1242,6 +1248,7 @@ export interface FileRoutesByFullPath {
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
+  '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
@@ -1436,6 +1443,7 @@ export interface FileRoutesByTo {
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
+  '/costing': typeof TenantCostingRoute
   '/dashboard': typeof TenantDashboardRoute
   '/owner': typeof TenantOwnerRoute
   '/printing': typeof TenantPrintingRouteWithChildren
@@ -1635,6 +1643,7 @@ export interface FileRoutesById {
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/audit': typeof TenantAuditRoute
+  '/_tenant/costing': typeof TenantCostingRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/owner': typeof TenantOwnerRoute
   '/_tenant/printing': typeof TenantPrintingRouteWithChildren
@@ -1832,6 +1841,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/approvals'
     | '/audit'
+    | '/costing'
     | '/dashboard'
     | '/owner'
     | '/printing'
@@ -2026,6 +2036,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/approvals'
     | '/audit'
+    | '/costing'
     | '/dashboard'
     | '/owner'
     | '/printing'
@@ -2224,6 +2235,7 @@ export interface FileRouteTypes {
     | '/_public/waitlist'
     | '/_tenant/approvals'
     | '/_tenant/audit'
+    | '/_tenant/costing'
     | '/_tenant/dashboard'
     | '/_tenant/owner'
     | '/_tenant/printing'
@@ -2510,6 +2522,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof TenantDashboardRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/costing': {
+      id: '/_tenant/costing'
+      path: '/costing'
+      fullPath: '/costing'
+      preLoaderRoute: typeof TenantCostingRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/audit': {
@@ -3934,6 +3953,7 @@ const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
 interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
   TenantAuditRoute: typeof TenantAuditRoute
+  TenantCostingRoute: typeof TenantCostingRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantOwnerRoute: typeof TenantOwnerRoute
   TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
@@ -4088,6 +4108,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
   TenantAuditRoute: TenantAuditRoute,
+  TenantCostingRoute: TenantCostingRoute,
   TenantDashboardRoute: TenantDashboardRoute,
   TenantOwnerRoute: TenantOwnerRoute,
   TenantPrintingRoute: TenantPrintingRouteWithChildren,

@@ -19,6 +19,7 @@ import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBuddy } from "./gu-more/buddy";
 import { guQa } from "./gu-more/qa";
+import { guCost } from "./gu-more/cost";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -1877,6 +1878,7 @@ export const gu = mergeGu(
   guIngest,
   guBuddy,
   guQa,
+  guCost,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1899,4 +1901,5 @@ export const gu = mergeGu(
   typeof guIngest &
   typeof guBuddy &
   typeof guReg &
+  typeof guCost &
   typeof guQa satisfies GuMessages;

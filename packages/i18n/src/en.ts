@@ -31,6 +31,7 @@ import { ingestEn } from "./ingest/en";
 import { admEn } from "./adm/en";
 import { qaEn } from "./qa/qa.en";
 import { buddyEn } from "./buddy/en";
+import { costEn } from "./cost/en";
 import { regEn } from "./reg/en";
 
 export const en = {
@@ -306,6 +307,7 @@ export const en = {
     audit: "Audit log",
     pricing: "Prices",
     billing: "Billing",
+    costing: "Costing",
     adminReleases: "App builds",
     adminBackups: "Backups",
     adminSupport: "Support",
@@ -3803,6 +3805,7 @@ export const en = {
         pricing: "Prices and quotes",
         billing: "Tax invoices and payments",
         einvoice: "E-invoice and e-way bill",
+        costing: "Costing",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3820,6 +3823,7 @@ export const en = {
         pricing: "Price master, quotes, proformas and enquiries",
         billing: "Tax invoices, credit notes, payments and Tally export. Off until switched on",
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
+        costing: "Cost per kg, margins, press load, forecast and dies due (off until named)",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6526,6 +6530,7 @@ export const en = {
   buddy: buddyEn,
 
   reg: regEn,
+  cost: costEn,
   qa: qaEn,
 
   reasons: {
@@ -6688,6 +6693,7 @@ export const en = {
         pricing: "Prices and quotes",
         billing: "Tax invoices",
         einvoice: "E-invoice",
+        costing: "Costing",
       },
     },
     letterhead: {

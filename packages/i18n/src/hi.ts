@@ -15,6 +15,7 @@ import { ingestHi } from "./ingest/hi";
 import { admHi } from "./adm/hi";
 import { qaHi } from "./qa/qa.hi";
 import { buddyHi } from "./buddy/hi";
+import { costHi } from "./cost/hi";
 import { regHi } from "./reg/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
@@ -298,6 +299,7 @@ export const hi = {
     audit: "ऑडिट लॉग",
     pricing: "भाव",
     billing: "बिलिंग",
+    costing: "लागत",
     adminReleases: "ऐप बिल्ड",
     adminBackups: "बैकअप",
     adminSupport: "सपोर्ट",
@@ -3790,6 +3792,7 @@ export const hi = {
         pricing: "भाव और कोटेशन",
         billing: "टैक्स इनवॉइस और भुगतान",
         einvoice: "ई-इनवॉइस और ई-वे बिल",
+        costing: "लागत",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3807,6 +3810,7 @@ export const hi = {
         pricing: "भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ",
         billing: "टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद",
         einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
+        costing: "प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद)",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6507,6 +6511,7 @@ export const hi = {
   buddy: buddyHi,
 
   reg: regHi,
+  cost: costHi,
   qa: qaHi,
 
   reasons: {
@@ -6669,6 +6674,7 @@ export const hi = {
         pricing: "भाव और कोटेशन",
         billing: "टैक्स इनवॉइस",
         einvoice: "ई-इनवॉइस",
+        costing: "लागत",
       },
     },
     letterhead: {

@@ -17,6 +17,7 @@ import { Boxes, FileText, RefreshCw, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { OrderCostPanel } from "@/features/costing/order-cost-panel";
 import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/shared/lib/fmt-text";
 import { OrderLineAlloy } from "@/features/qa/flags";
@@ -304,6 +305,8 @@ export function OrderDetailPage({ id }: { id: string }) {
             {order.cancelReason ? <Fact label={t("orders.cancelReason")} value={order.cancelReason} /> : null}
           </dl>
         </Card>
+
+        <OrderCostPanel orderId={order.id} />
 
         <section className="flex min-w-0 flex-col gap-3" aria-label={t("orders.totals.title")}>
           <h2 className="m-0 text-[15px] font-semibold">{t("orders.totals.title")}</h2>
