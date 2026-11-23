@@ -1,4 +1,4 @@
-import { gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
+import { gToKg, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -17,7 +17,9 @@ import {
   positionKey,
   positionTone,
   type LineVerdict } from "./line-preview";
-import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
+import { LengthThreeBoxes } from "./length-three-boxes";
+import { EMPTY_LENGTH, lengthMmOf, lengthTyped, lengthTypedFromMm, type LengthTyped } from "./length-three";
+import { parsePieces, parseWeightG } from "./pack-math";
 import { Measure, PackBar, formatRangeKg, type RangeState } from "./pack-ui";
 import { RejectsPanel } from "./rejects-panel";
 import {
@@ -38,7 +40,7 @@ import {
   type DraftBundle,
   type PackDraft } from "./use-pack-draft";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText, kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1, kgGrouped2, kgGrouped3, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
 
@@ -94,7 +96,7 @@ export function BundlesStep({
   const [weight, setWeight] = useState("");
   const [pieces, setPieces] = useState("");
   const [override, setOverride] = useState(false);
-  const [len, setLen] = useState({ mm: "", feet: "", inches: "" });
+  const [len, setLen] = useState<LengthTyped>(EMPTY_LENGTH);
   const [po, setPo] = useState("");
   const [errors, setErrors] = useState<{ weight?: string; pieces?: string; length?: string }>({});
   const [popped, setPopped] = useState<number | null>(null);
@@ -136,7 +138,7 @@ export function BundlesStep({
     setWeight("");
     setPieces("");
     setOverride(false);
-    setLen({ mm: "", feet: "", inches: "" });
+    setLen(EMPTY_LENGTH);
     setPo("");
     setErrors({});
     setFilledFrom(null);
@@ -165,8 +167,8 @@ export function BundlesStep({
     setErrors((x) => (x.weight ? { ...x, weight: undefined } : x));
   }, [stable, armed, editIndex]);
 
-  const overrideLengthTyped = override && (len.mm.trim() || len.feet.trim() || len.inches.trim());
-  const overrideLength = overrideLengthTyped ? lengthFromInput({ unit, ...len }) : null;
+  const overrideLengthTyped = override && lengthTyped(len);
+  const overrideLength = overrideLengthTyped ? lengthMmOf(len) : null;
   const liveLength = overrideLength ?? defaultLength;
   // A trolley line is the source and this bundle is shorter than the line's cut length.
   const trolleyCut = draft.defaults.ageingRowId ? (draft.defaults.trolleyCutMm ?? 0) : 0;
@@ -272,14 +274,14 @@ export function BundlesStep({
     if (editIndex === null) return weight.trim() !== "" || pieces.trim() !== "";
     const b = draft.bundles[editIndex];
     if (!b) return false;
-    const was = lengthToInput(b.lengthMm ?? 0, unit);
+    const was = lengthTypedFromMm(b.lengthMm ?? 0);
     return (
       parseWeightG(weight) !== b.weightG ||
       parsePieces(pieces) !== b.pieces ||
       (recutShown(b.lengthMm ?? defaultLength) ? recut.trim() : "") !== (b.recutReason ?? "").trim() ||
       override !== (b.lengthMm !== undefined || b.po !== undefined) ||
       (override &&
-        (len.mm.trim() !== was.mm || len.feet.trim() !== was.feet || len.inches.trim() !== was.inches || po !== (b.po ?? "")))
+        (lengthMmOf(len) !== lengthMmOf(was) || po !== (b.po ?? "")))
     );
   };
 
@@ -293,7 +295,7 @@ export function BundlesStep({
     setPieces(String(b.pieces));
     const own = b.lengthMm !== undefined || b.po !== undefined;
     setOverride(own);
-    setLen(lengthToInput(b.lengthMm ?? 0, unit));
+    setLen(lengthTypedFromMm(b.lengthMm ?? 0));
     setPo(b.po ?? "");
     setErrors({});
     setFilledFrom(b.weightSource === "scale" ? (b.scaleReadingG ?? null) : null);
@@ -496,7 +498,7 @@ export function BundlesStep({
               hidden={!override}
               className="grid gap-3 rounded-input bg-surface-sunken p-3 sm:grid-cols-2 sm:p-4"
             >
-              <OverrideLength unit={unit} value={len} onChange={setLen} error={errors.length} uid={uid} />
+              <OverrideLength value={len} onChange={setLen} error={errors.length} uid={uid} />
               <div className="flex min-w-0 flex-col gap-1.5">
                 <label htmlFor={`${uid}-po`} className="text-[14px] font-semibold leading-5">
                   {t("pack.new.poForBundle")}
@@ -568,7 +570,7 @@ export function BundlesStep({
                 {t("units.bundles", { count: draft.bundles.length })}
               </span>
               <Measure value={countText(fmt, totals.pieces)} unit={t("units.pcs")} />
-              <Measure value={kgGrouped1(fmt, (totals.weightG))} unit={massUnit(fmt)} />
+              <Measure value={kgGrouped3(fmt, totals.weightG)} unit={massUnit(fmt)} />
               {rejectPcs > 0 ? <Measure value={countText(fmt, rejectPcs)} unit={t("pack.reject.unit")} /> : null}
             </span>
           </div>
@@ -828,15 +830,13 @@ function ScaleStrip({
 }
 
 function OverrideLength({
-  unit,
   value,
   onChange,
   error,
   uid,
 }: {
-  unit: LengthUnit;
-  value: { mm: string; feet: string; inches: string };
-  onChange(v: { mm: string; feet: string; inches: string }): void;
+  value: LengthTyped;
+  onChange(v: LengthTyped): void;
   error?: string;
   uid: string;
 }) {
@@ -845,44 +845,14 @@ function OverrideLength({
   return (
     <fieldset aria-describedby={error ? errorId : undefined} className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
       <legend className="mb-1.5 p-0 text-[14px] font-semibold leading-5">{t("pack.new.lengthForBundle")}</legend>
-      {unit === "inch" ? (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor={`${uid}-len-ft`} className="text-[13px] font-medium text-muted-foreground">
-              {t("pack.new.cutLengthFeet")}
-            </label>
-            <NumberInput
-              id={`${uid}-len-ft`}
-              value={value.feet}
-              onValueChange={(feet) => onChange({ ...value, feet })}
-              suffix={t("units.ft")}
-              aria-invalid={error ? true : undefined}
-              className="h-12"
-            />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor={`${uid}-len-in`} className="text-[13px] font-medium text-muted-foreground">
-              {t("pack.new.cutLengthInches")}
-            </label>
-            <NumberInput
-              id={`${uid}-len-in`}
-              value={value.inches}
-              onValueChange={(inches) => onChange({ ...value, inches })}
-              suffix={t("units.inch")}
-              aria-invalid={error ? true : undefined}
-              className="h-12"
-            />
-          </div>
-        </div>
-      ) : (
-        <PlantInput spec={LENGTH_MM}
-          aria-label={t("pack.new.cutLengthMm")}
-          value={value.mm}
-          onValueChange={(mm) => onChange({ ...value, mm })}
-          aria-invalid={error ? true : undefined}
-          className="h-12"
-        />
-      )}
+      <LengthThreeBoxes
+        value={value}
+        onChange={onChange}
+        idPrefix={`${uid}-len`}
+        invalid={Boolean(error)}
+        describedBy={error ? errorId : undefined}
+        size="md"
+      />
       {error ? (
         <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />

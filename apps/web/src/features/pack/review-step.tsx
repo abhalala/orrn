@@ -18,7 +18,7 @@ import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
 import { useCasts, useDieCopies, useLinesPreview, useOpenLines, useTrolleyLines } from "./use-pack-server";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, kgGrouped3, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 type Props = {
   draft: PackDraft;
@@ -94,7 +94,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         <Total
           label={t("pack.new.totalKg")}
           value={totals.weightG}
-          format={(g) => kgGrouped1(fmt, Math.round(g))}
+          format={(g) => kgGrouped3(fmt, g)}
           className="col-span-2 sm:col-span-1"
         />
       </div>

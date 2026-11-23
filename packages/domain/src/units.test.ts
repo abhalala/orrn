@@ -132,6 +132,12 @@ describe("parseDecimal", () => {
 });
 
 describe("lengthFromInput", () => {
+  test("reads a feet-only decimal and an inches-only decimal (pack's three boxes)", () => {
+    expect(lengthFromInput({ unit: "inch", feet: "12.5" })).toBe(3810);
+    expect(lengthFromInput({ unit: "inch", inches: "150" })).toBe(3810);
+    expect(lengthFromInput({ unit: "inch", inches: "10.5" })).toBe(267);
+    expect(lengthFromInput({ unit: "mm", mm: "3658.5" })).toBe(3659);
+  });
   test("inch company: 11 ft 6 in is 3505 mm", () => {
     expect(lengthFromInput({ unit: "inch", feet: "11", inches: "6" })).toBe(3505);
   });

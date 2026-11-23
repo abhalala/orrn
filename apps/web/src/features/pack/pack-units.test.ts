@@ -36,6 +36,6 @@ describe("the screens use those helpers (the kg helpers are gone)", () => {
   test("review-step.tsx writes the total through the plant formatter", () => {
     const src = read("./review-step.tsx");
     expect(src).not.toContain("formatKgTotal");
-    expect(src).toContain("kgGrouped1(fmt, Math.round(g))");
+    expect(src).toContain("kgGrouped3(fmt, g)");
   });
 });
