@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { useCompanyTimeZone } from "@/features/orders/hooks";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { FieldSelect, FieldTextArea } from "./field-controls";
@@ -18,11 +19,12 @@ export function WoEditCard({ wo }: { wo: WoEditSource & { id: string; serverSeq:
   const queryClient = useQueryClient();
   const invalidate = useInvalidateWo();
   const people = useQuery(trpc.maint.workOrders.people.queryOptions());
-  const [form, setForm] = useState<WoEditForm>(() => formOf(wo));
+  const zone = useCompanyTimeZone();
+  const [form, setForm] = useState<WoEditForm>(() => formOf(wo, zone));
   const [attempted, setAttempted] = useState(false);
   const set = (patch: Partial<WoEditForm>) => setForm((f) => ({ ...f, ...patch }));
 
-  const result = buildUpdate(wo, form);
+  const result = buildUpdate(wo, form, zone);
   const problem = result.ok ? null : result.problem;
   const dirty = result.ok && hasChanges(result.changes);
 

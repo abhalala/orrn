@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { useMe } from "@/shared/lib/me";
+import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { maintErrorKey, maintReady } from "./model";
@@ -19,7 +20,7 @@ export function BreakdownWorkOrderButton({ downtimeId, online }: { downtimeId: s
   const me = useMe();
   const qc = useQueryClient();
   const ready = maintReady(me.data, ["maint.workorder"]);
-  const known = useQuery({ ...trpc.maint.workOrders.breakdowns.queryOptions(), enabled: ready, retry: false, staleTime: 30_000 });
+  const known = useQuery({ ...trpc.maint.workOrders.breakdowns.queryOptions(), enabled: ready, retry: false, staleTime: 30_000, meta: INLINE_ERROR_META });
   const make = useMutation({
     ...trpc.maint.workOrders.fromDowntime.mutationOptions(),
     onSuccess: (wo) => {
@@ -39,6 +40,8 @@ export function BreakdownWorkOrderButton({ downtimeId, online }: { downtimeId: s
       </UiLink>
     );
   }
+  // The register has no asset on this press yet: say so instead of offering a tap the server refuses.
+  if (existing && !existing.assetId) return <span className="text-[13px] text-muted-foreground">{t("maint.home.noAsset")}</span>;
   return (
     <span className="flex flex-wrap items-center gap-2">
       <Button type="button" size="sm" variant="outline" disabled={!online || make.isPending} onClick={() => make.mutate({ downtimeId })}>

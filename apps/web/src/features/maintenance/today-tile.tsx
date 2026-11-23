@@ -7,9 +7,29 @@ import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { maintReady } from "./model";
+import { dueLines, maintReady, type PlanDue } from "./model";
 
 export type MaintTodayCounts = { overdue: number; soon: number; liveWorkOrders: number; flaggedReadings: number };
+export type MaintTodayDueItem = { planId: string; title: string; assetId: string; assetCode: string; due: PlanDue };
+
+/** The plans that are overdue or due soon, nearest first (at most five, the server's `top`). */
+export function MaintTodayDue({ items }: { items: readonly MaintTodayDueItem[] }) {
+  const { t } = useT();
+  if (items.length === 0) return null;
+  return (
+    <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[15px]" data-testid="today-maint-due">
+      {items.map((p) => (
+        <li key={p.planId} className="flex flex-wrap items-baseline gap-x-2">
+          <UiLink to={`/maintenance/assets/${p.assetId}`} className="font-mono font-semibold">
+            {p.assetCode}
+          </UiLink>
+          <span>{p.title}</span>
+          <span className="text-[13px] text-muted-foreground">{dueLines(p.due).map((l) => t(l.key, l.vars)).join(", ")}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** The four figures of the tile; presentational so tests render it without a server. */
 export function MaintTodayBlocks({ data }: { data: MaintTodayCounts }) {
@@ -45,6 +65,7 @@ export function TodayMaintTile() {
         </UiLink>
       </div>
       <MaintTodayBlocks data={today.data} />
+      <MaintTodayDue items={today.data.top} />
     </section>
   );
 }

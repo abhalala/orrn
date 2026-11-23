@@ -35,48 +35,52 @@ describe("labour minutes", () => {
   });
 });
 
+const IST = "Asia/Kolkata";
+
 describe("datetime-local values", () => {
   test("round trip at the minute", () => {
-    const ms = new Date(2026, 10, 22, 14, 5).getTime();
-    expect(msToLocalInput(ms)).toBe("2026-11-22T14:05");
-    expect(localInputToMs("2026-11-22T14:05")).toBe(ms);
+    // 14:05 on the plant's clock (IST) whatever zone the browser is in.
+    const ms = Date.UTC(2026, 10, 22, 8, 35);
+    expect(msToLocalInput(ms, IST)).toBe("2026-11-22T14:05");
+    expect(localInputToMs("2026-11-22T14:05", IST)).toBe(ms);
+    expect(msToLocalInput(ms, "UTC")).toBe("2026-11-22T08:35");
   });
   test("none and unreadable", () => {
-    expect(msToLocalInput(null)).toBe("");
-    expect(localInputToMs("")).toBeNull();
-    expect(localInputToMs("tomorrow")).toBeNull();
+    expect(msToLocalInput(null, IST)).toBe("");
+    expect(localInputToMs("", IST)).toBeNull();
+    expect(localInputToMs("tomorrow", IST)).toBeNull();
   });
 });
 
 describe("the update payload", () => {
   test("nothing changed sends nothing", () => {
-    const r = buildUpdate(wo, formOf(wo));
+    const r = buildUpdate(wo, formOf(wo, IST), IST);
     expect(r.ok && hasChanges(r.changes)).toBe(false);
   });
   test("only changed fields go", () => {
-    const f = { ...formOf(wo), priority: "low", cause: "  worn seal ", labour: "1:30", assignedTo: "" };
-    const r = buildUpdate(wo, f);
+    const f = { ...formOf(wo, IST), priority: "low", cause: "  worn seal ", labour: "1:30", assignedTo: "" };
+    const r = buildUpdate(wo, f, IST);
     expect(r).toEqual({ ok: true, changes: { priority: "low", cause: "worn seal", labourMin: 90, assignedTo: null } });
   });
   test("an untouched time is not sent back with its seconds cut", () => {
     const withTime = { ...wo, startedAt: new Date(2026, 10, 22, 9, 0, 30).getTime() };
-    const r = buildUpdate(withTime, formOf(withTime));
+    const r = buildUpdate(withTime, formOf(withTime, IST), IST);
     expect(r.ok && hasChanges(r.changes)).toBe(false);
   });
   test("a cleared time goes as null", () => {
     const withTime = { ...wo, startedAt: new Date(2026, 10, 22, 9, 0).getTime() };
-    const r = buildUpdate(withTime, { ...formOf(withTime), startedAt: "" });
+    const r = buildUpdate(withTime, { ...formOf(withTime, IST), startedAt: "" }, IST);
     expect(r).toEqual({ ok: true, changes: { startedAt: null } });
   });
   test("a blank labour box leaves labour alone", () => {
     const worked = { ...wo, labourMin: 60 };
-    const r = buildUpdate(worked, { ...formOf(worked), labour: "" });
+    const r = buildUpdate(worked, { ...formOf(worked, IST), labour: "" }, IST);
     expect(r.ok && hasChanges(r.changes)).toBe(false);
   });
   test("problems", () => {
-    expect(buildUpdate(wo, { ...formOf(wo), title: "  " })).toEqual({ ok: false, problem: "title" });
-    expect(buildUpdate(wo, { ...formOf(wo), labour: "x" })).toEqual({ ok: false, problem: "labour" });
-    expect(buildUpdate(wo, { ...formOf(wo), startedAt: "2026-11-22T10:00", finishedAt: "2026-11-22T09:00" })).toEqual({ ok: false, problem: "finishBeforeStart" });
+    expect(buildUpdate(wo, { ...formOf(wo, IST), title: "  " }, IST)).toEqual({ ok: false, problem: "title" });
+    expect(buildUpdate(wo, { ...formOf(wo, IST), labour: "x" }, IST)).toEqual({ ok: false, problem: "labour" });
+    expect(buildUpdate(wo, { ...formOf(wo, IST), startedAt: "2026-11-22T10:00", finishedAt: "2026-11-22T09:00" }, IST)).toEqual({ ok: false, problem: "finishBeforeStart" });
   });
   test("moves keep a fixed order with cancel last; done starts from what was written", () => {
     expect(orderedMoves(["cancelled", "done", "in_progress"])).toEqual(["in_progress", "done", "cancelled"]);

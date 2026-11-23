@@ -1,3 +1,5 @@
+import { fromZonedInput, toZonedInput } from "@/features/orders/view";
+
 import type { WoStatus } from "./model";
 
 /**
@@ -25,19 +27,16 @@ export function parseLabour(text: string): number | null | "bad" {
 
 const two = (n: number) => String(n).padStart(2, "0");
 
-/** A time as a `datetime-local` input value in the browser's own zone: "2026-11-22T14:05". "" for none. */
-export function msToLocalInput(ms: number | null | undefined): string {
+/** A time as a `datetime-local` input value on the PLANT's clock (`settings.timezone`), whatever zone the browser is in. "" for none. */
+export function msToLocalInput(ms: number | null | undefined, timeZone: string): string {
   if (ms == null || !Number.isFinite(ms)) return "";
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}T${two(d.getHours())}:${two(d.getMinutes())}`;
+  return toZonedInput(ms, timeZone);
 }
 
-/** A `datetime-local` value back to milliseconds; null for blank or unreadable text. */
-export function localInputToMs(text: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(text.trim());
-  if (!m) return null;
-  const ms = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])).getTime();
-  return Number.isFinite(ms) && ms >= 0 ? ms : null;
+/** A `datetime-local` value typed on the plant's clock back to milliseconds; null for blank or unreadable text. */
+export function localInputToMs(text: string, timeZone: string): number | null {
+  const ms = fromZonedInput(text.trim(), timeZone);
+  return ms != null && Number.isFinite(ms) && ms >= 0 ? ms : null;
 }
 
 export type WoEditSource = {
@@ -75,7 +74,7 @@ export type WoChanges = {
 
 export type WoProblem = "title" | "labour" | "finishBeforeStart";
 
-export function formOf(wo: WoEditSource): WoEditForm {
+export function formOf(wo: WoEditSource, timeZone: string): WoEditForm {
   return {
     title: wo.title,
     priority: wo.priority,
@@ -83,8 +82,8 @@ export function formOf(wo: WoEditSource): WoEditForm {
     cause: wo.cause ?? "",
     workDone: wo.workDone ?? "",
     labour: wo.labourMin > 0 ? String(wo.labourMin) : "",
-    startedAt: msToLocalInput(wo.startedAt),
-    finishedAt: msToLocalInput(wo.finishedAt),
+    startedAt: msToLocalInput(wo.startedAt, timeZone),
+    finishedAt: msToLocalInput(wo.finishedAt, timeZone),
   };
 }
 
@@ -92,7 +91,7 @@ export function formOf(wo: WoEditSource): WoEditForm {
  * Only what differs from the work order as loaded. `{ ok: true, changes: {} }` means nothing changed.
  * A time is compared at the minute the input shows, so an untouched time is never sent back with its seconds cut off.
  */
-export function buildUpdate(wo: WoEditSource, form: WoEditForm): { ok: true; changes: WoChanges } | { ok: false; problem: WoProblem } {
+export function buildUpdate(wo: WoEditSource, form: WoEditForm, timeZone: string): { ok: true; changes: WoChanges } | { ok: false; problem: WoProblem } {
   const changes: WoChanges = {};
   const title = form.title.trim();
   if (title === "") return { ok: false, problem: "title" };
@@ -107,8 +106,8 @@ export function buildUpdate(wo: WoEditSource, form: WoEditForm): { ok: true; cha
   if (labour === "bad") return { ok: false, problem: "labour" };
   // A blank box leaves labour as it is: the server keeps minutes as a plain number, never empty.
   if (labour !== null && labour !== wo.labourMin) changes.labourMin = labour;
-  if (form.startedAt !== msToLocalInput(wo.startedAt)) changes.startedAt = localInputToMs(form.startedAt);
-  if (form.finishedAt !== msToLocalInput(wo.finishedAt)) changes.finishedAt = localInputToMs(form.finishedAt);
+  if (form.startedAt !== msToLocalInput(wo.startedAt, timeZone)) changes.startedAt = localInputToMs(form.startedAt, timeZone);
+  if (form.finishedAt !== msToLocalInput(wo.finishedAt, timeZone)) changes.finishedAt = localInputToMs(form.finishedAt, timeZone);
   const start = changes.startedAt !== undefined ? changes.startedAt : wo.startedAt;
   const finish = changes.finishedAt !== undefined ? changes.finishedAt : wo.finishedAt;
   if (start != null && finish != null && finish < start) return { ok: false, problem: "finishBeforeStart" };
