@@ -1,4 +1,6 @@
-import { configureAuthHooks, createAuth } from "@orrn/auth";
+// The light subpath only: the full `@orrn/auth` (better-auth, passkey, expo) loads on the first
+// request in `createContext`, not at Worker startup (Cloudflare 10021 startup CPU cap).
+import { configureAuthHooks } from "@orrn/auth/auth-hooks";
 import { createDb } from "@orrn/db";
 import type { Context as HonoContext } from "hono";
 
@@ -30,6 +32,7 @@ export type CreateContextOptions = {
  */
 export async function createContext({ context }: CreateContextOptions) {
   const db = createDb();
+  const { createAuth } = await import("@orrn/auth");
   const session = await createAuth(context.env).api.getSession({
     headers: context.req.raw.headers,
   });

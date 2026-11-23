@@ -37,12 +37,12 @@ async function compressor(p: MaintPlant) {
 }
 
 describe("work orders (#65)", () => {
-  test("by hand: WO-1, priority from criticality, assign, flow to done with the work written", async () => {
+  test("by hand: MWO-1, priority from criticality, assign, flow to done with the work written", async () => {
     setClock(NOON);
     const p = await plant();
     const { id: assetId } = await compressor(p);
     const made = await p.operator.maint.workOrders.create({ assetId, kind: "breakdown", title: "Belt slipping", assignedTo: p.users.operator.id });
-    expect(made).toMatchObject({ number: "WO-1", replayed: false });
+    expect(made).toMatchObject({ number: "MWO-1", replayed: false });
     let wo = await p.operator.maint.workOrders.get({ id: made.id });
     expect(wo).toMatchObject({ status: "open", priority: "low", kind: "breakdown", source: "manual", assignedName: expect.any(String) });
     expect(wo.moves).toEqual(["in_progress", "waiting_spares", "done", "cancelled"]);
@@ -70,7 +70,7 @@ describe("work orders (#65)", () => {
     const audits = await env.db.select({ action: auditLog.action }).from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.subjectType, "maint_work_order")));
     expect(audits.map((a) => a.action).sort()).toEqual(["maint.workorder.create", "maint.workorder.move", "maint.workorder.move", "maint.workorder.update"]);
     expect((await p.manager.maint.workOrders.list({ status: "live" })).items).toHaveLength(0);
-    expect((await p.manager.maint.workOrders.list({ status: "all", assetId })).items.map((i) => i.number)).toEqual(["WO-1"]);
+    expect((await p.manager.maint.workOrders.list({ status: "all", assetId })).items.map((i) => i.number)).toEqual(["MWO-1"]);
   });
 
   test("cancel needs a reason; finish before start is refused; the assignee must be a member", async () => {
@@ -162,7 +162,7 @@ describe("work orders (#65)", () => {
     await p.supervisor.maint.workOrders.move({ id: wo.id, serverSeq: wo.serverSeq, to: "cancelled", reason: "Wrong press" });
     expect((await p.press.maint.workOrders.breakdowns()).items[0]).toMatchObject({ id: downtimeId, workOrderId: null });
     const second = await p.press.maint.workOrders.fromDowntime({ downtimeId });
-    expect(second).toMatchObject({ replayed: false, number: "WO-2" });
+    expect(second).toMatchObject({ replayed: false, number: "MWO-2" });
     expect(second.id).not.toBe(first.id);
     expect((await p.press.maint.workOrders.breakdowns()).items[0]).toMatchObject({ workOrderId: second.id });
 
@@ -203,9 +203,9 @@ describe("work orders (#65)", () => {
       }
       return read();
     });
-    expect(lost).toMatchObject({ number: "WO-1", replayed: true });
+    expect(lost).toMatchObject({ number: "MWO-1", replayed: true });
     const { id: cmp } = await compressor(p);
-    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "MWO-2" });
   });
 
   test("two work orders racing for the same number: the late batch is refused whole and takes no number", async () => {
@@ -216,7 +216,7 @@ describe("work orders (#65)", () => {
     const { docSeries } = await import("@orrn/db/schema");
     const a = await docNumberInBatch(env.db, p.companyId, "maint_wo", NOON);
     const b = await docNumberInBatch(env.db, p.companyId, "maint_wo", NOON);
-    expect([a.number, b.number]).toEqual(["WO-1", "WO-1"]);
+    expect([a.number, b.number]).toEqual(["MWO-1", "MWO-1"]);
     await atomicBatch(env.db, a.statements as never);
     let err: unknown = null;
     try {
@@ -227,9 +227,9 @@ describe("work orders (#65)", () => {
     expect(isDocNumberStale(err)).toBe(true);
     const rows = await env.db.select({ value: docSeries.value }).from(docSeries).where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "maint_wo")));
     expect(rows.map((r) => r.value)).toEqual([1]);
-    // The retry in insertWorkOrder reads again and takes WO-2.
+    // The retry in insertWorkOrder reads again and takes MWO-2.
     const { id: cmp } = await compressor(p);
-    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "MWO-2" });
   });
 
   test("five numbers taken under it in a row: a plain CONFLICT, not the database error, and no number used", async () => {
@@ -238,7 +238,7 @@ describe("work orders (#65)", () => {
     const { docSeries } = await import("@orrn/db/schema");
     const { WO_NUMBER_BUSY } = await import("../src/routers/maintenanceWork");
     const { id: cmp } = await compressor(p);
-    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-1" });
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "MWO-1" });
     // Before each of the five batches, another writer takes the predicted number.
     let bumps = 0;
     const arm = () =>
@@ -318,7 +318,7 @@ describe("work orders (#65)", () => {
     // The next work order on the plan is a new one.
     const next = await p.operator.maint.plans.makeWorkOrder({ planId });
     expect(next.replayed).toBe(false);
-    expect(next.number).toBe("WO-2");
+    expect(next.number).toBe("MWO-2");
   });
 });
 

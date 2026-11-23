@@ -6,6 +6,7 @@ import { APIError, getOAuthState } from "better-auth/api";
 import { google } from "better-auth/social-providers";
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
+import { registeredAuthHooks } from "./auth-hooks";
 import { buddyRevokeStatements } from "./buddy-revoke";
 import { assertEnrolmentAllowed } from "./enrolment-guard";
 import { sessionOfRequest, upgradeSession } from "./session-method";
@@ -56,19 +57,8 @@ type GoogleRefusal = keyof typeof MESSAGES;
 
 type Db = ReturnType<typeof createDb>;
 
-/** What `@orrn/server` lends the auth package (it cannot import `@orrn/server`). */
-export type AuthHooks = {
-  /** Accepts every live invite for the email; returns how many. Refusals are skipped, never thrown. */
-  acceptLiveInvitesFor?: (db: Db, userId: string, email: string) => Promise<number>;
-};
-
-// Module state on purpose: `resetAuthForTests` drops auth instances, never this registration.
-let registered: AuthHooks = {};
-
-/** Called once by `@orrn/server` when it loads (`context.ts`, next to `createAuth`). */
-export function configureAuthHooks(hooks: AuthHooks): void {
-  registered = { ...registered, ...hooks };
-}
+// The registration lives in `auth-hooks.ts` (no runtime imports, so registering it is cheap at startup).
+export { configureAuthHooks, type AuthHooks } from "./auth-hooks";
 
 /** True when a live invite (any company, member or portal kind) exists for the email. */
 export async function googleCreateAllowed(db: Db, email: string, now: Date = new Date()): Promise<boolean> {
@@ -234,7 +224,7 @@ const SOCIAL_PATHS = new Set(["/sign-in/social", "/callback/:id"]);
 const isSocialSignIn = (ctx: HookCtx) => Boolean(ctx?.path && SOCIAL_PATHS.has(ctx.path));
 
 async function acceptInvitesQuietly(db: Db, userId: string, email: string): Promise<void> {
-  const accept = registered.acceptLiveInvitesFor;
+  const accept = registeredAuthHooks().acceptLiveInvitesFor;
   if (!accept) {
     console.warn("Google sign-up: invite acceptance is not wired; the invites stay open for the invite page");
     return;

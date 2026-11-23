@@ -144,6 +144,25 @@ export const PLANT_ACTIONS = [
   "qa.hold", // put a bundle on quality hold
   "qa.release", // release a bundle from quality hold, with a note
   "qa.masters", // temper master, quality plans, inspection points, alloy substitutes, instruments, quality settings
+  // XE-PRICE (lane PRICE): the price master, quotations, proforma and enquiries. `order.price` stays the
+  // gate for rates on order lines; these cover the master and the documents built on it.
+  "price.view", // read the price master, quotations, proformas and line breakdowns
+  "price.manage", // propose a master rate or customer term, ask for a line override, set pricing settings
+  "quote.manage", // make, send, cancel and convert quotations; make proformas
+  "enquiry.manage", // enquiries and their follow-ups
+  // XE-BILL (opt-in `billing` module): tax invoices, credit notes, payments received, GST settings.
+  "gst.settings", // plant GST state and HSN codes, customer GST details
+  "invoice.read", // invoices, credit notes, payments and outstanding, read only
+  "invoice.issue", // draft and issue invoices and credit notes, generate IRN and e-way bill
+  "invoice.cancel", // ask to cancel an issued invoice (approval invoice_cancel)
+  "payment.record", // record and void payments received
+  // XE store (rows 69 to 73): indents, store purchase orders and the store's value.
+  "indent.raise", // ask the store to buy items (a department's indent)
+  "indent.approve", // approve or reject an indent
+  "po.view", // read store purchase orders (rates included)
+  "po.manage", // make, change, issue, close and cancel store purchase orders
+  "store.value", // the store's value: average rates and the month-end stock value
+  "store.rate", // set valuation rates: a GRN rate other than the order's, a pending GRN rate, an item's opening rate
   // XE parity lane MAINT (#63 to #68): plant maintenance. See the maintenance screens; set up assets, plans,
   // reading limits and the labour rate (and see the cost); raise and work work orders and take readings.
   "maint.view",
@@ -306,6 +325,27 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "qa.hold": ["supervisor", "manager"],
   "qa.release": ["supervisor", "manager"],
   "qa.masters": ["manager", "admin"],
+  // XE-PRICE: the people who see order rates read the master; the office desk and the manager change it.
+  "price.view": ["admin", "office", "manager", "accountant"],
+  "price.manage": ["admin", "office", "manager"],
+  "quote.manage": ["office", "manager"],
+  "enquiry.manage": ["office", "manager"],
+  // XE-BILL: the billing desk (office), the accountant and the manager. GST settings (incl. the e-invoice start
+  // date) are the admin's and theirs too: the billing desk keeps them up to date (review N2: comment corrected).
+  "gst.settings": ["admin", "manager", "accountant", "office"],
+  "invoice.read": ["office", "manager", "accountant", "admin"],
+  "invoice.issue": ["office", "manager", "accountant"],
+  "invoice.cancel": ["office", "manager", "accountant"],
+  "payment.record": ["office", "accountant", "manager"],
+  // XE store: any department head may ask; a manager decides; the office buys; the storekeeper sees
+  // the orders it receives against; money reports go to the office, accounts and management.
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
+  // The rate is settled by the bill in the office, not at the gate: the storekeeper does not set it.
+  "store.rate": ["office", "manager", "admin", "accountant"],
   // XE parity lane MAINT. Everyone who works near the machines (and the storekeeper who issues spares) sees
   // maintenance; the supervisor and up set it up; the floor raises a breakdown and works the work order.
   "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
@@ -429,6 +469,10 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   dispatch_off_band: ["owner", "admin", "manager"],
   // arch 52: a dispatch completed later at the time the truck left (line down). Never the requester.
   dispatch_late_entry: ["owner", "admin", "manager"],
+  // XE-PRICE: a master rate change or a line override below the computed rate. Never the requester.
+  price_change: ["owner", "admin", "manager"],
+  // XE-BILL: cancelling an issued tax invoice (its number stays used). Never the requester.
+  invoice_cancel: ["owner", "admin", "manager"],
 };
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */

@@ -3,7 +3,7 @@
  * status allows, the list's URL filter, the frozen trace turned into links, and the dictionary key of a
  * refusal. The server stays the authority on every move (`complaintNext` in `@orrn/domain`).
  */
-import { complaintEditable, type ComplaintStatusValue, type StatusTone } from "@orrn/domain";
+import { complaintEditable, isModuleOn, type ComplaintStatusValue, type StatusTone } from "@orrn/domain";
 
 export const COMPLAINT_STATUSES: readonly ComplaintStatusValue[] = ["open", "investigating", "replied", "closed"];
 export const COMPLAINT_KINDS = ["dimension", "surface", "hardness", "bend", "weight", "packing", "short_supply", "other"] as const;
@@ -160,10 +160,9 @@ export function investigationPayload(f: InvestigationForm) {
   };
 }
 
-/** True when the plant's module list has `complaints` on. An empty list means every module is on. */
+/** True when the plant's module list has `complaints` on, by the server's rule (`isModuleOn`). */
 export function complaintsModuleOn(modules: readonly string[] | null | undefined): boolean {
-  const list = (modules ?? []).map((m) => m.toLowerCase());
-  return list.length === 0 || list.includes("complaints");
+  return isModuleOn(modules ?? [], "complaints");
 }
 
 // ---------------------------------------------------------------------------

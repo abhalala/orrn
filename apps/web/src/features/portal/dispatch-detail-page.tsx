@@ -75,7 +75,7 @@ export function PortalDispatchDetailPage({ id }: { id: string }) {
       <PageHeader
         title={d.code}
         back={back}
-        subtitle={[portalDispatchDay(fmt, d), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null].filter(Boolean).join(" · ")}
+        subtitle={[portalDispatchDay(fmt, d), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null, d.invoiceNumber ? `${t("portal.dispatches.invoiceNo")}: ${d.invoiceNumber}` : null].filter(Boolean).join(" · ")}
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             {model ? (

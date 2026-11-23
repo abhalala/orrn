@@ -191,6 +191,12 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "alreadyDecided", re: /^This request was already decided$/ },
   { id: "ownRequest", re: /^Someone else has to approve your request$/ },
 
+  // --- prices (XE-PRICE, lib/pricing.ts) ---------------------------------------------------
+  { id: "frozenRate", re: /^This line's rate was fixed when the order was confirmed\. Ask for a rate change from the order's price sheet$/ },
+  { id: "frozenProduct", re: /^This line's price was fixed when the order was confirmed\. Add a new line for a different section, alloy or finish$/ },
+  { id: "addedLineUnpriced", re: /^This line can't be priced from the master today\. Set the base metal rate and the plant conversion first$/ },
+  { id: "unfrozenConfirmed", re: /^This line was confirmed without a price from the master\. Change its rate on the order$/ },
+
   // --- orders ----------------------------------------------------------------------------
   { id: "poRepeat", key: "orders.poRepeat", re: /^PO (.+) is already on (\S+) for this customer$/, vars: (m) => ({ po: m[1]!, code: m[2]! }) },
   { id: "poOther", re: /^PO (.+) is already on another order of this customer$/, vars: (m) => ({ po: m[1]! }) },

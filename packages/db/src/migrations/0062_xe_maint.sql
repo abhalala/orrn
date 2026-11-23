@@ -1,4 +1,4 @@
--- XE parity lane MAINT (#63 to #68): plant maintenance. Reserved number 0060 (CONTRACTS-W2); the lead renumbers at merge (D30).
+-- XE parity lane MAINT (#63 to #68): plant maintenance. Reserved 0060 (CONTRACTS-W2); renumbered to 0062 at merge (D30).
 CREATE TABLE `maint_asset` (
 	`id` text PRIMARY KEY NOT NULL,
 	`company_id` text NOT NULL,

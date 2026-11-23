@@ -11,7 +11,7 @@ import { passkeyConfigForEnv } from "@orrn/auth/passkey-config";
 import { isStrongSession } from "@orrn/auth/session-method";
 import { hasStrongMethod, plantRequiresStrongSignIn, signInMethodsFor } from "@orrn/auth/sign-in-methods";
 import { env } from "@orrn/env/server";
-import { readUnitSettings, screenPrefs } from "@orrn/domain";
+import { effectiveModules, readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
@@ -197,7 +197,8 @@ export const authRouter = router({
               slug: companyRow.slug,
               status: companyRow.status,
               plan: companyRow.plan,
-              modules: companyRow.modules ?? [],
+              /** The EFFECTIVE list (B1): every module that is on, spelled out, so old phones keep their tabs. */
+              modules: effectiveModules(companyRow.modules),
               role: ctx.role,
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
               /** Units and formats every screen of this plant uses (default, then the plant's choice). */

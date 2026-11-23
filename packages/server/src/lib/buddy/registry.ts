@@ -99,7 +99,9 @@ export function undecidedChanges(reg: Map<string, BuddyProcedure>): string[] {
 /** Every query and mutation of `appRouter`, decided. */
 export async function buddyRegistry(): Promise<Map<string, BuddyProcedure>> {
   if (cache) return cache;
-  const { appRouter } = await import("../../routers/index");
+  const { appRouter, loadAllRouters } = await import("../../routers/index");
+  // Top-level routers load lazily: load them all first, or the registry would freeze a partial list.
+  await loadAllRouters();
   cache = buildRegistry(appRouter._def.procedures as unknown as Record<string, AnyProcedure>);
   return cache;
 }

@@ -42,6 +42,7 @@ import {
   type VendorStatus,
 } from "@orrn/db/schema/purchase";
 import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { enquiry, priceRate, proforma, quote, quoteLine, worksOrder } from "@orrn/db/schema/pricing";
 import {
   dieBand,
   dieFile,
@@ -71,14 +72,13 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, STANDARD_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { maintAsset, maintPlan, maintReading, maintReadingKind, maintSetting, maintWoSpare, maintWorkOrder } from "@orrn/db/schema/maintenance";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
-import { packingListWriteBatch } from "@orrn/server/routers/packingList";
 import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSerial";
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
@@ -153,8 +153,8 @@ const DEMO_SETTINGS = {
   requireCastOnBundle: false,
 };
 
-/** Every module on, Wave 1 floor modules included (FP-PF-07). */
-const ALL_MODULES: string[] = [...COMPANY_MODULES];
+/** Every standard module on, Wave 1 floor modules included (FP-PF-07). The opt-in statutory modules stay off. */
+const ALL_MODULES: string[] = [...STANDARD_MODULES];
 
 // ---------------------------------------------------------------------------
 // Static catalogue
@@ -392,6 +392,8 @@ export type SeedResult =
  * at any hour, across a month or a financial year. The route never passes it.
  */
 export async function seedDevData(db: Db, opts: { password: string; now?: number }): Promise<SeedResult> {
+  // Dynamic: a static import would evaluate the packing-list router at Worker startup (routers load lazily, AGENTS.md).
+  const { packingListWriteBatch } = await import("@orrn/server/routers/packingList");
   const now = opts.now ?? Date.now();
   const password = opts.password;
   if (!password) throw new Error("dev-seed: refusing to run without ORRN_LOCAL_PASSWORD");
@@ -1865,6 +1867,13 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(dispatch).where(eq(dispatch.companyId, COMPANY_ID)),
     db.delete(transporter).where(eq(transporter.companyId, COMPANY_ID)),
     // Order lines and orders reference die and customer (RESTRICT): they go first (PL-8 spec S-3).
+    // XE-PRICE (0058): pricing rows reference orders, customers, sections and approvals.
+    db.delete(enquiry).where(eq(enquiry.companyId, COMPANY_ID)),
+    db.delete(proforma).where(eq(proforma.companyId, COMPANY_ID)),
+    db.delete(worksOrder).where(eq(worksOrder.companyId, COMPANY_ID)),
+    db.delete(quoteLine).where(eq(quoteLine.companyId, COMPANY_ID)),
+    db.delete(quote).where(eq(quote.companyId, COMPANY_ID)),
+    db.delete(priceRate).where(eq(priceRate.companyId, COMPANY_ID)),
     db.delete(salesOrderLine).where(eq(salesOrderLine.companyId, COMPANY_ID)),
     db.delete(salesOrder).where(eq(salesOrder.companyId, COMPANY_ID)),
     // Die room rows hold keys to the section (and copies to bands and makers): children first.

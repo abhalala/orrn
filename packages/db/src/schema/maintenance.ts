@@ -17,7 +17,7 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  *   which is where its run hours come from. Compressors, cranes, DG sets and the rest are assets only.
  * - `maint_plan` (#64): preventive plans per asset, by calendar days, run hours or both. `base_at` is
  *   when the plan last reset (the last preventive work order done, else the day it began).
- * - `maint_work_order` (#65): breakdown or preventive; `WO-{n}` per financial year. One work order per
+ * - `maint_work_order` (#65): breakdown or preventive; `MWO-{n}` per financial year. One work order per
  *   downtime entry, per out-of-limit reading, and one live preventive work order per plan (partial
  *   unique indexes, so a second tap returns the first).
  * - `maint_wo_spare` (#66): links a store issue (MRS, purpose `maintenance`) to a work order. The store

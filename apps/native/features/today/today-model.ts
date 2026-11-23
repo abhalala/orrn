@@ -1,3 +1,4 @@
+import { anyModuleOn } from "@orrn/domain";
 import { gToKg, type StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { can, type Me } from "@orrn/server/lib/permissions";
@@ -47,8 +48,7 @@ export const TILE_META: Record<TodayTile, { tone: StatusTone; title: MessageKey;
  */
 export function todayTiles(me: Me | null | undefined): TodayTile[] {
   if (!me?.company) return [];
-  const modules = (me.company.modules ?? []).map((m) => m.toLowerCase());
-  const has = (m: string) => modules.length === 0 || modules.includes(m);
+  const has = (m: string) => anyModuleOn(me.company?.modules, [m]);
   const pack = has("bundles") && can(me, "bundle.create");
   const dispatch = has("dispatches") && can(me, "dispatch.complete");
   if (!pack && !dispatch) return [];

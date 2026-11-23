@@ -4,7 +4,7 @@
  * The server stays the authority on every figure (due maths, flags, report) and every move.
  */
 import type { MessageKey } from "@orrn/i18n";
-import type { StatusTone } from "@orrn/domain";
+import { isModuleOn, type StatusTone } from "@orrn/domain";
 
 import { canAny, type Action } from "@/shared/lib/me";
 
@@ -57,10 +57,9 @@ export const ASSET_STATUS_TONE: Record<AssetStatus, StatusTone> = { running: "gr
 
 type MeLike = Parameters<typeof canAny>[0];
 
-/** The module is on for this plant: an empty list means every module is on. */
+/** The module is on for this plant, by the server's rule (`isModuleOn`, B1). */
 export function maintenanceOn(me: MeLike): boolean {
-  const modules = ((me as { company?: { modules?: string[] | null } | null } | null | undefined)?.company?.modules ?? []).map((m) => m.toLowerCase());
-  return modules.length === 0 || modules.includes("maintenance");
+  return isModuleOn((me as { company?: { modules?: string[] | null } | null } | null | undefined)?.company?.modules ?? [], "maintenance");
 }
 
 /**

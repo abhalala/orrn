@@ -20,6 +20,7 @@ import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBuddy } from "./gu-more/buddy";
 import { guQa } from "./gu-more/qa";
+import { guStore2 } from "./gu-more/store2";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -357,6 +358,10 @@ const guBase = {
       approvalsHint: "{count} રાહ જુએ છે",
       approvalsHintNone: "કંઈ રાહમાં નથી",
       approvalsHintAny: "રાહમાં વિનંતીઓ",
+      enquiries: "પૂછપરછ, ફોલો-અપ કરવાનું છે",
+      enquiriesHint: "{count} મોડું થયું",
+      enquiriesHintNone: "કોઈ મોડું નથી",
+      enquiriesHintAny: "ફોલો-અપની તારીખો",
       store: "સ્ટોર",
       storeHint: "કેમિકલ, બળતણ અને સ્પેર",
     },
@@ -1875,6 +1880,7 @@ export const gu = mergeGu(
   guIngest,
   guBuddy,
   guQa,
+  guStore2,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1898,4 +1904,5 @@ export const gu = mergeGu(
   typeof guBuddy &
   typeof guReg &
   typeof guQa &
+  typeof guStore2 &
   typeof guMaint satisfies GuMessages;

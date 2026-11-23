@@ -340,7 +340,7 @@ describe("work orders", () => {
     setClock(NOON);
     const p = await plant();
     const { id: cmp } = await compressor(p);
-    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "One" })).toMatchObject({ number: "WO-1" });
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "One" })).toMatchObject({ number: "MWO-1" });
     let bumped = 0;
     env.beforeNextBatch(async () => {
       bumped += 1;
@@ -351,7 +351,7 @@ describe("work orders", () => {
     });
     const made = await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Two" });
     expect(bumped).toBe(1);
-    expect(made).toMatchObject({ number: "WO-3", replayed: false });
+    expect(made).toMatchObject({ number: "MWO-3", replayed: false });
     const rows = await env.db.select({ id: auditLog.id }).from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.subjectId, made.id), eq(auditLog.action, "maint.workorder.create")));
     expect(rows).toHaveLength(1);
   });
