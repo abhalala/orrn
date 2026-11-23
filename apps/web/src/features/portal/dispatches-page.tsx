@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
+import { usePortalMe } from "./hooks";
 import { portalDispatchDay } from "./model";
 import { PortalError } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
@@ -21,13 +22,17 @@ export function PortalDispatchesPage() {
   const fmt = useFmt();
   const [limit, setLimit] = useState(STEP);
   const list = useQuery({ ...trpc.portal.dispatches.list.queryOptions({ limit }), placeholderData: keepPreviousData, retry: false });
+  const portalMe = usePortalMe();
   type Row = NonNullable<typeof list.data>["items"][number];
 
   const columns: ResponsiveListColumn<Row>[] = [
     { key: "code", header: t("portal.dispatches.code"), cell: (d) => <span className="font-mono font-semibold whitespace-nowrap">{d.code}</span> },
     { key: "date", header: t("portal.dispatches.date"), cell: (d) => <span className="whitespace-nowrap">{portalDispatchDay(fmt, d)}</span> },
     { key: "pl", header: t("portal.dispatches.plNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.plNumber ?? ""}</span> },
-    { key: "invoice", header: t("portal.dispatches.invoiceNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.invoiceNumber ?? ""}</span> },
+    // XE-BILL row 13 (PROD-GATE): the invoice column only when the plant has `billing` on (`portal.me.billing`).
+    ...(portalMe.data?.billing
+      ? [{ key: "invoice", header: t("portal.dispatches.invoiceNo"), hideOnPhone: true, cell: (d: Row) => <span className="font-mono">{("invoiceNumber" in d ? d.invoiceNumber : null) ?? ""}</span> }]
+      : []),
     { key: "vehicle", header: t("portal.dispatches.vehicle"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.vehicleNo ?? ""}</span> },
     { key: "bundles", header: t("portal.dispatches.bundlesLabel"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{countText(fmt, d.bundles)}</span> },
     { key: "weight", header: t("portal.dispatches.weight"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, d.weightG)}</span> },

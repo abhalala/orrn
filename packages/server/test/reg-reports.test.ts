@@ -18,7 +18,7 @@ let env: TestEnv;
 let setClock: (at: Date | null) => void;
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["mis"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
 }, 60_000);
 afterEach(() => setClock(null));

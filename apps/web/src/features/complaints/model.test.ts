@@ -101,9 +101,10 @@ describe("forms", () => {
     });
     expect(investigationPayload({ rootCause: "x", correctiveAction: "y", ownerId: "u1", due: "2026-12-01", done: true })).toMatchObject({ actionOwnerId: "u1", actionDue: "2026-12-01", actionDone: true });
   });
-  test("module switch: an empty list is all on", () => {
-    expect(complaintsModuleOn([])).toBe(true);
-    expect(complaintsModuleOn(undefined)).toBe(true);
+  test("module switch: complaints is opt-in (PROD-GATE), on only when named", () => {
+    expect(complaintsModuleOn([])).toBe(false);
+    expect(complaintsModuleOn(["complaints"])).toBe(true);
+    expect(complaintsModuleOn(undefined)).toBe(false);
     expect(complaintsModuleOn(["press", "Complaints"])).toBe(true);
     expect(complaintsModuleOn(["press"])).toBe(false);
   });

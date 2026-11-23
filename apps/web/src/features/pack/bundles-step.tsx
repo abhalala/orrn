@@ -41,6 +41,7 @@ import { useFmt } from "@/shared/lib/fmt";
 import { countText, kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
+import { useModuleOn } from "@/shared/lib/modules";
 
 type Props = {
   draft: PackDraft;
@@ -107,6 +108,7 @@ export function BundlesStep({
   const [reasonError, setReasonError] = useState(false);
   // Optional note when this bundle is cut shorter than the trolley line it came from.
   const [recut, setRecut] = useState("");
+  const misOn = useModuleOn("mis");
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
 
   const defaultLength = draft.defaults.lengthMm;
@@ -170,7 +172,8 @@ export function BundlesStep({
   const liveLength = overrideLength ?? defaultLength;
   // A trolley line is the source and this bundle is shorter than the line's cut length.
   const trolleyCut = draft.defaults.ageingRowId ? (draft.defaults.trolleyCutMm ?? 0) : 0;
-  const recutShown = (len: number) => trolleyCut > 0 && len > 0 && len < trolleyCut;
+  // PROD-GATE: the recut reason (XE REG #31) is asked only with the opt-in `mis` module on.
+  const recutShown = (len: number) => misOn && trolleyCut > 0 && len > 0 && len < trolleyCut;
   const liveWeightG = parseWeightG(weight);
   const livePieces = parsePieces(pieces);
   // The verdict is the server's (kg/12 ft, band position, drift): nothing is worked out on this screen.

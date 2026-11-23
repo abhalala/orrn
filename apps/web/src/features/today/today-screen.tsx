@@ -200,7 +200,7 @@ export function TodayScreen() {
       <Can do="cast.enter">
         <TodayFoundryTile />
       </Can>
-      {moduleOn(me, "store") ? (
+      {moduleOn(me, "store_buy") ? (
         <Can do="store.txn">
           <TodayStoreLowTile />
         </Can>

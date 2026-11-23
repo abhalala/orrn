@@ -5,7 +5,7 @@
 import { plantBankAccount, plantMaster } from "@orrn/db/schema/admin";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { salesOrderLine } from "@orrn/db/schema/sales";
-import { insuranceForPl, readTransitInsurance } from "@orrn/domain";
+import { bankPrintParts, insuranceForPl, readTransitInsurance } from "@orrn/domain";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { IN_LIST_CHUNK, type OrrnDb } from "./atomic";
@@ -35,6 +35,17 @@ export async function getPlantBankForPrint(db: OrrnDb, companyId: string): Promi
     .where(and(eq(plantBankAccount.companyId, companyId), eq(plantBankAccount.isDefault, true), eq(plantBankAccount.active, true)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The proforma snapshot's `bank` (XE-PRICE): the print lines keyed in print order (`bankLines` on the web
+ * joins the values as stored), or null while no default account is set.
+ */
+export function proformaBank(b: PlantBankForPrint | null): Record<string, string> | null {
+  if (!b) return null;
+  const [bank = "", ...rest] = bankPrintParts(b);
+  const keys = ["accountName", "accountNo", "ifsc"];
+  return Object.fromEntries([["bank", bank], ...rest.map((v, i) => [keys[i] ?? `line${i}`, v])].filter(([, v]) => v));
 }
 
 /**

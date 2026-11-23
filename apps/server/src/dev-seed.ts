@@ -72,7 +72,7 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, STANDARD_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { maintAsset, maintPlan, maintReading, maintReadingKind, maintSetting, maintWoSpare, maintWorkOrder } from "@orrn/db/schema/maintenance";
@@ -153,8 +153,12 @@ const DEMO_SETTINGS = {
   requireCastOnBundle: false,
 };
 
-/** Every standard module on, Wave 1 floor modules included (FP-PF-07). The opt-in statutory modules stay off. */
-const ALL_MODULES: string[] = [...STANDARD_MODULES];
+/**
+ * Every module the build knows, named, so the dev demo plant shows every XE screen (PROD-GATE: XE modules
+ * are opt-in, off for every real plant until the owner names them in Godseye). This seed only ever writes
+ * the demo company row (`COMPANY_ID`), never a real tenant's `company.modules`.
+ */
+const ALL_MODULES: string[] = [...COMPANY_MODULES];
 
 // ---------------------------------------------------------------------------
 // Static catalogue

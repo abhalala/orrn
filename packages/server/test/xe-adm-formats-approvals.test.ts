@@ -18,7 +18,7 @@ let env: TestEnv;
 let setClock: typeof import("../src/lib/clock").setClockForTests;
 let docs: typeof import("../src/lib/docNumber");
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["masters_plus", "docs"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
   docs = await import("../src/lib/docNumber");
 }, 60_000);

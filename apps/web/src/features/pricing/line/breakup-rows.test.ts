@@ -65,11 +65,14 @@ describe("asking for another rate", () => {
 describe("when the sheet shows", () => {
   test("a breakup and the pricing module on", () => {
     const b = build();
-    expect(showsPriceSheet(b, [])).toBe(true);
+    expect(showsPriceSheet(b, ["pricing"])).toBe(true);
+    // PROD-GATE: pricing is opt-in; an empty list has it off.
+    expect(showsPriceSheet(b, [])).toBe(false);
     expect(showsPriceSheet(b, ["Orders", "Pricing"])).toBe(true);
     expect(showsPriceSheet(b, ["orders"])).toBe(false);
     expect(showsPriceSheet(null, [])).toBe(false);
     expect(showsPriceSheet(undefined, undefined)).toBe(false);
-    expect(pricingModuleOn(null)).toBe(true);
+    expect(pricingModuleOn(null)).toBe(false);
+    expect(pricingModuleOn(["pricing"])).toBe(true);
   });
 });

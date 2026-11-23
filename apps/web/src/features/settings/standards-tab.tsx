@@ -18,6 +18,7 @@ import { FoundrySettingsCard } from "@/features/foundry/settings-card";
 import { CastBookCard } from "./cast-book-card";
 import { CollectorsCard } from "./collectors-card";
 import { ThresholdsCard } from "./thresholds-card";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /**
  * Standards (FP-PF-09): the BIS designation and the CM/L licence printed on the label and the test
@@ -26,6 +27,7 @@ import { ThresholdsCard } from "./thresholds-card";
  */
 export function StandardsTab() {
   const settings = usePlantSettings();
+  const foundryPlusOn = useModuleOn("foundry_plus");
   const signature = JSON.stringify(settings.data?.standards ?? {});
   return (
     <TabState query={settings}>
@@ -35,7 +37,7 @@ export function StandardsTab() {
           <ThresholdsCard settings={settings.data} />
           <AgeingSettingsCard settings={settings.data} />
           <MorningMailCard />
-          <FoundrySettingsCard settings={settings.data} />
+          {foundryPlusOn ? <FoundrySettingsCard settings={settings.data} /> : null}
           <CastBookCard key={JSON.stringify(settings.data.castSeriesStart)} settings={settings.data} />
           {/* I-5: the press reading limits live with the other plant standards, where managers
               (masters.publish) reach them; the card gates its own editing. */}

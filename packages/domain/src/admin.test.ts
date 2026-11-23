@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   APPROVAL_MEASURES,
   approverRolesFor,
+  bankPrintParts,
   checkApprovalRule,
   checkDocFormat,
   DEFAULT_DOC_FORMATS,
@@ -181,5 +182,19 @@ describe("masters helpers", () => {
     expect(documentReviewDue("2026-11-22", "2026-11-22")).toBe(true);
     expect(documentReviewDue("2026-11-23", "2026-11-22")).toBe(false);
     expect(documentReviewDue(null, "2026-11-22")).toBe(false);
+  });
+});
+
+describe("bank on printed papers (PROD-GATE, ADM contract 4)", () => {
+  test("bank and branch, account name, account number, IFSC, in print order", () => {
+    expect(bankPrintParts({ bankName: "HDFC Bank", branch: "Naroda", accountName: "Fourcubes Industries LLP", accountNo: "50200012345678", ifsc: "HDFC0001234" })).toEqual([
+      "HDFC Bank, Naroda",
+      "Fourcubes Industries LLP",
+      "A/c 50200012345678",
+      "IFSC HDFC0001234",
+    ]);
+  });
+  test("no branch: the bank name alone heads the lines", () => {
+    expect(bankPrintParts({ bankName: "SBI", branch: null, accountName: "Plant", accountNo: "1", ifsc: "SBIN0000001" })[0]).toBe("SBI");
   });
 });

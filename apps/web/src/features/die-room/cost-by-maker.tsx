@@ -7,6 +7,7 @@ import { useFmt } from "@/shared/lib/fmt";
 import { kgWithUnit, massUnit } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { useModuleOn } from "@/shared/lib/modules";
 
 export type MakerCostRow = {
   makerId: string | null;
@@ -75,10 +76,15 @@ function CostByMakerSection() {
 }
 
 /** Cost per kg by maker, for people who see money (the server refuses everyone else, so it is not even asked). */
-export function CostByMaker() {
+function CostByMakerInner() {
   return (
     <Can do={["masters.publish", "analytics.view"]}>
       <CostByMakerSection />
     </Can>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function CostByMaker() {
+  return useModuleOn("masters_plus") ? <CostByMakerInner /> : null;
 }

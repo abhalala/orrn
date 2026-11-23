@@ -15,8 +15,9 @@ export const MODULE_OFF_MESSAGE = "That module is not on for this plant";
 
 /**
  * Top-level router key -> module. Every MUTATION under these routers passes `assertModule` in
- * `companyProcedure` (router level, so a procedure added later is covered without remembering).
- * Reads are not gated: the floor reads masters across modules (a packer picks the die inside pack
+ * `companyProcedure` (router level, so a procedure added later is covered without remembering), and so
+ * does every READ of an opt-in module (`isOptInModule`: every XE key; owner rule 2026-11-23). Reads of a
+ * standard module are not gated: the floor reads masters across modules (a packer picks the die inside pack
  * with `bundles` on even when `dies` is off; platform spec §4). A direct `die.create` still needs
  * `dies`. Routers that land later register here (append-only): press, ageing, plans, dieRoom.
  */
@@ -40,8 +41,11 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   vendor: "purchase",
   // XE parity lane REG: the complaint register (reads call assertModule too, routers/complaint.ts).
   complaints: "complaints",
-  // XE ADM: tooling, receive inspections, die cost and category ride the die room module.
-  toolRoom: "dies",
+  // XE ADM (PROD-GATE): the plant masters and rules, and the tool room extras (tooling, receive
+  // inspections, die cost and category), are opt-in `masters_plus`; the register is `docs`.
+  masters: "masters_plus",
+  toolRoom: "masters_plus",
+  docs: "docs",
   // XE parity lane QA.
   qa: "qa",
   // XE-PRICE: price master, quotes, proforma, works order, enquiries (routers/pricing.ts).
@@ -63,6 +67,36 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
 export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "stock.move": "bundles",
   "stock.openingBalance": "bundles",
+  // XE REG (PROD-GATE): the office registers and the owner's morning page ride `reports`; opt-in `mis`.
+  "reports.rejections": "mis",
+  "reports.recuts": "mis",
+  "reports.wip": "mis",
+  "reports.planActual": "mis",
+  "reports.unpacked": "mis",
+  "reports.materials": "mis",
+  "reports.billetNeed": "mis",
+  "reports.morning": "mis",
+  // XE store buying (PROD-GATE): indents, purchase orders, rates and value ride `store`; opt-in `store_buy`.
+  "store.belowMinimum": "store_buy",
+  // XE FOUNDRY (PROD-GATE): the cast data sheet rides `foundry.casts`; opt-in `foundry_plus`.
+  "foundry.casts.dataSheet": "foundry_plus",
+};
+
+/**
+ * Nested routers of a gated router that belong to another module (`store.indents.*`). Checked after
+ * `PROCEDURE_MODULE` and before `ROUTER_MODULE`.
+ */
+export const SUBROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
+  "store.indents": "store_buy",
+  "store.po": "store_buy",
+  "store.valuation": "store_buy",
+  "store.settings": "store_buy",
+  "foundry.homog": "foundry_plus",
+  "foundry.logs": "foundry_plus",
+  "foundry.billets": "foundry_plus",
+  "foundry.rejects": "foundry_plus",
+  "foundry.chargeMix": "foundry_plus",
+  "foundry.castPlan": "foundry_plus",
 };
 
 /**
@@ -94,8 +128,23 @@ const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k)
 /** The module a procedure path (`die.create`, `orders.lines.add`) belongs to, or null (ungated). */
 export function moduleForPath(path: string): CompanyModule | null {
   if (own(PROCEDURE_MODULE, path)) return PROCEDURE_MODULE[path]!;
-  const top = path.split(".")[0] ?? "";
+  const parts = path.split(".");
+  const sub = parts.length > 2 ? `${parts[0]}.${parts[1]}` : "";
+  if (sub && own(SUBROUTER_MODULE, sub)) return SUBROUTER_MODULE[sub]!;
+  const top = parts[0] ?? "";
   return own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
+}
+
+/**
+ * Every module a path needs: its own (`moduleForPath`) and, when that came from `PROCEDURE_MODULE` or
+ * `SUBROUTER_MODULE`, the module of the router it sits in (`store.po.create` needs `store_buy` and `store`).
+ */
+export function modulesForPath(path: string): CompanyModule[] {
+  const own_ = moduleForPath(path);
+  if (!own_) return [];
+  const top = path.split(".")[0] ?? "";
+  const parent = own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
+  return parent && parent !== own_ ? [own_, parent] : [own_];
 }
 
 /** The company's module list as stored (empty = every module on). */

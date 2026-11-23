@@ -36,7 +36,7 @@ import {
   type StoreTxnRow,
 } from "@orrn/db/schema/store";
 import { storePo, storePoLine } from "@orrn/db/schema/storeBuy";
-import { maxReceivableMilli, poTakesDeliveries, rateFitsQty, STORE_MAX_RATE_PAISE } from "@orrn/domain";
+import { isModuleOn, maxReceivableMilli, poTakesDeliveries, rateFitsQty, STORE_MAX_RATE_PAISE } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import type { Context } from "../context";
@@ -44,6 +44,7 @@ import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
+import { companyModules } from "../lib/moduleGate";
 import { can } from "../lib/permissions";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -118,6 +119,27 @@ function overReceiptError(poNumber: string, line: number, roomMilli: number, uni
 function auditCtx(ctx: Ctx) {
   return { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation };
 }
+
+/**
+ * XE store buying (PROD-GATE): is the opt-in `store_buy` module on? Off, the store works as before XE: a GRN
+ * ignores an order line, a rate and a rejected quantity (and is kept unrated, like a GRN from before 0061),
+ * reorder levels are not saved, and the answers carry none of the buying keys.
+ */
+async function buyingOn(ctx: { db: OrrnDb; companyId: string }): Promise<boolean> {
+  return isModuleOn(await companyModules(ctx.db, ctx.companyId), "store_buy");
+}
+
+/** Rows without the given keys when `keep` is false (the XE key is absent, not null, for a plant without it). */
+function dropKeys<T extends object, K extends keyof T>(rows: T[], keys: readonly K[], keep: boolean): (Omit<T, K> & Partial<Pick<T, K>>)[] {
+  if (keep) return rows;
+  return rows.map((r) => {
+    const out = { ...r };
+    for (const k of keys) delete out[k];
+    return out;
+  });
+}
+const LEVEL_KEYS = ["minMilli", "reorderMilli"] as const;
+const BUY_TXN_KEYS = ["ratePaise", "ratePending", "valuePaise", "rejectedMilli", "poLineId", "poId", "poNumber"] as const;
 
 /** A live item whose quantities are valid for its unit. */
 async function usableItem(ctx: Ctx, id: string, qtys: number[]) {
@@ -194,7 +216,7 @@ const itemsRouter = router({
       .where(eq(storeItem.companyId, ctx.companyId))
       .orderBy(asc(storeItem.name))
       .limit(1000);
-    return { items };
+    return { items: dropKeys(items, LEVEL_KEYS, await buyingOn(ctx)) };
   }),
 
   create: itemEditor
@@ -248,7 +270,9 @@ const itemsRouter = router({
         reorderMilli: z.number().int().min(0).max(MAX_STORE_QTY_MILLI).nullable().optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: sent }) => {
+      // Reorder levels are XE store buying: not kept while `store_buy` is off.
+      const input = (await buyingOn(ctx)) ? sent : { ...sent, minMilli: undefined, reorderMilli: undefined };
       const existing = await loadStoreItem(ctx.db, ctx.companyId, input.id);
       const unitAfter = input.unit ?? existing.unit;
       const countable = (COUNTABLE_STORE_UNITS as readonly string[]).includes(unitAfter);
@@ -399,7 +423,11 @@ export const storeRouter = router({
         path: ["qtyMilli"],
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: sent }) => {
+      // XE store buying off: the order line, rate and rejected quantity are ignored, as before XE.
+      const buying = await buyingOn(ctx);
+      const input = buying ? sent : { ...sent, ratePaise: undefined, poLineId: undefined, rejectedMilli: undefined };
+      if (!buying && input.qtyMilli <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the quantity received" });
       const want = { kind: "grn", itemId: input.itemId, qtyMilli: input.qtyMilli } as const;
       const replay = (prior: StoreTxnRow) => {
         sameEntry(prior, want);
@@ -457,7 +485,7 @@ export const storeRouter = router({
         itemId: item.id, unit: item.unit, qtyMilli: input.qtyMilli, locationId: store.id,
         purpose: null, refId: null, grnRef: input.grnRef, exchangeId: null, note: input.note ?? null,
         clientRequestId: input.clientRequestId ?? null, userId, at, guardBalance: false,
-        ratePaise, ratePending: ratePaise === null, poLineId: poLine?.lineId ?? null, rejectedMilli: input.rejectedMilli ?? null,
+        ratePaise, ratePending: buying && ratePaise === null, poLineId: poLine?.lineId ?? null, rejectedMilli: input.rejectedMilli ?? null,
         and: poLine
           ? poLineReceiveGuard({ companyId: ctx.companyId, poLineId: poLine.lineId, itemId: item.id, qtyMilli: input.qtyMilli, toleranceBp })
           : undefined,
@@ -475,7 +503,7 @@ export const storeRouter = router({
               subjectId: id,
               meta: {
                 number: doc.number, itemId: item.id, qtyMilli: input.qtyMilli, grnRef: input.grnRef,
-                ratePaise, ratePending: ratePaise === null && input.qtyMilli > 0,
+                ratePaise, ratePending: buying && ratePaise === null && input.qtyMilli > 0,
                 poNumber: poLine?.poNumber ?? null, poLineId: poLine?.lineId ?? null,
                 rejectedMilli: input.rejectedMilli ?? null,
                 // The order's own rate, so a rate typed over it at the gate shows in the audit.
@@ -758,12 +786,8 @@ export const storeRouter = router({
       .where(eq(storeItem.companyId, ctx.companyId))
       .orderBy(asc(storeItem.name))
       .limit(1000);
-    return {
-      locationId,
-      items: rows
-        .map((r) => ({ ...r, balanceMilli: Number(r.balanceMilli) }))
-        .filter((r) => r.active || r.balanceMilli !== 0),
-    };
+    const items = rows.map((r) => ({ ...r, balanceMilli: Number(r.balanceMilli) })).filter((r) => r.active || r.balanceMilli !== 0);
+    return { locationId, items: dropKeys(items, LEVEL_KEYS, await buyingOn(ctx)) };
   }),
 
   /** Recent GRNs and MRSs (cancelled ones included, marked), newest first. */
@@ -822,6 +846,6 @@ export const storeRouter = router({
         )
         .orderBy(desc(storeTxn.createdAt), desc(storeTxn.serverSeq))
         .limit(input.limit);
-      return { items };
+      return { items: dropKeys(items, BUY_TXN_KEYS, await buyingOn(ctx)) };
     }),
 });

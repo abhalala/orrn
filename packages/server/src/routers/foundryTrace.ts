@@ -175,8 +175,9 @@ async function castChain(ctx: Ctx, castId: string) {
           .limit(1)
       : [];
   return {
-    cast: { id: c.id, number: c.number, legacyCode: c.legacyCode, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt, source: c.source },
-    boughtIn: receipt ? { ...receipt, hasMtc: Boolean(Number(receipt.hasMtc)) } : null,
+    cast: { id: c.id, number: c.number, legacyCode: c.legacyCode, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt, ...(c.source === "bought_in" ? { source: c.source } : {}) },
+    // XE FOUNDRY (opt-in `foundry_plus`): only a bought-in cast carries these keys, so a melted cast's trace is as before.
+    ...(receipt ? { boughtIn: { ...receipt, hasMtc: Boolean(Number(receipt.hasMtc)) } } : {}),
     melts: melts.map((m) => {
       // FINAL-FIXES-4 (FP-FD-11): the newest live result that has a file, so the trace can open it (`spectro.file`).
       const filed = spectro.find((s) => s.meltId === m.id && Number(s.hasFile) === 1);

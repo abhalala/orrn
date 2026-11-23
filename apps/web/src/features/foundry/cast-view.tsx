@@ -26,6 +26,7 @@ import { Figure, LoadFailed, Note, Panel, useTimeZone } from "./ui";
 import { clockText, dayText } from "./format";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { useModuleOn } from "@/shared/lib/modules";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 type MeltRow = CastData["melts"][number];
@@ -38,6 +39,7 @@ export type CastTab = "melts" | "trace";
  * and cancel actions for supervisors, the trace tree, and the charge cost for purchase readers.
  */
 export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTab; bundle?: string; onTab(tab: CastTab): void }) {
+  const plusOn = useModuleOn("foundry_plus");
   const { t } = useT();
   const fmt = useFmt();
   const query = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id }), meta: INLINE_ERROR_META });
@@ -95,11 +97,13 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
                 {t("foundry.cast.certificate")}
               </UiLink>
             </Button>
-            <Button asChild variant="secondary">
-              <UiLink to={`/casts/${c.id}/sheet`} data-testid="data-sheet-link">
-                {t("fdy2.sheet.link")}
-              </UiLink>
-            </Button>
+            {plusOn ? (
+              <Button asChild variant="secondary">
+                <UiLink to={`/casts/${c.id}/sheet`} data-testid="data-sheet-link">
+                  {t("fdy2.sheet.link")}
+                </UiLink>
+              </Button>
+            ) : null}
             <Can do="cast.close">
               {c.status === "open" ? (
                 <Button variant="secondary" onClick={() => setClosing(true)} disabled={block !== null} data-testid="close-cast">

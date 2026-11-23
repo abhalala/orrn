@@ -15,11 +15,14 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { BILLET_DOT_KEY, BILLET_DOT_TONE, billetDot, recoveryKey, totalIsShort, type BilletLineState } from "./plan-billets-model";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /** The billet need of a plan; one query shared by the card and the line chips. Off for a user who may not read it. */
 export function usePlanBillets(planId: string) {
   const { data: me } = useMe();
-  const allowed = canAny(me, ["order.plan", "reports.read"]);
+  // PROD-GATE: the billet need is part of the opt-in `mis` module.
+  const misOn = useModuleOn("mis");
+  const allowed = misOn && canAny(me, ["order.plan", "reports.read"]);
   return useQuery({
     ...trpc.reports.billetNeed.queryOptions({ planId }),
     enabled: allowed,
@@ -44,7 +47,7 @@ export function PlanLineReadiness({ row, alloy }: { row: BilletLineState; alloy:
   );
 }
 
-export function PlanBilletsCard({ planId }: { planId: string }) {
+function PlanBilletsCardInner({ planId }: { planId: string }) {
   const { t } = useT();
   const fmt = useFmt();
   const { data: me } = useMe();
@@ -117,4 +120,9 @@ export function PlanBilletsCard({ planId }: { planId: string }) {
       </div>
     </Card>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `mis` module on. */
+export function PlanBilletsCard(props: Parameters<typeof PlanBilletsCardInner>[0]) {
+  return useModuleOn("mis") ? <PlanBilletsCardInner {...props} /> : null;
 }

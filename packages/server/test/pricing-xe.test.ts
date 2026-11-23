@@ -16,7 +16,7 @@ import { confirmOrder, SLOW } from "./sales-fixture";
 
 let env: TestEnv;
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["pricing"] });
 }, 60_000);
 afterAll(async () => {
   await env.dispose();
@@ -30,7 +30,7 @@ const MOD_OFF = "That module is not on for this plant";
 async function plant(opts: { modules?: string[]; priceOnSalesOrder?: boolean } = {}) {
   setClockForTests(NOON);
   const { companyId, users } = await env.seedCompany({
-    modules: opts.modules ?? [],
+    modules: opts.modules ?? ["pricing"],
     settings: { timezone: "Asia/Kolkata", priceOnSalesOrder: opts.priceOnSalesOrder ?? true, defaultAlloy: "6063", defaultTemper: "T6" },
   });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
@@ -439,6 +439,23 @@ describe("proforma (row 11) and works order (row 12)", () => {
       await expect(other.office.pricing.proforma.get({ id: pi.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
       await expect(other.office.pricing.proforma.create({ source: "order", id: orderId })).rejects.toMatchObject({ code: "NOT_FOUND" });
       await expect(p.as("supervisor").pricing.proforma.create({ source: "order", id: orderId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    },
+    SLOW,
+  );
+
+  test(
+    "PROD-GATE: the plant's default bank (ADM getPlantBankForPrint) is frozen on the proforma",
+    async () => {
+      const p = await plant({ modules: ["pricing", "masters_plus"] });
+      await readyMaster(p);
+      await p.manager.masters.bank.create({ bankName: "State Bank of India", branch: "Udhna", accountName: "Fourcubes Aluminium Pvt Ltd", accountNo: "30123456789", ifsc: "SBIN0001234", note: null });
+      const orderId = await bookOrder(p, [{ sectionId: p.dieB, kg: 1000 }]);
+      await confirmOrder(p.owner, orderId);
+      const pi = await p.office.pricing.proforma.create({ source: "order", id: orderId });
+      expect(pi.snapshot.bank).toEqual({ bank: "State Bank of India, Udhna", accountName: "Fourcubes Aluminium Pvt Ltd", accountNo: "A/c 30123456789", ifsc: "IFSC SBIN0001234" });
+      // Frozen: a later change of the default never rewrites a proforma already made.
+      const again = await p.office.pricing.proforma.get({ id: pi.id });
+      expect((again.snapshot as { bank: unknown }).bank).toEqual(pi.snapshot.bank);
     },
     SLOW,
   );

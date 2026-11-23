@@ -225,7 +225,12 @@ function uniq(prefix: string) {
   return `${prefix}${Date.now().toString(36)}${seq.toString(36)}`;
 }
 
-export async function createTestEnv(): Promise<TestEnv> {
+/**
+ * `defaultModules`: the module list a plant gets when `seedCompany` is given none (default `[]`: every
+ * standard module, no opt-in one). XE test files name their opt-in keys here (PROD-GATE); core files
+ * keep `[]`, so they prove a plant without XE keys behaves as before.
+ */
+export async function createTestEnv(envOpts: { defaultModules?: readonly string[] } = {}): Promise<TestEnv> {
   const mf = new Miniflare({
     modules: true,
     script: "export default { fetch() { return new Response('ok'); } }",
@@ -263,7 +268,7 @@ export async function createTestEnv(): Promise<TestEnv> {
       name: `Test Co ${tag}`,
       slug: tag,
       status: "active",
-      modules: opts.modules ?? [],
+      modules: opts.modules ?? [...(envOpts.defaultModules ?? [])],
       settings: opts.settings ?? {},
     });
 

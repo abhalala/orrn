@@ -386,3 +386,15 @@ export type PlantDocumentKind = (typeof PLANT_DOCUMENT_KINDS)[number];
 export function documentReviewDue(reviewOn: string | null | undefined, today: string): boolean {
   return Boolean(reviewOn && reviewOn <= today);
 }
+
+/** The plant bank account a printed paper shows (XE ADM `getPlantBankForPrint`, wired by PROD-GATE). */
+export type BankForPrint = { bankName: string; branch: string | null; accountName: string; accountNo: string; ifsc: string };
+
+/**
+ * The bank lines a printed paper carries, in print order: bank and branch, account name, account number,
+ * IFSC. Papers are English (the proforma and the tax invoice), so the two labels are fixed text.
+ */
+export function bankPrintParts(b: BankForPrint): string[] {
+  const head = [b.bankName.trim(), b.branch?.trim() ?? ""].filter(Boolean).join(", ");
+  return [head, b.accountName.trim(), `A/c ${b.accountNo.trim()}`, `IFSC ${b.ifsc.trim()}`].filter((x) => x && x !== "A/c " && x !== "IFSC ");
+}

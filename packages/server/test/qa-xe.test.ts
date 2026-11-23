@@ -25,7 +25,7 @@ setDefaultTimeout(60_000);
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["qa"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
 }, 60_000);
 afterEach(() => setClock(null));
@@ -485,8 +485,8 @@ describe("settings and the module gate", () => {
     await env.db.update(company).set({ modules: ["dies"] }).where(eq(company.id, p.companyId));
     await expect(p.as("admin").qa.settings.update({ requireLotInspection: true })).rejects.toMatchObject({ message: MODULE_OFF });
     await expect(p.as("manager").qa.tempers.save({ code: "T5" })).rejects.toMatchObject({ message: MODULE_OFF });
-    // Reads stay open, like every module.
-    expect((await p.as("viewer").qa.settings.get()).moduleOn).toBe(false);
+    // PROD-GATE: `qa` is opt-in, and an opt-in module's reads are refused too while it is off.
+    await expect(p.as("viewer").qa.settings.get()).rejects.toMatchObject({ message: MODULE_OFF });
     expect(bundle).toBeDefined();
   });
 });

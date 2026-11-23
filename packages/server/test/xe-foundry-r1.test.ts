@@ -16,7 +16,7 @@ setDefaultTimeout(90_000);
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["foundry_plus"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
 }, 60_000);
 afterEach(() => setClock(null));
@@ -232,7 +232,8 @@ describe("should-fix 3: a short press floor and a melt cancel after cuts", () =>
     await floor(p);
     await p.as("foundry").foundry.billets.issue({ castId: r.castId, pressLineId: p.pressLineId, fromLocationId: p.billetStoreId, pcs: 2, kgG: kg(400) });
     const run = await closeWorked(p, r.castId);
-    expect((await p.as("supervisor").press.runs.preview({ id: run.runId })).floorShort).toEqual([]);
+    // PROD-GATE: nothing short means no `floorShort` key at all (as for a plant without press floors).
+    expect("floorShort" in (await p.as("supervisor").press.runs.preview({ id: run.runId }))).toBe(false);
   });
 });
 

@@ -719,9 +719,15 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `store_txn` gains `rate_paise` (nullable), `value_paise` and `rated_milli` (not null, default 0),
   `rate_pending` (boolean, default false), `po_line_id`, `rejected_milli`.
   Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
-- Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
+- Routers nest under `store`: `store.indents` (`routers/storeIndent.ts`),
   `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
   (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
+- Module (PROD-GATE): store buying is the opt-in `store_buy` (`SUBROUTER_MODULE` and `PROCEDURE_MODULE` in
+  `lib/moduleGate.ts`), reads and writes; its writes also need `store` (`modulesForPath`). With it off, `store.receive` ignores `poLineId`, `ratePaise` and
+  `rejectedMilli` and keeps the GRN unrated and not pending (like a GRN from before 0061; `qtyMilli` 0 is
+  refused), `store.items.update` ignores the levels, and `store.items.list`, `store.balances` and
+  `store.txns` leave out the level and buying keys. Web: `useBuyAccess`, the Buying nav entry, the Today
+  low-stock tile, reorder levels on the item page, the GRN buying fields and the entry facts follow it.
 - Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
   admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
   (office, manager, admin, accountant), `store.rate` (office, manager, admin, accountant: the rate is
@@ -788,7 +794,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
   rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
   line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`
-  (store.txn, store module on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+  (store.txn, `store_buy` on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
 
 ## Foundry (casts, melts, spectro, close-out)
 
@@ -930,7 +936,14 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ## Foundry depth (XE parity lane FOUNDRY, rows 41-47 and 50; migration 0063)
 
-Rides the `foundry` module (no new module key; ROUTER_MODULE `foundry` gates every mutation). Tables in
+Module (PROD-GATE): the opt-in `foundry_plus` (`SUBROUTER_MODULE` `foundry.homog|logs|billets|rejects|chargeMix|castPlan`,
+`PROCEDURE_MODULE` `foundry.casts.dataSheet`), reads and writes; writes also need `foundry`. With it off: no `billet_rack` /
+`press_floor` location (`stock.locations.create|update` refuse them, `list` leaves out `pressLineId`), no homogenizing furnace
+(`furnaces.list` leaves out `kind`), `company.updateSettings({ foundry })` refused, no `log_reject` / `billet_reject` default
+reason codes (`lib/reasonCodes.ts` adds them once the plant names the module), `press.runs.preview|close` carry `floorShort`
+only when a floor is short and `foundry.trace` carries `boughtIn` / `cast.source` only for a bought-in cast. Web: the Casts
+page buttons, the data sheet link, the furnace kind, the charge-mix panel, the foundry settings card and the rack and floor
+location kinds follow `useModuleOn("foundry_plus")`. Tables in
 `packages/db/src/schema/foundryDepth.ts`, routers `routers/foundryDepth.ts` (`foundry.homog`, `foundry.logs`,
 `foundry.billets`, `foundry.rejects`) and `routers/foundryPlan.ts` (`foundry.chargeMix`, `foundry.casts.dataSheet`),
 shared SQL in `lib/foundryDepth.ts`, pure rules in `@orrn/domain` `foundryDepth.ts`. Actions (append-only in
@@ -1025,14 +1038,14 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 
 ## Maintenance (XE parity lane MAINT, rows 63 to 68)
 
-- Module key `maintenance` (`ROUTER_MODULE.maint`), router `maint`, migration `0062_xe_maint`, namespace `maint` (en + hi; gu has only `nav.maintenance` in `gu-more/maint.ts`). Pure rules in `@orrn/domain` `maintenance.ts` (`maintWoNext`, `pmDue`, `readingFlag`, `reliability`, `labourPaise`, `monthRange`).
+- Module key `maintenance` (opt-in, PROD-GATE; `ROUTER_MODULE.maint`), router `maint`, migration `0062_xe_maint`, namespace `maint` (en + hi; gu has only `nav.maintenance` in `gu-more/maint.ts`). Pure rules in `@orrn/domain` `maintenance.ts` (`maintWoNext`, `pmDue`, `readingFlag`, `reliability`, `labourPaise`, `monthRange`).
 - Tables (`schema/maintenance.ts`): `maint_asset` (code unique per plant, case-insensitive; optional link `link_kind` press | furnace | oven + `link_id` to the existing master, one asset per master; never a copy of the master), `maint_plan` (days and/or run hours, `base_at` is when the plan last counted from), `maint_work_order` (kind breakdown | preventive | condition; a work order from an out-of-limit reading is `condition`, never a breakdown. `WO-n` per financial year, doc type `maint_wo`, reserved inside the insert batch with `docNumberInBatch` so a lost race leaves no gap; one not-cancelled work order per downtime entry and per reading, and one live per plan, all partial unique indexes, so a second tap returns the first with `replayed: true`; a cancelled one frees its source and clears the reading's `work_order_id`), `maint_wo_spare` (MAINT's own link to `store_txn`, one work order per store entry; `store.ts` is never edited), `maint_reading_kind` (limits in thousandths), `maint_reading` (limits snapshot + flag; `source` hand | device), `maint_setting` (labour rate, paise per hour).
 - Actions: `maint.view` (admin, manager, supervisor, office, storekeeper, operator, press, foundry), `maint.manage` (admin, manager, supervisor: register, plans, limits, labour rate, money on the report), `maint.workorder` (admin, manager, supervisor, operator, press, foundry: raise, edit, move, link spares, take readings). Reads call `assertModule(ctx, "maintenance")` themselves; `<Can>` knows nothing of modules, so a query on a shared screen (Today, the press station) is enabled only through `maintReady(me, actions)` in `features/maintenance/model.ts`.
 - Run hours are real, from `base_at` (`lib/maintenance.ts planUsageMinutes`): press runs (not void) minus each run's cuts, furnace melts (`locked`, preheat or charging start to casting end), ageing batches (in to out, not void). A press run's cuts are its downtime entries and its stop-to-resume pauses, each clipped to the run's own span (a downtime logged after the run stopped takes nothing off) and merged so overlaps count once (`mergedMinutes`). There is no pause table: a pause runs from the run's latest `press_run.stop` audit row to each `press_run.resume` audit row (server times, the same clock as `stopped_at`); a resume with no stop row before it takes nothing off, so a plan can only come due earlier. The press queries (`pressUsageSql`) fix their join order by hand because prod D1 has no ANALYZE stats: `maint_plan CROSS JOIN maint_asset CROSS JOIN press_run CROSS JOIN` downtime or audit_log; press_run is read as a range on `press_run_company_line_end_idx` with `coalesce(r.stopped_at, 9007199254740991) > +p.base_at` (the `+` drops affinity, or SQLite skips the expression index), audit_log per run on `audit_subject_idx` with `+` on `at`; a test pins the plans with EXPLAIN QUERY PLAN. Due days are plant calendar days in the company timezone (`pmDue` with `dayOf`: the base's plant day plus the interval, so a clock change never moves it): due today on the due day, overdue from the next plant day; run hours left round up while time is left. An hours plan needs a linked asset whose kind matches the link (press asset to a press, and so on); while an active one exists the link cannot be removed or pointed at another master (no carry-over of hours). Write-time guards (`batchAbortUnlessOn`, refused with no audit row): the asset update re-checks for an active hours plan, an hours plan create/update re-checks the asset still has the link it was checked against, a unit change re-checks for readings, `readings.record` lands only while its kind is still on with the same unit and limits (else `kindOff` or `READING_KIND_CHANGED`), and `spares.link`/`unlink` only while the work order is not cancelled. `plans.due` and `plansDue` have no row cap; `assets.get` takes due figures from the plan rows it returns (`dueOfPlan`). `assets.list` returns at most 500 (`ASSET_LIST_CAP`) and takes `q` (code or name contains, server side). `addFromMasters` leaves out masters already linked before its limit. Asset dates and a plan's `startOn` must be real calendar days. A preventive work order marked done resets its plan's `base_at` in the same batch, guarded on the move landing; editing the finish time of the plan's last done work order moves `base_at` too (the audit row says `planReset` only when the plan really moved). A move to in progress or done refuses effective times that run backwards (start after finish). Start and finish times may not be in the future (5 minutes of clock skew allowed); a done work order cannot clear them. `plans.update` carries `serverSeq`; switching a plan back on restarts `base_at` from now and clears `last_work_order_id`. A reading kind's unit is fixed once it has readings. Status moves only through `maintWoNext`; done needs the work done, cancel a reason; every edit carries `serverSeq` (CONFLICT, no audit row, on a stale save).
 - Spares: the work order screen issues through the existing `store.issue` (purpose `maintenance`, `refId` = work order id, its own `clientRequestId`) and then calls `maint.spares.link`. A storekeeper holds `store.txn` but not `maint.workorder`, so maintenance links it later from the candidates list. A cancelled store entry stays linked and shows as cancelled. Spares value is not counted yet (`valuePaise` null, `TODO(xe-store2)` until `storeIssueValuePaise` exists); the report shows quantity and entries only.
 - Report (`maint.reports.summary`, months bucketed on the plant clock, at most 12): a breakdown is one event, either a press downtime entry with reason `breakdown` on a linked press or a breakdown work order not made from one (never both); condition work orders are not breakdowns. Only closed breakdowns count (downtime stopped, work order done); open ones are listed per asset as `stillOpen` with their age and left out of every figure, their labour and spares entries too (a breakdown work order counts its labour and spares once done and, when made from a downtime entry, once that entry is stopped). Overlapping breakdowns are down time once (`reliability` merges the clipped spans). A breakdown counts wholly in the month it started (failures, MTTR = full repair length / failures); each month's downtime is clipped to the month; MTBF = (minutes in the month minus that downtime) / failures. Each source, the asset list too, reads at most 5,000 rows; past that `truncated` is true and the screen asks for fewer months. Labour cost only for `maint.manage`.
 - Device readings (row 68) are built, not live: `lib/maintDevice.ts` fixes the message shape and the pure mapping; no route writes `source: "device"` yet.
-- Web (`features/maintenance`): `/maintenance` (due plans, open work orders, breakdowns without a work order, readings outside limits), `/maintenance/assets`, `/maintenance/assets/$id` (details, plans, readings, history, spares), `/maintenance/work-orders` (`?status=&asset=`), `/maintenance/work-orders/$id` (moves, edit, spares), `/maintenance/report`. Today's tile (`today-tile.tsx`) and the press station's "Make work order" on a breakdown downtime entry (`station-breakdown.tsx`, online only, never in the outbox). Both show only once the plant has at least one maintenance asset (`maint.today` returns null and `workOrders.breakdowns` returns `hasAssets: false` while the register is empty), so a plant on the default "empty list = every module on" sees nothing new until someone sets maintenance up. Selects and text areas inside a `Field` use `field-controls.tsx` so the label is tied to the control. The demo reseed deletes every maintenance row before `doc_series`, or the next work order reuses WO-1. Spec `maintenance.spec.ts`, group A.
+- Web (`features/maintenance`): `/maintenance` (due plans, open work orders, breakdowns without a work order, readings outside limits), `/maintenance/assets`, `/maintenance/assets/$id` (details, plans, readings, history, spares), `/maintenance/work-orders` (`?status=&asset=`), `/maintenance/work-orders/$id` (moves, edit, spares), `/maintenance/report`. Today's tile (`today-tile.tsx`) and the press station's "Make work order" on a breakdown downtime entry (`station-breakdown.tsx`, online only, never in the outbox). Both show only once the plant has at least one maintenance asset (`maint.today` returns null and `workOrders.breakdowns` returns `hasAssets: false` while the register is empty), so a plant that names `maintenance` sees nothing new until someone sets it up. The key is opt-in (PROD-GATE): a plant on `[]` or on the standard list has no maintenance at all. Selects and text areas inside a `Field` use `field-controls.tsx` so the label is tied to the control. The demo reseed deletes every maintenance row before `doc_series`, or the next work order reuses WO-1. Spec `maintenance.spec.ts`, group A.
 
 # 10. Pack, stock and dispatch
 
@@ -1441,8 +1454,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
   you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
   inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
-- **Opt-in modules (XE CONTRACTS).** `OPT_IN_MODULES` (`billing`, `einvoice`, `payroll`, `costing`) are on only when
-  named: `[]` still means every STANDARD module on, but no opt-in one. A list that names only opt-in keys
+- **Opt-in modules (XE CONTRACTS; PROD-GATE).** Every key of `OPT_IN_MODULES` is on only when named:
+  `[]` still means every STANDARD module on, but no opt-in one. See "XE modules are opt-in" below. A list that names only opt-in keys
   keeps every standard module on (`isModuleOn` in `@orrn/domain` is the one rule; web nav, settings and
   Godseye all call it). Opt-in routers also gate their READS (`lib/billing/gate.ts`), since they carry money.
   Clients get the EFFECTIVE list (`effectiveModules`: every module that is on, spelled out) from `auth.me` and
@@ -1609,7 +1622,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   - `numberFormats` and `approvalRules`, described below.
   - `people.assign`: `membership.department_id` and `designation_id`, under `users.manage`.
   - `packing.setForLine` and `packing.setForDispatch`.
-- Permission prefixes are `masters.*`, `docs.manage`, `approvalRule.manage` and `refFormat.manage`. The last two are admin and owner only. Rows of kind `die_category` and the router `toolRoom` ride the `dies` module. There is no new module key.
+- Permission prefixes are `masters.*`, `docs.manage`, `approvalRule.manage` and `refFormat.manage`. The last two are admin and owner only. Module keys (PROD-GATE): the routers `masters` and `toolRoom` are the opt-in `masters_plus`, `docs` is the opt-in `docs`; rows of kind `die_category` also need `dies`. With `masters_plus` off, stored `approvalRules` and `docFormats` are ignored (built-in approvers, numbers as before), the PL header carries no `packingMode` / `transitInsurance` keys and `dashboard.today` has no `toolingShort` key.
 - **Printed papers read the plant from `lib/plantPrint.ts`, never the tables directly.**
   - `getPlantBankForPrint(db: OrrnDb, companyId: string): Promise<{ bankName, branch, accountName, accountNo, ifsc } | null>` returns the live default account. It returns null when no default is set.
   - `plantPlExtras` gives the packing list its mode of packing and its transit insurance, and both go into the PL snapshot header. The mode is the dispatch's own if it has one; otherwise it is the distinct modes of its order lines. The insurance appears only when `printOnPl` is set and the PL date falls inside the policy dates.
@@ -1628,6 +1641,36 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   - Minimum stock lives in `settings.toolingMinStock`. Shortfalls appear on `dashboard.today.toolingShort`.
 - **Documents (#80).** `plant_document` is the register (`routers/plantDocs.ts`, router `docs`). Its files reuse the die upload ticket with `sectionId "_docs"`, and its R2 keys are `{companyId}/dies/_docs/{fileId}`. The die file purge keeps any key a document references.
 - The buddy registry denies `masters`, `toolRoom` and `docs` until they have been reviewed. The tests are `xe-adm-masters`, `xe-adm-formats-approvals` and `xe-adm-toolroom-docs` in `packages/server/test`, plus `packages/domain/src/admin.test.ts`.
+
+# 12a. XE modules are opt-in (PROD-GATE, owner rule 2026-11-23)
+
+- XE code ships to prod, but every XE module is OFF for a real plant (the Fourcubes tenant included) until
+  the owner ticks it per plant in Godseye (Plan and modules, "Extra modules"). Dev's demo plant names every
+  key (`apps/server/src/dev-seed.ts` writes `[...COMPANY_MODULES]` to the demo company only). No migration
+  or seed may change a real tenant's `company.modules`.
+- `STANDARD_MODULES` is the pinned list of the ten pre-XE keys. Every other key in `COMPANY_MODULES` is
+  opt-in and must be in `OPT_IN_MODULES` (`packages/domain/src/settings.test.ts` fails otherwise). Keys today:
+  `complaints`, `qa`, `pricing`, `billing`, `einvoice`, `masters_plus` (plant lists, bank, insurance, number
+  formats, approver rules, packing mode, people's department and designation, tool room extras), `docs`
+  (document register), `mis` (office registers, owner page and mail, billet need, recut reason, portal order
+  progress), `maintenance` (assets, preventive plans, work orders, spares, readings; MAINT), `store_buy` (indents, store purchase orders, GRN against an order, store rates and value,
+  reorder levels), `foundry_plus` (homogenizing, bought-in logs, billet racks and press floors, cuts, issues, reject
+  registers, charge mix, typical chemistry, casting plan, cast data sheet). `costing` (cost per kg, margins, press load, forecast, dies due; COST). Reserved for open lanes (opt-in when
+  they join `COMPANY_MODULES`): `payroll`, `jobwork`.
+- Server: `companyProcedure` asserts an opt-in module on READS as well as writes (`ROUTER_MODULE` /
+  `PROCEDURE_MODULE`); `portalProcedure` paths call `assertModule` themselves. A feature that rides a core
+  router or answer (a key in `orders.get`, the PL header, `dashboard.today`, `portal.*`) adds its key only
+  when its module is on, so a plant without it gets the pre-XE shape. The buddy hides paths of a module that
+  is off (`lib/buddy/mcp.ts` `hiddenByModule`).
+- Web: XE cards, columns and queries on core screens render through `useModuleOn` (`shared/lib/modules.ts`)
+  and ask nothing while off; nav entries carry `module`; Masters entries carry `module`; Settings > Modules
+  lists an opt-in module only when it is on.
+- Tests: the server harness's `createTestEnv({ defaultModules })` names an XE file's keys; core files keep
+  `[]`. `packages/server/test/prod-gate.test.ts` and `apps/web/src/shell/prod-gate.test.ts` prove a plant on
+  `[]` or on the standard list sees no XE procedure, key, row, nav entry, tile or portal entry.
+- A new XE lane: add its key to `COMPANY_MODULES` and `OPT_IN_MODULES`, register its router, gate every
+  surface on a core screen, and add its names to `admin.plan.moduleNames|moduleHints` and
+  `plantSettings.modules.names` (en, hi).
 
 # 12b. Billing (XE-BILL)
 
@@ -1717,6 +1760,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Material reconciliation: in and out are document postings (pack, dispatch, purchase, melt, press, pack rejects); the gap holds corrections (opening balances, cast tails, bundle void and restore, unnetted moves). Every `LedgerVoucherType` must have a row in `VOUCHER_ROLE`, typed so a new voucher type fails the type check.
 - `recut_reason` on `bundle` is kept only when the bundle is shorter than its trolley line (`bundle.createReceipt` row field `recutReason`).
 - `portal.orders.get` lines carry `progress` (kg per stage and the headline stage) from `lineWip`; no plan or run ids reach the party.
+- **Opt-in `mis` (PROD-GATE)**: the registers (`reports.rejections|recuts|wip|planActual|unpacked|materials|billetNeed|morning`, `PROCEDURE_MODULE`), the owner page, the morning mail (setting refused, cron skips the plant), the recut reason on pack (not kept) and `portal.orders.get` `progress` (key absent) all need `mis`.
 - **Owner page and morning mail**: `reports.morning` and `/owner` need `mis.view` (admin; the owner holds every action). `settings.morningSummary {enabled, hour}` (off by default, 07:00 plant time) is saved through `company.updateSettings`. The worker has a second cron, `5 * * * *`; `scheduled` in `apps/server/src/index.ts` branches on `controller.cron` and calls `runMorningSummaries` (`lib/morningSummary.ts`). It claims the plant-local day with an audit row whose id is `morning-summary:<company>:<date>` (action `mis.morning.sent`) before sending, so a plant gets at most one mail a day; one plant failing never stops the others. Tests inject the sender; never call `sendEmail` from a test. The two cron strings in `alchemy.run.ts` and `HOURLY_CRON` in `index.ts` must match.
 
 ## Customer portal (FP-PF-01..04, W3)

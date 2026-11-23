@@ -7,17 +7,19 @@ const me = (role: string, modules: string[] = []) =>
   ({ isPlatformAdmin: false, platformRole: null, company: { role, modules } }) as unknown as Parameters<typeof maintReady>[0];
 
 describe("maintenance gate", () => {
-  test("empty module list means every module is on", () => {
-    expect(maintenanceOn(me("operator"))).toBe(true);
+  test("maintenance is opt-in (PROD-GATE): off on an empty list, on only when named", () => {
+    expect(maintenanceOn(me("operator"))).toBe(false);
     expect(maintenanceOn(me("operator", ["press", "maintenance"]))).toBe(true);
     expect(maintenanceOn(me("operator", ["press"]))).toBe(false);
   });
   test("maintReady needs the action and the module", () => {
-    expect(maintReady(me("operator"), ["maint.workorder"])).toBe(true);
+    const on = ["maintenance"];
+    expect(maintReady(me("operator"), ["maint.workorder"])).toBe(false);
+    expect(maintReady(me("operator", on), ["maint.workorder"])).toBe(true);
     expect(maintReady(me("operator", ["press"]), ["maint.workorder"])).toBe(false);
-    expect(maintReady(me("storekeeper"), ["maint.workorder", "maint.manage"])).toBe(false);
-    expect(maintReady(me("storekeeper"), ["maint.view"])).toBe(true);
-    expect(maintReady(me("accountant"), ["maint.view"])).toBe(false);
+    expect(maintReady(me("storekeeper", on), ["maint.workorder", "maint.manage"])).toBe(false);
+    expect(maintReady(me("storekeeper", on), ["maint.view"])).toBe(true);
+    expect(maintReady(me("accountant", on), ["maint.view"])).toBe(false);
     expect(maintReady(null, ["maint.view"])).toBe(false);
   });
 });

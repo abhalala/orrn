@@ -42,6 +42,7 @@ import { can } from "../lib/permissions";
 import { loadPricingRows, masterReady, priceLines, pricingCompany, pricingToday } from "../lib/pricing";
 import { assertOrderPrice, bad, MASTER_NOT_READY, notFound, pricingOn, sectionInfo, ymd } from "../lib/pricingKit";
 import { nextCompanySeq } from "../lib/sequence";
+import { getPlantBankForPrint, proformaBank } from "../lib/plantPrint";
 import { createSalesOrder } from "./salesOrder";
 
 const id = z.string().min(1).max(64);
@@ -523,8 +524,8 @@ export const pricingDocsProcedures = {
           }),
           charges: src.charges,
           totals,
-          // TODO(xe-adm): read the plant's default bank through getPlantBankForPrint(companyId) once ADM merges.
-          bank: null,
+          // XE ADM contract 4: the plant's default live bank account, frozen with the proforma (null: "not set").
+          bank: proformaBank(await getPlantBankForPrint(ctx.db, ctx.companyId)),
         };
         const pid = crypto.randomUUID();
         await atomicBatch(ctx.db, [

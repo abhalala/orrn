@@ -18,7 +18,7 @@ let setClock: (at: Date | null) => void;
 let storeIssueValuePaise: typeof import("../src/lib/storeValue").storeIssueValuePaise;
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["store_buy"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
   storeIssueValuePaise = (await import("../src/lib/storeValue")).storeIssueValuePaise;
 });
@@ -490,12 +490,20 @@ describe("valuation (row 73)", () => {
 });
 
 describe("module gate", () => {
-  test("with store off, indent and PO writes are refused", async () => {
+  test("with store buying (`store_buy`) not named, indent and PO writes are refused", async () => {
     const { companyId } = await env.seedCompany({ modules: ["bundles"] });
     const manager = env.caller({ role: "manager", companyId });
     await expect(manager.store.indents.create({ department: "X", lines: [{ itemId: "x", qtyMilli: U }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(manager.store.po.cancel({ id: "x", reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await env.db.select().from(storeIndent).where(eq(storeIndent.companyId, companyId))).toHaveLength(0);
     expect(await env.db.select().from(storePo).where(eq(storePo.companyId, companyId))).toHaveLength(0);
+  });
+
+  test("store buying named but the store off: buying writes are refused too (they need both keys)", async () => {
+    const { companyId } = await env.seedCompany({ modules: ["bundles", "store_buy"] });
+    const manager = env.caller({ role: "manager", companyId });
+    await expect(manager.store.indents.create({ department: "X", lines: [{ itemId: "x", qtyMilli: U }] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(manager.store.po.cancel({ id: "x", reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await env.db.select().from(storeIndent).where(eq(storeIndent.companyId, companyId))).toHaveLength(0);
   });
 });

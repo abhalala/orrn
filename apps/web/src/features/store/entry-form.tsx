@@ -35,6 +35,7 @@ import { useFmt } from "@/shared/lib/fmt";
 import { GrnBuyFields, useOpenPoLines } from "@/features/store-buy/grn-fields";
 import { EMPTY_GRN_BUY, grnBuyInput, grnHeldByGoneLine, grnHeldByLookup, parseAcceptedMilli, poLineGone, type GrnBuyDraft } from "@/features/store-buy/grn-model";
 import { buyErrorText } from "@/features/store-buy/buy-errors";
+import { useModuleOn } from "@/shared/lib/modules";
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
@@ -231,7 +232,8 @@ function EntryFormBody({
   const buyParsed = grnBuyInput(buy, unit, canRate);
   const rejectedForQty = buyParsed.ok ? buyParsed.rejectedMilli : null;
   // The same query the buying fields read: a picked order line that is no longer open blocks the submit.
-  const openLines = useOpenPoLines(mode === "receive" ? (item?.id ?? null) : null);
+  const buyingOn = useModuleOn("store_buy");
+  const openLines = useOpenPoLines(mode === "receive" && buyingOn ? (item?.id ?? null) : null);
   const lineGone = mode === "receive" && poLineGone(openLines.data, buy.poLineId);
 
   // What is wrong with each field right now (shown once touched or after a submit attempt).
@@ -683,7 +685,7 @@ function EntryFormBody({
             </Field>
           ) : null}
 
-          {mode === "receive" ? (
+          {mode === "receive" && buyingOn ? (
             <GrnBuyFields
               itemId={item?.id ?? null}
               unit={unit}

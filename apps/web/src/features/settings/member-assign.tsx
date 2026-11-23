@@ -7,6 +7,7 @@ import { Can } from "@/shared/components/can";
 import { MasterPicker, type MasterKind } from "@/shared/components/master-picker";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { useModuleOn } from "@/shared/lib/modules";
 
 type Assignable = { id: string; departmentId?: string | null; designationId?: string | null };
 
@@ -22,7 +23,7 @@ function MasterName({ kind, id }: { kind: MasterKind; id: string | null | undefi
  * Department and designation of one member (`masters.people.assign`, `users.manage`). Both ids go in
  * every save, so changing one keeps the other. People without `users.manage` read the names.
  */
-export function MemberAssign({ member, name }: { member: Assignable; name: string }) {
+function MemberAssignInner({ member, name }: { member: Assignable; name: string }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const assign = useMutation({
@@ -61,4 +62,9 @@ export function MemberAssign({ member, name }: { member: Assignable; name: strin
       </div>
     </Can>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function MemberAssign(props: Parameters<typeof MemberAssignInner>[0]) {
+  return useModuleOn("masters_plus") ? <MemberAssignInner {...props} /> : null;
 }

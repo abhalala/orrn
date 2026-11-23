@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   castRequiredOnBundle,
+  isModuleOn,
   normalizeSerial,
   readFloorSettings,
   resolveStandard,
@@ -38,6 +39,7 @@ import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { assertFirstPiece } from "../lib/qa";
+import { companyModules } from "../lib/moduleGate";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
@@ -632,6 +634,8 @@ export const bundleRouter = router({
 
       // XE QA (row 24): with the plant setting on, packing waits for the run's first piece to pass.
       await assertFirstPiece(ctx.db, ctx.companyId, { sectionId: input.dieId, dieInstanceId: chosenCopyId, ageingRowId: input.ageingRowId ?? null });
+      // XE REG #31 (PROD-GATE): the recut reason is kept only with the opt-in `mis` module on.
+      const keepRecutReason = isModuleOn(await companyModules(ctx.db, ctx.companyId), "mis");
 
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {
@@ -736,7 +740,7 @@ export const bundleRouter = router({
         packedSalesOrderLineId: salesOrderLineId,
         partyNo: partyNos[idx]!,
         recut: Boolean(ageingRow && row.lengthMm < ageingRow.lengthMm),
-        recutReason: ageingRow && row.lengthMm < ageingRow.lengthMm ? row.recutReason || null : null,
+        recutReason: keepRecutReason && ageingRow && row.lengthMm < ageingRow.lengthMm ? row.recutReason || null : null,
         weightSource: weights[idx]!.weightSource,
         weightOverrideReason: weights[idx]!.weightOverrideReason,
         scaleReadingG: weights[idx]!.scaleReadingG,

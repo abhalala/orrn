@@ -1939,7 +1939,8 @@ export async function orderDetailExtras(
   db: OrrnDb,
   companyId: string,
   order: { id: string; poNumber: string | null; status: string },
-  opts: { showRates: boolean },
+  /** `pricingOn`: the opt-in `pricing` module (PROD-GATE); without it lines carry no `priceBreakup` key. */
+  opts: { showRates: boolean; pricingOn?: boolean },
 ) {
   const lines = await orderLines(db, companyId, order.id);
   const strips = await lineStrips(db, companyId, lines.map((l) => l.id));
@@ -1972,7 +1973,8 @@ export async function orderDetailExtras(
       basisNote: l.basisNote,
       alloy: l.alloy,
       temper: l.temper,
-      ...(opts.showRates ? { ratePaise: l.ratePaise, priceBreakup: (l.priceBreakup ?? null) as PriceBreakup | null } : {}),
+      ...(opts.showRates ? { ratePaise: l.ratePaise } : {}),
+      ...(opts.showRates && opts.pricingOn ? { priceBreakup: (l.priceBreakup ?? null) as PriceBreakup | null } : {}),
       strip: strips.get(l.id)!,
     })),
   };

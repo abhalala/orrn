@@ -21,6 +21,7 @@ import { CAST_STATUSES, CAST_TONE, castPeriodText, legacyQuery, parseCastsSearch
 import { ErrorLine, LoadFailed, Note } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { useModuleOn } from "@/shared/lib/modules";
 
 type CastRow = inferRouterOutputs<AppRouter>["foundry"]["casts"]["list"]["items"][number];
 
@@ -32,6 +33,8 @@ export const CASTS_PAGE = 25;
  * number to the cast it came from.
  */
 export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearch(next: CastsSearch): void }) {
+  // XE FOUNDRY pages are the opt-in `foundry_plus` (PROD-GATE).
+  const plusOn = useModuleOn("foundry_plus");
   const fmt = useFmt();
   const { t } = useT();
   const when = useCompanyWhen();
@@ -65,6 +68,8 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
           <Button asChild variant="secondary">
             <UiLink to="/foundry/stock">{t("foundry.stock.title")}</UiLink>
           </Button>
+          {plusOn ? (
+          <>
           <Button asChild variant="secondary">
             <UiLink to="/foundry/homog">{t("fdy2.nav.homog")}</UiLink>
           </Button>
@@ -83,6 +88,8 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
           <Button asChild variant="secondary">
             <UiLink to="/foundry/plan">{t("fdy2.plan.nav")}</UiLink>
           </Button>
+          </>
+          ) : null}
         </div>
       }
     />

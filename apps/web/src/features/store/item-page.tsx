@@ -18,6 +18,7 @@ import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-
 import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreEntries, useStoreItems } from "./use-store";
 import { useFmt } from "@/shared/lib/fmt";
 import { ReorderLevels } from "@/features/store-buy/levels";
+import { useModuleOn } from "@/shared/lib/modules";
 
 const ACTION_ROUTES = {
   issue: "/store/issue",
@@ -33,6 +34,7 @@ export function StoreItemPage({ id }: { id: string }) {
   const { t } = useT();
   const fmt = useFmt();
   const access = useStoreAccess();
+  const buyingOn = useModuleOn("store_buy");
   const items = useStoreItems(access.canRead);
   const balances = useStoreBalances(access.canRead);
   // Same key as the entries list below (20 rows): any entry, cancelled too, locks the unit (store.items.update).
@@ -146,7 +148,9 @@ export function StoreItemPage({ id }: { id: string }) {
         </Can>
       ) : null}
 
-      <ReorderLevels item={item} />
+      {buyingOn && item.minMilli !== undefined && item.reorderMilli !== undefined ? (
+        <ReorderLevels item={{ ...item, minMilli: item.minMilli, reorderMilli: item.reorderMilli }} />
+      ) : null}
 
       <StoreSection id="store-item-entries" title={t("store.entries")}>
         <StoreEntries itemId={item.id} label={t("store.entries")} />

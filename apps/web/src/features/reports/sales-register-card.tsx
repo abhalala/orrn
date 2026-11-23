@@ -14,8 +14,14 @@ import { trpcClient } from "@/shared/utils/trpc";
 
 import { recentMonths } from "../billing/model";
 import { downloadCsv } from "../imports/templates";
+import { useModuleOn } from "@/shared/lib/modules";
 
+/** PROD-GATE: the card came with XE-BILL; a plant without `billing` sees the Reports page as before (the procedure itself is older and stays open). */
 export function SalesRegisterCard() {
+  return useModuleOn("billing") ? <SalesRegisterCardInner /> : null;
+}
+
+function SalesRegisterCardInner() {
   const { t } = useT();
   const { data: me } = useMe();
   const months = recentMonths(companyToday(me?.company?.settings ?? null, new Date()));

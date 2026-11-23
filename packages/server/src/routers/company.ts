@@ -29,6 +29,7 @@ import {
 } from "@orrn/domain";
 import { buddyRevokePlantStatements, buddyRevokeStatements } from "@orrn/auth/buddy-revoke";
 import { atomicBatch, atomicBatchLast, type OrrnDb } from "../lib/atomic";
+import { assertModule } from "../lib/moduleGate";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now } from "../lib/clock";
 import { companyTimezone, DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow, zonedYmd } from "../lib/dayWindow";
@@ -361,11 +362,15 @@ export const companyRouter = router({
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
       if (input.foundry !== undefined) {
+        // PROD-GATE: homogenizing belongs to the opt-in `foundry_plus` module.
+        await assertModule(ctx, "foundry_plus");
         const next = applyFoundrySettingsEdit(readFloorSettings(row.settings).foundry, input.foundry, now().getTime());
         patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), ...next };
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
       if (input.morningSummary !== undefined) {
+        // PROD-GATE: the morning mail belongs to the opt-in `mis` module.
+        await assertModule(ctx, "mis");
         const was = readMorningSummarySettings(row.settings?.morningSummary);
         patch.morningSummary = {
           enabled: input.morningSummary.enabled ?? was.enabled,

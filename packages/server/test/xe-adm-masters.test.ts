@@ -14,7 +14,7 @@ import { NOON, salesHelpers, SLOW } from "./sales-fixture";
 let env: TestEnv;
 let setClock: typeof import("../src/lib/clock").setClockForTests;
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["masters_plus", "docs"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
 }, 60_000);
 afterEach(() => setClock(null));
@@ -55,7 +55,7 @@ describe("masters.lists", () => {
   });
 
   test("die categories need the die room module; other lists do not", async () => {
-    const p = await plant(["orders"]);
+    const p = await plant(["orders", "masters_plus"]);
     await expect(p.manager.masters.lists.create({ kind: "die_category", name: "Solid" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await p.manager.masters.lists.create({ kind: "department", name: "Office" });
   });

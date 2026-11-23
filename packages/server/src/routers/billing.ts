@@ -58,6 +58,7 @@ import { loadPartyGst, loadPlantGst } from "../lib/billing/facts";
 import { now } from "../lib/clock";
 import { companyTimezone } from "../lib/dayWindow";
 import { nextCompanySeq } from "../lib/sequence";
+import { getPlantBankForPrint } from "../lib/plantPrint";
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM");
@@ -525,6 +526,8 @@ const invoicesRouter = router({
         noteReason: row.noteReason,
         reason: row.reason,
         snapshot: row.snapshot as unknown as InvoiceSnapshot,
+        /** XE ADM contract 4: the plant's default live bank account for the printed paper; null = "not set". */
+        bank: await getPlantBankForPrint(ctx.db, ctx.companyId),
         needsIrn: row.needsIrn,
         irn: {
           status: row.irnStatus,

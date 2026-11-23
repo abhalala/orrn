@@ -15,6 +15,7 @@ import { bundle, bundleGroup, packReject } from "@orrn/db/schema/inventory";
 import { pressLine } from "@orrn/db/schema/press";
 import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem } from "@orrn/db/schema/store";
+import { isModuleOn } from "@orrn/domain";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
@@ -37,6 +38,7 @@ import {
   openingRows,
   type PostingCtx,
 } from "../lib/ledger";
+import { assertModule, companyModules } from "../lib/moduleGate";
 import { nextCompanySeq } from "../lib/sequence";
 import { foldKindTotals, stockFilterConditions, stockFilterShape, stockPosition } from "../lib/stockFilters";
 
@@ -73,6 +75,9 @@ function isLocationCodeConflict(e: unknown): boolean {
  * XE FOUNDRY (#50): a `press_floor` location names the press line it serves; no other kind carries one.
  * Returns the id to store (null for other kinds), or refuses.
  */
+/** PROD-GATE: location kinds of the opt-in `foundry_plus` module. */
+const XE_LOCATION_KINDS: ReadonlySet<string> = new Set(["billet_rack", "press_floor"]);
+
 async function floorPressLine(ctx: { db: OrrnDb; companyId: string }, kind: string, pressLineId: string | null | undefined): Promise<string | null> {
   if (kind !== "press_floor") return null;
   if (!pressLineId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the press this floor serves" });
@@ -94,7 +99,9 @@ const locationsRouter = router({
         .from(location)
         .where(and(eq(location.companyId, ctx.companyId), input.includeInactive ? undefined : eq(location.active, true)))
         .orderBy(asc(location.sortOrder), asc(location.code));
-      return { items };
+      // PROD-GATE: billet racks and press floors are opt-in `foundry_plus`; off, `pressLineId` is left out.
+      if (isModuleOn(await companyModules(ctx.db, ctx.companyId), "foundry_plus")) return { items };
+      return { items: items.map(({ pressLineId: _p, ...rest }) => rest as typeof rest & { pressLineId?: string | null }) };
     }),
 
   create: actionProcedure("masters.publish")
@@ -109,6 +116,7 @@ const locationsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (XE_LOCATION_KINDS.has(input.kind) || input.pressLineId) await assertModule(ctx, "foundry_plus");
       const pressLineId = await floorPressLine(ctx, input.kind, input.pressLineId);
       const [dupe] = await ctx.db
         .select({ id: location.id })
@@ -165,6 +173,7 @@ const locationsRouter = router({
         where: and(eq(location.id, input.id), eq(location.companyId, ctx.companyId)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+      if ((input.kind !== undefined && XE_LOCATION_KINDS.has(input.kind)) || input.pressLineId !== undefined) await assertModule(ctx, "foundry_plus");
       const nextKind = input.kind ?? existing.kind;
       const floorLine =
         input.kind !== undefined || input.pressLineId !== undefined

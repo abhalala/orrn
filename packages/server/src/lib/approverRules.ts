@@ -9,7 +9,7 @@
 import { type CompanyRole } from "@orrn/db/schema/tenant";
 import { company } from "@orrn/db/schema/tenant";
 import { approvalKinds, type ApprovalKind } from "@orrn/db/schema/approval";
-import { approverRolesFor, possibleApproverRoles, readApprovalRules, type ApprovalRules } from "@orrn/domain";
+import { approverRolesFor, isModuleOn, possibleApproverRoles, readApprovalRules, type ApprovalRules } from "@orrn/domain";
 import { eq } from "drizzle-orm";
 
 import type { OrrnDb } from "./atomic";
@@ -19,7 +19,10 @@ export type { ApprovalRules };
 
 /** The plant's approver rules (valid ones only; an invalid stored rule means the built-in approvers). */
 export async function loadApprovalRules(db: OrrnDb, companyId: string): Promise<ApprovalRules> {
-  const [row] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
+  const [row] = await db.select({ settings: company.settings, modules: company.modules }).from(company).where(eq(company.id, companyId)).limit(1);
+  // PROD-GATE: rules are part of the opt-in `masters_plus`; with it off the built-in approvers decide,
+  // even if rules were saved while it was on.
+  if (!isModuleOn(Array.isArray(row?.modules) ? row.modules : [], "masters_plus")) return readApprovalRules(undefined, approvalRuleRoles);
   return readApprovalRules(row?.settings?.approvalRules, approvalRuleRoles);
 }
 

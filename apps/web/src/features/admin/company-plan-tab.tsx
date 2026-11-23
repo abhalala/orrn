@@ -62,6 +62,34 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
   const toggle = (id: CompanyModule, on: boolean) =>
     setModules((current) => (on ? [...new Set([...current, id])] : current.filter((m) => m !== id)));
 
+  const isOptIn = (id: CompanyModule) => (OPT_IN_MODULES as readonly string[]).includes(id);
+  const renderModule = (id: CompanyModule) => {
+    const checked = modules.includes(id);
+    const inputId = `${groupId}-${id}`;
+    return (
+      <li key={id} className="min-w-0">
+        <label
+          htmlFor={inputId}
+          className={cn(
+            "flex min-h-14 cursor-pointer items-start gap-3 rounded-input border px-4 py-3 transition-colors duration-[var(--dur-fast)]",
+            checked ? "border-primary bg-tone-violet-tint" : "border-border bg-card hover:bg-surface-sunken",
+          )}
+        >
+          <Checkbox
+            id={inputId}
+            checked={checked}
+            onCheckedChange={(v) => toggle(id, v === true)}
+            className="mt-0.5"
+          />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-[15px] font-semibold text-foreground">{t(`admin.plan.moduleNames.${id}`)}</span>
+            <span className="text-[13px] text-muted-foreground">{t(`admin.plan.moduleHints.${id}`)}</span>
+          </span>
+        </label>
+      </li>
+    );
+  };
+
   return (
     <Panel as="div" className="flex flex-col gap-6 p-5 sm:p-6">
       <div className="flex min-w-0 flex-col gap-2">
@@ -86,32 +114,15 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
           {noneOn ? t("admin.plan.modulesNone") : t("admin.plan.modulesHint")}
         </p>
         <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
-          {COMPANY_MODULES.map((id) => {
-            const checked = modules.includes(id);
-            const inputId = `${groupId}-${id}`;
-            return (
-              <li key={id} className="min-w-0">
-                <label
-                  htmlFor={inputId}
-                  className={cn(
-                    "flex min-h-14 cursor-pointer items-start gap-3 rounded-input border px-4 py-3 transition-colors duration-[var(--dur-fast)]",
-                    checked ? "border-primary bg-tone-violet-tint" : "border-border bg-card hover:bg-surface-sunken",
-                  )}
-                >
-                  <Checkbox
-                    id={inputId}
-                    checked={checked}
-                    onCheckedChange={(v) => toggle(id, v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-[15px] font-semibold text-foreground">{t(`admin.plan.moduleNames.${id}`)}</span>
-                    <span className="text-[13px] text-muted-foreground">{t(`admin.plan.moduleHints.${id}`)}</span>
-                  </span>
-                </label>
-              </li>
-            );
-          })}
+          {COMPANY_MODULES.filter((id) => !isOptIn(id)).map(renderModule)}
+        </ul>
+        {/* PROD-GATE (owner rule 2026-11-23): every XE module is off for a plant until it is ticked here. */}
+        <p id={`${groupId}-optin`} className="m-0 mt-2 text-[14px] font-semibold text-foreground">
+          {t("admin.plan.optInTitle")}
+        </p>
+        <p className="m-0 -mt-1 text-[13px] text-muted-foreground">{t("admin.plan.optInHint")}</p>
+        <ul aria-labelledby={`${groupId}-optin`} data-testid="plan-opt-in-modules" className="m-0 grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
+          {COMPANY_MODULES.filter(isOptIn).map(renderModule)}
         </ul>
       </fieldset>
 

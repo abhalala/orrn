@@ -4,6 +4,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import { useCallback } from "react";
 
 import { can, canAny, useMe, type Action } from "@/shared/lib/me";
+import { useModuleOn } from "@/shared/lib/modules";
 import { trpc } from "@/shared/utils/trpc";
 
 type Outputs = inferRouterOutputs<AppRouter>;
@@ -28,15 +29,20 @@ export const BUY_PEOPLE: readonly Action[] = ["indent.raise", "indent.approve", 
  */
 export function useBuyAccess() {
   const { data: me } = useMe();
+  // XE store buying is the opt-in `store_buy` module (PROD-GATE): off, nobody may do anything here.
+  // It sits in the store, so the standard `store` module must be on as well (the server checks both on writes).
+  const buyOn = useModuleOn("store_buy");
+  const storeOn = useModuleOn("store");
+  const on = buyOn && storeOn;
   return {
-    any: canAny(me, BUY_PEOPLE),
-    readIndents: canAny(me, ["indent.raise", "indent.approve", "po.view", "po.manage"]),
-    raise: can(me, "indent.raise"),
-    decide: can(me, "indent.approve"),
-    readOrders: canAny(me, ["po.view", "po.manage"]),
-    manageOrders: can(me, "po.manage"),
-    value: can(me, "store.value"),
-    setAllowance: can(me, "masters.publish"),
+    any: on && canAny(me, BUY_PEOPLE),
+    readIndents: on && canAny(me, ["indent.raise", "indent.approve", "po.view", "po.manage"]),
+    raise: on && can(me, "indent.raise"),
+    decide: on && can(me, "indent.approve"),
+    readOrders: on && canAny(me, ["po.view", "po.manage"]),
+    manageOrders: on && can(me, "po.manage"),
+    value: on && can(me, "store.value"),
+    setAllowance: on && can(me, "masters.publish"),
     userId: me?.user.id ?? null,
   };
 }

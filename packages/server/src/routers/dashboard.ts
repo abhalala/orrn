@@ -249,11 +249,12 @@ export const dashboardRouter = router({
       ageing = { inOven: num(a?.in_oven), held: num(a?.held), out: num(a?.out) };
     }
 
-    // XE ADM #62: tooling types below the plant's minimum, for the die room and managers (dies module on).
+    // XE ADM #62: tooling types below the plant's minimum, for the die room and managers (dies module on,
+    // and the opt-in `masters_plus` that holds the tool room extras; PROD-GATE).
     const toolingShort =
-      !kpisOnly && isModuleOn(companyRow?.modules, "dies") && canAny(me, ["die.card", "masters.publish"])
+      !kpisOnly && isModuleOn(companyRow?.modules, "dies") && isModuleOn(companyRow?.modules, "masters_plus") && canAny(me, ["die.card", "masters.publish"])
         ? await toolingShortfallsFor(ctx.db, companyId)
-        : [];
+        : null;
 
     // FP-PF-15 role tiles (explorer W1 H6): each role's station shortcuts with the count it acts on.
     const tileKeys = kpisOnly ? [] : todayTileKeys(ctx.role, companyRow?.modules);
@@ -324,8 +325,11 @@ export const dashboardRouter = router({
       pressAlerts,
       /** W3-AG-S: `{ inOven, held, out }` ageing batches; null without the module or ageing.view. */
       ageing,
-      /** XE ADM #62: `[{ type, held, min }]` tooling types below their minimum; empty when none or not the die room. */
-      toolingShort,
+      /**
+       * XE ADM #62: `[{ type, held, min }]` tooling types below their minimum; empty when none. Absent for
+       * people outside the die room and for a plant without `masters_plus` (PROD-GATE: shape as before).
+       */
+      ...(toolingShort ? { toolingShort } : {}),
       /**
        * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
        * bundle ever packed (void included: the step was done) and a live label printer.

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 
 import { approval, auditLog, company } from "@orrn/db/schema";
-import { COMPANY_MODULES, isModuleOn, OPT_IN_MODULES, STANDARD_MODULES, type CompanyModule } from "@orrn/domain";
+import { COMPANY_MODULES, isModuleOn, isOptInModule, OPT_IN_MODULES, STANDARD_MODULES, type CompanyModule } from "@orrn/domain";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -72,7 +72,8 @@ describe("assertModule at the router level", () => {
     });
 
     test(`${m.path}: not refused for the module when modules is empty (all on) or lists ${m.module}`, async () => {
-      for (const modules of [[], [m.module]]) {
+      // PROD-GATE: an opt-in (XE) module is on only when named, never by an empty list.
+      for (const modules of isOptInModule(m.module) ? [[m.module]] : [[], [m.module]]) {
         const { companyId } = await env.seedCompany({ modules });
         const e = await failure(m.call(env.caller({ role: "owner", companyId })));
         // It goes on to the input / business rules; never the module refusal.
@@ -123,7 +124,8 @@ describe("assertModule at the router level", () => {
     expect(gate.moduleForPath("company.updateSettings")).toBeNull();
     expect(gate.moduleForPath("dashboard.today")).toBeNull();
     expect(gate.moduleForPath("toString")).toBeNull();
-    const covered = new Set(Object.values(gate.ROUTER_MODULE));
+    // XE REG's `mis` rides single `reports.*` procedures (PROCEDURE_MODULE), not a router of its own.
+    const covered = new Set([...Object.values(gate.ROUTER_MODULE), ...Object.values(gate.PROCEDURE_MODULE)]);
     for (const m of COMPANY_MODULES) expect({ m, covered: covered.has(m) }).toEqual({ m, covered: true });
   });
 

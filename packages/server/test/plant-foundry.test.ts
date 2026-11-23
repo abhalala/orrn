@@ -71,9 +71,9 @@ function times(t0 = T0) {
 }
 
 /** A plant with locations, scrap masters, a vendor, return streams and stocked store items. */
-async function plant(opts: { locations?: boolean; streamStock?: boolean } = {}) {
+async function plant(opts: { locations?: boolean; streamStock?: boolean; modules?: string[] } = {}) {
   setClock(NOW);
-  const { companyId, users } = await env.seedCompany();
+  const { companyId, users } = await env.seedCompany({ modules: opts.modules });
   const callers = Object.fromEntries(ROLES.map((role) => [role, env.caller({ role, companyId })])) as Record<
     CompanyRole,
     ReturnType<typeof env.caller>
@@ -804,7 +804,7 @@ describe("melts.cancel: reversal rows, never edits", () => {
   });
 
   test("XE FOUNDRY r1: refused once cuts left the billet store short of the melt's logs, even when the cast total covers it", async () => {
-    const p = await plant();
+    const p = await plant({ modules: ["foundry_plus"] });
     const lot = await okLot(p, 25_000);
     const c = await openCast(p);
     const m1 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
@@ -820,7 +820,7 @@ describe("melts.cancel: reversal rows, never edits", () => {
   });
 
   test("XE FOUNDRY r2: a correction is refused the same way once cuts left the billet store short of the melt's logs", async () => {
-    const p = await plant();
+    const p = await plant({ modules: ["foundry_plus"] });
     const lot = await okLot(p, 25_000);
     const c = await openCast(p);
     const m1 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));

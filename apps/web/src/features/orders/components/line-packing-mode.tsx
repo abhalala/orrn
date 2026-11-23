@@ -5,12 +5,13 @@ import { toast } from "sonner";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { MasterPicker } from "@/shared/components/master-picker";
 import { trpc } from "@/shared/utils/trpc";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /**
  * Mode of packing for one order line (`masters.packing.setForLine`). The stored mode comes from
  * `masters.packing.forOrder` (one read per order, shared by every line through the query cache).
  */
-export function LinePackingMode({ orderId, lineId, lineNo }: { orderId: string; lineId: string; lineNo: number }) {
+function LinePackingModeInner({ orderId, lineId, lineNo }: { orderId: string; lineId: string; lineNo: number }) {
   const { t } = useT();
   const qc = useQueryClient();
   const stored = useQuery(trpc.masters.packing.forOrder.queryOptions({ orderId }));
@@ -35,4 +36,9 @@ export function LinePackingMode({ orderId, lineId, lineNo }: { orderId: string; 
       />
     </div>
   );
+}
+
+/** PROD-GATE: renders (and asks the server) only with the opt-in `masters_plus` module on. */
+export function LinePackingMode(props: Parameters<typeof LinePackingModeInner>[0]) {
+  return useModuleOn("masters_plus") ? <LinePackingModeInner {...props} /> : null;
 }

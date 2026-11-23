@@ -18,7 +18,10 @@ import type { createDb } from "@orrn/db";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { TRPCError } from "@trpc/server";
 
+import { isModuleOn, isOptInModule } from "@orrn/domain";
+
 import { now } from "../clock";
+import { companyModules, moduleForPath } from "../moduleGate";
 import { createId } from "../id";
 import { BUDDY_LIMIT, finishBuddyCall, logBuddyCall, reserveBuddyCall } from "./callLog";
 import { refusedInput } from "./decisions";
@@ -312,6 +315,18 @@ async function dispatchTool(name: string, args: Record<string, unknown>, ctx: Bu
   }
 }
 
+/**
+ * PROD-GATE: the buddy follows the plant's modules. A path of an opt-in (XE) module that is off is not
+ * listed, not described and not drafted (its queries are refused by the router gate anyway).
+ */
+async function hiddenByModule(ctx: BuddyContext): Promise<(path: string) => boolean> {
+  const modules = await companyModules(ctx.db, ctx.companyId!);
+  return (path) => {
+    const m = moduleForPath(path);
+    return m !== null && isOptInModule(m) && !isModuleOn(modules, m);
+  };
+}
+
 const SPLIT = /(?<=[a-z0-9])(?=[A-Z])|[^A-Za-z0-9]+/;
 const words = (s: string): string[] => s.split(SPLIT).map((w) => w.toLowerCase()).filter(Boolean);
 
@@ -326,9 +341,10 @@ async function search(args: Record<string, unknown>, ctx: BuddyContext): Promise
   if (terms.length === 0) return statusEnvelope("invalid", "Give some words to look for.");
   const limit = typeof args.limit === "number" && args.limit >= 1 ? Math.min(30, Math.floor(args.limit)) : 15;
   const reg = await buddyRegistry();
+  const hidden = await hiddenByModule(ctx);
   const hits: { score: number; entry: BuddyProcedure }[] = [];
   for (const entry of reg.values()) {
-    if (entry.decision.kind !== "allow") continue;
+    if (entry.decision.kind !== "allow" || hidden(entry.path)) continue;
     const pathWords = words(entry.path);
     const descWords = words(entry.description);
     const fieldWords = entry.fields.flatMap(words);
@@ -355,7 +371,7 @@ async function search(args: Record<string, unknown>, ctx: BuddyContext): Promise
 
 async function describe(args: Record<string, unknown>, ctx: BuddyContext): Promise<Envelope> {
   const entry = await allowedProcedure(args.path);
-  if (!entry) return statusEnvelope("not_found", "Not found.");
+  if (!entry || (await hiddenByModule(ctx))(entry.path)) return statusEnvelope("not_found", "Not found.");
   return okEnvelope({
     path: entry.path,
     kind: entry.kind,
@@ -382,7 +398,7 @@ async function runQuery(ctx: BuddyContext, path: string, input: unknown): Promis
 
 async function call(args: Record<string, unknown>, ctx: BuddyContext, origin: string | null): Promise<Envelope> {
   const entry = await allowedProcedure(args.path);
-  if (!entry) return statusEnvelope("not_found", "Not found.");
+  if (!entry || (await hiddenByModule(ctx))(entry.path)) return statusEnvelope("not_found", "Not found.");
   const input = args.input;
   const refused = refusedInput(entry.decision, input);
   if (refused) return statusEnvelope("forbidden", refused);

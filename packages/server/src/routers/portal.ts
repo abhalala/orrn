@@ -743,6 +743,7 @@ export const portalRouter = router({
   me: portalProcedure.query(async ({ ctx }) => {
     const { sections } = await visibleSections(ctx.db, ctx.portal);
     const plants = await listPortalAccess(ctx.db, ctx.session.user.id);
+    const modules = await companyModules(ctx.db, ctx.portal.companyId);
     return {
       user: { id: ctx.session.user.id, name: ctx.session.user.name, email: ctx.session.user.email },
       customer: { id: ctx.portal.customerId, name: ctx.portal.customerName },
@@ -757,7 +758,9 @@ export const portalRouter = router({
       sections: sections.map((s) => ({ id: s.id, series: s.series, sectionCode: s.sectionCode, name: s.name })),
       plants: plants.map((p) => ({ companyId: p.companyId, companyName: p.companyName, customerName: p.customerName })),
       /** XE parity REG #18: the portal shows Complaints only when the plant has the module on. */
-      complaints: isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "complaints"),
+      complaints: isModuleOn(modules, "complaints"),
+      /** XE-BILL row 13 (PROD-GATE): invoice numbers reach the party only with the opt-in `billing` on. */
+      billing: isModuleOn(modules, "billing"),
     };
   }),
 
@@ -792,7 +795,10 @@ export const portalRouter = router({
       if (!order) portalNotFound();
       const lines = await lineBalances(ctx.db, ctx.portal.companyId, { orderId: order.id });
       // XE parity REG #32: where each line's kg sits, so the party sees "on the press" or "packed" without calling.
-      const wip = await lineWip(ctx.db, ctx.portal.companyId, lines.map((l) => l.lineId));
+      // Opt-in `mis` (PROD-GATE): without it the lines carry no `progress` key, as before.
+      const wip = isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "mis")
+        ? await lineWip(ctx.db, ctx.portal.companyId, lines.map((l) => l.lineId))
+        : null;
       return {
         ...order,
         lines: lines.map((l) => ({
@@ -810,7 +816,7 @@ export const portalRouter = router({
           dispatchedPcs: l.dispatchedPcs,
           bakiG: l.bakiG,
           bakiPcs: l.bakiPcs,
-          progress: portalProgress(wip.get(l.lineId)),
+          ...(wip ? { progress: portalProgress(wip.get(l.lineId)) } : {}),
         })),
       };
     }),
@@ -893,9 +899,12 @@ export const portalRouter = router({
         .limit(limit + 1)
         .offset(offset);
       const more = rows.length > limit;
+      // XE-BILL row 13 (PROD-GATE): the invoice columns only with the opt-in `billing` on.
+      const billingOn = isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "billing");
       return {
-        items: (more ? rows.slice(0, limit) : rows).map((r) => ({
+        items: (more ? rows.slice(0, limit) : rows).map(({ invoiceNumber, invoiceDate, ...r }) => ({
           ...r,
+          ...(billingOn ? { invoiceNumber, invoiceDate } : {}),
           // The same ship day the office's list, detail and customer page show (lib/dispatchFigures).
           shipDay: dispatchShipDay({ status: "completed", completedAt: r.completedAt, shipDate: r.shipDate }, ctx.portal.settings),
           bundles: Number(r.bundles),
@@ -936,8 +945,9 @@ export const portalRouter = router({
         shipDate: d.shipDate,
         shipDay: dispatchShipDay({ status: "completed", completedAt: d.completedAt, shipDate: d.shipDate }, ctx.portal.settings),
         plNumber: d.plNumber,
-        invoiceNumber: d.invoiceNumber ?? null,
-        invoiceDate: d.invoiceDate ?? null,
+        ...(isModuleOn(await companyModules(ctx.db, ctx.portal.companyId), "billing")
+          ? { invoiceNumber: d.invoiceNumber ?? null, invoiceDate: d.invoiceDate ?? null }
+          : {}),
         vehicleNo: d.vehicleNo,
         bundles,
         totals: {

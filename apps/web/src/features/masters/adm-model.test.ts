@@ -196,8 +196,8 @@ describe("routes and hub", () => {
     expect(parseRulesSearch({ tab: "formats" })).toEqual({});
   });
   test("plant group entries follow the roles", () => {
-    const owner = { company: { role: "owner" }, isPlatformAdmin: false, platformRole: null } as never;
-    const packer = { company: { role: "packer" }, isPlatformAdmin: false, platformRole: null } as never;
+    const owner = { company: { role: "owner", modules: ["masters_plus", "docs"] }, isPlatformAdmin: false, platformRole: null } as never;
+    const packer = { company: { role: "packer", modules: ["masters_plus", "docs"] }, isPlatformAdmin: false, platformRole: null } as never;
     const keys = (m: never) => masterEntries(m).filter((e) => e.group === "plant").map((e) => e.key);
     expect(keys(owner)).toEqual(["plantLists", "bank", "rules", "documents", "tooling"]);
     expect(keys(packer)).toEqual(["plantLists", "documents", "tooling"]);

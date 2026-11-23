@@ -17,6 +17,7 @@ import {
   anyModuleOn,
   effectiveModules,
   isModuleOn,
+  isOptInModule,
   validateThresholds,
   normalizeModules,
   plantDefaultLocale,
@@ -85,16 +86,28 @@ describe("reason codes (C39: one master with a kind)", () => {
 });
 
 describe("modules (FP-PF-07, C42)", () => {
-  test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
+  test("allowed set: the ten standard modules, then every XE module (PROD-GATE)", () => {
+    expect([...STANDARD_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase"]);
     expect([...COMPANY_MODULES]).toEqual([
-      "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "pricing",
-      "maintenance", "billing", "einvoice", "costing",
+      ...STANDARD_MODULES,
+      "complaints", "qa", "pricing", "maintenance", "billing", "einvoice", "costing", "masters_plus", "docs", "mis", "store_buy", "foundry_plus",
     ]);
-    expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll", "costing"]);
-    expect(STANDARD_MODULES).toHaveLength(14);
+    expect([...OPT_IN_MODULES]).toEqual([
+      "complaints", "qa", "pricing", "billing", "einvoice", "masters_plus", "docs", "mis", "store_buy", "foundry_plus", "payroll", "maintenance", "costing", "jobwork",
+    ]);
+  });
+  test("owner rule 2026-11-23: every module key that is not standard is opt-in (a new lane's key too)", () => {
+    for (const m of COMPANY_MODULES) {
+      const standard = (STANDARD_MODULES as readonly string[]).includes(m);
+      expect({ m, optIn: isOptInModule(m) }).toEqual({ m, optIn: !standard });
+      if (!standard) expect((OPT_IN_MODULES as readonly string[]).includes(m)).toBe(true);
+      expect({ m, onForEmpty: isModuleOn([], m) }).toEqual({ m, onForEmpty: standard });
+      expect({ m, onForStandard: isModuleOn([...STANDARD_MODULES], m) }).toEqual({ m, onForStandard: standard });
+    }
+    for (const reserved of ["payroll", "maintenance", "costing", "jobwork"]) expect(isOptInModule(reserved)).toBe(true);
   });
   test("opt-in modules are off on an empty list and on only when named", () => {
-    for (const m of ["billing", "einvoice", "costing"] as const) {
+    for (const m of ["billing", "einvoice", "complaints", "qa", "pricing", "masters_plus", "docs", "mis", "costing"] as const) {
       expect(isModuleOn([], m)).toBe(false);
       expect(isModuleOn(null, m)).toBe(false);
       expect(isModuleOn(["press", "dispatches"], m)).toBe(false);
@@ -122,7 +135,7 @@ describe("modules (FP-PF-07, C42)", () => {
   });
   test("effective list (B1): an old client's rule over it agrees with isModuleOn on the stored list", () => {
     const oldRule = (list: readonly string[], m: string) => list.length === 0 || list.includes(m);
-    for (const raw of [[], ["billing"], ["billing", "einvoice"], ["bundles"], ["bundles", "billing"], ["press", "dispatches", "einvoice"]]) {
+    for (const raw of [[], ["billing"], ["billing", "einvoice"], ["bundles"], ["bundles", "billing"], ["press", "dispatches", "einvoice"], ["qa", "mis"], ["press", "masters_plus"]]) {
       const eff = effectiveModules(raw);
       for (const m of COMPANY_MODULES) {
         expect(oldRule(eff, m)).toBe(isModuleOn(raw, m));

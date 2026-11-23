@@ -54,8 +54,8 @@ describe("orderedNavItems", () => {
   test("items absent from the saved order follow in default order", () => {
     const result = order({ order: ["today"] });
     expect(keys(result.primary)).toEqual(["today", "pack", "stock", "dispatch"]);
-    // Billing and costing are opt-in: a plant that names no modules has them off, so they are not among the visible items.
-    expect(keys(result.more)).toEqual(keys(TENANT_MORE).filter((k) => k !== "billing" && k !== "costing"));
+    // XE modules are opt-in (PROD-GATE): a plant that names no modules has none of their entries.
+    expect(keys(result.more)).toEqual(keys(TENANT_MORE).filter((k) => !["billing", "qa", "complaints", "owner", "pricing", "storeBuying", "maintenance", "costing"].includes(k)));
   });
 
   test("items newly visible to the person follow saved items in default order", () => {

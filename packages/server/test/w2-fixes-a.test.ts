@@ -148,11 +148,13 @@ async function openOn(lineId: string) {
 
 describe("BACKLOG 35: Today's tiles follow the role", () => {
   test("the role table: owner/manager everything, office orders/dispatch/stock/approvals, packer pack/stock, die room, press, foundry approvals, storekeeper store, viewer none", () => {
-    // XE-PRICE added "enquiries" (overdue follow-ups, module pricing) for owner, admin, manager and office.
-    expect(todayTileKeys("owner", [])).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides", "enquiries"]);
+    // PROD-GATE: on `[]` the tiles are the pre-XE ones; XE-PRICE's "enquiries" comes with the opt-in `pricing`.
+    expect(todayTileKeys("owner", [])).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"]);
+    expect(todayTileKeys("owner", ["pricing"])).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides", "enquiries"]);
     expect(todayTileKeys("manager", [])).toEqual(todayTileKeys("owner", []));
     expect(todayTileKeys("admin", [])).toEqual(todayTileKeys("owner", []));
-    expect(todayTileKeys("office", [])).toEqual(["orders", "dispatch", "stock", "approvals", "enquiries"]);
+    expect(todayTileKeys("office", [])).toEqual(["orders", "dispatch", "stock", "approvals"]);
+    expect(todayTileKeys("office", ["pricing"])).toEqual(["orders", "dispatch", "stock", "approvals", "enquiries"]);
     expect(todayTileKeys("supervisor", [])).toEqual(["press", "pack", "dispatch", "approvals"]);
     // Foundry approves cast_close; the storekeeper works the store.
     expect(todayTileKeys("foundry", [])).toEqual(["approvals"]);
@@ -197,7 +199,6 @@ describe("BACKLOG 35: Today's tiles follow the role", () => {
       { key: "store", count: null },
       { key: "approvals", count: 1 },
       { key: "guides", count: null },
-      { key: "enquiries", count: 0 },
     ]);
     // Office cannot approve a move; its tile counts its own requests still waiting.
     expect(await tilesOf("office")).toEqual([
@@ -205,7 +206,6 @@ describe("BACKLOG 35: Today's tiles follow the role", () => {
       { key: "dispatch", count: 0 },
       { key: "stock", count: null },
       { key: "approvals", count: 1 },
-      { key: "enquiries", count: 0 },
     ]);
     // Foundry approves cast close-outs only: the move is not theirs, so nothing waits for them.
     expect(await tilesOf("foundry")).toEqual([{ key: "approvals", count: 0 }]);
