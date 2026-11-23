@@ -719,9 +719,15 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `store_txn` gains `rate_paise` (nullable), `value_paise` and `rated_milli` (not null, default 0),
   `rate_pending` (boolean, default false), `po_line_id`, `rejected_milli`.
   Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
-- Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
+- Routers nest under `store`: `store.indents` (`routers/storeIndent.ts`),
   `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
   (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
+- Module (PROD-GATE): store buying is the opt-in `store_buy` (`SUBROUTER_MODULE` and `PROCEDURE_MODULE` in
+  `lib/moduleGate.ts`), reads and writes. With it off, `store.receive` ignores `poLineId`, `ratePaise` and
+  `rejectedMilli` and keeps the GRN unrated and not pending (like a GRN from before 0061; `qtyMilli` 0 is
+  refused), `store.items.update` ignores the levels, and `store.items.list`, `store.balances` and
+  `store.txns` leave out the level and buying keys. Web: `useBuyAccess`, the Buying nav entry, the Today
+  low-stock tile, reorder levels on the item page, the GRN buying fields and the entry facts follow it.
 - Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
   admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
   (office, manager, admin, accountant), `store.rate` (office, manager, admin, accountant: the rate is
@@ -1640,7 +1646,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `complaints`, `qa`, `pricing`, `billing`, `einvoice`, `masters_plus` (plant lists, bank, insurance, number
   formats, approver rules, packing mode, people's department and designation, tool room extras), `docs`
   (document register), `mis` (office registers, owner page and mail, billet need, recut reason, portal order
-  progress). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `maintenance`,
+  progress), `store_buy` (indents, store purchase orders, GRN against an order, store rates and value,
+  reorder levels). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `maintenance`,
   `costing`, `jobwork`.
 - Server: `companyProcedure` asserts an opt-in module on READS as well as writes (`ROUTER_MODULE` /
   `PROCEDURE_MODULE`); `portalProcedure` paths call `assertModule` themselves. A feature that rides a core

@@ -26,7 +26,7 @@ let setClock: (at: Date | null) => void;
 let storeIssueValuePaise: typeof import("../src/lib/storeValue").storeIssueValuePaise;
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["store_buy"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
   storeIssueValuePaise = (await import("../src/lib/storeValue")).storeIssueValuePaise;
 });

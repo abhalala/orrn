@@ -76,6 +76,19 @@ export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "reports.materials": "mis",
   "reports.billetNeed": "mis",
   "reports.morning": "mis",
+  // XE store buying (PROD-GATE): indents, purchase orders, rates and value ride `store`; opt-in `store_buy`.
+  "store.belowMinimum": "store_buy",
+};
+
+/**
+ * Nested routers of a gated router that belong to another module (`store.indents.*`). Checked after
+ * `PROCEDURE_MODULE` and before `ROUTER_MODULE`.
+ */
+export const SUBROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
+  "store.indents": "store_buy",
+  "store.po": "store_buy",
+  "store.valuation": "store_buy",
+  "store.settings": "store_buy",
 };
 
 /**
@@ -107,7 +120,10 @@ const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k)
 /** The module a procedure path (`die.create`, `orders.lines.add`) belongs to, or null (ungated). */
 export function moduleForPath(path: string): CompanyModule | null {
   if (own(PROCEDURE_MODULE, path)) return PROCEDURE_MODULE[path]!;
-  const top = path.split(".")[0] ?? "";
+  const parts = path.split(".");
+  const sub = parts.length > 2 ? `${parts[0]}.${parts[1]}` : "";
+  if (sub && own(SUBROUTER_MODULE, sub)) return SUBROUTER_MODULE[sub]!;
+  const top = parts[0] ?? "";
   return own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
 }
 

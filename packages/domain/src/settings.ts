@@ -60,6 +60,7 @@ export const COMPANY_MODULES = [
   // XE REG: office registers, the owner's morning page and mail, billet need on a plan, recut reasons,
   // order progress on the party portal.
   "mis",
+  "store_buy",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
@@ -78,6 +79,7 @@ export const OPT_IN_MODULES = [
   "masters_plus",
   "docs",
   "mis",
+  "store_buy",
   "payroll",
   "maintenance",
   "costing",

@@ -9,6 +9,7 @@ import { qtyProblemText, qtyText, unitShort } from "@/features/store/store-label
 import { formatQty, type StoreUnit } from "@/features/store/store-qty";
 import { can, useMe } from "@/shared/lib/me";
 import { useFmt } from "@/shared/lib/fmt";
+import { useModuleOn } from "@/shared/lib/modules";
 import { trpc } from "@/shared/utils/trpc";
 
 import { poLineGone, type GrnBuyDraft, type GrnBuyInput } from "./grn-model";
@@ -22,12 +23,13 @@ import { StoreQtyBox } from "./qty-box";
  */
 export function useOpenPoLines(itemId: string | null) {
   const { data: me } = useMe();
+  const on = useModuleOn("store_buy");
   const q = useInfiniteQuery({
     ...trpc.store.po.openLines.infiniteQueryOptions(
       { itemId: itemId ?? undefined },
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     ),
-    enabled: itemId !== null && can(me, "store.txn"),
+    enabled: on && itemId !== null && can(me, "store.txn"),
     // A failed lookup shows Retry at once: while retries back off, an empty picker would look like "no open order".
     retry: false,
   });

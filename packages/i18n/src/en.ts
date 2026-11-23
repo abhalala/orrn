@@ -3819,6 +3819,7 @@ export const en = {
         masters_plus: "Plant lists, bank and rules",
         docs: "Document register",
         mis: "Office registers and morning page",
+        store_buy: "Store buying",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3841,6 +3842,7 @@ export const en = {
         masters_plus: "Departments, packing modes, bank accounts, insurance, number formats, approver rules and tooling",
         docs: "Licences, certificates and other plant papers with renewal dates",
         mis: "Rejection, recut, WIP and material registers, the owner's morning page and mail, order progress on the portal",
+        store_buy: "Indents, purchase orders to vendors, GRN against an order, store rates and value, reorder levels",
       },
       optInTitle: "Extra modules",
       optInHint: "Off for every plant until you tick them here. The plant sees nothing of a module that is off.",
@@ -6740,6 +6742,7 @@ export const en = {
         masters_plus: "Plant lists, bank and rules",
         docs: "Document register",
         mis: "Office registers",
+        store_buy: "Store buying",
       },
     },
     letterhead: {

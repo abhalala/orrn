@@ -24,6 +24,9 @@ import {
   qaCheck,
   qaHold,
   stockLedger,
+  storeIndent,
+  storePo,
+  storeTxn,
   toolingItem,
   worksOrder,
 } from "@orrn/db/schema";
@@ -87,7 +90,7 @@ describe.each(VARIANTS)("a plant with $name", ({ modules }) => {
       return m !== null && isOptInModule(m);
     });
     // The XE routers and the REG procedures riding `reports` are all registered.
-    for (const sample of ["complaints.list", "qa.settings.get", "masters.lists.list", "masters.bank.list", "docs.list", "toolRoom.tooling.list", "reports.morning", "reports.wip", "billing.invoices.list"]) {
+    for (const sample of ["complaints.list", "qa.settings.get", "masters.lists.list", "masters.bank.list", "docs.list", "toolRoom.tooling.list", "reports.morning", "reports.wip", "billing.invoices.list", "store.indents.list", "store.po.list", "store.valuation.items", "store.belowMinimum"]) {
       expect(paths).toContain(sample);
     }
     expect(paths.some((x) => x.startsWith("pricing."))).toBe(true);
@@ -186,6 +189,41 @@ describe("core flows on a plant without XE keys", () => {
       [3, "return_stream", 12_800],
       [4, "return_stream", 7_000],
     ]);
+  });
+});
+
+describe.each(VARIANTS)("the store of a plant with $name (store buying is `store_buy`)", ({ modules }) => {
+  test("a GRN ignores order line, rate and rejected; levels are not kept; answers carry no buying key", async () => {
+    const { companyId } = await env.seedCompany({ modules });
+    const owner = env.caller({ role: "owner", companyId });
+    const keeper = env.caller({ role: "storekeeper", companyId });
+    await owner.stock.locations.seedDefaults();
+    const item = await keeper.store.items.create({ name: "Cover flux", unit: "kg", category: "chemical" });
+    const grn = await owner.store.receive({ itemId: item.id, qtyMilli: 5000, ratePaise: 8000, poLineId: "no-such-line", rejectedMilli: 1000 });
+    const [row] = await env.db.select().from(storeTxn).where(eq(storeTxn.id, grn.id));
+    // Kept like a GRN from before XE: no rate, not waiting for one, nothing rejected, no order line.
+    expect({ rate: row!.ratePaise, pending: row!.ratePending, rejected: row!.rejectedMilli, po: row!.poLineId, value: row!.valuePaise }).toEqual({
+      rate: null, pending: false, rejected: null, po: null, value: 0,
+    });
+    await expect(owner.store.receive({ itemId: item.id, qtyMilli: 0, rejectedMilli: 1000 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await owner.store.items.update({ id: item.id, minMilli: 2000, reorderMilli: 4000 });
+    const listed = (await owner.store.items.list()).items.find((i) => i.id === item.id)!;
+    expect({ min: "minMilli" in listed, reorder: "reorderMilli" in listed }).toEqual({ min: false, reorder: false });
+    const balances = await owner.store.balances();
+    expect(leaked(shape(balances), ["minMilli", "reorderMilli"])).toEqual([]);
+    const txns = await owner.store.txns({});
+    expect(txns.items.length).toBe(1);
+    expect(leaked(shape(txns), ["ratePaise", "ratePending", "valuePaise", "rejectedMilli", "poLineId", "poId", "poNumber"])).toEqual([]);
+    for (const [name, table] of Object.entries({ storeIndent, storePo })) {
+      const [n] = await env.db.select({ n: count() }).from(table).where(eq((table as typeof storePo).companyId, companyId));
+      expect({ name, n: n!.n }).toEqual({ name, n: 0 });
+    }
+    // Named, the same calls keep levels and show the buying keys.
+    await setModules(companyId, [...modules, "store_buy"]);
+    await owner.store.items.update({ id: item.id, minMilli: 2000, reorderMilli: 4000 });
+    const named = (await owner.store.items.list()).items.find((i) => i.id === item.id)!;
+    expect({ min: named.minMilli, reorder: named.reorderMilli }).toEqual({ min: 2000, reorder: 4000 });
+    expect("ratePaise" in (await owner.store.txns({})).items[0]!).toBe(true);
   });
 });
 

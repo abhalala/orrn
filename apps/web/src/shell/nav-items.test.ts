@@ -43,7 +43,7 @@ describe("visibleItems", () => {
       "audit",
     ]);
     // With the XE keys named, their entries come in at their places.
-    expect(keys(visibleItems(ALL, me("owner", ["qa", "complaints", "mis", "pricing"])))).toEqual([
+    expect(keys(visibleItems(ALL, me("owner", ["qa", "complaints", "mis", "pricing", "store_buy"])))).toEqual([
       "today",
       "pack",
       "stock",
@@ -125,13 +125,13 @@ describe("visibleItems", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
     expect(visible).toEqual(["today", "ingest", "orders", "reports", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // XE modules are opt-in (PROD-GATE): a plant with no modules named has their five entries off, and naming
+    // XE modules are opt-in (PROD-GATE): a plant with no modules named has their six entries off, and naming
     // them turns them on without touching the rest.
-    const xe = ["qa", "complaints", "owner", "billing", "pricing"];
+    const xe = ["qa", "complaints", "owner", "billing", "pricing", "storeBuying"];
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - xe.length);
     for (const k of xe) expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain(k);
     expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - xe.length + 1);
-    expect(keys(visibleItems(ALL, me("owner", ["billing", "qa", "complaints", "mis", "pricing"])))).toHaveLength(ALL.length);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "qa", "complaints", "mis", "pricing", "store_buy"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
@@ -290,13 +290,18 @@ describe("costing is opt-in (XE parity lane COST)", () => {
 });
 
 describe("store module", () => {
-  test("Store and Buying carry the store module and hide when it is off", () => {
-    for (const key of ["store", "storeBuying"]) {
-      expect(TENANT_MORE.find((i) => i.key === key)?.module).toBe("store");
-      expect(keys(visibleItems(ALL, me("owner", ["customers"])))).not.toContain(key);
-      expect(keys(visibleItems(ALL, me("owner", ["Store"])))).toContain(key);
-      expect(keys(visibleItems(ALL, me("owner")))).toContain(key);
-    }
+  test("Store carries the store module and hides when it is off", () => {
+    expect(TENANT_MORE.find((i) => i.key === "store")?.module).toBe("store");
+    expect(keys(visibleItems(ALL, me("owner", ["customers"])))).not.toContain("store");
+    expect(keys(visibleItems(ALL, me("owner", ["Store"])))).toContain("store");
+    expect(keys(visibleItems(ALL, me("owner")))).toContain("store");
+  });
+
+  test("Buying is the opt-in store_buy module (PROD-GATE): shown only when named", () => {
+    expect(TENANT_MORE.find((i) => i.key === "storeBuying")?.module).toBe("store_buy");
+    expect(keys(visibleItems(ALL, me("owner")))).not.toContain("storeBuying");
+    expect(keys(visibleItems(ALL, me("owner", ["Store"])))).not.toContain("storeBuying");
+    expect(keys(visibleItems(ALL, me("owner", ["store", "store_buy"])))).toContain("storeBuying");
   });
 
   test("moduleOn: empty or missing list is all on; otherwise case-insensitive membership", () => {

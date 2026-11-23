@@ -33,6 +33,7 @@ import { useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } 
 import { useFmt } from "@/shared/lib/fmt";
 import { can, useMe } from "@/shared/lib/me";
 import { rupees } from "@/features/store-buy/money";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /** The server's cap on store.txns (no cursor yet: a `before` cursor is a plant/core follow-up). */
 const MAX = 500;
@@ -228,6 +229,7 @@ function EntrySheet({
   const { t } = useT();
   const fmt = useFmt();
   const { data: me } = useMe();
+  const buyingOn = useModuleOn("store_buy");
   const when = useFormatWhen();
   const { canEnter } = useStoreAccess();
   const invalidate = useInvalidateStore();
@@ -343,18 +345,18 @@ function EntrySheet({
             {/* A draw's refId is the drawing record's id (a cast uuid), not something a person typed. */}
             {e.refId && !e.sourceType ? <Fact label={t("store.entry.ref")}>{e.refId}</Fact> : null}
             {e.grnRef ? <Fact label={t("store.entry.challan")}>{e.grnRef}</Fact> : null}
-            {e.poNumber ? <Fact label={t("store2.grn.entryPo")}>{e.poNumber}</Fact> : null}
-            {e.kind === "grn" ? (
+            {buyingOn && e.poNumber ? <Fact label={t("store2.grn.entryPo")}>{e.poNumber}</Fact> : null}
+            {buyingOn && e.kind === "grn" && e.ratePaise !== undefined ? (
               <Fact label={t("store2.grn.entryRate")}>
                 {e.ratePaise === null ? (e.ratePending ? t("store2.money.ratePending") : t("store2.money.noRate")) : t("store2.money.perUnit", { rate: rupees(e.ratePaise), unit: unitShort(t, e.unit, 1000) })}
               </Fact>
             ) : null}
-            {e.rejectedMilli ? (
+            {buyingOn && e.rejectedMilli ? (
               <Fact label={t("store2.grn.rejected")}>
                 {formatQty(e.rejectedMilli, e.unit, fmt)} {unitShort(t, e.unit, e.rejectedMilli, fmt)}
               </Fact>
             ) : null}
-            {can(me, "store.value") && (e.kind === "mrs" || e.ratePaise !== null) ? (
+            {buyingOn && can(me, "store.value") && e.valuePaise !== undefined && (e.kind === "mrs" || e.ratePaise !== null) ? (
               <Fact label={t("store2.grn.entryValue")}>{rupees(e.valuePaise)}</Fact>
             ) : null}
           </dl>

@@ -40,7 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "mis";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing" | "complaints" | "qa" | "pricing" | "billing" | "store" | "maintenance" | "costing" | "mis" | "store_buy";
 
 export type NavItem = {
   key: string;
@@ -125,7 +125,7 @@ export const TENANT_MORE: readonly NavItem[] = [
     labelKey: "nav.storeBuying",
     icon: ShoppingCart,
     requires: ["indent.raise", "indent.approve", "po.view", "po.manage", "store.value"],
-    module: "store",
+    module: "store_buy",
   },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the

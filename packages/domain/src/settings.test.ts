@@ -90,10 +90,10 @@ describe("modules (FP-PF-07, C42)", () => {
     expect([...STANDARD_MODULES]).toEqual(["customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase"]);
     expect([...COMPANY_MODULES]).toEqual([
       ...STANDARD_MODULES,
-      "complaints", "qa", "pricing", "maintenance", "billing", "einvoice", "costing", "masters_plus", "docs", "mis",
+      "complaints", "qa", "pricing", "maintenance", "billing", "einvoice", "costing", "masters_plus", "docs", "mis", "store_buy",
     ]);
     expect([...OPT_IN_MODULES]).toEqual([
-      "complaints", "qa", "pricing", "billing", "einvoice", "masters_plus", "docs", "mis", "payroll", "maintenance", "costing", "jobwork",
+      "complaints", "qa", "pricing", "billing", "einvoice", "masters_plus", "docs", "mis", "store_buy", "payroll", "maintenance", "costing", "jobwork",
     ]);
   });
   test("owner rule 2026-11-23: every module key that is not standard is opt-in (a new lane's key too)", () => {
