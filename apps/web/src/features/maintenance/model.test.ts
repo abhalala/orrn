@@ -1,0 +1,81 @@
+import { describe, expect, test } from "bun:test";
+
+import { dueLines, hoursMinutes, maintErrorKey, maintenanceOn, maintReady, milliText, parseMilli } from "./model";
+import { parseWoSearch, woFilterOf } from "./search";
+
+const me = (role: string, modules: string[] = []) =>
+  ({ isPlatformAdmin: false, platformRole: null, company: { role, modules } }) as unknown as Parameters<typeof maintReady>[0];
+
+describe("maintenance gate", () => {
+  test("empty module list means every module is on", () => {
+    expect(maintenanceOn(me("operator"))).toBe(true);
+    expect(maintenanceOn(me("operator", ["press", "maintenance"]))).toBe(true);
+    expect(maintenanceOn(me("operator", ["press"]))).toBe(false);
+  });
+  test("maintReady needs the action and the module", () => {
+    expect(maintReady(me("operator"), ["maint.workorder"])).toBe(true);
+    expect(maintReady(me("operator", ["press"]), ["maint.workorder"])).toBe(false);
+    expect(maintReady(me("storekeeper"), ["maint.workorder", "maint.manage"])).toBe(false);
+    expect(maintReady(me("storekeeper"), ["maint.view"])).toBe(true);
+    expect(maintReady(me("accountant"), ["maint.view"])).toBe(false);
+    expect(maintReady(null, ["maint.view"])).toBe(false);
+  });
+});
+
+describe("dueLines", () => {
+  test("days first for a days plan, then hours", () => {
+    expect(dueLines({ state: "soon", basis: "days", daysLeft: 4, hoursLeft: 30, hoursRun: 70 })).toEqual([
+      { key: "maint.due.inDays", vars: { n: 4 } },
+      { key: "maint.due.inHours", vars: { n: 30 } },
+    ]);
+  });
+  test("hours first for an hours plan, overdue words", () => {
+    expect(dueLines({ state: "overdue", basis: "hours", daysLeft: null, hoursLeft: -12, hoursRun: 512 })).toEqual([{ key: "maint.due.overHours", vars: { n: 12 } }]);
+    expect(dueLines({ state: "overdue", basis: "days", daysLeft: -3, hoursLeft: null, hoursRun: null })).toEqual([{ key: "maint.due.overdueDays", vars: { n: 3 } }]);
+    expect(dueLines({ state: "soon", basis: "days", daysLeft: 0, hoursLeft: null, hoursRun: null })).toEqual([{ key: "maint.due.today", vars: undefined }]);
+  });
+});
+
+describe("numbers", () => {
+  test("milli text round-trips", () => {
+    for (const [text, milli] of [
+      ["72", 72000],
+      ["2.5", 2500],
+      ["-1.25", -1250],
+      ["0.001", 1],
+    ] as const) {
+      expect(parseMilli(text)).toBe(milli);
+      expect(milliText(milli)).toBe(text);
+    }
+    expect(parseMilli("1.2345")).toBeNull();
+    expect(parseMilli("abc")).toBeNull();
+    expect(milliText(null)).toBe("");
+  });
+  test("hours and minutes", () => {
+    expect(hoursMinutes(90)).toBe("1:30");
+    expect(hoursMinutes(5)).toBe("0:05");
+    expect(hoursMinutes(null)).toBe("");
+  });
+});
+
+describe("refusal words", () => {
+  test("server sentences map to dictionary keys, never raw text", () => {
+    expect(maintErrorKey(new Error("Not found"))).toBe("maint.errors.notFound");
+    expect(maintErrorKey(new Error("This work order changed since you opened it. Open it again."))).toBe("maint.errors.changed");
+    expect(maintErrorKey(new Error("No asset points at this press yet. Add it to the asset register first"))).toBe("maint.errors.noAsset");
+    expect(maintErrorKey(new Error("That store issue is already on a work order"))).toBe("maint.errors.spareTaken");
+    expect(maintErrorKey({ message: "x", data: { code: "FORBIDDEN" } })).toBe("maint.errors.forbidden");
+    expect(maintErrorKey(new Error("boom"))).toBe("maint.errors.unknown");
+  });
+});
+
+describe("work order list search", () => {
+  test("keeps known filters and a sane asset id", () => {
+    expect(parseWoSearch({ status: "done", asset: "a1" })).toEqual({ status: "done", asset: "a1" });
+    expect(parseWoSearch({ status: "live" })).toEqual({});
+    expect(parseWoSearch({ status: "nope", asset: "" })).toEqual({});
+    expect(parseWoSearch({ asset: "x".repeat(65) })).toEqual({});
+    expect(woFilterOf({})).toBe("live");
+    expect(woFilterOf({ status: "all" })).toBe("all");
+  });
+});

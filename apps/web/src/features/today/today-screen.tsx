@@ -14,6 +14,7 @@ import { TodayAgeingTile } from "@/features/ageing/today-tile";
 import { TodayQaTile } from "@/features/qa/flags";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { TodayOldStockTile } from "@/features/reports/today-old-stock";
+import { TodayMaintTile } from "@/features/maintenance/today-tile";
 import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, refreshFailed, showsQueryError } from "@/shared/lib/query-errors";
@@ -202,6 +203,7 @@ export function TodayScreen() {
       <TodayToolingTile short={data.toolingShort} />
       {/* XE parity lane QA: quality holds and instruments overdue; nothing without a quality role or the module. */}
       <TodayQaTile />
+      <TodayMaintTile />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>
