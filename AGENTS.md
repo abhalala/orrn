@@ -1459,19 +1459,36 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   the rate; round-off to the rupee. Place of supply defaults to the bill-to state; export is 96.
 - **Cancel** is approval `invoice_cancel` (owner, admin, manager; never the requester). Refused when a credit
   note or a live payment is against it, an e-way bill is active, or the IRN is older than 24 h (then issue a
-  credit note). The applier frees the sources and clears the dispatch and PL header number. The IRN itself is
-  cancelled afterwards by `einvoice.cancelIrn` or the 5-minute cron.
+  credit note; the invoice page says so, `cancel.irnWindowClosed`). Safe order (review S1): with no IRN and no
+  generate call ever sent (`irn_call_at` null) the applier cancels at once; otherwise the invoice goes to
+  `cancel_pending` and keeps its packing lists and dispatch number. `settleCancel` (`lib/billing/einvoiceFlow.ts`;
+  run right after the decision, by `einvoice.cancelIrn` and by the cron) cancels the IRN at the IRP, or, with
+  no IRN known, waits `IRN_CALL_SETTLE_MS` after the last call and looks the document up (only 2283 means "none";
+  a found IRN is kept, then cancelled). Only then does the invoice become `cancelled`, and
+  `releaseCancelledStatements` frees the sources and clears the number from the dispatch and from EVERY packing
+  list of those dispatches (a revision made after issue too). Past 24 h it goes back to `issued` (or
+  `irn_pending`) with "issue a credit note instead". `cancel_pending` still counts as live for receivables, the
+  statement, Tally and the register; payments, credit notes and e-way bills are refused on it.
 - **Dispatch link.** Issue writes the number to `dispatch.invoice_number/date` and the current PL header (the
   portal shows them). `dispatch.update` refuses a typed number on a dispatch with a live orrn invoice; every
-  other dispatch keeps the Tally link (`invoice.link`).
+  other dispatch keeps the Tally link (`invoice.link`). A dispatch that already carries a number (invoiced in
+  Tally before billing was switched on) is not billable: `billable` leaves it out, the draft refuses it, and
+  issue's batch guard refuses it, so issue never overwrites a Tally number (review S3).
+- **Credit notes and the IRN.** A credit note needs an IRN by ITS own date against the plant's e-invoice start,
+  even when the invoice it reduces is older and had none. Receivables count credit notes that are `issued` or
+  `irn_pending`; an invoice credited below zero is money on account, never an ageing bucket.
 - **E-invoice.** The Worker never calls a government API: it calls `apps/gst-relay` (Bun + Hono, Indian
   static IP, not deployed by CI) with an HMAC-signed request (`gstRelayAuth.ts`, 5 minute window, nonces).
   Bindings `GST_RELAY_URL` + `GST_RELAY_SECRET` (both or neither; in turbo `globalPassThroughEnv`). Unset =
   "not set up": an invoice that needs an IRN stays `irn_pending` ("Draft, IRN pending") and is never final.
   IRN states `pending -> auto_retry -> generated | failed` (`lib/billing/einvoiceFlow.ts`); a 2150 duplicate is
-  recovered by document and the signed JWT; SignedInvoice/QR/AckNo/AckDt are written once. Cron `*/5 * * * *`
-  (`scheduled()` branches on `controller.cron`). Tests use `fakeIrpAdapter` via `setIrpAdapterForTests`.
-  The offline e-way bill JSON (`billing.export.ewbJson`) needs no relay. india-compliance is GPL: re-implement,
+  recovered by document and the signed JWT; SignedInvoice/QR/AckNo/AckDt are written once. Every generate call
+  stamps `irn_call_at` under a status guard before it leaves. Cron `*/5 * * * *` (`scheduled()` branches on
+  `controller.cron`): due IRNs only for plants with both modules named (filtered in SQL), at most 5 per plant and
+  25 per run, oldest `irn_next_try_at` first (review S4); then every `cancel_pending` row, also with no relay
+  (failed lookups and cancels back off by `irn_next_try_at`). Tests use `fakeIrpAdapter` via
+  `setIrpAdapterForTests`. The offline e-way bill JSON (`billing.export.ewbJson`) needs no relay and takes only
+  `issued` invoices, never one still waiting for its IRN (review S5). india-compliance is GPL: re-implement,
   never copy.
 
 # 13. Customer portal

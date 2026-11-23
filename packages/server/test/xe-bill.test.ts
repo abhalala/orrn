@@ -311,6 +311,24 @@ describe("tax invoice (row 13)", () => {
     await p.as("office").dispatch.update({ id, invoiceNumber: "T/123", invoiceDate: "2026-10-03" });
     expect(await dispatchRow(id)).toMatchObject({ invoiceNumber: "T/123" });
   }, SLOW);
+
+  test("billing switched on later: a dispatch already invoiced in Tally is not billable, and issue never overwrites it (S3)", async () => {
+    const p = await billingPlant();
+    const tallied = await completedPl(p, [300]);
+    await p.as("office").dispatch.update({ id: tallied.dispatchId, invoiceNumber: "T/77", invoiceDate: "2026-10-01" });
+    const fresh = await completedPl(p, [200]);
+    const billable = (await p.as("office").billing.invoices.billable({})).map((r) => r.id);
+    expect(billable).toContain(fresh.plId);
+    expect(billable).not.toContain(tallied.plId);
+    await expect(p.as("office").billing.invoices.createDraft({ packingListIds: [tallied.plId] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // A number typed after the draft (the draft was made, then Tally was used) refuses the issue; the number stays.
+    const later = await completedPl(p, [100]);
+    const { id } = await p.as("office").billing.invoices.createDraft({ packingListIds: [later.plId] });
+    await env.db.update(dispatch).set({ invoiceNumber: "T/78" }).where(eq(dispatch.id, later.dispatchId));
+    await expect(p.as("office").billing.invoices.issue({ id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("T/78") });
+    expect(await dispatchRow(later.dispatchId)).toMatchObject({ invoiceNumber: "T/78" });
+    expect(await dispatchRow(tallied.dispatchId)).toMatchObject({ invoiceNumber: "T/77" });
+  }, SLOW);
 });
 
 describe("payments and outstanding (row 97)", () => {
@@ -346,13 +364,19 @@ describe("payments and outstanding (row 97)", () => {
 });
 
 describe("e-invoice (row 15)", () => {
-  test("relay not configured: the invoice stays IRN pending, never issued; the e-way bill file still works", async () => {
+  test("relay not configured: the invoice stays IRN pending, never issued, and stays out of the e-way bill file (S5)", async () => {
     const p = await billingPlant(["billing", "einvoice"]);
     lib.setAdapter(null);
     const inv = await issued(p, [(await completedPl(p, [300])).plId]);
     expect(inv).toMatchObject({ status: "irn_pending", irnStatus: "pending", number: "INV/26-27/1" });
     await expect(p.as("office").einvoice.generate({ id: inv.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    const file = await p.as("office").billing.export.ewbJson({ invoiceIds: [inv.id], distanceKm: 120, vehicleNo: "GJ05AB1234" });
+    // Review S5: an invoice still waiting for its IRN never goes in the e-way bill file.
+    await expect(p.as("office").billing.export.ewbJson({ invoiceIds: [inv.id], distanceKm: 120, vehicleNo: "GJ05AB1234" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // The file still works with no relay for an invoice that needs no IRN (a plant on billing only).
+    const q = await billingPlant(["billing"]);
+    const plain = await issued(q, [(await completedPl(q, [300])).plId]);
+    expect(plain.status).toBe("issued");
+    const file = await q.as("office").billing.export.ewbJson({ invoiceIds: [plain.id], distanceKm: 120, vehicleNo: "GJ05AB1234" });
     const parsed = JSON.parse(file.json) as { billLists: { docNo: string }[] };
     expect(parsed.billLists[0]!.docNo).toBe("INV/26-27/1");
   }, SLOW);
@@ -398,11 +422,11 @@ describe("e-invoice (row 15)", () => {
 
   test("cancel after 24 h of the IRN, or with a live e-way bill, is refused", async () => {
     const p = await billingPlant(["billing", "einvoice"]);
-    lib.setAdapter(lib.fakeAdapter(() => new Date()));
+    lib.setAdapter(lib.fakeAdapter(() => OCT));
     const inv = await issued(p, [(await completedPl(p, [300])).plId]);
     await p.as("office").einvoice.ewbGenerate({ id: inv.id, distanceKm: 250, vehicleNo: "GJ05AB1234" });
     await expect(p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Cancel the e-way bill first" });
-    await env.db.update(invoice).set({ ewbStatus: "cancelled", irnGeneratedAt: new Date(Date.now() - 25 * 3600_000) }).where(eq(invoice.id, inv.id));
+    await env.db.update(invoice).set({ ewbStatus: "cancelled", irnGeneratedAt: new Date(OCT.getTime() - 25 * 3600_000) }).where(eq(invoice.id, inv.id));
     await expect(p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const pending = await env.db.select().from(approval).where(and(eq(approval.companyId, p.companyId), eq(approval.kind, "invoice_cancel")));
     expect(pending).toEqual([]);
@@ -484,9 +508,10 @@ describe("procedure coverage (review round)", () => {
     const p = await billingPlant(["billing", "einvoice"]);
     const fake = lib.fakeAdapter(() => new Date());
     lib.setAdapter(fake);
-    const a = await issued(p, [(await completedPl(p, [300])).plId]);
+    const pa = await completedPl(p, [300]);
+    const a = await issued(p, [pa.plId]);
     const st = await p.as("office").einvoice.status({ id: a.id });
-    expect(st).toMatchObject({ needsIrn: true, irnStatus: "generated", canCancelIrn: true, ewbStatus: "none", ewbNeeded: true });
+    expect(st).toMatchObject({ needsIrn: true, irnStatus: "generated", canCancelIrn: false, irnWindowClosed: false, ewbStatus: "none", ewbNeeded: true });
     const q = await billingPlant(["billing", "einvoice"]);
     await expect(q.owner.einvoice.status({ id: a.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
 
@@ -496,17 +521,150 @@ describe("procedure coverage (review round)", () => {
     expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ ewbStatus: "cancelled" });
 
     await expect(p.as("office").einvoice.cancelIrn({ id: a.id, remark: "Wrong rate" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // Review S1: approved while the relay is down: cancel_pending, the list stays bound, the number stays.
+    lib.setAdapter(null);
     const ap = await p.as("office").billing.invoices.requestCancel({ id: a.id, reason: "Wrong rate" });
     await p.as("manager").approval.decide({ id: ap.approvalId, decision: "approved" });
-    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "generated" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ status: "cancel_pending", irnStatus: "generated" });
+    expect(await dispatchRow(pa.dispatchId)).toMatchObject({ invoiceNumber: a.number });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).not.toContain(pa.plId);
+    await expect(p.as("office").billing.invoices.requestCancel({ id: a.id, reason: "Again" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    lib.setAdapter(fake);
+    expect(await p.as("office").einvoice.status({ id: a.id })).toMatchObject({ canCancelIrn: true });
     await p.as("office").einvoice.cancelIrn({ id: a.id, remark: "Wrong rate" });
-    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ irnStatus: "cancelled" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, a.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "cancelled" });
+    expect(await dispatchRow(pa.dispatchId)).toMatchObject({ invoiceNumber: null });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).toContain(pa.plId);
 
+    // With the relay up the approval cancels the IRN at once.
     const b = await issued(p, [(await completedPl(p, [200])).plId]);
     const bp = await p.as("office").billing.invoices.requestCancel({ id: b.id, reason: "Duplicate" });
     await p.as("manager").approval.decide({ id: bp.approvalId, decision: "approved" });
-    await lib.runIrnCron(env.db, fake, Date.now());
     expect((await env.db.select().from(invoice).where(eq(invoice.id, b.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "cancelled" });
-    expect(fake.script.calls.filter((c) => c.op === "cancel")).toHaveLength(2);
+
+    // Approved with the relay down, the cron finishes it.
+    const c = await issued(p, [(await completedPl(p, [100])).plId]);
+    const cp = await p.as("office").billing.invoices.requestCancel({ id: c.id, reason: "Duplicate" });
+    lib.setAdapter(null);
+    await p.as("manager").approval.decide({ id: cp.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, c.id)))[0]).toMatchObject({ status: "cancel_pending" });
+    await lib.runIrnCron(env.db, fake, Date.now());
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, c.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "cancelled" });
+    expect(fake.script.calls.filter((x) => x.op === "cancel")).toHaveLength(3);
+  }, SLOW);
+
+  test("S1: an approved cancel that misses the 24 h window goes back to issued; the screen says credit note", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => OCT);
+    lib.setAdapter(fake);
+    const pl = await completedPl(p, [300]);
+    const inv = await issued(p, [pl.plId]);
+    expect(inv.status).toBe("issued");
+    lib.setClock(new Date(OCT.getTime() + 23.5 * 3600_000));
+    const ap = await p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong rate" });
+    lib.setAdapter(null); // the relay is down past hour 24
+    await p.as("manager").approval.decide({ id: ap.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ status: "cancel_pending" });
+    const late = OCT.getTime() + 24.5 * 3600_000;
+    await lib.runIrnCron(env.db, null, late);
+    const row = (await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]!;
+    expect(row).toMatchObject({ status: "issued", irnStatus: "generated", cancelledAt: null });
+    expect(row.irnError).toContain("credit note");
+    expect(await dispatchRow(pl.dispatchId)).toMatchObject({ invoiceNumber: inv.number });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).not.toContain(pl.plId);
+    expect(fake.script.calls.filter((x) => x.op === "cancel")).toHaveLength(0);
+    lib.setClock(new Date(late));
+    lib.setAdapter(fake);
+    await expect(p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Again" })).rejects.toMatchObject({ message: expect.stringContaining("credit note") });
+  }, SLOW);
+
+  test("S1: a cancel while the IRN call was in flight waits, looks the document up, and cancels the IRN it finds", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => new Date());
+    // The call lands at the IRP but its answer is lost (Worker timeout).
+    const lossy = { ...fake, generateIrn: async (g: string, payload: Record<string, unknown>) => (await fake.generateIrn(g, payload), { ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) };
+    lib.setAdapter(lossy);
+    const pl = await completedPl(p, [300]);
+    const inv = await issued(p, [pl.plId]);
+    expect(inv).toMatchObject({ status: "irn_pending", irnStatus: "auto_retry" });
+    const ap = await p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong party" });
+    await p.as("manager").approval.decide({ id: ap.approvalId, decision: "approved" });
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]).toMatchObject({ status: "cancel_pending", irn: null });
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).not.toContain(pl.plId);
+    // Too soon: a call may still be on its way, so nothing is looked up.
+    await lib.runIrnCron(env.db, fake, Date.now());
+    expect(fake.script.calls.filter((x) => x.op === "byDocument")).toHaveLength(0);
+    await lib.runIrnCron(env.db, fake, Date.now() + 3 * 60_000);
+    const row = (await env.db.select().from(invoice).where(eq(invoice.id, inv.id)))[0]!;
+    expect(row).toMatchObject({ status: "cancelled", irnStatus: "cancelled" });
+    expect(row.irn).toHaveLength(64);
+    expect(fake.script.calls.map((x) => x.op)).toEqual(["generate", "byDocument", "cancel"]);
+    expect((await p.owner.billing.invoices.billable({})).map((b) => b.id)).toContain(pl.plId);
+
+    // No IRN at the IRP (2283): cancelled with no IRN call; any other answer proves nothing and waits.
+    const refused = { ...fake, generateIrn: async () => ({ ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) };
+    lib.setAdapter(refused);
+    const two = await issued(p, [(await completedPl(p, [200])).plId]);
+    const bp = await p.as("office").billing.invoices.requestCancel({ id: two.id, reason: "Wrong party" });
+    await p.as("manager").approval.decide({ id: bp.approvalId, decision: "approved" });
+    const down = { ...fake, irnByDocument: async () => ({ ok: false as const, code: "relay_unknown_gstin", message: "no", retryable: false }) };
+    await lib.runIrnCron(env.db, down, Date.now() + 3 * 60_000);
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, two.id)))[0]).toMatchObject({ status: "cancel_pending" });
+    await lib.runIrnCron(env.db, fake, Date.now() + 10 * 60_000);
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, two.id)))[0]).toMatchObject({ status: "cancelled", irnStatus: "none" });
+  }, SLOW);
+
+  test("S4: the IRN cron is fair: one plant's backlog with e-invoice off never blocks another plant", async () => {
+    const a = await billingPlant(["billing", "einvoice"]);
+    lib.setAdapter(null);
+    const first = await issued(a, [(await completedPl(a, [300])).plId]);
+    expect(first.status).toBe("irn_pending");
+    const [row] = await env.db.select().from(invoice).where(eq(invoice.id, first.id));
+    // 30 more pending invoices for plant A (copies with their own numbers), then A switches e-invoice off.
+    for (let i = 2; i <= 31; i += 1) await env.db.insert(invoice).values({ ...row!, id: crypto.randomUUID(), seq: i, number: `INV/26-27/${i}` });
+    await env.db.update(company).set({ modules: ["billing"] }).where(eq(company.id, a.companyId));
+    const b = await billingPlant(["billing", "einvoice"]);
+    const due = await issued(b, [(await completedPl(b, [200])).plId]);
+    expect(due.status).toBe("irn_pending");
+    const fake = lib.fakeAdapter(() => OCT);
+    const out = await lib.runIrnCron(env.db, fake, Date.now());
+    expect(out.tried).toBe(1);
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, due.id)))[0]).toMatchObject({ status: "issued", irnStatus: "generated" });
+    // Plant A back on: at most 5 of its rows per run, so a third plant still gets its turn.
+    await env.db.update(company).set({ modules: ["billing", "einvoice"] }).where(eq(company.id, a.companyId));
+    const c = await billingPlant(["billing", "einvoice"]);
+    const third = await issued(c, [(await completedPl(c, [100])).plId]);
+    const run = await lib.runIrnCron(env.db, lib.fakeAdapter(() => OCT), Date.now());
+    expect(run.tried).toBe(6);
+    expect((await env.db.select().from(invoice).where(eq(invoice.id, third.id)))[0]).toMatchObject({ irnStatus: "generated" });
+  }, SLOW);
+
+  test("S6: a PL regenerated after issue loses the cancelled number too", async () => {
+    const p = await billingPlant();
+    const { plId, dispatchId } = await completedPl(p, [40]);
+    const inv = await issued(p, [plId]);
+    const r2 = await p.owner.packingList.regenerate({ id: plId });
+    const r2Id = (r2 as { id: string }).id;
+    const head = async (id: string) => ((await env.db.select().from(packingList).where(eq(packingList.id, id)))[0]!.snapshot as { header: { invoiceNumber: string | null } }).header.invoiceNumber;
+    expect(await head(r2Id)).toBe(inv.number);
+    const { approvalId } = await p.as("office").billing.invoices.requestCancel({ id: inv.id, reason: "Wrong rate" });
+    await p.as("manager").approval.decide({ id: approvalId, decision: "approved" });
+    expect(await head(r2Id)).toBeNull();
+    expect(await head(plId)).toBeNull();
+    expect(await dispatchRow(dispatchId)).toMatchObject({ invoiceNumber: null });
+  }, SLOW);
+
+  test("a credit note after the plant's e-invoice start gets an IRN, also against an invoice from before it", async () => {
+    const p = await billingPlant(["billing", "einvoice"]);
+    const fake = lib.fakeAdapter(() => new Date());
+    lib.setAdapter(fake);
+    await p.as("admin").billing.settings.save({ stateCode: "24", pincode: "394230", place: "Surat", einvoiceFrom: "2026-11-01" });
+    const inv = await issued(p, [(await completedPl(p, [300])).plId]); // 2026-10-03: before the start
+    expect(inv).toMatchObject({ status: "issued", irnStatus: "none" });
+    lib.setClock(new Date("2026-11-10T06:30:00.000Z"));
+    const { id } = await p.as("office").billing.invoices.createCreditDraft({ againstInvoiceId: inv.id, reason: "rate_difference", note: "", lines: [{ kind: "amount", description: "Rate", amountPaise: 10_000 }] });
+    const cn = await p.as("office").billing.invoices.issue({ id });
+    expect(cn).toMatchObject({ status: "issued", irnStatus: "generated" });
+    expect(fake.script.calls.filter((x) => x.op === "generate")).toHaveLength(1);
   }, SLOW);
 });

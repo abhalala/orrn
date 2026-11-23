@@ -52,7 +52,10 @@ export const einvoiceRouter = router({
         ackDt: row.ackDt,
         error: row.irnError,
         attempts: row.irnAttempts,
-        canCancelIrn: row.irnStatus === "generated" && irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now, ewbActive: row.ewbStatus === "active" }) === null,
+        /** An approved cancel waits for the IRP: "Cancel IRN" settles it now (also when the IRN must first be looked up). */
+        canCancelIrn: row.status === "cancel_pending" && (row.irnStatus !== "generated" || irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now, ewbActive: row.ewbStatus === "active" }) === null),
+        /** The IRN is past its 24 h: the only way back is a credit note (the screen says so). */
+        irnWindowClosed: row.irnStatus === "generated" && irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now, ewbActive: false }) === "window",
         ewbStatus: row.ewbStatus,
         ewbNo: row.ewbNo,
         ewbNeeded: ewbRequired(row.totalPaise),
@@ -75,11 +78,11 @@ export const einvoiceRouter = router({
     .input(z.object({ id, reasonCode: z.enum(["1", "2", "3", "4"]).default("2"), remark: z.string().trim().min(3).max(100) }))
     .mutation(async ({ ctx, input }) => {
       const row = await owned(ctx, input.id);
-      if (row.status !== "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Cancel the invoice in orrn first (it needs approval)" });
+      if (row.status !== "cancel_pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Cancel the invoice in orrn first (it needs approval)" });
       const out = await cancelIrn(ctx.db, ctx.companyId, row.id, adapterOrThrow(), Date.now(), { reasonCode: input.reasonCode, remark: input.remark });
       if (!out.ok) throw new TRPCError({ code: "BAD_REQUEST", message: out.message });
-      await ctx.db.batch([auditInsert(ctx, { action: "invoice.irn.cancel", subjectType: "invoice", subjectId: row.id })]);
-      return { ok: true };
+      await ctx.db.batch([auditInsert(ctx, { action: "invoice.irn.cancel", subjectType: "invoice", subjectId: row.id, meta: { outcome: out.outcome } })]);
+      return { ok: true, outcome: out.outcome };
     }),
   ewbGenerate: einvoiceProcedure("invoice.issue")
     .input(z.object({ id, distanceKm: z.number().int().min(0).max(4000), vehicleNo: z.string().trim().min(4).max(15), transporterId: z.string().trim().max(15).nullish(), transporterName: z.string().trim().max(100).nullish() }))

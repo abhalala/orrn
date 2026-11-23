@@ -7434,6 +7434,7 @@ export const hi = {
     status: {
       draft: "ड्राफ्ट",
       irn_pending: "ड्राफ्ट, IRN बाकी",
+      cancel_pending: "रद्द, IRP का इंतज़ार",
       issued: "जारी",
       cancelled: "रद्द",
     },
@@ -7554,6 +7555,8 @@ export const hi = {
       sendAsk: "भेजें",
       cancelAsked: "मंज़ूरी के लिए भेज दिया",
       cancelWaiting: "रद्द करने की मांग मैनेजर के पास है।",
+      cancelAtIrp: "रद्द करना मंज़ूर है। IRP पर IRN रद्द हो रहा है। तब तक पैकिंग लिस्ट इसी बिल पर रहेंगी।",
+      creditNoteOnly: "यह IRN 24 घंटे से पुराना है, रद्द नहीं हो सकता। यह बिल वापस लेने के लिए क्रेडिट नोट बनाएं।",
       cancelledOn: "रद्द हुआ {when}। {reason}",
       payments: "भुगतान",
       paid: "मिला",

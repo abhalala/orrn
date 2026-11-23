@@ -23098,6 +23098,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "irn_call_at": {
+          "name": "irn_call_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "irn_error": {
           "name": "irn_error",
           "type": "text",

@@ -106,7 +106,7 @@ export function IrnPanel({ doc, actions }: { doc: Doc; actions: DocActions }) {
             </Button>
           </Can>
         ) : null}
-        {doc.status === "cancelled" && word === "generated" && status.data?.canCancelIrn ? (
+        {doc.status === "cancel_pending" && status.data?.canCancelIrn ? (
           <Can do="invoice.cancel">
             <Button variant="danger" onClick={() => setCancelOpen(true)}>
               {t("bill.irn.cancel")}

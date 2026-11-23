@@ -122,6 +122,7 @@ CREATE TABLE `invoice` (
 	`signed_qr_code` text,
 	`irn_attempts` integer DEFAULT 0 NOT NULL,
 	`irn_next_try_at` integer,
+	`irn_call_at` integer,
 	`irn_error` text,
 	`irn_generated_at` integer,
 	`irn_cancelled_at` integer,

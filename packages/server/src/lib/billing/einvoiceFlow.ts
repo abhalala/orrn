@@ -9,24 +9,38 @@
  * A 2150 "duplicate IRN" answer means the IRP already has this document (an earlier call landed but its
  * answer was lost): fetch it by document number, decode the signed JWT and keep it as the first success.
  * The signed invoice, QR, AckNo and AckDt are written once (`irn is null` guard), never overwritten.
+ *
+ * Every generate call is stamped (`irn_call_at`) BEFORE it leaves, under a status guard, so a cancel knows
+ * whether an IRN might exist that orrn has not heard about.
+ *
+ * Cancel (review S1, the safe order):
+ *   approve ─▶ cancel_pending (lists stay bound, number stays on the dispatch)   when an IRN exists or a call left
+ *          └─▶ cancelled (lists freed)                                           when no call ever left
+ *   cancel_pending ─IRN live─▶ cancel at the IRP ─ok─▶ cancelled, lists freed
+ *                  ─no IRN known─▶ wait out a call in flight, look it up by document:
+ *                         found ─▶ keep it, then cancel it as above;  not found (2283) ─▶ cancelled, lists freed
+ *                  ─24 h past the IRN (or the call) ─▶ back to issued: "issue a credit note instead"
  */
-import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 
-import { billingEvent, invoice } from "@orrn/db/schema/billing";
+import { billingEvent, invoice, invoiceSource } from "@orrn/db/schema/billing";
 import {
   buildInv01,
   decodeSignedInvoice,
   ewbValidUntil,
   IRN_MAX_AUTO_TRIES,
   IRN_RETRY_EVERY_MS,
-  irnCancelRefusal,
   isModuleOn,
   parseAckDt,
   type RelayResponse,
 } from "@orrn/domain";
 
-import { atomicBatch, type OrrnDb } from "../atomic";
+import { dispatch } from "@orrn/db/schema/dispatch";
+import { packingList } from "@orrn/db/schema/packing";
+
+import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../atomic";
 import { companyModules } from "../moduleGate";
+import { nextCompanySeq } from "../sequence";
 import type { IrnData, IrpAdapter } from "./irp";
 import { einvoiceModel, type InvoiceSnapshot } from "./snapshot";
 
@@ -101,6 +115,22 @@ export async function generateIrn(db: OrrnDb, companyId: string, invoiceId: stri
     ]);
     return "failed";
   }
+  // Stamp the call before it leaves, under the status guard: a cancel approved meanwhile (cancel_pending)
+  // wins and no call goes; a cancel approved after this sees the stamp and waits for the IRP's answer.
+  const claimed = await db
+    .update(invoice)
+    .set({ irnCallAt: new Date(at) })
+    .where(
+      and(
+        eq(invoice.id, invoiceId),
+        eq(invoice.companyId, companyId),
+        isNull(invoice.irn),
+        inArray(invoice.status, ["irn_pending", "issued"]),
+        inArray(invoice.irnStatus, ["pending", "auto_retry"]),
+      ),
+    )
+    .returning({ id: invoice.id });
+  if (claimed.length === 0) return "skipped";
   const gstin = snap.plant.gstin;
   const res = await adapter.generateIrn(gstin, built.payload);
   if (res.ok) {
@@ -143,7 +173,148 @@ export async function resetFailedIrn(db: OrrnDb, companyId: string, invoiceId: s
   return rows.length > 0;
 }
 
-/** Cancel the IRN of a cancelled invoice (inside 24 h, no live e-way bill). */
+/** How long a generate call may still be in flight (the relay's upstream timeout is 10 s per IRP request, an auth plus a call). */
+export const IRN_CALL_SETTLE_MS = 2 * 60 * 1000;
+export const IRN_CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** IRP answers to "IRN by document" that confirm no IRN exists for it. Anything else proves nothing. */
+const IRN_NOT_FOUND_CODES = new Set(["2283"]);
+
+export const CANCEL_TOO_LATE = "The IRN could not be cancelled within 24 hours: issue a credit note instead";
+const CANCEL_UNCHECKED = "The IRP could not be checked within 24 hours: the invoice stays. Issue a credit note if its IRN was made";
+
+/**
+ * Free what an invoice held once it is really cancelled: the dispatch number, the number on every packing
+ * list of those dispatches (all revisions, also one regenerated after issue: review S6), and the sources.
+ * `guard` must hold only when the invoice reached `cancelled` in this same batch.
+ */
+export function releaseCancelledStatements(db: OrrnDb, companyId: string, invoiceId: string, guard: SQL): SqliteBatchItem[] {
+  const number = sql`(select i.number from invoice i where i.id = ${invoiceId})`;
+  const dispatches = sql`(select s.dispatch_id from invoice_source s where s.company_id = ${companyId} and s.invoice_id = ${invoiceId})`;
+  return [
+    db
+      .update(dispatch)
+      .set({ invoiceNumber: null, invoiceDate: null })
+      .where(and(eq(dispatch.companyId, companyId), sql`${dispatch.id} in ${dispatches}`, sql`${dispatch.invoiceNumber} = ${number}`, guard)),
+    db
+      .update(packingList)
+      .set({ snapshot: sql`json_set(${packingList.snapshot}, '$.header.invoiceNumber', null, '$.header.invoiceDate', null)` })
+      .where(
+        and(
+          eq(packingList.companyId, companyId),
+          sql`(${packingList.dispatchId} in ${dispatches}
+            or ${packingList.id} in (select pld.packing_list_id from packing_list_dispatch pld where pld.company_id = ${companyId} and pld.dispatch_id in ${dispatches}))`,
+          sql`json_extract(${packingList.snapshot}, '$.version') = 2`,
+          sql`json_extract(${packingList.snapshot}, '$.header.invoiceNumber') = ${number}`,
+          guard,
+        ),
+      ),
+    db.update(invoiceSource).set({ active: false }).where(and(eq(invoiceSource.companyId, companyId), eq(invoiceSource.invoiceId, invoiceId), guard)),
+  ];
+}
+
+export type SettleResult =
+  | { outcome: "cancelled" | "reverted" | "waiting" | "skipped" }
+  | { outcome: "failed"; code: string; message: string };
+
+/** cancel_pending -> cancelled: the IRN is cancelled at the IRP (or none was ever made); the lists go free. */
+async function finishCancel(db: OrrnDb, companyId: string, invoiceId: string, at: number, irnCancelled: boolean): Promise<SettleResult> {
+  const seq = await nextCompanySeq({ db }, companyId);
+  const landed = sql`exists (select 1 from invoice i where i.id = ${invoiceId} and i.company_id = ${companyId} and i.status = 'cancelled' and i.server_seq = ${seq})`;
+  await atomicBatch(db, [
+    db
+      .update(invoice)
+      .set({
+        status: "cancelled",
+        irnStatus: irnCancelled ? "cancelled" : sql`case when ${invoice.irn} is null then 'none' else ${invoice.irnStatus} end`,
+        ...(irnCancelled ? { irnCancelledAt: new Date(at) } : {}),
+        irnNextTryAt: null,
+        serverSeq: seq,
+        updatedAt: new Date(at),
+      })
+      .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId), eq(invoice.status, "cancel_pending"))),
+    ...releaseCancelledStatements(db, companyId, invoiceId, landed),
+    event(db, companyId, invoiceId, irnCancelled ? "irn.cancel" : "invoice.cancel", "cancelled", at, irnCancelled ? null : "no_irn"),
+  ]);
+  return { outcome: "cancelled" };
+}
+
+/** cancel_pending -> back to live: the IRN can no longer be cancelled. The office raises a credit note. */
+async function revertCancel(db: OrrnDb, companyId: string, invoiceId: string, at: number, message: string): Promise<SettleResult> {
+  const seq = await nextCompanySeq({ db }, companyId);
+  await atomicBatch(db, [
+    db
+      .update(invoice)
+      .set({
+        status: sql`case when ${invoice.irn} is not null then 'issued' else 'irn_pending' end`,
+        cancelApprovalId: null,
+        cancelReason: null,
+        cancelledBy: null,
+        cancelledAt: null,
+        irnError: message,
+        irnNextTryAt: null,
+        serverSeq: seq,
+        updatedAt: new Date(at),
+      })
+      .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId), eq(invoice.status, "cancel_pending"))),
+    event(db, companyId, invoiceId, "invoice.cancel", "reverted", at, "window", message),
+  ]);
+  return { outcome: "reverted" };
+}
+
+async function backOff(db: OrrnDb, companyId: string, invoiceId: string, at: number, action: string, code: string, message: string): Promise<SettleResult> {
+  await atomicBatch(db, [
+    db
+      .update(invoice)
+      .set({ irnNextTryAt: new Date(at + IRN_RETRY_EVERY_MS), updatedAt: new Date(at) })
+      .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId), eq(invoice.status, "cancel_pending"))),
+    event(db, companyId, invoiceId, action, "failed", at, code, message),
+  ]);
+  return { outcome: "failed", code, message };
+}
+
+/**
+ * Move one `cancel_pending` document on (review S1). Runs with no adapter too (relay not set up, or the
+ * plant switched e-invoice off): then only the 24 h revert can happen, so nothing holds its lists forever.
+ */
+export async function settleCancel(
+  db: OrrnDb,
+  companyId: string,
+  invoiceId: string,
+  adapter: IrpAdapter | null,
+  at: number,
+  input: { reasonCode: string; remark: string } = { reasonCode: "2", remark: "Data entry mistake" },
+): Promise<SettleResult> {
+  let row = await loadForIrn(db, companyId, invoiceId);
+  if (!row || row.status !== "cancel_pending") return { outcome: "skipped" };
+  const snap = row.snapshot as unknown as InvoiceSnapshot;
+  if (!row.irn) {
+    const calledAt = row.irnCallAt?.getTime() ?? null;
+    if (calledAt === null) return finishCancel(db, companyId, row.id, at, false);
+    if (at - calledAt >= IRN_CANCEL_WINDOW_MS) return revertCancel(db, companyId, row.id, at, CANCEL_UNCHECKED);
+    // A call may still be on its way to the IRP: look only once it must have answered.
+    if (at - calledAt < IRN_CALL_SETTLE_MS || !adapter || !row.number || !row.invoiceDate) return { outcome: "waiting" };
+    const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
+    const found = await adapter.irnByDocument(snap.plant.gstin, doc);
+    if (!found.ok) {
+      if (IRN_NOT_FOUND_CODES.has(found.code)) return finishCancel(db, companyId, row.id, at, false);
+      return backOff(db, companyId, row.id, at, "irn.lookup", found.code, found.message);
+    }
+    const facts = decodeSignedInvoice(found.data.SignedInvoice);
+    if (!facts) return backOff(db, companyId, row.id, at, "irn.lookup", "undecodable", "The IRP's signed invoice could not be read");
+    await persistIrn(db, companyId, row.id, { ...found.data, Irn: facts.irn, AckNo: found.data.AckNo ?? facts.ackNo, AckDt: found.data.AckDt ?? facts.ackDt }, at, "found_on_cancel");
+    row = await loadForIrn(db, companyId, invoiceId);
+    if (!row || row.status !== "cancel_pending" || !row.irn) return { outcome: "skipped" };
+  }
+  const ackAt = row.irnGeneratedAt?.getTime() ?? null;
+  if (ackAt === null || at - ackAt >= IRN_CANCEL_WINDOW_MS) return revertCancel(db, companyId, row.id, at, CANCEL_TOO_LATE);
+  if (row.ewbStatus === "active") return { outcome: "failed", code: "ewb_active", message: "Cancel the e-way bill first" };
+  if (!adapter) return { outcome: "waiting" };
+  const res = await adapter.cancelIrn(snap.plant.gstin, { irn: row.irn!, reasonCode: input.reasonCode, remark: input.remark });
+  if (!res.ok) return backOff(db, companyId, row.id, at, "irn.cancel", res.code, res.message);
+  return finishCancel(db, companyId, row.id, at, true);
+}
+
+/** "Cancel IRN" on the invoice page: settle now with the office's reason (same order as the cron). */
 export async function cancelIrn(
   db: OrrnDb,
   companyId: string,
@@ -151,29 +322,25 @@ export async function cancelIrn(
   adapter: IrpAdapter,
   at: number,
   input: { reasonCode: string; remark: string } = { reasonCode: "2", remark: "Data entry mistake" },
-): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+): Promise<{ ok: true; outcome: SettleResult["outcome"] } | { ok: false; code: string; message: string }> {
   const row = await loadForIrn(db, companyId, invoiceId);
   if (!row) return { ok: false, code: "not_found", message: "Not found" };
-  if (row.irnStatus !== "generated" || !row.irn) return { ok: false, code: "no_irn", message: "This invoice has no live IRN" };
-  const refusal = irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now: at, ewbActive: row.ewbStatus === "active" });
-  if (refusal) {
-    const message = refusal === "window" ? "An IRN can be cancelled only within 24 hours: issue a credit note instead" : "Cancel the e-way bill first";
-    return { ok: false, code: refusal, message };
+  if (row.status !== "cancel_pending") return { ok: false, code: "not_pending", message: "This invoice has no approved cancel waiting for the IRP" };
+  const out = await settleCancel(db, companyId, invoiceId, adapter, at, input);
+  if (out.outcome === "failed") return { ok: false, code: out.code, message: out.message };
+  if (out.outcome === "reverted") return { ok: false, code: "window", message: CANCEL_TOO_LATE };
+  return { ok: true, outcome: out.outcome };
+}
+
+/** Right after an approved cancel: settle at once when e-invoice is on and the relay is set up (the cron retries). */
+export async function settleCancelNow(db: OrrnDb, companyId: string, invoiceId: string, adapter: IrpAdapter | null, at: number): Promise<void> {
+  const modules = await companyModules(db, companyId);
+  const on = isModuleOn(modules, "billing") && isModuleOn(modules, "einvoice");
+  try {
+    await settleCancel(db, companyId, invoiceId, on ? adapter : null, at);
+  } catch (e) {
+    console.error("cancel settle failed", e instanceof Error ? e.message : String(e));
   }
-  const snap = row.snapshot as unknown as InvoiceSnapshot;
-  const res = await adapter.cancelIrn(snap.plant.gstin, { irn: row.irn, reasonCode: input.reasonCode, remark: input.remark });
-  if (!res.ok) {
-    await db.insert(billingEvent).values({ id: crypto.randomUUID(), companyId, invoiceId, action: "irn.cancel", outcome: "failed", code: res.code, message: res.message.slice(0, 500), at: new Date(at) });
-    return { ok: false, code: res.code, message: res.message };
-  }
-  await atomicBatch(db, [
-    db
-      .update(invoice)
-      .set({ irnStatus: "cancelled", irnCancelledAt: new Date(at), updatedAt: new Date(at) })
-      .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId), eq(invoice.irnStatus, "generated"))),
-    event(db, companyId, invoiceId, "irn.cancel", "cancelled", at),
-  ]);
-  return { ok: true };
 }
 
 /** E-way bill by IRN: Part-A from the invoice, Part-B (vehicle) from the dispatch. */
@@ -247,49 +414,49 @@ export async function cancelEwb(
 }
 
 const CRON_BATCH = 25;
+/** At most this many rows of one plant per run (review S4): one plant's backlog never starves the others. */
+const CRON_PER_COMPANY = 5;
+
+/** SQL: the invoice's plant has both opt-in modules named (opt-in = named, never by an empty list). */
+const einvoiceOnSql = sql`exists (select 1 from company c where c.id = i.company_id
+    and exists (select 1 from json_each(c.modules) j where lower(trim(j.value)) = 'billing')
+    and exists (select 1 from json_each(c.modules) j where lower(trim(j.value)) = 'einvoice'))`;
 
 /**
- * Cron (every 5 minutes): retry IRNs that are due, and cancel the IRN of invoices cancelled in orrn while
- * the 24 h window is still open. Does nothing when the relay is not configured.
+ * Cron (every 5 minutes):
+ * - generate IRNs that are due, for plants with e-invoice on (filtered in SQL), fairly: at most
+ *   `CRON_PER_COMPANY` per plant, oldest `irn_next_try_at` first;
+ * - move every `cancel_pending` document on (settleCancel), also with no relay or e-invoice off, so the 24 h
+ *   revert always happens. A failed cancel or lookup backs off by `irn_next_try_at`.
  */
 export async function runIrnCron(db: OrrnDb, adapter: IrpAdapter | null, at: number): Promise<{ tried: number; cancelled: number }> {
-  if (!adapter) return { tried: 0, cancelled: 0 };
-  const due = await db
-    .select({ id: invoice.id, companyId: invoice.companyId })
-    .from(invoice)
-    .where(
-      and(
-        eq(invoice.needsIrn, true),
-        isNull(invoice.irn),
-        inArray(invoice.status, ["irn_pending", "issued"]),
-        or(eq(invoice.irnStatus, "pending"), and(eq(invoice.irnStatus, "auto_retry"), lte(invoice.irnNextTryAt, new Date(at)))),
-      ),
-    )
-    .limit(CRON_BATCH);
-  const toCancel = await db
-    .select({ id: invoice.id, companyId: invoice.companyId })
-    .from(invoice)
-    .where(and(eq(invoice.status, "cancelled"), eq(invoice.irnStatus, "generated"), sql`${invoice.irnGeneratedAt} > ${at - 24 * 60 * 60 * 1000}`, sql`${invoice.ewbStatus} <> 'active'`))
-    .limit(CRON_BATCH);
-  const on = new Map<string, boolean>();
-  const einvoiceOn = async (companyId: string) => {
-    if (!on.has(companyId)) {
-      const modules = await companyModules(db, companyId);
-      on.set(companyId, isModuleOn(modules, "billing") && isModuleOn(modules, "einvoice"));
-    }
-    return on.get(companyId)!;
-  };
   let tried = 0;
   let cancelled = 0;
-  for (const r of due) {
-    if (!(await einvoiceOn(r.companyId))) continue;
-    tried += 1;
-    await generateIrn(db, r.companyId, r.id, adapter, at);
+  if (adapter) {
+    const due = await db.all<{ id: string; company_id: string }>(sql`
+      select id, company_id from (
+        select i.id, i.company_id, coalesce(i.irn_next_try_at, 0) as next_at,
+          row_number() over (partition by i.company_id order by coalesce(i.irn_next_try_at, 0), i.id) as rn
+        from invoice i
+        where i.needs_irn = 1 and i.irn is null and i.status in ('irn_pending', 'issued')
+          and (i.irn_status = 'pending' or (i.irn_status = 'auto_retry' and i.irn_next_try_at <= ${at}))
+          and ${einvoiceOnSql}
+      ) where rn <= ${CRON_PER_COMPANY} order by next_at, id limit ${CRON_BATCH}`);
+    for (const r of due) {
+      tried += 1;
+      await generateIrn(db, r.company_id, r.id, adapter, at);
+    }
   }
-  for (const r of toCancel) {
-    if (!(await einvoiceOn(r.companyId))) continue;
-    const out = await cancelIrn(db, r.companyId, r.id, adapter, at);
-    if (out.ok) cancelled += 1;
+  const pending = await db.all<{ id: string; company_id: string; on_: number }>(sql`
+    select id, company_id, on_ from (
+      select i.id, i.company_id, (${einvoiceOnSql}) as on_, coalesce(i.irn_next_try_at, 0) as next_at,
+        row_number() over (partition by i.company_id order by coalesce(i.irn_next_try_at, 0), i.id) as rn
+      from invoice i
+      where i.status = 'cancel_pending' and coalesce(i.irn_next_try_at, 0) <= ${at}
+    ) where rn <= ${CRON_PER_COMPANY} order by next_at, id limit ${CRON_BATCH}`);
+  for (const r of pending) {
+    const out = await settleCancel(db, r.company_id, r.id, Number(r.on_) ? adapter : null, at);
+    if (out.outcome === "cancelled") cancelled += 1;
   }
   return { tried, cancelled };
 }

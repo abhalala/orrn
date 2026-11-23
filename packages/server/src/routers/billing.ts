@@ -22,6 +22,7 @@ import {
   GST_UQC,
   gstinProblem,
   invoiceOutstanding,
+  irnCancelRefusal,
   isHsnCode,
   isPincode,
   isStateCode,
@@ -389,6 +390,11 @@ const invoicesRouter = router({
             input.customerId ? eq(dispatch.customerId, input.customerId) : undefined,
             sql`json_extract(${packingList.snapshot}, '$.version') = 2`,
             sql`not exists (select 1 from packing_list p2 where p2.company_id = ${ctx.companyId} and p2.supersedes_id = ${packingList.id})`,
+            // Review S3: a dispatch invoiced through the Tally link (a typed number, no live orrn invoice) is
+            // not billable. A live orrn invoice's number is already excluded by the invoice_source check below.
+            sql`not exists (select 1 from dispatch d where d.company_id = ${ctx.companyId} and trim(coalesce(d.invoice_number, '')) <> ''
+                  and (d.id = ${packingList.dispatchId}
+                    or d.id in (select pld.dispatch_id from packing_list_dispatch pld where pld.company_id = ${ctx.companyId} and pld.packing_list_id = ${packingList.id})))`,
             sql`not exists (select 1 from invoice_source s where s.company_id = ${ctx.companyId} and s.active = 1
                   and (s.packing_list_id = ${packingList.id} or s.dispatch_id = ${packingList.dispatchId}
                     or s.dispatch_id in (select pld.dispatch_id from packing_list_dispatch pld where pld.company_id = ${ctx.companyId} and pld.packing_list_id = ${packingList.id})))`,
@@ -428,7 +434,7 @@ const invoicesRouter = router({
       z
         .object({
           kind: z.enum(["invoice", "credit_note"]).optional(),
-          status: z.enum(["draft", "irn_pending", "issued", "cancelled"]).optional(),
+          status: z.enum(["draft", "irn_pending", "issued", "cancel_pending", "cancelled"]).optional(),
           customerId: id.optional(),
           from: ymd.optional(),
           to: ymd.optional(),
@@ -506,7 +512,8 @@ const invoicesRouter = router({
           .limit(1),
       ]);
       const paidPaise = allocations.reduce((n, a) => n + a.amountPaise, 0);
-      const creditedPaise = credits.filter((c) => c.status === "issued").reduce((n, c) => n + c.totalPaise, 0);
+      // Review N1: a credit note waiting for its IRN already reduces what is owed (assertCreditFits counts it too).
+      const creditedPaise = credits.filter((c) => c.status === "issued" || c.status === "irn_pending").reduce((n, c) => n + c.totalPaise, 0);
       return {
         id: row.id,
         kind: row.kind,
@@ -531,14 +538,20 @@ const invoicesRouter = router({
           generatedAt: row.irnGeneratedAt,
         },
         ewb: { status: row.ewbStatus, number: row.ewbNo, date: row.ewbDate, validUntil: row.ewbValidUntil, distanceKm: row.distanceKm, vehicleNo: row.vehicleNo },
-        cancel: { reason: row.cancelReason, at: row.cancelledAt, pendingApprovalId: pendingCancel[0]?.id ?? null },
+        cancel: {
+          reason: row.cancelReason,
+          at: row.cancelledAt,
+          pendingApprovalId: pendingCancel[0]?.id ?? null,
+          /** Review S1: the IRN is past 24 h, so the only way back is a credit note (the screen says so). */
+          irnWindowClosed: row.irnStatus === "generated" && irnCancelRefusal({ ackAt: row.irnGeneratedAt?.getTime() ?? null, now: now().getTime(), ewbActive: false }) === "window",
+        },
         sources,
         allocations,
         credits,
         events,
         paidPaise,
         creditedPaise,
-        outstandingPaise: row.kind === "invoice" && row.status === "issued" ? row.totalPaise - paidPaise - creditedPaise : 0,
+        outstandingPaise: row.kind === "invoice" && (row.status === "issued" || row.status === "cancel_pending") ? row.totalPaise - paidPaise - creditedPaise : 0,
       };
     }),
 });
@@ -607,11 +620,11 @@ const receivablesRouter = router({
       const rows = [...byCustomer.entries()]
         .map(([customerId, list]) => {
           const aged = ageInvoices(list, asOf);
-          const advance = onAccount.get(customerId) ?? 0;
+          const advance = (onAccount.get(customerId) ?? 0) + aged.onAccountPaise;
           return {
             customerId,
             customerName: names.get(customerId)?.name ?? "",
-            openInvoices: list.filter((i) => invoiceOutstanding(i) !== 0).length,
+            openInvoices: list.filter((i) => invoiceOutstanding(i) > 0).length,
             buckets: aged.buckets,
             invoicesDuePaise: aged.outstandingPaise,
             onAccountPaise: advance,
@@ -647,7 +660,7 @@ const receivablesRouter = router({
         ctx.db
           .select({ kind: invoice.kind, number: invoice.number, date: invoice.invoiceDate, totalPaise: invoice.totalPaise })
           .from(invoice)
-          .where(and(eq(invoice.companyId, ctx.companyId), eq(invoice.customerId, c.id), eq(invoice.status, "issued"), lte(invoice.invoiceDate, input.to))),
+          .where(and(eq(invoice.companyId, ctx.companyId), eq(invoice.customerId, c.id), inArray(invoice.status, ["issued", "cancel_pending"]), lte(invoice.invoiceDate, input.to))),
         ctx.db
           .select({ number: payment.number, date: payment.receivedOn, amountPaise: payment.amountPaise })
           .from(payment)
@@ -697,7 +710,7 @@ const exportRouter = router({
       const docs = await ctx.db
         .select()
         .from(invoice)
-        .where(and(eq(invoice.companyId, ctx.companyId), eq(invoice.status, "issued"), gte(invoice.invoiceDate, from), lte(invoice.invoiceDate, to)))
+        .where(and(eq(invoice.companyId, ctx.companyId), inArray(invoice.status, ["issued", "cancel_pending"]), gte(invoice.invoiceDate, from), lte(invoice.invoiceDate, to)))
         .orderBy(asc(invoice.invoiceDate), asc(invoice.seq));
       const pays = await ctx.db
         .select()
@@ -757,7 +770,7 @@ const exportRouter = router({
       const docs = await ctx.db
         .select()
         .from(invoice)
-        .where(and(eq(invoice.companyId, ctx.companyId), inArray(invoice.status, ["issued", "cancelled", "irn_pending"]), gte(invoice.invoiceDate, from), lte(invoice.invoiceDate, to)))
+        .where(and(eq(invoice.companyId, ctx.companyId), inArray(invoice.status, ["issued", "cancelled", "irn_pending", "cancel_pending"]), gte(invoice.invoiceDate, from), lte(invoice.invoiceDate, to)))
         .orderBy(asc(invoice.kind), asc(invoice.seq));
       const names = await customerNames(ctx.db, ctx.companyId, docs.map((d) => d.customerId));
       const head = ["Type", "Number", "Date", "Status", "Party", "GSTIN", "Place of supply", "Kg", "Taxable", "CGST", "SGST", "IGST", "Round off", "Total", "IRN", "Against"];
@@ -801,8 +814,9 @@ const exportRouter = router({
         .where(and(eq(invoice.companyId, ctx.companyId), inArray(invoice.id, input.invoiceIds)));
       if (rows.length !== new Set(input.invoiceIds).size) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
       const bills = rows.map((r) => {
-        if (r.kind !== "invoice" || (r.status !== "issued" && r.status !== "irn_pending") || !r.number || !r.invoiceDate) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Only issued invoices go in the e-way bill file" });
+        // Only a final invoice (review S5): one still waiting for its IRN is not a valid tax invoice yet.
+        if (r.kind !== "invoice" || r.status !== "issued" || !r.number || !r.invoiceDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Only issued invoices go in the e-way bill file: wait for the IRN first" });
         }
         const s = r.snapshot as unknown as InvoiceSnapshot;
         return ewbOfflineBill({

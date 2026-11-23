@@ -97,6 +97,20 @@ export async function buildDraft(
     if (p.status !== "completed") throw new TRPCError({ code: "BAD_REQUEST", message: `Packing list ${p.code} is not for a completed dispatch` });
   }
   const linked = await dispatchIdsOf(db, companyId, ids);
+  // Review S3: a dispatch already invoiced in Tally (a typed number on the dispatch) is not billed again.
+  // While the draft holds the dispatch nothing else can type a number on it (dispatch.update refuses), and
+  // issue re-checks inside its batch.
+  const allDispatchIds = [...new Set(pls.flatMap((p) => [p.dispatchId, ...(linked.get(p.id) ?? [])]))];
+  const tally = await mapInChunks(allDispatchIds, (chunkIds) =>
+    db
+      .select({ code: dispatch.code, invoiceNumber: dispatch.invoiceNumber })
+      .from(dispatch)
+      .where(and(eq(dispatch.companyId, companyId), inArray(dispatch.id, chunkIds), sql`trim(coalesce(${dispatch.invoiceNumber}, '')) <> ''`)),
+  );
+  if (tally.length > 0) {
+    const t = tally[0]!;
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Dispatch ${t.code} is already invoiced (${t.invoiceNumber}): it is not billed again` });
+  }
   const sources: DraftSource[] = [];
   const snaps: { pl: (typeof pls)[number]; snap: PlSnapshotV2 }[] = [];
   for (const p of pls) {

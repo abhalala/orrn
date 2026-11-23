@@ -7454,6 +7454,7 @@ export const en = {
       draft: "Draft",
       irn_pending: "Draft, IRN pending",
       issued: "Issued",
+      cancel_pending: "Cancel waiting for the IRP",
       cancelled: "Cancelled",
     },
     kind: {
@@ -7573,6 +7574,8 @@ export const en = {
       sendAsk: "Send the ask",
       cancelAsked: "Sent for approval",
       cancelWaiting: "A cancel ask is waiting for a manager.",
+      cancelAtIrp: "The cancel is approved. The IRN is being cancelled at the IRP. The packing lists stay on this invoice until it is.",
+      creditNoteOnly: "This IRN is more than 24 hours old and cannot be cancelled. To undo this invoice, issue a credit note.",
       cancelledOn: "Cancelled {when}. {reason}",
       payments: "Payments",
       paid: "Paid",

@@ -29,7 +29,7 @@ import { zonedYmd } from "../dayWindow";
 import { docPeriod, nextDocNumber } from "../docNumber";
 import { nextCompanySeq } from "../sequence";
 import { buildDraft, type ChargeInput } from "./build";
-import { generateIrn } from "./einvoiceFlow";
+import { generateIrn, releaseCancelledStatements } from "./einvoiceFlow";
 import { loadPartyGst, loadPlantGst, type PartyGst, type PlantGst } from "./facts";
 import { currentIrpAdapter } from "./irp";
 import { billingAbortUnless, isBillingAbort, issuedLanded, issueStatements } from "./numbering";
@@ -265,6 +265,13 @@ function sourcesStillCurrent(companyId: string, invoiceId: string): SQL {
       and (p.combined_into_id is not null or exists (select 1 from packing_list p2 where p2.company_id = ${companyId} and p2.supersedes_id = p.id)))`;
 }
 
+/** Review S3: no source dispatch carries an invoice number (a Tally one) at issue; issue never overwrites it. */
+function noForeignNumber(companyId: string, invoiceId: string): SQL {
+  return sql`not exists (
+    select 1 from dispatch d where d.company_id = ${companyId} and trim(coalesce(d.invoice_number, '')) <> ''
+      and d.id in (select s.dispatch_id from invoice_source s where s.company_id = ${companyId} and s.invoice_id = ${invoiceId} and s.active = 1))`;
+}
+
 export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: string[]): Promise<{ id: string; number: string | null; status: string; irnStatus: string }> {
   const [row] = await ctx.db
     .select()
@@ -277,7 +284,6 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
   let snapshot: InvoiceSnapshot;
   let plant: PlantGst;
   let party: PartyGst;
-  let origNeedsIrn = true;
   if (row.kind === "invoice") {
     const prep = await prepareInvoice(ctx.db, ctx.companyId, { packingListIds: stored.input.packingListIds, rates: stored.input.rates, charges: stored.input.charges });
     if (prep.build.missingRates.length > 0) throw new TRPCError({ code: "BAD_REQUEST", message: `Type a rate per kg for: ${prep.build.missingRates.map((m) => m.label).join(", ")}` });
@@ -295,16 +301,19 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
     snapshot = prep.snapshot;
     plant = prep.plant;
     party = prep.snapshot.party;
-    origNeedsIrn = prep.orig.needsIrn;
   }
   const at = now();
   const invoiceDate = ymdText(plant.timezone, at.getTime());
-  const needsIrn = origNeedsIrn && needsIrnFor({ einvoiceOn: isModuleOn(modules, "einvoice"), einvoiceFrom: plant.einvoiceFrom, invoiceDate, party });
+  // A credit note is its own document (INV-01 DocDtls.Typ "CRN"): whether it needs an IRN goes by ITS date
+  // against the plant's e-invoice start, not by whether the invoice it reduces had one. The e-invoice rule
+  // covers every invoice and credit note issued on or after the start date; a CN against an older invoice
+  // just names that invoice in PrecDocDtls. (Review: the old `origNeedsIrn` gate left such a CN without one.)
+  const needsIrn = needsIrnFor({ einvoiceOn: isModuleOn(modules, "einvoice"), einvoiceFrom: plant.einvoiceFrom, invoiceDate, party });
   const period = docPeriod(row.kind, at, plant.timezone);
   const seq = await nextCompanySeq(ctx, ctx.companyId);
   const guard =
     row.kind === "invoice"
-      ? sourcesStillCurrent(ctx.companyId, row.id)
+      ? sql`${sourcesStillCurrent(ctx.companyId, row.id)} and ${noForeignNumber(ctx.companyId, row.id)}`
       : sql`exists (select 1 from invoice o where o.id = ${row.againstInvoiceId} and o.company_id = ${ctx.companyId} and o.status = 'issued')
           and (select coalesce(sum(c.total_paise), 0) from invoice c where c.company_id = ${ctx.companyId} and c.against_invoice_id = ${row.againstInvoiceId}
                 and c.kind = 'credit_note' and c.status in ('issued', 'irn_pending')) + ${snapshot.totals.totalPaise}
@@ -381,6 +390,7 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
 
 /** Why this issued document cannot be cancelled now, or null. */
 export async function cancelRefusal(db: OrrnDb, companyId: string, row: typeof invoice.$inferSelect, at: number): Promise<string | null> {
+  if (row.status === "cancel_pending") return "This cancel is already approved: it waits for the IRP";
   if (row.status !== "issued" && row.status !== "irn_pending") return "Only an issued invoice can be cancelled";
   if (row.kind === "invoice") {
     if ((await creditedSoFar(db, companyId, row.id)) > 0) return "A credit note is issued against this invoice: it cannot be cancelled";
@@ -406,7 +416,7 @@ export async function requestCancel(ctx: BillCtx, invoiceId: string, reason: str
     .where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, ctx.companyId)))
     .limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
-  const refusal = await cancelRefusal(ctx.db, ctx.companyId, row, Date.now());
+  const refusal = await cancelRefusal(ctx.db, ctx.companyId, row, now().getTime());
   if (refusal) throw new TRPCError({ code: "BAD_REQUEST", message: refusal });
   const seq = await nextCompanySeq(ctx, ctx.companyId);
   const req = requestApprovalInsert(ctx, {
@@ -441,9 +451,12 @@ function cancellableSql(companyId: string, invoiceId: string, atMs: number): SQL
 }
 
 /**
- * The approved cancel: the document becomes cancelled (its number stays used, never reused), its packing
- * lists are free to bill again, and the dispatch and PL header lose the number. A live IRN is cancelled at
- * the IRP afterwards (einvoice.cancelIrn, or the 5-minute cron) since an applier cannot call out.
+ * The approved cancel (review S1, the safe order). With no IRN and no generate call ever sent, the document
+ * becomes cancelled at once: its number stays used, its packing lists are free to bill again, and the
+ * dispatch and PL headers lose the number. With a live IRN, or a call that may have made one, it becomes
+ * `cancel_pending`: the lists stay bound and the number stays on the dispatch until the IRP confirms
+ * (lib/billing/einvoiceFlow.ts `settleCancel`, run right after the decision, by "Cancel IRN" and by the cron).
+ * An applier cannot call out, so the branch is a SQL CASE on the row as it is at write time.
  */
 export const invoiceCancelDecision: ApprovalApplier = (ctx, row, decision) => {
   if (decision === "rejected") return [];
@@ -452,42 +465,24 @@ export const invoiceCancelDecision: ApprovalApplier = (ctx, row, decision) => {
   const landed = sql`exists (select 1 from approval a where a.id = ${row.id} and a.company_id = ${companyId} and a.server_seq = ${seq} and a.status = ${decision})`;
   const at = ctx.decidedAt.getTime();
   const cancelled = sql`exists (select 1 from invoice i where i.id = ${row.subjectId} and i.company_id = ${companyId} and i.status = 'cancelled' and i.server_seq = ${seq})`;
-  const number = sql`(select i.number from invoice i where i.id = ${row.subjectId})`;
-  const dispatches = sql`(select s.dispatch_id from invoice_source s where s.company_id = ${companyId} and s.invoice_id = ${row.subjectId})`;
-  const lists = sql`(select s.packing_list_id from invoice_source s where s.company_id = ${companyId} and s.invoice_id = ${row.subjectId})`;
+  const needsIrp = sql`(${invoice.irnStatus} = 'generated' or ${invoice.irnCallAt} is not null)`;
   return [
     billingAbortUnless(db, companyId, sql`not (${landed}) or ${cancellableSql(companyId, row.subjectId, at)}`),
     db
       .update(invoice)
       .set({
-        status: "cancelled",
+        status: sql`case when ${needsIrp} then 'cancel_pending' else 'cancelled' end`,
         cancelApprovalId: row.id,
         cancelReason: sql`(select a.request_note from approval a where a.id = ${row.id})`,
         cancelledBy: ctx.userId,
         cancelledAt: ctx.decidedAt,
-        irnStatus: sql`case when ${invoice.irnStatus} in ('pending', 'auto_retry', 'failed') then 'none' else ${invoice.irnStatus} end`,
+        irnStatus: sql`case when ${needsIrp} then ${invoice.irnStatus} when ${invoice.irnStatus} in ('pending', 'auto_retry', 'failed') then 'none' else ${invoice.irnStatus} end`,
         irnNextTryAt: null,
         serverSeq: seq,
         updatedAt: ctx.decidedAt,
       })
       .where(and(eq(invoice.id, row.subjectId), eq(invoice.companyId, companyId), inArray(invoice.status, ["issued", "irn_pending"]), landed)),
-    db
-      .update(dispatch)
-      .set({ invoiceNumber: null, invoiceDate: null })
-      .where(and(eq(dispatch.companyId, companyId), sql`${dispatch.id} in ${dispatches}`, sql`${dispatch.invoiceNumber} = ${number}`, cancelled)),
-    db
-      .update(packingList)
-      .set({ snapshot: sql`json_set(${packingList.snapshot}, '$.header.invoiceNumber', null, '$.header.invoiceDate', null)` })
-      .where(
-        and(
-          eq(packingList.companyId, companyId),
-          sql`${packingList.id} in ${lists}`,
-          sql`json_extract(${packingList.snapshot}, '$.version') = 2`,
-          sql`json_extract(${packingList.snapshot}, '$.header.invoiceNumber') = ${number}`,
-          cancelled,
-        ),
-      ),
-    db.update(invoiceSource).set({ active: false }).where(and(eq(invoiceSource.companyId, companyId), eq(invoiceSource.invoiceId, row.subjectId), cancelled)),
+    ...releaseCancelledStatements(db, companyId, row.subjectId, cancelled),
   ];
 };
 
@@ -522,7 +517,7 @@ const paidSql = (companyId: string, invoiceIdSql: SQL) =>
        where pa.company_id = ${companyId} and pa.invoice_id = ${invoiceIdSql} and p.status = 'active'), 0)`;
 const creditedSql = (companyId: string, invoiceIdSql: SQL) =>
   sql`coalesce((select sum(c.total_paise) from invoice c where c.company_id = ${companyId} and c.against_invoice_id = ${invoiceIdSql}
-       and c.kind = 'credit_note' and c.status = 'issued'), 0)`;
+       and c.kind = 'credit_note' and c.status in ('issued', 'irn_pending')), 0)`;
 
 /** Issued invoices with what is paid and credited, for one customer or all. */
 export async function receivableInvoices(db: OrrnDb, companyId: string, customerId?: string): Promise<(ReceivableInvoice & { customerId: string })[]> {
@@ -537,7 +532,8 @@ export async function receivableInvoices(db: OrrnDb, companyId: string, customer
       creditedPaise: sql<number>`${creditedSql(companyId, sql`${invoice}.${sql.identifier("id")}`)}`,
     })
     .from(invoice)
-    .where(and(eq(invoice.companyId, companyId), eq(invoice.kind, "invoice"), eq(invoice.status, "issued"), customerId ? eq(invoice.customerId, customerId) : undefined));
+    // cancel_pending is still live at the IRP until the cancel lands (review S1), so it is still owed.
+    .where(and(eq(invoice.companyId, companyId), eq(invoice.kind, "invoice"), inArray(invoice.status, ["issued", "cancel_pending"]), customerId ? eq(invoice.customerId, customerId) : undefined));
   return rows.map((r) => ({ ...r, number: r.number ?? "", invoiceDate: r.invoiceDate ?? "", paidPaise: Number(r.paidPaise), creditedPaise: Number(r.creditedPaise) }));
 }
 

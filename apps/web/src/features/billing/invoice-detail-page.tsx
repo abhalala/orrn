@@ -101,7 +101,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
   }
 
   const d = q.data;
-  const a = docActions({ kind: d.kind, status: d.status, needsIrn: d.needsIrn, irnStatus: d.irn.status, hasIrn: !!d.irn.irn, ewbStatus: d.ewb.status, cancelPendingApprovalId: d.cancel.pendingApprovalId });
+  const a = docActions({ kind: d.kind, status: d.status, needsIrn: d.needsIrn, irnStatus: d.irn.status, hasIrn: !!d.irn.irn, ewbStatus: d.ewb.status, cancelPendingApprovalId: d.cancel.pendingApprovalId, irnWindowClosed: d.cancel.irnWindowClosed });
   const credit = d.kind === "credit_note";
   const title = d.number ?? t(credit ? "bill.detail.draftCredit" : "bill.detail.draftInvoice");
 
@@ -152,6 +152,8 @@ export function InvoiceDetailPage({ id }: { id: string }) {
         </div>
       ) : null}
       {a.cancelPending ? <div role="status" className="rounded-card border border-border bg-card p-3 text-[14px]">{t("bill.detail.cancelWaiting")}</div> : null}
+      {a.cancelAtIrp ? <div role="status" className="rounded-card border border-border bg-card p-3 text-[14px]">{t("bill.detail.cancelAtIrp")}</div> : null}
+      {a.creditNoteOnly ? <div role="status" className="rounded-card border border-border bg-card p-3 text-[14px]">{t("bill.detail.creditNoteOnly")}</div> : null}
 
       <dl className="m-0 grid gap-x-6 gap-y-2 text-[14px] sm:grid-cols-2 lg:grid-cols-3">
         {facts

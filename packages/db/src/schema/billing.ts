@@ -41,10 +41,11 @@ export type InvoiceKind = (typeof invoiceKinds)[number];
 
 /**
  * draft: built, no number. irn_pending: numbered, waiting for its IRN (einvoice on and the party
- * needs one); prints "Draft, IRN pending" and is never final. issued: final. cancelled: the number
- * stays used.
+ * needs one); prints "Draft, IRN pending" and is never final. issued: final. cancel_pending: the cancel
+ * is approved but the IRN must be cancelled at the IRP first (or confirmed never made); the packing lists
+ * stay bound and the number stays on the dispatch until then. cancelled: the number stays used.
  */
-export const invoiceStatuses = ["draft", "irn_pending", "issued", "cancelled"] as const;
+export const invoiceStatuses = ["draft", "irn_pending", "issued", "cancel_pending", "cancelled"] as const;
 export type InvoiceStatus = (typeof invoiceStatuses)[number];
 
 /** IRN status machine (india-compliance pattern): none -> pending -> auto_retry -> generated | failed. */
@@ -204,6 +205,8 @@ export const invoice = sqliteTable(
     signedQrCode: text("signed_qr_code"),
     irnAttempts: integer("irn_attempts").notNull().default(0),
     irnNextTryAt: integer("irn_next_try_at", { mode: "timestamp_ms" }),
+    /** When the last IRN generate call left for the relay (stamped before the call). Null = no call ever sent. */
+    irnCallAt: integer("irn_call_at", { mode: "timestamp_ms" }),
     irnError: text("irn_error"),
     irnGeneratedAt: integer("irn_generated_at", { mode: "timestamp_ms" }),
     irnCancelledAt: integer("irn_cancelled_at", { mode: "timestamp_ms" }),

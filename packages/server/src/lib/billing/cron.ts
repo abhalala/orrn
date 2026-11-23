@@ -6,8 +6,8 @@ import type { OrrnDb } from "../atomic";
 
 export async function runIrnCronJob(db: OrrnDb, at: number): Promise<void> {
   const [{ currentIrpAdapter }, { runIrnCron }] = await Promise.all([import("./irp"), import("./einvoiceFlow")]);
+  // Runs with no relay too: an approved cancel still waiting must reach its 24 h revert (review S1).
   const adapter = currentIrpAdapter();
-  if (!adapter) return;
   try {
     const out = await runIrnCron(db, adapter, at);
     if (out.tried || out.cancelled) console.log(`irn cron: tried ${out.tried}, cancelled ${out.cancelled}`);

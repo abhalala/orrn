@@ -30,7 +30,11 @@ describe("ageing buckets", () => {
       ],
       asOf,
     );
-    expect(r).toEqual({ outstandingPaise: 170_000, buckets: { d0_30: 60_000, d31_60: 40_000, d61_90: 0, d90_plus: 70_000 } });
+    expect(r).toEqual({ outstandingPaise: 170_000, buckets: { d0_30: 60_000, d31_60: 40_000, d61_90: 0, d90_plus: 70_000 }, onAccountPaise: 0 });
+  });
+  test("an invoice credited after it was paid is money on account, never an ageing bucket (review N1)", () => {
+    const r = ageInvoices([{ id: "1", number: "INV/26-27/1", invoiceDate: "2026-07-01", totalPaise: 100_000, paidPaise: 100_000, creditedPaise: 40_000 }], "2026-10-31");
+    expect(r).toEqual({ outstandingPaise: 0, buckets: { d0_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 }, onAccountPaise: 40_000 });
   });
 });
 

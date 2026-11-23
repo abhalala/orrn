@@ -74,10 +74,16 @@ describe("status and actions", () => {
   });
   test("IRN pending offers Generate; a failed one offers Try again; a generated one offers nothing", () => {
     const pending = docActions({ ...base, status: "irn_pending", needsIrn: true, irnStatus: "pending" });
-    expect(pending).toMatchObject({ irnPanel: true, irnGenerate: true, ewbFile: true, ewbPanel: false, askCancel: true });
+    expect(pending).toMatchObject({ irnPanel: true, irnGenerate: true, ewbFile: false, ewbPanel: false, askCancel: true });
     expect(docActions({ ...base, status: "issued", needsIrn: true, irnStatus: "failed" }).irnGenerate).toBe(true);
     expect(docActions({ ...base, status: "issued", needsIrn: true, irnStatus: "generated", hasIrn: true }).irnGenerate).toBe(false);
     expect(docActions({ ...base, status: "draft", needsIrn: true }).irnPanel).toBe(false);
+  });
+  test("cancel waiting for the IRP offers nothing but the IRP step; a 24 h old IRN offers a credit note, not a cancel (S1)", () => {
+    const waiting = docActions({ ...base, status: "cancel_pending", needsIrn: true, irnStatus: "failed" });
+    expect(waiting).toMatchObject({ cancelAtIrp: true, askCancel: false, irnGenerate: false, creditNote: false, payment: false, ewbFile: false });
+    const old = docActions({ ...base, status: "issued", needsIrn: true, irnStatus: "generated", hasIrn: true, irnWindowClosed: true });
+    expect(old).toMatchObject({ askCancel: false, creditNoteOnly: true, creditNote: true });
   });
   test("irn words", () => {
     expect(irnWord("auto_retry")).toBe("retrying");

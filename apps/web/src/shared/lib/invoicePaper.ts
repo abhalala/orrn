@@ -10,7 +10,8 @@ import type { InvoiceSnapshot } from "@orrn/server/lib/billing/snapshot";
 
 export type PaperDoc = {
   kind: "invoice" | "credit_note";
-  status: "draft" | "irn_pending" | "issued" | "cancelled";
+  /** cancel_pending prints as issued: it stays a valid tax invoice until the IRP confirms the cancel. */
+  status: "draft" | "irn_pending" | "issued" | "cancel_pending" | "cancelled";
   number: string | null;
   invoiceDate: string | null;
   noteReason: string | null;

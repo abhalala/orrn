@@ -11,10 +11,10 @@ import type { inferRouterOutputs } from "@trpc/server";
 export type BillDoc = inferRouterOutputs<AppRouter>["billing"]["invoices"]["get"];
 
 export type DocKind = "invoice" | "credit_note";
-export type DocStatus = "draft" | "irn_pending" | "issued" | "cancelled";
+export type DocStatus = "draft" | "irn_pending" | "issued" | "cancel_pending" | "cancelled";
 export type Tone = "green" | "blue" | "amber" | "red" | "neutral";
 
-export const DOC_STATUSES: readonly DocStatus[] = ["draft", "irn_pending", "issued", "cancelled"];
+export const DOC_STATUSES: readonly DocStatus[] = ["draft", "irn_pending", "issued", "cancel_pending", "cancelled"];
 
 export function statusTone(status: DocStatus): Tone {
   switch (status) {
@@ -84,6 +84,8 @@ export type DocFacts = {
   hasIrn: boolean;
   ewbStatus: string;
   cancelPendingApprovalId: string | null;
+  /** The IRN is past its 24 h: it cannot be cancelled, only reduced by a credit note (review S1). */
+  irnWindowClosed?: boolean;
 };
 
 export type DocActions = {
@@ -91,6 +93,10 @@ export type DocActions = {
   discard: boolean;
   askCancel: boolean;
   cancelPending: boolean;
+  /** The cancel is approved and waits for the IRP (status cancel_pending). */
+  cancelAtIrp: boolean;
+  /** Say "issue a credit note instead": the IRN is too old to cancel. */
+  creditNoteOnly: boolean;
   creditNote: boolean;
   payment: boolean;
   irnPanel: boolean;
@@ -106,14 +112,17 @@ export function docActions(d: DocFacts): DocActions {
   return {
     issue: d.status === "draft",
     discard: d.status === "draft",
-    askCancel: live && d.cancelPendingApprovalId === null,
+    askCancel: live && d.cancelPendingApprovalId === null && !d.irnWindowClosed,
     cancelPending: live && d.cancelPendingApprovalId !== null,
+    cancelAtIrp: d.status === "cancel_pending",
+    creditNoteOnly: issued && inv && !!d.irnWindowClosed,
     creditNote: inv && issued,
     payment: inv && issued,
     irnPanel: d.needsIrn && d.status !== "draft",
-    irnGenerate: d.needsIrn && !d.hasIrn && (d.status === "irn_pending" || d.irnStatus === "failed"),
+    irnGenerate: d.needsIrn && !d.hasIrn && live && (d.status === "irn_pending" || d.irnStatus === "failed"),
     ewbPanel: inv && issued,
-    ewbFile: inv && live,
+    // Review S5: only a final invoice goes in the e-way bill file, never one still waiting for its IRN.
+    ewbFile: inv && issued,
   };
 }
 

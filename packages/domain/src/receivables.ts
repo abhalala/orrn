@@ -32,19 +32,28 @@ export function invoiceOutstanding(i: ReceivableInvoice): number {
   return i.totalPaise - i.paidPaise - i.creditedPaise;
 }
 
-export type AgeingRow = { outstandingPaise: number; buckets: Record<AgeingBucket, number> };
+export type AgeingRow = { outstandingPaise: number; buckets: Record<AgeingBucket, number>; onAccountPaise: number };
 
-/** Sum outstanding into buckets by days from invoice date to `asOf` (YYYY-MM-DD). Fully settled invoices add nothing. */
+/**
+ * Sum outstanding into buckets by days from invoice date to `asOf` (YYYY-MM-DD). Fully settled invoices add
+ * nothing. An invoice credited after it was paid owes a negative amount: that is money on account (review N1),
+ * never an ageing bucket.
+ */
 export function ageInvoices(invoices: readonly ReceivableInvoice[], asOf: string): AgeingRow {
   const buckets: Record<AgeingBucket, number> = { d0_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 };
   let outstandingPaise = 0;
+  let onAccountPaise = 0;
   for (const inv of invoices) {
     const due = invoiceOutstanding(inv);
     if (due === 0) continue;
+    if (due < 0) {
+      onAccountPaise -= due;
+      continue;
+    }
     outstandingPaise += due;
     buckets[ageingBucket(Math.max(0, daysBetweenYmd(inv.invoiceDate, asOf)))] += due;
   }
-  return { outstandingPaise, buckets };
+  return { outstandingPaise, buckets, onAccountPaise };
 }
 
 export type StatementEntry = {
