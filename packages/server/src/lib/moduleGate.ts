@@ -78,6 +78,8 @@ export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "reports.morning": "mis",
   // XE store buying (PROD-GATE): indents, purchase orders, rates and value ride `store`; opt-in `store_buy`.
   "store.belowMinimum": "store_buy",
+  // XE FOUNDRY (PROD-GATE): the cast data sheet rides `foundry.casts`; opt-in `foundry_plus`.
+  "foundry.casts.dataSheet": "foundry_plus",
 };
 
 /**
@@ -89,6 +91,12 @@ export const SUBROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   "store.po": "store_buy",
   "store.valuation": "store_buy",
   "store.settings": "store_buy",
+  "foundry.homog": "foundry_plus",
+  "foundry.logs": "foundry_plus",
+  "foundry.billets": "foundry_plus",
+  "foundry.rejects": "foundry_plus",
+  "foundry.chargeMix": "foundry_plus",
+  "foundry.castPlan": "foundry_plus",
 };
 
 /**

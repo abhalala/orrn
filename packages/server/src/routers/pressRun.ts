@@ -815,7 +815,7 @@ export const pressRunRouter = router({
     .query(async ({ ctx, input }) => {
       const run = await loadRun(ctx.db, ctx.companyId, input.id);
       const { errors, figures, castInfo, floorShort } = await evaluateClose(ctx as Ctx, run, input);
-      return { saved: false as const, figures: figuresOut(figures), gates: errors, gateText: errors.map((e) => GATE_TEXT[e]), billetsOnHandG: castInfo.onHandG, floorShort };
+      return { saved: false as const, figures: figuresOut(figures), gates: errors, gateText: errors.map((e) => GATE_TEXT[e]), billetsOnHandG: castInfo.onHandG, ...(floorShort.length > 0 ? { floorShort } : {}) };
     }),
 
   /**
@@ -1658,7 +1658,8 @@ export const pressRunRouter = router({
         ...figuresOut(figures),
         issue: handoff.issue ? (handoff.carryTo ? ("carried" as const) : ("returned" as const)) : null,
         carriedTo: handoff.carryTo,
-        floorShort,
+        // XE FOUNDRY: only a plant with a press floor (opt-in `foundry_plus`) can be short; otherwise the key is absent.
+        ...(floorShort.length > 0 ? { floorShort } : {}),
         replayed: false,
       };
     }),

@@ -6,18 +6,33 @@
  * keeps its row (unique on company + kind + code), so it is never created again.
  */
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { DEFAULT_REASON_CODES, defaultReasonCodeRows, type ReasonCodeKind } from "@orrn/domain";
+import { company } from "@orrn/db/schema/tenant";
+import { DEFAULT_REASON_CODES, defaultReasonCodeRows, isModuleOn, type CompanyModule, type ReasonCodeKind } from "@orrn/domain";
 import { eq } from "drizzle-orm";
 
 import { atomicBatch, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "./atomic";
 
 type ReasonCodeRowInsert = typeof reasonCode.$inferInsert;
 
-function defaultRowsFor(companyId: string, have: ReadonlySet<string>, createdBy: string | null): ReasonCodeRowInsert[] {
+/**
+ * PROD-GATE: reason kinds that belong to an opt-in (XE) module. Their defaults are added only once the plant
+ * names the module, so a plant without it keeps the pre-XE reason lists.
+ */
+const XE_REASON_KIND_MODULE: Partial<Record<ReasonCodeKind, CompanyModule>> = {
+  log_reject: "foundry_plus",
+  billet_reject: "foundry_plus",
+};
+
+function kindOn(kind: ReasonCodeKind, modules: readonly string[]): boolean {
+  const m = XE_REASON_KIND_MODULE[kind];
+  return !m || isModuleOn(modules, m);
+}
+
+function defaultRowsFor(companyId: string, have: ReadonlySet<string>, createdBy: string | null, modules: readonly string[]): ReasonCodeRowInsert[] {
   // Every bound column is named, so the chunker counts them (a JS default or $onUpdate binds one it does not see).
   const at = new Date();
   return defaultReasonCodeRows()
-    .filter((row) => !have.has(`${row.kind}:${row.code}`))
+    .filter((row) => kindOn(row.kind, modules) && !have.has(`${row.kind}:${row.code}`))
     .map((row) => ({
       id: crypto.randomUUID(),
       companyId,
@@ -35,9 +50,9 @@ function defaultRowsFor(companyId: string, have: ReadonlySet<string>, createdBy:
 }
 
 /** Statements that insert every default for a company that has none yet (company approval). */
-export function defaultReasonCodeStatements(db: OrrnDb, companyId: string, createdBy: string | null = null): SqliteBatchItem[] {
+export function defaultReasonCodeStatements(db: OrrnDb, companyId: string, createdBy: string | null = null, modules: readonly string[] = []): SqliteBatchItem[] {
   const out: SqliteBatchItem[] = [];
-  pushChunkedInserts(out, (rows) => db.insert(reasonCode).values(rows).onConflictDoNothing(), defaultRowsFor(companyId, new Set(), createdBy));
+  pushChunkedInserts(out, (rows) => db.insert(reasonCode).values(rows).onConflictDoNothing(), defaultRowsFor(companyId, new Set(), createdBy, modules));
   return out;
 }
 
@@ -48,7 +63,9 @@ export function defaultReasonCodeStatements(db: OrrnDb, companyId: string, creat
  */
 export async function ensureDefaultReasonCodes(db: OrrnDb, companyId: string): Promise<number> {
   const existing = await db.select({ kind: reasonCode.kind, code: reasonCode.code }).from(reasonCode).where(eq(reasonCode.companyId, companyId));
-  const rows = defaultRowsFor(companyId, new Set(existing.map((r) => `${r.kind}:${r.code}`)), null);
+  const [co] = await db.select({ modules: company.modules }).from(company).where(eq(company.id, companyId)).limit(1);
+  const modules = Array.isArray(co?.modules) ? co.modules : [];
+  const rows = defaultRowsFor(companyId, new Set(existing.map((r) => `${r.kind}:${r.code}`)), null, modules);
   if (rows.length === 0) return 0;
   const statements: SqliteBatchItem[] = [];
   pushChunkedInserts(statements, (part) => db.insert(reasonCode).values(part).onConflictDoNothing(), rows);

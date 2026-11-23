@@ -17,7 +17,7 @@ let env: TestEnv;
 let setClock: (at: Date | null) => void;
 
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["store_buy"] });
   setClock = (await import("../src/lib/clock")).setClockForTests;
 });
 

@@ -150,6 +150,8 @@ function pageModule(to: string): string | null {
   if (segment === "masters") return ({ lists: "masters_plus", bank: "masters_plus", rules: "masters_plus", tooling: "masters_plus", documents: "docs" } as Record<string, string>)[sub] ?? null;
   // Store buying pages sit under /store but are the opt-in `store_buy` (PROD-GATE).
   if (segment === "store" && (sub === "buy" || sub === "po")) return "store_buy";
+  // XE FOUNDRY pages sit under /foundry but are the opt-in `foundry_plus` (PROD-GATE).
+  if (segment === "foundry" && ["homog", "logs", "billets", "rejects", "chemistry", "plan"].includes(sub)) return "foundry_plus";
   const router = PATH_ROUTER[segment] ?? segment;
   return routerModule(router) ?? routerModule(router.replace(/s$/, ""));
 }
@@ -344,6 +346,8 @@ describe("palette gates match the target page (review B1 to B4)", () => {
     expect(pageModule("/store/issue")).toBe("store");
     expect(pageModule("/store/buy")).toBe("store_buy");
     expect(pageModule("/store/po/new")).toBe("store_buy");
+    expect(pageModule("/foundry/homog")).toBe("foundry_plus");
+    expect(pageModule("/foundry/stock")).toBe("foundry");
     expect(pageModule("/vendors")).toBe("purchase");
     expect(pageModule("/orders/plan")).toBe("orders");
     expect(pageModule("/casts/new")).toBe("foundry");

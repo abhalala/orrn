@@ -3820,6 +3820,7 @@ export const en = {
         docs: "Document register",
         mis: "Office registers and morning page",
         store_buy: "Store buying",
+        foundry_plus: "Foundry extras",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3843,6 +3844,7 @@ export const en = {
         docs: "Licences, certificates and other plant papers with renewal dates",
         mis: "Rejection, recut, WIP and material registers, the owner's morning page and mail, order progress on the portal",
         store_buy: "Indents, purchase orders to vendors, GRN against an order, store rates and value, reorder levels",
+        foundry_plus: "Homogenizing, bought-in logs, billet racks and press floors, cutting, rejects, charge mix and the cast data sheet",
       },
       optInTitle: "Extra modules",
       optInHint: "Off for every plant until you tick them here. The plant sees nothing of a module that is off.",
@@ -6743,6 +6745,7 @@ export const en = {
         docs: "Document register",
         mis: "Office registers",
         store_buy: "Store buying",
+        foundry_plus: "Foundry extras",
       },
     },
     letterhead: {

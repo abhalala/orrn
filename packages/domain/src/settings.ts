@@ -60,7 +60,11 @@ export const COMPANY_MODULES = [
   // XE REG: office registers, the owner's morning page and mail, billet need on a plan, recut reasons,
   // order progress on the party portal.
   "mis",
+  // XE store buying (PROD-GATE): indents, store purchase orders, GRN against an order, rates, reorder levels.
   "store_buy",
+  // XE FOUNDRY (PROD-GATE): homogenizing, bought-in logs, billet racks and press floors, cuts, issues,
+  // reject registers, charge mix, typical chemistry, casting plan, cast data sheet.
+  "foundry_plus",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
@@ -80,6 +84,7 @@ export const OPT_IN_MODULES = [
   "docs",
   "mis",
   "store_buy",
+  "foundry_plus",
   "payroll",
   "maintenance",
   "costing",

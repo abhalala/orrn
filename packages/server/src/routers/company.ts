@@ -362,6 +362,8 @@ export const companyRouter = router({
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
       if (input.foundry !== undefined) {
+        // PROD-GATE: homogenizing belongs to the opt-in `foundry_plus` module.
+        await assertModule(ctx, "foundry_plus");
         const next = applyFoundrySettingsEdit(readFloorSettings(row.settings).foundry, input.foundry, now().getTime());
         patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), ...next };
       }

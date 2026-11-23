@@ -24,6 +24,7 @@ import { PlantInput } from "@/shared/components/plant-input";
 import { DIAMETER_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { diameterText, diameterVars, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { useModuleOn } from "@/shared/lib/modules";
 
 type Furnace = inferRouterOutputs<AppRouter>["foundry"]["furnaces"]["list"]["items"][number];
 type AlloyRow = inferRouterOutputs<AppRouter>["foundry"]["alloys"]["list"]["items"][number];
@@ -34,6 +35,7 @@ const STATUS_TONE = { active: "green", retired: "neutral" } as const;
 
 /** `/masters/furnaces` (FP-FD-01): code, name, capacity and billet diameter. Capacity is a limit the lock enforces. */
 export function FurnacesPage() {
+  const plusOn = useModuleOn("foundry_plus");
   const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
@@ -57,7 +59,8 @@ export function FurnacesPage() {
   const columns: ResponsiveListColumn<Furnace>[] = [
     { key: "code", header: t("foundry.masters.code"), cell: (f) => <span className="font-mono text-[16px] font-bold">{f.code}</span> },
     { key: "name", header: t("foundry.masters.name"), cell: (f) => f.name },
-    { key: "kind", header: t("fdy2.furnaceKind.label"), cell: (f) => t(`fdy2.furnaceKind.${f.kind}`) },
+    // The furnace kind (homogenizing) is the opt-in `foundry_plus` (PROD-GATE).
+    ...(plusOn ? [{ key: "kind", header: t("fdy2.furnaceKind.label"), cell: (f: Furnace) => t(`fdy2.furnaceKind.${f.kind ?? "melting"}`) }] : []),
     { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}</span> },
     { key: "dia", header: t("foundry.masters.billetDia", diameterVars(fmt)), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? diameterText(fmt, f.billetDiaMm, t("units.mm")) : "-"}</span> },
     { key: "status", header: t("foundry.masters.status"), phoneWide: true, cell: (f) => <Chip tone={STATUS_TONE[f.status]}>{t(`foundry.masters.state.${f.status}`)}</Chip> },
@@ -105,6 +108,7 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
   const row = editing && editing !== "new" ? editing : null;
   const [form, setForm] = useState({ code: "", name: "", capacityKg: "", billetDiaMm: "" });
   const [kind, setKind] = useState<"melting" | "homogenizing">("melting");
+  const plusOn = useModuleOn("foundry_plus");
   const [seeded, setSeeded] = useState<string | null>(null);
   const key = editing === null ? null : row ? row.id : "new";
   if (seeded !== key) {
@@ -161,7 +165,7 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
         <Field label={t("foundry.masters.name")} error={err === "name" ? t("foundry.masters.nameRequired") : undefined}>
           <TextInput value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} data-testid="furnace-name" />
         </Field>
-        {!row ? (
+        {!row && plusOn ? (
           <Field label={t("fdy2.furnaceKind.label")}>
             <FieldSelect value={kind} onChange={(e) => setKind(e.currentTarget.value as "melting" | "homogenizing")} data-testid="furnace-kind">
               <option value="melting">{t("fdy2.furnaceKind.melting")}</option>

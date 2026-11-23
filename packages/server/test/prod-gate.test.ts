@@ -75,7 +75,7 @@ function shape(v: unknown, prefix = ""): string[] {
 }
 
 // The PL header's invoice number and date are older than XE (the typed Tally link); only the portal's are XE-BILL.
-const XE_KEYS = ["priceBreakup", "packingMode", "transitInsurance", "toolingShort", "progress"];
+const XE_KEYS = ["priceBreakup", "packingMode", "transitInsurance", "toolingShort", "progress", "floorShort", "boughtIn"];
 const leaked = (paths: string[], keys: string[]) => paths.filter((p) => keys.some((k) => p === k || p.endsWith(`.${k}`) || p.includes(`.${k}.`) || p.startsWith(`${k}.`)));
 
 describe.each(VARIANTS)("a plant with $name", ({ modules }) => {
@@ -90,7 +90,7 @@ describe.each(VARIANTS)("a plant with $name", ({ modules }) => {
       return m !== null && isOptInModule(m);
     });
     // The XE routers and the REG procedures riding `reports` are all registered.
-    for (const sample of ["complaints.list", "qa.settings.get", "masters.lists.list", "masters.bank.list", "docs.list", "toolRoom.tooling.list", "reports.morning", "reports.wip", "billing.invoices.list", "store.indents.list", "store.po.list", "store.valuation.items", "store.belowMinimum"]) {
+    for (const sample of ["complaints.list", "qa.settings.get", "masters.lists.list", "masters.bank.list", "docs.list", "toolRoom.tooling.list", "reports.morning", "reports.wip", "billing.invoices.list", "store.indents.list", "store.po.list", "store.valuation.items", "store.belowMinimum", "foundry.homog.list", "foundry.billets.stock", "foundry.chargeMix.chemistry", "foundry.casts.dataSheet"]) {
       expect(paths).toContain(sample);
     }
     expect(paths.some((x) => x.startsWith("pricing."))).toBe(true);
@@ -176,7 +176,10 @@ describe("core flows on a plant without XE keys", () => {
     const c = await p.castWith(kg(500));
     const r = await p.countingRun();
     await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+    const preview = await p.as("supervisor").press.runs.preview({ id: r.runId });
+    expect(leaked(shape(preview), XE_KEYS)).toEqual([]);
     const out = await p.as("supervisor").press.runs.close({ id: r.runId });
+    expect(leaked(shape(out), XE_KEYS)).toEqual([]);
     expect(out).toMatchObject({ status: "logged", recoveryBp: 7545, recoveryPct: "75.5", balanceG: 31_400, issue: "returned" });
     const rows = await env.db
       .select()
@@ -230,6 +233,29 @@ describe.each(VARIANTS)("the store of a plant with $name (store buying is `store
     const named = (await owner.store.items.list()).items.find((i) => i.id === item.id)!;
     expect({ min: named.minMilli, reorder: named.reorderMilli }).toEqual({ min: 2000, reorder: 4000 });
     expect("ratePaise" in (await owner.store.txns({})).items[0]!).toBe(true);
+  });
+});
+
+describe.each(VARIANTS)("the foundry of a plant with $name (foundry extras are `foundry_plus`)", ({ modules }) => {
+  test("no rack, floor or homogenizing furnace; no XE reason kinds; master lists carry no XE key", async () => {
+    const { companyId } = await env.seedCompany({ modules });
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.stock.locations.seedDefaults();
+    await expect(owner.stock.locations.create({ code: "RACK", name: "Billet rack", kind: "billet_rack" })).rejects.toMatchObject({ message: MODULE_OFF });
+    await expect(owner.stock.locations.create({ code: "PF1", name: "Press floor", kind: "press_floor", pressLineId: "x" })).rejects.toMatchObject({ message: MODULE_OFF });
+    await expect(owner.foundry.furnaces.create({ code: "H1", name: "Homog", capacityG: 6_000_000, kind: "homogenizing" })).rejects.toMatchObject({ message: MODULE_OFF });
+    await expect(owner.company.updateSettings({ foundry: { requireHomogenizing: true } })).rejects.toMatchObject({ message: MODULE_OFF });
+    await owner.foundry.furnaces.seedDefaults();
+    expect(leaked(shape(await owner.foundry.furnaces.list()), ["kind"])).toEqual([]);
+    expect(leaked(shape(await owner.stock.locations.list()), ["pressLineId"])).toEqual([]);
+    const kinds = new Set((await owner.reasonCodes.list()).map((r) => r.kind));
+    expect({ log: kinds.has("log_reject"), billet: kinds.has("billet_reject") }).toEqual({ log: false, billet: false });
+    // Named, the same calls work and the reject reasons come in on the next read.
+    await setModules(companyId, [...modules, "foundry_plus"]);
+    await owner.stock.locations.create({ code: "RACK", name: "Billet rack", kind: "billet_rack" });
+    expect("kind" in (await owner.foundry.furnaces.list()).items[0]!).toBe(true);
+    const named = new Set((await owner.reasonCodes.list()).map((r) => r.kind));
+    expect({ log: named.has("log_reject"), billet: named.has("billet_reject") }).toEqual({ log: true, billet: true });
   });
 });
 

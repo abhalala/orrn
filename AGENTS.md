@@ -936,7 +936,14 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ## Foundry depth (XE parity lane FOUNDRY, rows 41-47 and 50; migration 0063)
 
-Rides the `foundry` module (no new module key; ROUTER_MODULE `foundry` gates every mutation). Tables in
+Module (PROD-GATE): the opt-in `foundry_plus` (`SUBROUTER_MODULE` `foundry.homog|logs|billets|rejects|chargeMix|castPlan`,
+`PROCEDURE_MODULE` `foundry.casts.dataSheet`), reads and writes; writes also need `foundry`. With it off: no `billet_rack` /
+`press_floor` location (`stock.locations.create|update` refuse them, `list` leaves out `pressLineId`), no homogenizing furnace
+(`furnaces.list` leaves out `kind`), `company.updateSettings({ foundry })` refused, no `log_reject` / `billet_reject` default
+reason codes (`lib/reasonCodes.ts` adds them once the plant names the module), `press.runs.preview|close` carry `floorShort`
+only when a floor is short and `foundry.trace` carries `boughtIn` / `cast.source` only for a bought-in cast. Web: the Casts
+page buttons, the data sheet link, the furnace kind, the charge-mix panel, the foundry settings card and the rack and floor
+location kinds follow `useModuleOn("foundry_plus")`. Tables in
 `packages/db/src/schema/foundryDepth.ts`, routers `routers/foundryDepth.ts` (`foundry.homog`, `foundry.logs`,
 `foundry.billets`, `foundry.rejects`) and `routers/foundryPlan.ts` (`foundry.chargeMix`, `foundry.casts.dataSheet`),
 shared SQL in `lib/foundryDepth.ts`, pure rules in `@orrn/domain` `foundryDepth.ts`. Actions (append-only in
@@ -1647,7 +1654,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   formats, approver rules, packing mode, people's department and designation, tool room extras), `docs`
   (document register), `mis` (office registers, owner page and mail, billet need, recut reason, portal order
   progress), `maintenance` (assets, preventive plans, work orders, spares, readings; MAINT), `store_buy` (indents, store purchase orders, GRN against an order, store rates and value,
-  reorder levels). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `costing`,
+  reorder levels), `foundry_plus` (homogenizing, bought-in logs, billet racks and press floors, cuts, issues, reject
+  registers, charge mix, typical chemistry, casting plan, cast data sheet). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `costing`,
   `jobwork`.
 - Server: `companyProcedure` asserts an opt-in module on READS as well as writes (`ROUTER_MODULE` /
   `PROCEDURE_MODULE`); `portalProcedure` paths call `assertModule` themselves. A feature that rides a core

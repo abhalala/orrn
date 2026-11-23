@@ -5,7 +5,9 @@
  * a furnace or alloy is retired, never deleted. Limits are integer ppm (0.45 % = 4500); a spectro
  * result snapshots the limits in force when it was attached, so a later edit rewrites no verdict.
  */
-import { ALLOY_LIMIT_SEEDS, FOUNDRY_LINE_MAX_G, FURNACE_SEED, PPM_TOTAL, SPECTRO_ELEMENTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, FOUNDRY_LINE_MAX_G, FURNACE_SEED, isModuleOn, PPM_TOTAL, SPECTRO_ELEMENTS } from "@orrn/domain";
+
+import { assertModule, companyModules } from "../lib/moduleGate";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -127,7 +129,9 @@ const furnacesRouter = router({
       .from(furnace)
       .where(eq(furnace.companyId, ctx.companyId))
       .orderBy(asc(furnace.status), asc(furnace.sortOrder), asc(furnace.code));
-    return { items };
+    // PROD-GATE: the furnace kind (homogenizing) is opt-in `foundry_plus`; off, the key is left out.
+    if (isModuleOn(await companyModules(ctx.db, ctx.companyId), "foundry_plus")) return { items };
+    return { items: items.map(({ kind: _kind, ...rest }) => rest as typeof rest & { kind?: (typeof items)[number]["kind"] }) };
   }),
 
   /** F1, 6 t, 127 mm (Q-FD-8, Q27) for a plant with no melting furnace yet (a homogenizing one does not count). */
@@ -159,6 +163,7 @@ const furnacesRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.kind === "homogenizing") await assertModule(ctx, "foundry_plus");
       const rowId = crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       try {

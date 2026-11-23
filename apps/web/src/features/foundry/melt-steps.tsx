@@ -29,6 +29,7 @@ import { PlantInput } from "@/shared/components/plant-input";
 import { followsPlant, LENGTH_FT, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, kgPlainTrim, massUnit } from "@/shared/lib/fmt-text";
+import { useModuleOn } from "@/shared/lib/modules";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -131,6 +132,8 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
 // --- 2. Charge -----------------------------------------------------------------------------------------------
 
 export function ChargeStep({ form, patch, issue, lots, streams, capacityG, castAlloyId }: StepProps & { lots: Lot[]; streams: Stream[]; capacityG: number | null; castAlloyId?: string }) {
+  // The charge-mix suggestion is the opt-in `foundry_plus` (PROD-GATE).
+  const plusOn = useModuleOn("foundry_plus");
   const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
@@ -233,7 +236,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG, castA
         </div>
       </section>
 
-      <ChargeMixPanel alloyId={form.alloyId || castAlloyId || ""} capacityG={capacityG} />
+      {plusOn ? <ChargeMixPanel alloyId={form.alloyId || castAlloyId || ""} capacityG={capacityG} /> : null}
       <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="charge-total">
         {t("foundry.melt.charge.total", { kg: kgGrouped1(fmt, fig.balance.metalInG) })}
       </p>

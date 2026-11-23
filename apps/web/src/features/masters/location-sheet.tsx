@@ -10,6 +10,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { LOCATION_KINDS, locationCodeProblem, parseWholeNumber, type LocationKind as BaseKind } from "./masters-model";
 import { MasterSheet } from "./masters-ui";
 import { useInvalidate, type LocationRow } from "./use-masters";
+import { useModuleOn } from "@/shared/lib/modules";
 
 /** The billet rack and press floor kinds (XE FOUNDRY) join the older kinds the masters model lists. */
 type LocationKind = BaseKind | "billet_rack" | "press_floor";
@@ -30,6 +31,9 @@ export function LocationSheet({
   location?: LocationRow;
 }) {
   const { t } = useT();
+  // Billet racks and press floors are the opt-in `foundry_plus` (PROD-GATE).
+  const plusOn = useModuleOn("foundry_plus");
+  const kinds: readonly LocationKind[] = plusOn ? ALL_KINDS : LOCATION_KINDS;
   const invalidate = useInvalidate();
   const uid = useId().replace(/:/g, "");
   const formId = `location-form-${uid}`;
@@ -189,7 +193,7 @@ export function LocationSheet({
           value={kind}
           onChange={(e) => setKind(e.currentTarget.value as LocationKind)}
         >
-          {ALL_KINDS.map((k) => (
+          {kinds.map((k) => (
             <option key={k} value={k}>
               {t(`masters.locations.kind.${k}`)}
             </option>
