@@ -4,7 +4,7 @@
  * plant chose on screen, and every figure comes from the frozen snapshot the server made at issue: nothing is
  * worked out again here. No Intl, no clock: dates are cut from `YYYY-MM-DD`.
  */
-import { GST_STATE_CODES, kgQtyText, rupeesText, taxHeadsFor } from "@orrn/domain";
+import { bankPrintParts, GST_STATE_CODES, kgQtyText, rupeesText, taxHeadsFor, type BankForPrint } from "@orrn/domain";
 
 import type { InvoiceSnapshot } from "@orrn/server/lib/billing/snapshot";
 
@@ -18,6 +18,8 @@ export type PaperDoc = {
   reason: string | null;
   snapshot: InvoiceSnapshot;
   irn: { irn: string | null; ackNo: string | null; ackDt: string | null; signedQrCode: string | null };
+  /** The plant's default bank (`billing.invoices.get` `bank`); null or missing prints "bank details not set". */
+  bank?: BankForPrint | null;
 };
 
 export type PaperParty = { label: string; name: string; lines: string[]; gstin: string };
@@ -164,8 +166,7 @@ export function invoicePaperModel(doc: PaperDoc): InvoicePaper {
     hsnRows,
     ack,
     signedQr: doc.irn.signedQrCode,
-    // TODO(xe-adm): plant bank from getPlantBankForPrint when ADM lands
-    bank: BANK_NOT_SET,
+    bank: doc.bank ? bankPrintParts(doc.bank).join(", ") : BANK_NOT_SET,
     terms: plant.terms,
     forLine: `For ${plant.legalName}`,
     signatory: plant.signatory,

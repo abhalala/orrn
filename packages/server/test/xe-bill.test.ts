@@ -187,6 +187,8 @@ describe("tax invoice (row 13)", () => {
     const inv = await issued(p, [plId]);
     expect(inv).toMatchObject({ status: "issued", number: "INV/26-27/1", irnStatus: "none" });
     const got = await p.owner.billing.invoices.get({ id: inv.id });
+    // PROD-GATE: the plant bank for the paper travels with the invoice; none set yet.
+    expect(got.bank).toBeNull();
     const expected = computeInvoice(
       [{ key: "k", description: "x", hsn: "7604", uqc: "KGS", gstRateBp: 1800, kind: "weight", weightG: 1_234_567, ratePaise: 24_550 }],
       "intra",
@@ -1056,5 +1058,16 @@ describe("e-invoice fix round 2", () => {
     const irp = await import("../src/lib/billing/irp");
     // The relay may first see the call up to 15 s after the stamp, then run it for up to 20 s more.
     expect(flow.IRN_CALL_SETTLE_MS).toBeGreaterThanOrEqual(irp.RELAY_TIMEOUT_MS + irp.RELAY_UPSTREAM_MAX_MS + 60_000);
+  });
+});
+
+describe("PROD-GATE: the plant bank on the invoice paper (ADM getPlantBankForPrint)", () => {
+  test("invoices.get carries the default live bank account; null while none is set", async () => {
+    const p = await billingPlant(["billing", "masters_plus"]);
+    const { plId } = await completedPl(p, [600]);
+    const inv = await issued(p, [plId]);
+    expect((await p.owner.billing.invoices.get({ id: inv.id })).bank).toBeNull();
+    await p.as("manager").masters.bank.create({ bankName: "HDFC Bank", branch: "Naroda", accountName: "Fourcubes Aluminium Pvt Ltd", accountNo: "50200012345678", ifsc: "HDFC0001234", note: null });
+    expect((await p.owner.billing.invoices.get({ id: inv.id })).bank).toEqual({ bankName: "HDFC Bank", branch: "Naroda", accountName: "Fourcubes Aluminium Pvt Ltd", accountNo: "50200012345678", ifsc: "HDFC0001234" });
   });
 });

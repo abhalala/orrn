@@ -108,7 +108,7 @@ export function InvoiceDetailPage({ id }: { id: string }) {
   async function pdf() {
     setDownloading(true);
     try {
-      await downloadInvoicePdf({ kind: d.kind, status: d.status, number: d.number, invoiceDate: d.invoiceDate, noteReason: d.noteReason, reason: d.reason, snapshot: d.snapshot, irn: { irn: d.irn.irn, ackNo: d.irn.ackNo, ackDt: d.irn.ackDt, signedQrCode: d.irn.signedQrCode } });
+      await downloadInvoicePdf({ kind: d.kind, status: d.status, number: d.number, invoiceDate: d.invoiceDate, noteReason: d.noteReason, reason: d.reason, snapshot: d.snapshot, irn: { irn: d.irn.irn, ackNo: d.irn.ackNo, ackDt: d.irn.ackDt, signedQrCode: d.irn.signedQrCode }, bank: d.bank });
     } catch {
       toast.error(t("bill.detail.pdfFailed"));
     } finally {

@@ -85,6 +85,12 @@ describe("invoice paper", () => {
     expect(p.terms).toBe("Interest at 18% on late payment");
   });
 
+  test("PROD-GATE: the plant's default bank from the invoice payload prints on the paper", () => {
+    const p = invoicePaperModel({ ...doc(), bank: { bankName: "HDFC Bank", branch: "Naroda", accountName: "FourCubes Industries LLP", accountNo: "50200012345678", ifsc: "HDFC0001234" } });
+    expect(p.bank).toBe("HDFC Bank, Naroda, FourCubes Industries LLP, A/c 50200012345678, IFSC HDFC0001234");
+    expect(invoicePaperModel({ ...doc(), bank: null }).bank).toBe(BANK_NOT_SET);
+  });
+
   test("waiting for its IRN: a clear draft mark, never called a tax invoice", () => {
     for (const status of ["irn_pending", "draft"] as const) {
       const p = invoicePaperModel(doc({ status, number: null, invoiceDate: null }));

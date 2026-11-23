@@ -16,7 +16,7 @@ import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 let env: TestEnv;
 beforeAll(async () => {
-  env = await createTestEnv();
+  env = await createTestEnv({ defaultModules: ["masters_plus", "docs"] });
 }, 60_000);
 afterAll(async () => {
   await env.dispose();
@@ -127,7 +127,8 @@ describe("tooling items (#58) and low stock (#62)", () => {
     expect(await p.dieRoom.toolRoom.shortfalls()).toEqual([{ type: "die_ring", held: 1, min: 2 }]);
     const today = await p.dieRoom.dashboard.today();
     expect(today.toolingShort).toEqual([{ type: "die_ring", held: 1, min: 2 }]);
-    expect((await p.as("packer").dashboard.today()).toolingShort).toEqual([]);
+    // PROD-GATE: outside the die room the key is absent (Today's shape as before XE).
+    expect((await p.as("packer").dashboard.today()).toolingShort).toBeUndefined();
     await p.dieRoom.toolRoom.tooling.create({ type: "die_ring", code: "R-2", status: "in_use" });
     expect(await p.dieRoom.toolRoom.shortfalls()).toEqual([]);
     await expect(p.as("office").toolRoom.minStock.set({ min: {} })).rejects.toMatchObject({ code: "FORBIDDEN" });
