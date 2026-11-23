@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "57f60993-c084-40a7-9f8f-590cac946e0d",
-  "prevId": "7e6ba7ff-517d-4369-86b0-6fc74d284997",
+  "id": "1ee5a648-cc22-435d-bb94-6ebf051bfd20",
+  "prevId": "c54a45bc-6089-4a62-840b-394c52ff069e",
   "tables": {
     "die_copy_extra": {
       "name": "die_copy_extra",
@@ -20269,21 +20269,21 @@
           ],
           "isUnique": false
         },
-        "press_run_company_line_end_idx": {
-          "name": "press_run_company_line_end_idx",
-          "columns": [
-            "company_id",
-            "press_line_id",
-            "coalesce(\"stopped_at\", 9007199254740991)"
-          ],
-          "isUnique": false
-        },
         "press_run_company_line_queue_idx": {
           "name": "press_run_company_line_queue_idx",
           "columns": [
             "company_id",
             "press_line_id",
             "queue_pos"
+          ],
+          "isUnique": false
+        },
+        "press_run_company_line_end_idx": {
+          "name": "press_run_company_line_end_idx",
+          "columns": [
+            "company_id",
+            "press_line_id",
+            "coalesce(\"stopped_at\", 9007199254740991)"
           ],
           "isUnique": false
         },
@@ -22650,6 +22650,1367 @@
         "vendor_alias_created_by_user_id_fk": {
           "name": "vendor_alias_created_by_user_id_fk",
           "tableFrom": "vendor_alias",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_alloy_substitute": {
+      "name": "qa_alloy_substitute",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "alloy": {
+          "name": "alloy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "substitute": {
+          "name": "substitute",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_alloy_substitute_plant_unique": {
+          "name": "qa_alloy_substitute_plant_unique",
+          "columns": [
+            "company_id",
+            "alloy",
+            "substitute"
+          ],
+          "isUnique": true,
+          "where": "\"qa_alloy_substitute\".\"customer_id\" IS NULL"
+        },
+        "qa_alloy_substitute_customer_unique": {
+          "name": "qa_alloy_substitute_customer_unique",
+          "columns": [
+            "company_id",
+            "alloy",
+            "substitute",
+            "customer_id"
+          ],
+          "isUnique": true,
+          "where": "\"qa_alloy_substitute\".\"customer_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "qa_alloy_substitute_company_id_company_id_fk": {
+          "name": "qa_alloy_substitute_company_id_company_id_fk",
+          "tableFrom": "qa_alloy_substitute",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_alloy_substitute_customer_id_customer_id_fk": {
+          "name": "qa_alloy_substitute_customer_id_customer_id_fk",
+          "tableFrom": "qa_alloy_substitute",
+          "tableTo": "customer",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_alloy_substitute_created_by_user_id_fk": {
+          "name": "qa_alloy_substitute_created_by_user_id_fk",
+          "tableFrom": "qa_alloy_substitute",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_check": {
+      "name": "qa_check",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "press_run_id": {
+          "name": "press_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bundle_id": {
+          "name": "bundle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "die_id": {
+          "name": "die_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "die_instance_id": {
+          "name": "die_instance_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lot_id": {
+          "name": "lot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cast_id": {
+          "name": "cast_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ageing_batch_id": {
+          "name": "ageing_batch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "subject_number": {
+          "name": "subject_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "temper_id": {
+          "name": "temper_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "values_json": {
+          "name": "values_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "flags_json": {
+          "name": "flags_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "standard": {
+          "name": "standard",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "operator_name": {
+          "name": "operator_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "checked_by": {
+          "name": "checked_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_check_company_kind_at_idx": {
+          "name": "qa_check_company_kind_at_idx",
+          "columns": [
+            "company_id",
+            "kind",
+            "checked_at"
+          ],
+          "isUnique": false
+        },
+        "qa_check_company_subject_idx": {
+          "name": "qa_check_company_subject_idx",
+          "columns": [
+            "company_id",
+            "subject_type",
+            "subject_id",
+            "kind",
+            "checked_at"
+          ],
+          "isUnique": false
+        },
+        "qa_check_company_run_idx": {
+          "name": "qa_check_company_run_idx",
+          "columns": [
+            "company_id",
+            "press_run_id"
+          ],
+          "isUnique": false
+        },
+        "qa_check_company_bundle_idx": {
+          "name": "qa_check_company_bundle_idx",
+          "columns": [
+            "company_id",
+            "bundle_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "qa_check_company_id_company_id_fk": {
+          "name": "qa_check_company_id_company_id_fk",
+          "tableFrom": "qa_check",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_check_station_id_qa_station_id_fk": {
+          "name": "qa_check_station_id_qa_station_id_fk",
+          "tableFrom": "qa_check",
+          "tableTo": "qa_station",
+          "columnsFrom": [
+            "station_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_check_instrument_id_qa_instrument_id_fk": {
+          "name": "qa_check_instrument_id_qa_instrument_id_fk",
+          "tableFrom": "qa_check",
+          "tableTo": "qa_instrument",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_check_temper_id_qa_temper_id_fk": {
+          "name": "qa_check_temper_id_qa_temper_id_fk",
+          "tableFrom": "qa_check",
+          "tableTo": "qa_temper",
+          "columnsFrom": [
+            "temper_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_check_checked_by_user_id_fk": {
+          "name": "qa_check_checked_by_user_id_fk",
+          "tableFrom": "qa_check",
+          "tableTo": "user",
+          "columnsFrom": [
+            "checked_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_hold": {
+      "name": "qa_hold",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bundle_id": {
+          "name": "bundle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "check_id": {
+          "name": "check_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "held_by": {
+          "name": "held_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "held_at": {
+          "name": "held_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "released_by": {
+          "name": "released_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_note": {
+          "name": "release_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "qa_hold_open_unique": {
+          "name": "qa_hold_open_unique",
+          "columns": [
+            "company_id",
+            "bundle_id"
+          ],
+          "isUnique": true,
+          "where": "\"qa_hold\".\"released_at\" IS NULL"
+        },
+        "qa_hold_company_held_idx": {
+          "name": "qa_hold_company_held_idx",
+          "columns": [
+            "company_id",
+            "held_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "qa_hold_company_id_company_id_fk": {
+          "name": "qa_hold_company_id_company_id_fk",
+          "tableFrom": "qa_hold",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_hold_bundle_id_bundle_id_fk": {
+          "name": "qa_hold_bundle_id_bundle_id_fk",
+          "tableFrom": "qa_hold",
+          "tableTo": "bundle",
+          "columnsFrom": [
+            "bundle_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_hold_check_id_qa_check_id_fk": {
+          "name": "qa_hold_check_id_qa_check_id_fk",
+          "tableFrom": "qa_hold",
+          "tableTo": "qa_check",
+          "columnsFrom": [
+            "check_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_hold_held_by_user_id_fk": {
+          "name": "qa_hold_held_by_user_id_fk",
+          "tableFrom": "qa_hold",
+          "tableTo": "user",
+          "columnsFrom": [
+            "held_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_hold_released_by_user_id_fk": {
+          "name": "qa_hold_released_by_user_id_fk",
+          "tableFrom": "qa_hold",
+          "tableTo": "user",
+          "columnsFrom": [
+            "released_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_instrument": {
+      "name": "qa_instrument",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "range_text": {
+          "name": "range_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "place": {
+          "name": "place",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "interval_days": {
+          "name": "interval_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_calibrated_on": {
+          "name": "last_calibrated_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_due_on": {
+          "name": "next_due_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "certificate_key": {
+          "name": "certificate_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "certificate_name": {
+          "name": "certificate_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "1"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_instrument_company_code_unique": {
+          "name": "qa_instrument_company_code_unique",
+          "columns": [
+            "company_id",
+            "code"
+          ],
+          "isUnique": true
+        },
+        "qa_instrument_company_due_idx": {
+          "name": "qa_instrument_company_due_idx",
+          "columns": [
+            "company_id",
+            "active",
+            "next_due_on"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "qa_instrument_company_id_company_id_fk": {
+          "name": "qa_instrument_company_id_company_id_fk",
+          "tableFrom": "qa_instrument",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_instrument_created_by_user_id_fk": {
+          "name": "qa_instrument_created_by_user_id_fk",
+          "tableFrom": "qa_instrument",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_place": {
+      "name": "qa_place",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "placed_by": {
+          "name": "placed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "placed_at": {
+          "name": "placed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_place_subject_unique": {
+          "name": "qa_place_subject_unique",
+          "columns": [
+            "company_id",
+            "subject_type",
+            "subject_id"
+          ],
+          "isUnique": true
+        },
+        "qa_place_company_station_idx": {
+          "name": "qa_place_company_station_idx",
+          "columns": [
+            "company_id",
+            "station_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "qa_place_company_id_company_id_fk": {
+          "name": "qa_place_company_id_company_id_fk",
+          "tableFrom": "qa_place",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_place_station_id_qa_station_id_fk": {
+          "name": "qa_place_station_id_qa_station_id_fk",
+          "tableFrom": "qa_place",
+          "tableTo": "qa_station",
+          "columnsFrom": [
+            "station_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_place_placed_by_user_id_fk": {
+          "name": "qa_place_placed_by_user_id_fk",
+          "tableFrom": "qa_place",
+          "tableTo": "user",
+          "columnsFrom": [
+            "placed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_plan": {
+      "name": "qa_plan",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "die_id": {
+          "name": "die_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "die_instance_id": {
+          "name": "die_instance_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "temper_id": {
+          "name": "temper_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "billet_temp_min_x10": {
+          "name": "billet_temp_min_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "billet_temp_max_x10": {
+          "name": "billet_temp_max_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "exit_temp_min_x10": {
+          "name": "exit_temp_min_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "exit_temp_max_x10": {
+          "name": "exit_temp_max_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ram_speed_min_x10": {
+          "name": "ram_speed_min_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ram_speed_max_x10": {
+          "name": "ram_speed_max_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ageing_temp_x10": {
+          "name": "ageing_temp_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ageing_soak_min": {
+          "name": "ageing_soak_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "every_bundles": {
+          "name": "every_bundles",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "every_minutes": {
+          "name": "every_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dimensions_json": {
+          "name": "dimensions_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_plan_section_unique": {
+          "name": "qa_plan_section_unique",
+          "columns": [
+            "company_id",
+            "die_id"
+          ],
+          "isUnique": true,
+          "where": "\"qa_plan\".\"die_instance_id\" IS NULL"
+        },
+        "qa_plan_copy_unique": {
+          "name": "qa_plan_copy_unique",
+          "columns": [
+            "company_id",
+            "die_instance_id"
+          ],
+          "isUnique": true,
+          "where": "\"qa_plan\".\"die_instance_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "qa_plan_company_id_company_id_fk": {
+          "name": "qa_plan_company_id_company_id_fk",
+          "tableFrom": "qa_plan",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_plan_die_id_die_id_fk": {
+          "name": "qa_plan_die_id_die_id_fk",
+          "tableFrom": "qa_plan",
+          "tableTo": "die",
+          "columnsFrom": [
+            "die_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_plan_die_instance_id_die_instance_id_fk": {
+          "name": "qa_plan_die_instance_id_die_instance_id_fk",
+          "tableFrom": "qa_plan",
+          "tableTo": "die_instance",
+          "columnsFrom": [
+            "die_instance_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_plan_temper_id_qa_temper_id_fk": {
+          "name": "qa_plan_temper_id_qa_temper_id_fk",
+          "tableFrom": "qa_plan",
+          "tableTo": "qa_temper",
+          "columnsFrom": [
+            "temper_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "qa_plan_updated_by_user_id_fk": {
+          "name": "qa_plan_updated_by_user_id_fk",
+          "tableFrom": "qa_plan",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_station": {
+      "name": "qa_station",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "1"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_station_company_code_unique": {
+          "name": "qa_station_company_code_unique",
+          "columns": [
+            "company_id",
+            "code"
+          ],
+          "isUnique": true
+        },
+        "qa_station_company_stage_idx": {
+          "name": "qa_station_company_stage_idx",
+          "columns": [
+            "company_id",
+            "stage"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "qa_station_company_id_company_id_fk": {
+          "name": "qa_station_company_id_company_id_fk",
+          "tableFrom": "qa_station",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "qa_temper": {
+      "name": "qa_temper",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "alloy": {
+          "name": "alloy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hardness_method": {
+          "name": "hardness_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'webster'"
+        },
+        "hardness_min_x10": {
+          "name": "hardness_min_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tensile_min_mpa": {
+          "name": "tensile_min_mpa",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "yield_min_mpa": {
+          "name": "yield_min_mpa",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "elongation_min_x10": {
+          "name": "elongation_min_x10",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "1"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "qa_temper_company_code_alloy_unique": {
+          "name": "qa_temper_company_code_alloy_unique",
+          "columns": [
+            "company_id",
+            "code",
+            "alloy"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "qa_temper_company_id_company_id_fk": {
+          "name": "qa_temper_company_id_company_id_fk",
+          "tableFrom": "qa_temper",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "qa_temper_created_by_user_id_fk": {
+          "name": "qa_temper_created_by_user_id_fk",
+          "tableFrom": "qa_temper",
           "tableTo": "user",
           "columnsFrom": [
             "created_by"
@@ -26571,13 +27932,6 @@
           }
         }
       },
-      "press_run_company_line_end_idx": {
-        "columns": {
-          "coalesce(\"stopped_at\", 9007199254740991)": {
-            "isExpression": true
-          }
-        }
-      },
       "maint_asset_company_code_unique": {
         "columns": {
           "lower(\"code\")": {
@@ -26588,6 +27942,13 @@
       "maint_reading_kind_company_asset_name_unique": {
         "columns": {
           "lower(trim(\"name\"))": {
+            "isExpression": true
+          }
+        }
+      },
+      "press_run_company_line_end_idx": {
+        "columns": {
+          "coalesce(\"stopped_at\", 9007199254740991)": {
             "isExpression": true
           }
         }

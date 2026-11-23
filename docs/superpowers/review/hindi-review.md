@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
+Counts: 10324 screen strings in 55 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (92)
+### nav (93)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -199,6 +199,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
+| `maintenance` | Maintenance | मेंटेनेंस |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -3151,7 +3152,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (388)
+### admin (390)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3366,6 +3367,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleNames.complaints` | Complaints | शिकायतें |
+| `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3378,6 +3380,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
+| `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -9229,6 +9232,411 @@ Please check, Lalubhai:
 | `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
 | `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
 
+### maint (400)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Maintenance | मेंटेनेंस |
+| `subtitle` | Machines, the work on them and what is due next. | मशीनें, उन पर हुआ काम और आगे क्या बाकी है। |
+| `noAccess` | Your role does not see maintenance. | आपके रोल को मेंटेनेंस नहीं दिखता। |
+| `moduleOff` | Maintenance is not on for this plant. | इस प्लांट में मेंटेनेंस चालू नहीं है। |
+| `loadFailed` | Could not load maintenance. Try again. | मेंटेनेंस लोड नहीं हुआ। फिर से कोशिश करें। |
+| `showMore` | Show more | और दिखाएँ |
+| `saved` | Saved | सेव हो गया |
+| `none` | None | कोई नहीं |
+| `kind.press` | Press | प्रेस |
+| `kind.furnace` | Furnace | फर्नेस |
+| `kind.oven` | Ageing oven | एजिंग ओवन |
+| `kind.compressor` | Compressor | कंप्रेसर |
+| `kind.crane` | Crane | क्रेन |
+| `kind.dg_set` | DG set | DG सेट |
+| `kind.other` | Other | अन्य |
+| `link.press` | Press | प्रेस |
+| `link.furnace` | Furnace | फर्नेस |
+| `link.oven` | Ageing oven | एजिंग ओवन |
+| `criticality.A` | Critical A | ज़रूरी A |
+| `criticality.B` | Critical B | ज़रूरी B |
+| `criticality.C` | Critical C | ज़रूरी C |
+| `criticalityHint.A` | Stops the plant when it stops | यह रुके तो प्लांट रुकता है |
+| `criticalityHint.B` | Slows the plant | प्लांट धीमा होता है |
+| `criticalityHint.C` | Can wait | रुक सकता है |
+| `assetStatus.running` | Running | चालू |
+| `assetStatus.standby` | Standby | स्टैंडबाय |
+| `assetStatus.under_repair` | Under repair | मरम्मत में |
+| `assetStatus.retired` | Retired | हटाया गया |
+| `woKind.breakdown` | Breakdown | ब्रेकडाउन |
+| `woKind.preventive` | Preventive | प्रिवेंटिव |
+| `woKind.condition` | Condition | कंडीशन |
+| `woStatus.open` | Open | खुला |
+| `woStatus.in_progress` | In progress | काम चालू |
+| `woStatus.waiting_spares` | Waiting for spares | स्पेयर का इंतज़ार |
+| `woStatus.done` | Done | पूरा |
+| `woStatus.cancelled` | Cancelled | रद्द |
+| `woSource.manual` | Raised by hand | हाथ से बनाया |
+| `woSource.downtime` | From press downtime | प्रेस की रुकावट से |
+| `woSource.plan` | From a plan | प्लान से |
+| `woSource.reading` | From a reading | रीडिंग से |
+| `priority.high` | High | ऊँची |
+| `priority.medium` | Medium | मध्यम |
+| `priority.low` | Low | कम |
+| `flag.ok` | In limit | सीमा में |
+| `flag.low` | Below limit | सीमा से नीचे |
+| `flag.high` | Above limit | सीमा से ऊपर |
+| `due.inDays` | Due in {n} days | {n} दिन में बाकी |
+| `due.today` | Due today | आज बाकी |
+| `due.overdueDays` | Overdue by {n} days | {n} दिन से देर |
+| `due.inHours` | Due in {n} run hours | {n} रन घंटे में बाकी |
+| `due.overHours` | Over by {n} run hours | {n} रन घंटे ज़्यादा |
+| `due.hoursNow` | Run hours reached | रन घंटे पूरे हुए |
+| `due.hoursRun` | {n} run hours since last done | पिछली बार से {n} रन घंटे |
+| `due.state.ok` | On time | समय पर |
+| `due.state.soon` | Due soon | जल्द बाकी |
+| `due.state.overdue` | Overdue | देर हो गई |
+| `home.dueTitle` | Plans due | बाकी प्लान |
+| `home.dueEmpty` | Nothing is due in the next 7 days. | अगले 7 दिन में कुछ बाकी नहीं। |
+| `home.openTitle` | Open work orders | खुले वर्क ऑर्डर |
+| `home.openEmpty` | No open work orders. | कोई खुला वर्क ऑर्डर नहीं। |
+| `home.breakdownsTitle` | Press breakdowns | प्रेस ब्रेकडाउन |
+| `home.breakdownsHint` | Breakdowns logged on the press in the last 30 days. | पिछले 30 दिन में प्रेस पर दर्ज ब्रेकडाउन। |
+| `home.breakdownsEmpty` | No breakdowns in the last 30 days. | पिछले 30 दिन में कोई ब्रेकडाउन नहीं। |
+| `home.flaggedTitle` | Readings outside limits | सीमा से बाहर रीडिंग |
+| `home.flaggedEmpty` | No readings outside limits in the last 30 days. | पिछले 30 दिन में सीमा से बाहर कोई रीडिंग नहीं। |
+| `home.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएँ |
+| `home.openWorkOrder` | Open {number} | {number} खोलें |
+| `home.noAsset` | Add this press to the assets first | पहले इस प्रेस को एसेट में जोड़ें |
+| `home.since` | Since {time} | {time} से |
+| `home.minutes` | {min} min | {min} मिनट |
+| `home.assets` | Assets | एसेट |
+| `home.workOrders` | Work orders | वर्क ऑर्डर |
+| `home.report` | Report | रिपोर्ट |
+| `home.newWorkOrder` | New work order | नया वर्क ऑर्डर |
+| `today.title` | Maintenance | मेंटेनेंस |
+| `today.open` | Open maintenance | मेंटेनेंस खोलें |
+| `today.overdue` | Plans overdue | देर वाले प्लान |
+| `today.overdueMeta` | Past their date or run hours | तारीख या रन घंटे पार |
+| `today.soon` | Due soon | जल्द बाकी |
+| `today.soonMeta` | In 7 days or the last run hours | 7 दिन में या आखिरी रन घंटे |
+| `today.live` | Open work orders | खुले वर्क ऑर्डर |
+| `today.liveMeta` | Breakdowns and plans in hand | हाथ में ब्रेकडाउन और प्लान |
+| `today.flagged` | Readings out of limit | सीमा से बाहर रीडिंग |
+| `today.flaggedMeta` | Last 7 days, no work order yet | पिछले 7 दिन, अभी वर्क ऑर्डर नहीं |
+| `station.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएँ |
+| `station.workOrder` | Work order {number} | वर्क ऑर्डर {number} |
+| `station.offline` | Make the work order when the tablet is back online. | टैबलेट ऑनलाइन होने पर वर्क ऑर्डर बनाएँ। |
+| `errors.notFound` | Not found. | नहीं मिला। |
+| `errors.changed` | This changed since you opened it. Open it again. | खोलने के बाद यह बदल गया। फिर से खोलें। |
+| `errors.final` | This work order is closed. | यह वर्क ऑर्डर बंद है। |
+| `errors.numberBusy` | Others are raising work orders at the same moment. Try again. | इसी समय दूसरे लोग भी वर्क ऑर्डर बना रहे हैं। फिर से कोशिश करें। |
+| `errors.badMove` | A work order cannot move to that status from here. | वर्क ऑर्डर यहाँ से उस स्टेटस में नहीं जा सकता। |
+| `errors.needsWorkDone` | Write what was done before marking the work order done. | पूरा करने से पहले लिखें कि क्या काम हुआ। |
+| `errors.needsReason` | Say why the work order is cancelled. | बताएँ कि वर्क ऑर्डर क्यों रद्द हुआ। |
+| `errors.finishBeforeStart` | The finish time is before the start time. | खत्म होने का समय शुरू के समय से पहले है। |
+| `errors.notBreakdown` | Only a downtime entry with the breakdown reason makes a work order. | सिर्फ़ ब्रेकडाउन कारण वाली रुकावट से वर्क ऑर्डर बनता है। |
+| `errors.noAsset` | No asset points at this press yet. Add it to the assets first. | अभी कोई एसेट इस प्रेस से नहीं जुड़ा। पहले इसे एसेट में जोड़ें। |
+| `errors.spareNotMaintenance` | Only a store issue for maintenance can be linked. | सिर्फ़ मेंटेनेंस के लिए स्टोर इशू जोड़ा जा सकता है। |
+| `errors.spareCancelled` | That store issue was cancelled. | वह स्टोर इशू रद्द हो चुका है। |
+| `errors.spareTaken` | That store issue is already on a work order. | वह स्टोर इशू पहले से एक वर्क ऑर्डर पर है। |
+| `errors.spareNotLinked` | That store issue is not on this work order. | वह स्टोर इशू इस वर्क ऑर्डर पर नहीं है। |
+| `errors.noRunHours` | This asset has no run hours. Link it to a press, furnace or oven, or plan by days. | इस एसेट के रन घंटे नहीं हैं। इसे प्रेस, फर्नेस या ओवन से जोड़ें, या दिनों से प्लान करें। |
+| `errors.needsInterval` | A plan needs days, run hours or both. | प्लान में दिन, रन घंटे या दोनों चाहिए। |
+| `errors.hoursPlans` | Plans on this asset run on run hours. Change them to days before you remove the link. | इस एसेट के प्लान रन घंटों पर हैं। जोड़ हटाने से पहले उन्हें दिनों पर करें। |
+| `errors.codeTaken` | Another asset already has that code. | यह कोड पहले से दूसरे एसेट का है। |
+| `errors.linkTaken` | Another asset already points at that press, furnace or oven. | उस प्रेस, फर्नेस या ओवन से पहले से दूसरा एसेट जुड़ा है। |
+| `errors.linkMissing` | That press, furnace or oven is not in this plant. | वह प्रेस, फर्नेस या ओवन इस प्लांट में नहीं है। |
+| `errors.notMember` | The person is not a member of this plant. | यह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `errors.limitInvalid` | Give a low limit, a high limit or both, with the low below the high. | नीचे की सीमा, ऊपर की सीमा या दोनों दें, नीचे वाली ऊपर वाली से कम हो। |
+| `errors.kindTaken` | This asset already reads something by that name. | इस एसेट पर इस नाम की रीडिंग पहले से है। |
+| `errors.kindOff` | That reading is switched off. | वह रीडिंग बंद है। |
+| `errors.inLimit` | That reading is inside its limits. | वह रीडिंग सीमा के अंदर है। |
+| `errors.retired` | This asset is retired. | यह एसेट हटाया जा चुका है। |
+| `errors.timeFuture` | A start or finish time cannot be in the future. | शुरू या खत्म होने का समय आगे का नहीं हो सकता। |
+| `errors.doneKeepsTimes` | A done work order keeps its start and finish times. | पूरे हुए वर्क ऑर्डर का शुरू और खत्म होने का समय रहता है। |
+| `errors.linkKindMismatch` | A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven. | प्रेस एसेट प्रेस से, फर्नेस एसेट फर्नेस से और ओवन एसेट ओवन से जुड़ता है। |
+| `errors.unitLocked` | This reading already has readings in its unit. Add a new reading kind for another unit. | इस रीडिंग की इसी यूनिट में रीडिंग हो चुकी हैं। दूसरी यूनिट के लिए नई रीडिंग जोड़ें। |
+| `errors.moduleOff` | Maintenance is not on for this plant. | इस प्लांट में मेंटेनेंस चालू नहीं है। |
+| `errors.forbidden` | Your role cannot do this. | आपका रोल यह नहीं कर सकता। |
+| `errors.unknown` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `workOrders.title` | Work orders | वर्क ऑर्डर |
+| `workOrders.subtitle` | Breakdowns and planned jobs, from raised to done. | ब्रेकडाउन और तय काम, लिखे जाने से पूरा होने तक। |
+| `workOrders.back` | Back to work orders | वर्क ऑर्डर पर वापस |
+| `workOrders.loadFailed` | Could not load work orders. Try again. | वर्क ऑर्डर नहीं खुल सके। फिर कोशिश करें। |
+| `workOrders.filter.label` | Show work orders | वर्क ऑर्डर दिखाएं |
+| `workOrders.filter.live` | Open work | चालू काम |
+| `workOrders.filter.all` | All | सब |
+| `workOrders.onlyAsset` | Showing one machine only. | सिर्फ़ एक मशीन दिख रही है। |
+| `workOrders.allAssets` | Show all machines | सारी मशीनें दिखाएं |
+| `workOrders.empty` | No work orders here. | यहां कोई वर्क ऑर्डर नहीं है। |
+| `workOrders.cols.number` | Number | नंबर |
+| `workOrders.cols.asset` | Machine | मशीन |
+| `workOrders.cols.kind` | Type | तरह |
+| `workOrders.cols.priority` | Priority | प्राथमिकता |
+| `workOrders.cols.status` | Status | हालत |
+| `workOrders.cols.assignee` | Assigned to | किसे सौंपा |
+| `workOrders.cols.raised` | Raised | कब लिखा |
+| `workOrders.unassigned` | Not assigned | किसी को नहीं सौंपा |
+| `workOrders.new.button` | New work order | नया वर्क ऑर्डर |
+| `workOrders.new.title` | New work order | नया वर्क ऑर्डर |
+| `workOrders.new.subtitle` | Say which machine and what is wrong. | बताएं कौन सी मशीन और क्या खराबी है। |
+| `workOrders.new.asset` | Machine | मशीन |
+| `workOrders.new.assetPlaceholder` | Choose a machine | मशीन चुनें |
+| `workOrders.new.assetRequired` | Choose a machine. | मशीन चुनें। |
+| `workOrders.new.kind` | Type | तरह |
+| `workOrders.new.what` | What is wrong | क्या खराबी है |
+| `workOrders.new.whatHint` | A short line the crew can read at a glance. | छोटी सी लाइन, जो टीम एक नज़र में पढ़ ले। |
+| `workOrders.new.whatRequired` | Say what is wrong. | बताएं क्या खराबी है। |
+| `workOrders.new.priority` | Priority | प्राथमिकता |
+| `workOrders.new.priorityFromAsset` | From the machine | मशीन के हिसाब से |
+| `workOrders.new.assignTo` | Assign to | किसे सौंपें |
+| `workOrders.new.submit` | Make work order | वर्क ऑर्डर बनाएं |
+| `workOrders.new.created` | Work order {number} made | वर्क ऑर्डर {number} बन गया |
+| `workOrders.detail.title` | Work order {number} | वर्क ऑर्डर {number} |
+| `workOrders.detail.notFound` | This work order was not found. | यह वर्क ऑर्डर नहीं मिला। |
+| `workOrders.detail.facts` | The work order | वर्क ऑर्डर |
+| `workOrders.detail.machine` | Machine | मशीन |
+| `workOrders.detail.kind` | Type | तरह |
+| `workOrders.detail.source` | How it was raised | कैसे बना |
+| `workOrders.detail.priority` | Priority | प्राथमिकता |
+| `workOrders.detail.status` | Status | हालत |
+| `workOrders.detail.raised` | Raised | कब लिखा |
+| `workOrders.detail.raisedBy` | {when} by {name} | {name} ने, {when} |
+| `workOrders.detail.assigned` | Assigned to | किसे सौंपा |
+| `workOrders.detail.started` | Started | शुरू हुआ |
+| `workOrders.detail.finished` | Finished | पूरा हुआ |
+| `workOrders.detail.notYet` | Not yet | अभी नहीं |
+| `workOrders.detail.what` | What is wrong | क्या खराबी है |
+| `workOrders.detail.cause` | Cause | वजह |
+| `workOrders.detail.workDone` | What was done | क्या किया गया |
+| `workOrders.detail.labour` | Labour | मेहनत का समय |
+| `workOrders.detail.cancelReason` | Why it was cancelled | रद्द क्यों हुआ |
+| `workOrders.detail.downtimeTitle` | The press stop it came from | प्रेस का जिस रुकावट से यह बना |
+| `workOrders.detail.downtimeLine` | Line {line}, stopped {start} | लाइन {line}, रुकी {start} |
+| `workOrders.detail.downtimeStill` | Still stopped | अभी भी रुकी है |
+| `workOrders.detail.downtimeUntil` | Running again {stop} | फिर चालू हुई {stop} |
+| `workOrders.detail.planTitle` | The plan it came from | जिस प्लान से यह बना |
+| `workOrders.detail.planSteps` | Steps | काम के कदम |
+| `workOrders.detail.planNoSteps` | The plan has no steps written. | प्लान में कदम नहीं लिखे हैं। |
+| `workOrders.moves.title` | Move this work order | इस वर्क ऑर्डर को आगे बढ़ाएं |
+| `workOrders.moves.open` | Reopen | फिर खोलें |
+| `workOrders.moves.in_progress` | Start work | काम शुरू करें |
+| `workOrders.moves.waiting_spares` | Wait for spares | स्पेयर का इंतज़ार |
+| `workOrders.moves.done` | Mark done | पूरा करें |
+| `workOrders.moves.cancelled` | Cancel work order | वर्क ऑर्डर रद्द करें |
+| `workOrders.moves.moved` | Moved to {status} | अब हालत: {status} |
+| `workOrders.done.title` | Mark done | पूरा करें |
+| `workOrders.done.subtitle` | Write what was done so the next person knows. | क्या किया गया लिखें, ताकि अगला आदमी जान सके। |
+| `workOrders.done.label` | What was done | क्या किया गया |
+| `workOrders.done.submit` | Mark done | पूरा करें |
+| `workOrders.cancel.title` | Cancel this work order | यह वर्क ऑर्डर रद्द करें |
+| `workOrders.cancel.subtitle` | A cancelled work order cannot be opened again. | रद्द वर्क ऑर्डर दोबारा नहीं खुल सकता। |
+| `workOrders.cancel.label` | Why is it cancelled | रद्द क्यों किया |
+| `workOrders.cancel.submit` | Cancel work order | वर्क ऑर्डर रद्द करें |
+| `workOrders.cancel.keep` | Keep it | रहने दें |
+| `workOrders.edit.title` | Edit work order | वर्क ऑर्डर बदलें |
+| `workOrders.edit.what` | What is wrong | क्या खराबी है |
+| `workOrders.edit.priority` | Priority | प्राथमिकता |
+| `workOrders.edit.assignedTo` | Assigned to | किसे सौंपा |
+| `workOrders.edit.cause` | Cause | वजह |
+| `workOrders.edit.workDone` | What was done | क्या किया गया |
+| `workOrders.edit.labour` | Labour time | मेहनत का समय |
+| `workOrders.edit.labourHint` | Hours and minutes like 1:30, or minutes like 90. | घंटे और मिनट जैसे 1:30, या मिनट जैसे 90। |
+| `workOrders.edit.labourBad` | Write hours and minutes like 1:30, or minutes like 90. | घंटे और मिनट जैसे 1:30 लिखें, या मिनट जैसे 90। |
+| `workOrders.edit.started` | Started | शुरू हुआ |
+| `workOrders.edit.finished` | Finished | पूरा हुआ |
+| `workOrders.edit.whatRequired` | Say what is wrong. | बताएं क्या खराबी है। |
+| `workOrders.edit.finishBeforeStart` | The finish time is before the start time. | पूरा होने का समय शुरू होने से पहले का है। |
+| `workOrders.edit.save` | Save changes | बदलाव सेव करें |
+| `workOrders.edit.saved` | Saved | सेव हो गया |
+| `workOrders.edit.nothing` | Nothing has changed yet. | अभी कुछ बदला नहीं है। |
+| `workOrders.edit.closed` | A cancelled work order cannot be edited. | रद्द वर्क ऑर्डर बदला नहीं जा सकता। |
+| `workOrders.spares.title` | Spares used | लगे हुए स्पेयर |
+| `workOrders.spares.hint` | Store issues for maintenance that went into this job. | मेंटेनेंस के स्टोर इश्यू जो इस काम में लगे। |
+| `workOrders.spares.empty` | No spares on this work order yet. | इस वर्क ऑर्डर पर अभी कोई स्पेयर नहीं है। |
+| `workOrders.spares.issuedOn` | Issued {when} | इश्यू हुआ {when} |
+| `workOrders.spares.cancelledInStore` | Cancelled in the store | स्टोर में रद्द हुआ |
+| `workOrders.spares.remove` | Remove | हटाएं |
+| `workOrders.spares.removed` | Removed from this work order | इस वर्क ऑर्डर से हट गया |
+| `workOrders.spares.forThis` | Issued for this work order | इसी वर्क ऑर्डर के लिए इश्यू हुआ |
+| `workOrders.spares.issueButton` | Issue from the store | स्टोर से इश्यू करें |
+| `workOrders.spares.issueTitle` | Issue from the store | स्टोर से इश्यू करें |
+| `workOrders.spares.issueSubtitle` | Take a spare out of the store for this job. | इस काम के लिए स्टोर से स्पेयर निकालें। |
+| `workOrders.spares.issueItem` | Item | आइटम |
+| `workOrders.spares.issueQty` | Quantity | मात्रा |
+| `workOrders.spares.issueNote` | Note | नोट |
+| `workOrders.spares.issueNoteHint` | Optional. | चाहें तो लिखें। |
+| `workOrders.spares.issueSubmit` | Issue | इश्यू करें |
+| `workOrders.spares.issueNoItems` | The store has no items to issue. | स्टोर में इश्यू करने लायक कोई आइटम नहीं है। |
+| `workOrders.spares.issueNoLocation` | The store has no place set up yet. | स्टोर की जगह अभी तय नहीं है। |
+| `workOrders.spares.issueRetry` | Could not load the store. Try again. | स्टोर नहीं खुल सका। फिर कोशिश करें। |
+| `workOrders.spares.issued` | Issued {number} | {number} इश्यू हुआ |
+| `workOrders.spares.issuedNotLinked` | Issue {number} was made. Someone on maintenance will add it to this work order. | इश्यू {number} हो गया। मेंटेनेंस का कोई साथी इसे इस वर्क ऑर्डर में जोड़ देगा। |
+| `workOrders.spares.addButton` | Add a store issue | स्टोर इश्यू जोड़ें |
+| `workOrders.spares.addTitle` | Add a store issue | स्टोर इश्यू जोड़ें |
+| `workOrders.spares.addSubtitle` | Issues for maintenance in the last 90 days that are not on a work order. | पिछले 90 दिन के मेंटेनेंस इश्यू जो किसी वर्क ऑर्डर पर नहीं हैं। |
+| `workOrders.spares.addEmpty` | No store issues are waiting to be added. | जोड़ने के लिए कोई स्टोर इश्यू नहीं है। |
+| `workOrders.spares.add` | Add | जोड़ें |
+| `workOrders.spares.added` | Added to this work order | इस वर्क ऑर्डर में जुड़ गया |
+| `assets.title` | Assets | एसेट |
+| `assets.subtitle` | Every machine and its history in one list. | हर मशीन और उसका पूरा इतिहास एक सूची में। |
+| `assets.showRetired` | Show retired | बंद किए हुए भी दिखाएं |
+| `assets.add` | Add asset | एसेट जोड़ें |
+| `assets.addFromMasters` | Add presses, furnaces and ovens | प्रेस, फर्नेस और ओवन जोड़ें |
+| `assets.addedFromMasters` | {count} {count:asset\|assets} added | {count} {count:एसेट\|एसेट} जुड़ गए |
+| `assets.noneToAdd` | Every press, furnace and oven is already an asset. | हर प्रेस, फर्नेस और ओवन पहले से एसेट है। |
+| `assets.empty` | No assets yet. | अभी कोई एसेट नहीं है। |
+| `assets.emptyHint` | Add an asset, or add your presses, furnaces and ovens in one go. | एक एसेट जोड़ें, या अपने प्रेस, फर्नेस और ओवन एक साथ जोड़ें। |
+| `assets.loadFailed` | Could not load the assets. Try again. | एसेट नहीं खुले। फिर कोशिश करें। |
+| `assets.cols.code` | Code | कोड |
+| `assets.cols.name` | Name | नाम |
+| `assets.cols.kind` | Kind | किस्म |
+| `assets.cols.criticality` | Criticality | अहमियत |
+| `assets.cols.status` | Status | हालत |
+| `assets.cols.openWorkOrders` | Open work orders | खुले वर्क ऑर्डर |
+| `assets.cols.location` | Location | जगह |
+| `assets.form.addTitle` | Add asset | एसेट जोड़ें |
+| `assets.form.editTitle` | Change asset | एसेट बदलें |
+| `assets.form.code` | Code | कोड |
+| `assets.form.name` | Name | नाम |
+| `assets.form.kind` | Kind | किस्म |
+| `assets.form.link` | Press, furnace or oven | प्रेस, फर्नेस या ओवन |
+| `assets.form.linkHint` | Link it to count run hours. One asset for each. | चलने के घंटे गिनने के लिए जोड़ें। हर एक के लिए एक ही एसेट। |
+| `assets.form.linkNone` | Not linked | जुड़ा नहीं है |
+| `assets.form.linkTaken` | Already asset {code} | पहले से एसेट {code} है |
+| `assets.form.linkRetired` | retired | बंद |
+| `assets.form.make` | Make | कंपनी |
+| `assets.form.serialNo` | Serial number | सीरियल नंबर |
+| `assets.form.purchasedOn` | Bought on | खरीदने की तारीख |
+| `assets.form.warrantyUntil` | Warranty until | वारंटी कब तक |
+| `assets.form.location` | Location | जगह |
+| `assets.form.criticality` | Criticality | अहमियत |
+| `assets.form.status` | Status | हालत |
+| `assets.form.note` | Note | नोट |
+| `assets.form.save` | Save asset | एसेट सेव करें |
+| `assets.form.needsCodeName` | Give a code and a name. | कोड और नाम लिखें। |
+| `assets.detail.back` | Assets | एसेट |
+| `assets.detail.notFound` | This asset was not found. | यह एसेट नहीं मिला। |
+| `assets.detail.loadFailed` | Could not load this asset. Try again. | यह एसेट नहीं खुला। फिर कोशिश करें। |
+| `assets.detail.details` | Details | ब्योरा |
+| `assets.detail.edit` | Change | बदलें |
+| `assets.detail.linkedTo` | Linked to | इससे जुड़ा है |
+| `assets.detail.notLinked` | Not linked to a press, furnace or oven | किसी प्रेस, फर्नेस या ओवन से जुड़ा नहीं है |
+| `assets.detail.make` | Make | कंपनी |
+| `assets.detail.serialNo` | Serial number | सीरियल नंबर |
+| `assets.detail.purchasedOn` | Bought on | खरीदने की तारीख |
+| `assets.detail.warranty` | Warranty | वारंटी |
+| `assets.detail.underWarranty` | Under warranty until {day} | {day} तक वारंटी में है |
+| `assets.detail.warrantyEnded` | Warranty ended {day} | वारंटी {day} को खत्म हुई |
+| `assets.detail.noWarranty` | No warranty date | वारंटी की तारीख नहीं है |
+| `assets.detail.location` | Location | जगह |
+| `assets.detail.note` | Note | नोट |
+| `assets.detail.saved` | Asset saved | एसेट सेव हो गया |
+| `assets.plans.title` | Preventive plans | बचाव के प्लान |
+| `assets.plans.hint` | Work to do again and again, by days, run hours or both. | जो काम बार बार करना है, दिनों से, चलने के घंटों से या दोनों से। |
+| `assets.plans.add` | Add plan | प्लान जोड़ें |
+| `assets.plans.edit` | Change plan | प्लान बदलें |
+| `assets.plans.empty` | No plans on this asset. | इस एसेट पर कोई प्लान नहीं है। |
+| `assets.plans.everyDays` | Every {n} {n:day\|days} | हर {n} {n:दिन\|दिन} |
+| `assets.plans.everyHours` | Every {n} run hours | हर {n} चलने के घंटे |
+| `assets.plans.everyBoth` | Every {days} {days:day\|days} or every {hours} run hours, whichever comes first | हर {days} {days:दिन\|दिन} या हर {hours} चलने के घंटे, जो पहले आए |
+| `assets.plans.inactive` | Switched off | बंद है |
+| `assets.plans.workOrder` | Work order {number} | वर्क ऑर्डर {number} |
+| `assets.plans.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएं |
+| `assets.plans.planTitle` | Title | शीर्षक |
+| `assets.plans.steps` | Steps | काम के कदम |
+| `assets.plans.days` | Every how many days | कितने दिन में एक बार |
+| `assets.plans.hours` | Every how many run hours | कितने चलने के घंटे में एक बार |
+| `assets.plans.hoursNeedLink` | Run hours need a press, furnace or oven linked to this asset. | चलने के घंटों के लिए इस एसेट से प्रेस, फर्नेस या ओवन जुड़ा होना चाहिए। |
+| `assets.plans.active` | Plan is on | प्लान चालू है |
+| `assets.plans.startOn` | Count from | यहां से गिनें |
+| `assets.plans.startOnHint` | The day the last job was done. Empty means today. | जिस दिन पिछला काम हुआ। खाली हो तो आज। |
+| `assets.plans.save` | Save plan | प्लान सेव करें |
+| `assets.plans.saved` | Plan saved | प्लान सेव हो गया |
+| `assets.plans.needsTitle` | Give the plan a title. | प्लान का शीर्षक लिखें। |
+| `assets.plans.needsInterval` | Give days, run hours or both. | दिन, चलने के घंटे या दोनों लिखें। |
+| `assets.readings.title` | Readings | रीडिंग |
+| `assets.readings.hint` | Things you check by hand, such as oil temperature or pressure. | जो चीजें हाथ से जांचते हैं, जैसे तेल का तापमान या दबाव। |
+| `assets.readings.addKind` | Add reading | रीडिंग जोड़ें |
+| `assets.readings.editKind` | Change reading | रीडिंग बदलें |
+| `assets.readings.kindEmpty` | No readings set up on this asset. | इस एसेट पर कोई रीडिंग तय नहीं है। |
+| `assets.readings.kindName` | Name | नाम |
+| `assets.readings.unit` | Unit | इकाई |
+| `assets.readings.unitHint` | As you write it on the machine. | जैसे मशीन पर लिखते हैं। |
+| `assets.readings.low` | Low limit | नीचे की हद |
+| `assets.readings.high` | High limit | ऊपर की हद |
+| `assets.readings.limitHint` | Leave one empty if it has no limit. | जिसकी हद नहीं है उसे खाली छोड़ें। |
+| `assets.readings.active` | Reading is on | रीडिंग चालू है |
+| `assets.readings.inactive` | Switched off | बंद है |
+| `assets.readings.noLimits` | No limits | कोई हद नहीं |
+| `assets.readings.limitsBoth` | Between {min} and {max} {unit} | {min} से {max} {unit} के बीच |
+| `assets.readings.limitMin` | At least {min} {unit} | कम से कम {min} {unit} |
+| `assets.readings.limitMax` | At most {max} {unit} | ज्यादा से ज्यादा {max} {unit} |
+| `assets.readings.saveKind` | Save reading | रीडिंग सेव करें |
+| `assets.readings.kindSaved` | Reading saved | रीडिंग सेव हो गई |
+| `assets.readings.take` | Take a reading | रीडिंग लें |
+| `assets.readings.value` | Value | मान |
+| `assets.readings.note` | Note | नोट |
+| `assets.readings.record` | Save value | मान सेव करें |
+| `assets.readings.recorded` | Value saved | मान सेव हो गया |
+| `assets.readings.needsValue` | Type a number, with at most 3 decimals. | एक संख्या लिखें, दशमलव के बाद ज्यादा से ज्यादा 3 अंक। |
+| `assets.readings.needsName` | Give a name and a unit. | नाम और इकाई लिखें। |
+| `assets.readings.needsLimit` | Type the limits as numbers. | हद संख्या में लिखें। |
+| `assets.readings.recent` | Recent readings | हाल की रीडिंग |
+| `assets.readings.recentEmpty` | No readings yet. | अभी कोई रीडिंग नहीं है। |
+| `assets.readings.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएं |
+| `assets.readings.workOrder` | Work order made | वर्क ऑर्डर बन गया |
+| `assets.history.title` | Service history | मरम्मत का इतिहास |
+| `assets.history.empty` | No work orders on this asset. | इस एसेट पर कोई वर्क ऑर्डर नहीं है। |
+| `assets.history.cols.number` | Number | नंबर |
+| `assets.history.cols.kind` | Kind | किस्म |
+| `assets.history.cols.status` | Status | हालत |
+| `assets.history.cols.title` | Work | काम |
+| `assets.history.cols.raised` | Raised | बना |
+| `assets.history.cols.finished` | Finished | खत्म |
+| `assets.history.cols.labour` | Labour | मेहनत (घंटा:मिनट) |
+| `assets.spares.title` | Spares used | लगे हुए स्पेयर |
+| `assets.spares.empty` | No spares used on this asset. | इस एसेट पर कोई स्पेयर नहीं लगा। |
+| `assets.spares.cols.workOrder` | Work order | वर्क ऑर्डर |
+| `assets.spares.cols.entry` | Store entry | स्टोर एंट्री |
+| `assets.spares.cols.item` | Item | सामान |
+| `assets.spares.cols.qty` | Quantity | मात्रा |
+| `assets.spares.cols.issued` | Issued | निकाला |
+| `assets.spares.cancelled` | Cancelled in the store | स्टोर में रद्द हुआ |
+| `reports.title` | Maintenance report | मेंटेनेंस रिपोर्ट |
+| `reports.subtitle` | Breakdowns, downtime, repair time and cost for each asset. | हर एसेट के ब्रेकडाउन, बंद रहने का समय, मरम्मत का समय और खर्च। |
+| `reports.back` | Maintenance | मेंटेनेंस |
+| `reports.from` | From month | शुरू का महीना |
+| `reports.to` | To month | आखिरी महीना |
+| `reports.rangeBad` | Choose a month in both boxes. | दोनों डिब्बों में महीना चुनें। |
+| `reports.rangeOrder` | The first month must not be after the last month. | पहला महीना आखिरी महीने के बाद का नहीं हो सकता। |
+| `reports.rangeLong` | Choose at most 12 months. | ज्यादा से ज्यादा 12 महीने चुनें। |
+| `reports.loadFailed` | Could not load the report. Try again. | रिपोर्ट नहीं खुली। फिर कोशिश करें। |
+| `reports.empty` | No assets yet. Add assets to see this report. | अभी कोई एसेट नहीं है। रिपोर्ट देखने के लिए एसेट जोड़ें। |
+| `reports.total` | Whole range | पूरी अवधि |
+| `reports.byMonth` | By month | महीने के हिसाब से |
+| `reports.month` | Month | महीना |
+| `reports.breakdowns` | Breakdowns | ब्रेकडाउन |
+| `reports.downtime` | Downtime | बंद रहा (घंटा:मिनट) |
+| `reports.repair` | Time to repair | मरम्मत का समय (घंटा:मिनट) |
+| `reports.between` | Time between breakdowns (hours) | दो ब्रेकडाउन के बीच का समय (घंटे) |
+| `reports.labour` | Labour | मेहनत (घंटा:मिनट) |
+| `reports.spares` | Spares entries | स्पेयर की एंट्री |
+| `reports.labourCost` | Labour cost | मेहनत का खर्च |
+| `reports.sparesNotCounted` | Spares value is not counted yet. Store rates come later, so only the number of spares entries is shown. | स्पेयर की कीमत अभी नहीं गिनी जाती। स्टोर के रेट बाद में आएंगे, इसलिए अभी सिर्फ स्पेयर की एंट्री की गिनती दिखती है। |
+| `reports.noLabourRate` | Set the labour rate to see the labour cost. | मेहनत का खर्च देखने के लिए मजदूरी का रेट डालें। |
+| `reports.monthRule` | A breakdown counts in the month it started. Downtime is split across the months it ran in. | ब्रेकडाउन उसी महीने में गिना जाता है जिसमें वह शुरू हुआ। डाउनटाइम उन महीनों में बँटता है जिनमें वह चला। |
+| `reports.truncated` | More than 5,000 entries in these months. The figures stop there. Choose fewer months. | इन महीनों में 5,000 से ज़्यादा एंट्री हैं। आंकड़े वहीं रुक गए। कम महीने चुनें। |
+| `reports.stillOpen` | Still open | अभी खुले |
+| `reports.stillOpenHint` | Not counted in the figures until the breakdown is closed. | ब्रेकडाउन बंद होने तक ये आंकड़ों में नहीं गिने जाते। |
+| `reports.openFor` | Open for {time} | {time} से खुला |
+| `reports.openForDays` | Open for {n} days | {n} दिन से खुला |
+| `reports.downtimeEntry` | Downtime entry | डाउनटाइम एंट्री |
+| `reports.rate.title` | Labour rate | मजदूरी का रेट |
+| `reports.rate.hint` | Rupees paid for one hour of work. Labour cost is hours multiplied by this rate. Leave it empty to show no cost. | एक घंटे के काम के लिए दिए जाने वाले रुपये। मेहनत का खर्च घंटे गुणा इस रेट से बनता है। खाली छोड़ें तो खर्च नहीं दिखेगा। |
+| `reports.rate.label` | Rupees per hour | रुपये प्रति घंटा |
+| `reports.rate.save` | Save rate | रेट सेव करें |
+| `reports.rate.saved` | Labour rate saved | मजदूरी का रेट सेव हो गया |
+| `reports.rate.needsNumber` | Type rupees, with at most 2 decimals. | रुपये लिखें, दशमलव के बाद ज्यादा से ज्यादा 2 अंक। |
+| `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
+
 ### reasons (79)
 
 | Key | English | हिंदी |
@@ -9313,7 +9721,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (52)
+### plantSettings (53)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9355,6 +9763,7 @@ Please check, Lalubhai:
 | `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `modules.names.complaints` | Complaints | शिकायतें |
+| `modules.names.maintenance` | Maintenance | मेंटेनेंस |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
@@ -9494,7 +9903,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (383)
+### audit (399)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9549,6 +9958,8 @@ Please check, Lalubhai:
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
 | `subjectTypes.complaint` | Complaint | शिकायत |
+| `subjectTypes.maint_asset` | Asset | एसेट |
+| `subjectTypes.maint_work_order` | Work order | वर्क ऑर्डर |
 | `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
 | `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `subjectTypes.ingest_artifact` | Import file | इम्पोर्ट की फ़ाइल |
@@ -9644,6 +10055,20 @@ Please check, Lalubhai:
 | `actions.complaint__reply` | Complaint answered | शिकायत का जवाब दिया |
 | `actions.complaint__close` | Complaint closed | शिकायत बंद हुई |
 | `actions.mis__morning__sent` | Morning summary sent | सुबह का सारांश भेजा |
+| `actions.maint__asset__create` | Asset added | एसेट जोड़ा |
+| `actions.maint__asset__update` | Asset changed | एसेट बदला |
+| `actions.maint__asset__addFromMasters` | Presses, furnaces and ovens added as assets | प्रेस, फर्नेस और ओवन एसेट में जोड़े |
+| `actions.maint__plan__create` | Maintenance plan added | मेंटेनेंस प्लान जोड़ा |
+| `actions.maint__plan__update` | Maintenance plan changed | मेंटेनेंस प्लान बदला |
+| `actions.maint__workorder__create` | Work order raised | वर्क ऑर्डर बनाया |
+| `actions.maint__workorder__update` | Work order changed | वर्क ऑर्डर बदला |
+| `actions.maint__workorder__move` | Work order status changed | वर्क ऑर्डर का स्टेटस बदला |
+| `actions.maint__spare__link` | Spare added to a work order | वर्क ऑर्डर पर स्पेयर जोड़ा |
+| `actions.maint__spare__unlink` | Spare taken off a work order | वर्क ऑर्डर से स्पेयर हटाया |
+| `actions.maint__limit__create` | Reading limit added | रीडिंग की सीमा जोड़ी |
+| `actions.maint__limit__update` | Reading limit changed | रीडिंग की सीमा बदली |
+| `actions.maint__reading__record` | Machine reading taken | मशीन की रीडिंग ली |
+| `actions.maint__settings__update` | Maintenance labour rate changed | मेंटेनेंस लेबर रेट बदला |
 | `actions.customer__delete` | Customer removed | ग्राहक हटाया |
 | `actions.customer__import` | Customers imported | ग्राहक इंपोर्ट किए |
 | `actions.customer__update` | Customer changed | ग्राहक बदला |
