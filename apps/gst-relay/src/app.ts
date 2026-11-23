@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { RELAY_PATHS, verifyRelaySignature, type RelayResponse } from "@orrn/domain";
+import { RELAY_PATHS, relayTenantOf, verifyRelaySignature, type RelayResponse } from "@orrn/domain";
 import type { CredentialStore } from "./credentials";
 import { memoryNonceStore, type NonceStore } from "./nonce";
 import type { Upstream } from "./upstream";
@@ -7,12 +7,11 @@ import type { Upstream } from "./upstream";
 export const MAX_BODY_BYTES = 1024 * 1024;
 
 export interface AppDeps {
-  secret: string;
   upstream: Upstream;
   credentials: CredentialStore;
   now?: () => number;
   nonceStore?: NonceStore;
-  /** Log sink. Receives method, path, status, ms and GSTIN only. */
+  /** Log sink. Receives method, path, status, ms, tenant and GSTIN only. */
   log?: (line: string) => void;
 }
 
@@ -46,8 +45,9 @@ export function createApp(deps: AppDeps) {
     app.post(path, async (c) => {
       const t0 = Date.now();
       let gstin = "-";
+      let tenantId = "-";
       const done = (status: number, body: RelayResponse) => {
-        log(`${c.req.method} ${path} ${status} ${Date.now() - t0}ms gstin=${gstin}`);
+        log(`${c.req.method} ${path} ${status} ${Date.now() - t0}ms tenant=${tenantId} gstin=${gstin}`);
         return c.json(body, status as 200);
       };
       const unauth = (reason: string) => {
@@ -60,13 +60,19 @@ export function createApp(deps: AppDeps) {
       const body = await c.req.text();
       if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) return done(413, fail("relay_too_large", "body too large"));
 
+      // Review S2: authority is the signing tenant. Its key comes from the relay's own config, never the request.
+      const named = relayTenantOf(c.req.raw.headers);
+      if (!named) return unauth("tenant missing or malformed");
+      const binding = deps.credentials.tenant(named);
+      if (!binding) return unauth("unknown tenant");
       const t = now();
       const verdict = await verifyRelaySignature(
-        deps.secret,
+        binding.key,
         { method: c.req.method, path: new URL(c.req.url).pathname, body, headers: c.req.raw.headers },
         t,
       );
       if (!verdict.ok) return unauth(verdict.reason);
+      tenantId = named;
       if (!nonces.claim(verdict.nonce, t)) return unauth("nonce replay or store full");
 
       let parsed: unknown;
@@ -77,8 +83,9 @@ export function createApp(deps: AppDeps) {
       }
       if (!obj(parsed) || !str(parsed.gstin) || !GSTIN_RE.test(parsed.gstin)) return done(400, fail("relay_bad_request", "gstin missing or malformed"));
       gstin = parsed.gstin;
-      const cred = deps.credentials.get(gstin);
-      if (!cred) return done(404, fail("relay_unknown_gstin", "no credentials for this GSTIN"));
+      // The GSTIN only picks one of the tenant's bound GSTINs: another tenant's GSTIN is refused, never served.
+      const cred = Object.hasOwn(binding.gstins, gstin) ? binding.gstins[gstin] : undefined;
+      if (!cred) return done(403, fail("relay_gstin_not_bound", "this GSTIN is not bound to the calling plant"));
 
       const pending = handlers[path]!({ ...cred, gstin }, parsed, deps.upstream);
       if (!pending) return done(400, fail("relay_bad_request", "body shape is wrong for this endpoint"));

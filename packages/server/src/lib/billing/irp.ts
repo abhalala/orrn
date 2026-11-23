@@ -8,7 +8,7 @@
  */
 import { env } from "@orrn/env/server";
 
-import { RELAY_MIN_SECRET_LENGTH, RELAY_PATHS, signRelayRequest, type RelayResponse } from "@orrn/domain";
+import { RELAY_MIN_SECRET_LENGTH, RELAY_PATHS, relayTenantKey, signRelayRequest, type RelayResponse } from "@orrn/domain";
 
 export type IrnData = {
   Irn: string;
@@ -20,12 +20,19 @@ export type IrnData = {
 
 export type EwbData = { EwbNo: string | number; EwbDt: string; EwbValidTill: string };
 
+/**
+ * Who a relay call is for (review S2). `companyId` is the authority: the request is signed with that tenant's
+ * key and the relay serves only GSTINs bound to it. `gstin` (from the frozen snapshot, which came from the
+ * editable letterhead) only picks among them; it is never authority.
+ */
+export type RelayTarget = { companyId: string; gstin: string };
+
 export interface IrpAdapter {
-  generateIrn(gstin: string, payload: Record<string, unknown>): Promise<RelayResponse<IrnData>>;
-  irnByDocument(gstin: string, doc: { docType: "INV" | "CRN"; docNo: string; docDate: string }): Promise<RelayResponse<IrnData>>;
-  cancelIrn(gstin: string, input: { irn: string; reasonCode: string; remark: string }): Promise<RelayResponse<{ Irn: string; CancelDate: string }>>;
-  ewbByIrn(gstin: string, payload: Record<string, unknown>): Promise<RelayResponse<EwbData>>;
-  cancelEwb(gstin: string, input: { ewbNo: string; reasonCode: string; remark: string }): Promise<RelayResponse<{ ewayBillNo: string; cancelDate: string }>>;
+  generateIrn(to: RelayTarget, payload: Record<string, unknown>): Promise<RelayResponse<IrnData>>;
+  irnByDocument(to: RelayTarget, doc: { docType: "INV" | "CRN"; docNo: string; docDate: string }): Promise<RelayResponse<IrnData>>;
+  cancelIrn(to: RelayTarget, input: { irn: string; reasonCode: string; remark: string }): Promise<RelayResponse<{ Irn: string; CancelDate: string }>>;
+  ewbByIrn(to: RelayTarget, payload: Record<string, unknown>): Promise<RelayResponse<EwbData>>;
+  cancelEwb(to: RelayTarget, input: { ewbNo: string; reasonCode: string; remark: string }): Promise<RelayResponse<{ ewayBillNo: string; cancelDate: string }>>;
 }
 
 const RELAY_TIMEOUT_MS = 15_000;
@@ -33,9 +40,10 @@ const RELAY_TIMEOUT_MS = 15_000;
 export function relayIrpAdapter(config: { url: string; secret: string; fetch?: typeof fetch }): IrpAdapter {
   const base = config.url.replace(/\/+$/, "");
   const doFetch = config.fetch ?? fetch;
-  async function call<T>(path: string, body: Record<string, unknown>): Promise<RelayResponse<T>> {
-    const text = JSON.stringify(body);
-    const headers = await signRelayRequest(config.secret, { method: "POST", path, body: text });
+  async function call<T>(path: string, to: RelayTarget, body: Record<string, unknown>): Promise<RelayResponse<T>> {
+    const text = JSON.stringify({ gstin: to.gstin, ...body });
+    const key = await relayTenantKey(config.secret, to.companyId);
+    const headers = await signRelayRequest(key, { method: "POST", path, body: text, tenant: to.companyId });
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), RELAY_TIMEOUT_MS);
     try {
@@ -55,11 +63,11 @@ export function relayIrpAdapter(config: { url: string; secret: string; fetch?: t
     }
   }
   return {
-    generateIrn: (gstin, payload) => call(RELAY_PATHS.irnGenerate, { gstin, payload }),
-    irnByDocument: (gstin, doc) => call(RELAY_PATHS.irnByDocument, { gstin, ...doc }),
-    cancelIrn: (gstin, input) => call(RELAY_PATHS.irnCancel, { gstin, ...input }),
-    ewbByIrn: (gstin, payload) => call(RELAY_PATHS.ewbByIrn, { gstin, payload }),
-    cancelEwb: (gstin, input) => call(RELAY_PATHS.ewbCancel, { gstin, ...input }),
+    generateIrn: (to, payload) => call(RELAY_PATHS.irnGenerate, to, { payload }),
+    irnByDocument: (to, doc) => call(RELAY_PATHS.irnByDocument, to, { ...doc }),
+    cancelIrn: (to, input) => call(RELAY_PATHS.irnCancel, to, { ...input }),
+    ewbByIrn: (to, payload) => call(RELAY_PATHS.ewbByIrn, to, { payload }),
+    cancelEwb: (to, input) => call(RELAY_PATHS.ewbCancel, to, { ...input }),
   };
 }
 
@@ -125,7 +133,7 @@ export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: Fak
   };
   return {
     script,
-    async generateIrn(gstin, payload) {
+    async generateIrn({ gstin }, payload) {
       script.calls.push({ op: "generate", body: payload });
       if (script.failGenerate && script.failGenerate.times > 0) {
         script.failGenerate.times -= 1;
@@ -147,7 +155,7 @@ export function fakeIrpAdapter(clock: () => Date = () => new Date(), script: Fak
       issued.set(key, out);
       return { ok: true, data: out };
     },
-    async irnByDocument(gstin, doc) {
+    async irnByDocument({ gstin }, doc) {
       script.calls.push({ op: "byDocument", body: doc });
       const found = issued.get(`${gstin}|${doc.docType}|${doc.docNo}`);
       return found ? { ok: true, data: found } : { ok: false, code: "2283", message: "IRN details not found", retryable: false };

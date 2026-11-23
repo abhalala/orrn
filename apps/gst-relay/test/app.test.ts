@@ -1,24 +1,41 @@
 import { describe, expect, test } from "bun:test";
-import { RELAY_PATHS, RELAY_REPLAY_WINDOW_MS, signRelayRequest } from "@orrn/domain";
+import { RELAY_PATHS, RELAY_REPLAY_WINDOW_MS, relayTenantKey, signRelayRequest } from "@orrn/domain";
 import { createApp } from "../src/app";
-import { memoryCredentialStore } from "../src/credentials";
+import { memoryCredentialStore, parseTenantConfig } from "../src/credentials";
 import { fakeUpstream } from "../src/upstream";
 
-const SECRET = "s".repeat(40);
+const MASTER = "s".repeat(40);
+const TENANT = "plant-a";
+const OTHER = "plant-b";
+const SECRET = await relayTenantKey(MASTER, TENANT);
+const OTHER_KEY = await relayTenantKey(MASTER, OTHER);
 const GSTIN = "24ABCDE1234F1Z5";
+const OTHER_GSTIN = "27ABCDE1234F1Z5";
 const NOW = 1_800_000_000_000;
 const cred = { username: "u", password: "p", clientId: "ci", clientSecret: "cs" };
 
 function setup(script = {}) {
   const upstream = fakeUpstream(script);
-  const app = createApp({ secret: SECRET, upstream, credentials: memoryCredentialStore({ [GSTIN]: cred }), now: () => NOW, log: () => {} });
+  const app = createApp({
+    upstream,
+    credentials: memoryCredentialStore({ [TENANT]: { key: SECRET, gstins: { [GSTIN]: cred } }, [OTHER]: { key: OTHER_KEY, gstins: { [OTHER_GSTIN]: cred } } }),
+    now: () => NOW,
+    log: () => {},
+  });
   return { app, upstream };
 }
 
 const invoice = { SellerDtls: { Gstin: GSTIN }, DocDtls: { Typ: "INV", No: "FC/1" } };
 
-async function post(app: ReturnType<typeof setup>["app"], path: string, body: string, opts: { at?: number; nonce?: string; signPath?: string; signBody?: string; headers?: Record<string, string> } = {}) {
-  const headers = opts.headers ?? (await signRelayRequest(SECRET, { method: "POST", path: opts.signPath ?? path, body: opts.signBody ?? body }, opts.at ?? NOW, opts.nonce ?? crypto.randomUUID()));
+async function post(
+  app: ReturnType<typeof setup>["app"],
+  path: string,
+  body: string,
+  opts: { at?: number; nonce?: string; signPath?: string; signBody?: string; headers?: Record<string, string>; tenant?: string; key?: string } = {},
+) {
+  const headers =
+    opts.headers ??
+    (await signRelayRequest(opts.key ?? SECRET, { method: "POST", path: opts.signPath ?? path, body: opts.signBody ?? body, tenant: opts.tenant ?? TENANT }, opts.at ?? NOW, opts.nonce ?? crypto.randomUUID()));
   return app.request(path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body });
 }
 
@@ -69,7 +86,7 @@ describe("relay app", () => {
   test("bad signature -> 401", async () => {
     const { app } = setup();
     const body = JSON.stringify({ gstin: GSTIN, payload: invoice });
-    const h = await signRelayRequest("x".repeat(40), { method: "POST", path: RELAY_PATHS.irnGenerate, body }, NOW);
+    const h = await signRelayRequest("x".repeat(40), { method: "POST", path: RELAY_PATHS.irnGenerate, body, tenant: TENANT }, NOW);
     expect((await post(app, RELAY_PATHS.irnGenerate, body, { headers: h })).status).toBe(401);
   });
 
@@ -95,18 +112,40 @@ describe("relay app", () => {
   test("nonce replay -> second 401", async () => {
     const { app } = setup();
     const body = JSON.stringify({ gstin: GSTIN, payload: invoice });
-    const h = await signRelayRequest(SECRET, { method: "POST", path: RELAY_PATHS.irnGenerate, body }, NOW, "nonce-0123456789abcdef");
+    const h = await signRelayRequest(SECRET, { method: "POST", path: RELAY_PATHS.irnGenerate, body, tenant: TENANT }, NOW, "nonce-0123456789abcdef");
     expect((await post(app, RELAY_PATHS.irnGenerate, body, { headers: h })).status).toBe(200);
     const again = await post(app, RELAY_PATHS.irnGenerate, body, { headers: h });
     expect(again.status).toBe(401);
     expect(((await again.json()) as any).code).toBe("relay_unauthorised");
   });
 
-  test("unknown GSTIN -> 404", async () => {
-    const { app } = setup();
-    const res = await post(app, RELAY_PATHS.irnGenerate, JSON.stringify({ gstin: "27ABCDE1234F1Z5", payload: invoice }));
-    expect(res.status).toBe(404);
-    expect(((await res.json()) as any).code).toBe("relay_unknown_gstin");
+  test("review S2: a GSTIN not bound to the signing tenant -> 403, never served (letterhead GSTIN is not authority)", async () => {
+    const { app, upstream } = setup();
+    // Plant B, correctly signed with its own key, names plant A's GSTIN (as if typed on its letterhead).
+    const res = await post(app, RELAY_PATHS.irnGenerate, JSON.stringify({ gstin: GSTIN, payload: invoice }), { tenant: OTHER, key: OTHER_KEY });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as any).code).toBe("relay_gstin_not_bound");
+    // An unbound GSTIN for the right tenant is refused the same way.
+    expect((await post(app, RELAY_PATHS.irnGenerate, JSON.stringify({ gstin: "29ABCDE1234F1Z5", payload: invoice }))).status).toBe(403);
+    expect(upstream.calls).toHaveLength(0);
+  });
+
+  test("review S2: one tenant's key cannot sign for another tenant; an unknown tenant is 401", async () => {
+    const { app, upstream } = setup();
+    const body = JSON.stringify({ gstin: GSTIN, payload: invoice });
+    expect((await post(app, RELAY_PATHS.irnGenerate, body, { tenant: TENANT, key: OTHER_KEY })).status).toBe(401);
+    expect((await post(app, RELAY_PATHS.irnGenerate, body, { tenant: "plant-z", key: await relayTenantKey(MASTER, "plant-z") })).status).toBe(401);
+    const signed = await signRelayRequest(SECRET, { method: "POST", path: RELAY_PATHS.irnGenerate, body, tenant: TENANT }, NOW);
+    expect((await post(app, RELAY_PATHS.irnGenerate, body, { headers: { ...signed, "x-orrn-tenant": OTHER } })).status).toBe(401);
+    expect(upstream.calls).toHaveLength(0);
+  });
+
+  test("review S2: the config refuses a GSTIN bound to two tenants and a malformed key", () => {
+    const c = { username: "u", password: "p", clientId: "ci", clientSecret: "cs" };
+    expect(() => parseTenantConfig({ tenants: { a: { key: SECRET, gstins: { [GSTIN]: c } }, b: { key: OTHER_KEY, gstins: { [GSTIN]: c } } } })).toThrow("two tenants");
+    expect(() => parseTenantConfig({ tenants: { a: { key: "short", gstins: {} } } })).toThrow("key");
+    expect(() => parseTenantConfig({ [GSTIN]: c })).toThrow("tenants");
+    expect(Object.keys(parseTenantConfig({ tenants: { a: { key: SECRET, gstins: { [GSTIN]: c } } } }))).toEqual(["a"]);
   });
 
   test("malformed JSON -> 400", async () => {

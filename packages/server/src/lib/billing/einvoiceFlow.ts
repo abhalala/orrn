@@ -42,7 +42,7 @@ import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../atomic";
 import { companyModules } from "../moduleGate";
 import { nextCompanySeq } from "../sequence";
 import { loadPartyGst, loadPlantGst } from "./facts";
-import type { IrnData, IrpAdapter } from "./irp";
+import type { IrnData, IrpAdapter, RelayTarget } from "./irp";
 import { einvoiceModel, plantForSnapshot, supplyFor, type InvoiceSnapshot } from "./snapshot";
 
 type Outcome = "generated" | "auto_retry" | "failed" | "skipped";
@@ -86,11 +86,11 @@ async function persistIrn(db: OrrnDb, companyId: string, invoiceId: string, data
 /** A 2150 answer: get the stored IRN by document, check the JWT names this IRN, keep it. */
 async function recoverDuplicate(
   adapter: IrpAdapter,
-  gstin: string,
+  to: RelayTarget,
   doc: { docType: "INV" | "CRN"; docNo: string; docDate: string },
   dup: Extract<RelayResponse, { ok: false }>,
 ): Promise<IrnData | null> {
-  const found = await adapter.irnByDocument(gstin, doc);
+  const found = await adapter.irnByDocument(to, doc);
   if (!found.ok) return null;
   const facts = decodeSignedInvoice(found.data.SignedInvoice);
   if (!facts) return null;
@@ -133,14 +133,14 @@ export async function generateIrn(db: OrrnDb, companyId: string, invoiceId: stri
     .returning({ id: invoice.id });
   if (claimed.length === 0) return "skipped";
   const gstin = snap.plant.gstin;
-  const res = await adapter.generateIrn(gstin, built.payload);
+  const res = await adapter.generateIrn({ companyId, gstin }, built.payload);
   if (res.ok) {
     await persistIrn(db, companyId, invoiceId, res.data, at, "ok");
     return "generated";
   }
   if (res.code === "2150") {
     const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
-    const recovered = await recoverDuplicate(adapter, gstin, doc, res);
+    const recovered = await recoverDuplicate(adapter, { companyId, gstin }, doc, res);
     if (recovered) {
       await persistIrn(db, companyId, invoiceId, recovered, at, "duplicate_recovered");
       return "generated";
@@ -186,7 +186,7 @@ export async function refreshFailedIrn(db: OrrnDb, companyId: string, invoiceId:
   const stored = row.snapshot as unknown as InvoiceSnapshot;
   if (row.irnCallAt) {
     const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
-    const found = await adapter.irnByDocument(stored.plant.gstin, doc);
+    const found = await adapter.irnByDocument({ companyId, gstin: stored.plant.gstin }, doc);
     if (found.ok) {
       const facts = decodeSignedInvoice(found.data.SignedInvoice);
       if (!facts) return { ok: false, message: "The IRP's signed invoice could not be read: try again in a few minutes" };
@@ -351,7 +351,7 @@ export async function settleCancel(
     // A call may still be on its way to the IRP: look only once it must have answered.
     if (at - calledAt < IRN_CALL_SETTLE_MS || !adapter || !row.number || !row.invoiceDate) return { outcome: "waiting" };
     const doc = { docType: row.kind === "credit_note" ? ("CRN" as const) : ("INV" as const), docNo: row.number, docDate: ddmmyyyy(row.invoiceDate) };
-    const found = await adapter.irnByDocument(snap.plant.gstin, doc);
+    const found = await adapter.irnByDocument({ companyId, gstin: snap.plant.gstin }, doc);
     if (!found.ok) {
       if (IRN_NOT_FOUND_CODES.has(found.code)) return finishCancel(db, companyId, row.id, at, false);
       return backOff(db, companyId, row.id, at, "irn.lookup", found.code, found.message);
@@ -366,7 +366,7 @@ export async function settleCancel(
   if (ackAt === null || at - ackAt >= IRN_CANCEL_WINDOW_MS) return revertCancel(db, companyId, row.id, at, CANCEL_TOO_LATE);
   if (row.ewbStatus === "active") return { outcome: "failed", code: "ewb_active", message: "Cancel the e-way bill first" };
   if (!adapter) return { outcome: "waiting" };
-  const res = await adapter.cancelIrn(snap.plant.gstin, { irn: row.irn!, reasonCode: input.reasonCode, remark: input.remark });
+  const res = await adapter.cancelIrn({ companyId, gstin: snap.plant.gstin }, { irn: row.irn!, reasonCode: input.reasonCode, remark: input.remark });
   if (!res.ok) return backOff(db, companyId, row.id, at, "irn.cancel", res.code, res.message);
   return finishCancel(db, companyId, row.id, at, true);
 }
@@ -425,7 +425,7 @@ export async function generateEwb(
     ...(input.transporterName ? { TransName: input.transporterName } : {}),
     ...(to ? { ExpShipDtls: { Addr1: to.address1, Loc: to.place, Pin: Number(to.pincode), Stcd: to.stateCode } } : {}),
   };
-  const res = await adapter.ewbByIrn(snap.plant.gstin, payload);
+  const res = await adapter.ewbByIrn({ companyId, gstin: snap.plant.gstin }, payload);
   if (!res.ok) {
     await db.insert(billingEvent).values({ id: crypto.randomUUID(), companyId, invoiceId, action: "ewb.generate", outcome: "failed", code: res.code, message: res.message.slice(0, 500), at: new Date(at) });
     return { ok: false, code: res.code, message: res.message };
@@ -461,7 +461,7 @@ export async function cancelEwb(
   if (!row) return { ok: false, code: "not_found", message: "Not found" };
   if (row.ewbStatus !== "active" || !row.ewbNo) return { ok: false, code: "no_ewb", message: "This invoice has no live e-way bill" };
   const snap = row.snapshot as unknown as InvoiceSnapshot;
-  const res = await adapter.cancelEwb(snap.plant.gstin, { ewbNo: row.ewbNo, reasonCode: input.reasonCode, remark: input.remark });
+  const res = await adapter.cancelEwb({ companyId, gstin: snap.plant.gstin }, { ewbNo: row.ewbNo, reasonCode: input.reasonCode, remark: input.remark });
   if (!res.ok) return { ok: false, code: res.code, message: res.message };
   await atomicBatch(db, [
     db.update(invoice).set({ ewbStatus: "cancelled", updatedAt: new Date(at) }).where(and(eq(invoice.id, invoiceId), eq(invoice.companyId, companyId), eq(invoice.ewbStatus, "active"))),

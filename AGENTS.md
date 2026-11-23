@@ -1479,6 +1479,11 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `irn_pending`; an invoice credited below zero is money on account, never an ageing bucket.
 - **E-invoice.** The Worker never calls a government API: it calls `apps/gst-relay` (Bun + Hono, Indian
   static IP, not deployed by CI) with an HMAC-signed request (`gstRelayAuth.ts`, 5 minute window, nonces).
+  Authority is the plant, never the GSTIN (review S2): each call carries `x-orrn-tenant` = the invoice's
+  company id and is signed with that tenant's key (`relayTenantKey(GST_RELAY_SECRET, companyId)`). The relay's
+  credentials file binds each tenant to its key and GSTINs and refuses a GSTIN bound to another tenant (403);
+  the letterhead GSTIN in the body only picks among the tenant's bound ones. `IrpAdapter` methods take
+  `{ companyId, gstin }`.
   Bindings `GST_RELAY_URL` + `GST_RELAY_SECRET` (both or neither; in turbo `globalPassThroughEnv`). Unset =
   "not set up": an invoice that needs an IRN stays `irn_pending` ("Draft, IRN pending") and is never final.
   IRN states `pending -> auto_retry -> generated | failed` (`lib/billing/einvoiceFlow.ts`); a 2150 duplicate is

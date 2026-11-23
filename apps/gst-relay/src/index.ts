@@ -1,4 +1,3 @@
-import { RELAY_MIN_SECRET_LENGTH } from "@orrn/domain";
 import { createApp } from "./app";
 import { fileCredentialStore } from "./credentials";
 import { nicStyleUpstream } from "./upstream";
@@ -13,9 +12,6 @@ function die(msg: string): never {
   console.error(`gst-relay: ${msg}`);
   process.exit(1);
 }
-
-const secret = process.env.RELAY_SHARED_SECRET ?? "";
-if (secret.length < RELAY_MIN_SECRET_LENGTH) die(`RELAY_SHARED_SECRET must be set and at least ${RELAY_MIN_SECRET_LENGTH} characters`);
 
 const credFile = process.env.GST_CREDENTIALS_FILE;
 if (!credFile) die("GST_CREDENTIALS_FILE is required");
@@ -32,8 +28,8 @@ try {
   die(e instanceof Error ? e.message : "cannot load credentials");
 }
 
+// Review S2: no shared secret here. Each tenant's key lives in the credentials file, bound to its GSTINs.
 const app = createApp({
-  secret,
   credentials,
   upstream: nicStyleUpstream({ baseUrl: process.env.IRP_BASE_URL ?? DEFAULT_IRP_BASE_URL, publicKeyPem }),
 });

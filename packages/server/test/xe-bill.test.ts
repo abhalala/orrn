@@ -108,6 +108,28 @@ describe("module and permission gate", () => {
   }, SLOW);
 });
 
+describe("GST relay authority (review S2)", () => {
+  test("the Worker signs as the invoice's plant (tenant key); the GSTIN only rides in the body", async () => {
+    const { relayIrpAdapter } = await import("../src/lib/billing/irp");
+    const { relayTenantKey, verifyRelaySignature } = await import("@orrn/domain");
+    const master = "m".repeat(40);
+    const seen: { headers: Headers; body: string }[] = [];
+    const fetchStub = (async (_url: string, init: RequestInit) => {
+      seen.push({ headers: new Headers(init.headers), body: String(init.body) });
+      return new Response(JSON.stringify({ ok: false, code: "2283", message: "not found", retryable: false }));
+    }) as unknown as typeof fetch;
+    const adapter = relayIrpAdapter({ url: "https://relay.example", secret: master, fetch: fetchStub });
+    await adapter.irnByDocument({ companyId: "plant-a", gstin: PLANT_GSTIN }, { docType: "INV", docNo: "INV/26-27/1", docDate: "03/10/2026" });
+    const sent = seen[0]!;
+    expect(sent.headers.get("x-orrn-tenant")).toBe("plant-a");
+    expect(JSON.parse(sent.body)).toMatchObject({ gstin: PLANT_GSTIN });
+    const req = { method: "POST", path: "/v1/irn/by-document", body: sent.body, headers: sent.headers };
+    expect((await verifyRelaySignature(await relayTenantKey(master, "plant-a"), req)).ok).toBe(true);
+    // Another plant's key does not verify it: a plant cannot borrow another's authority.
+    expect((await verifyRelaySignature(await relayTenantKey(master, "plant-b"), req)).ok).toBe(false);
+  });
+});
+
 describe("effective modules (review B1)", () => {
   test("a plant on [] that ticks billing in Godseye keeps every floor module, in auth.me and on the server", async () => {
     const { companyId } = await env.seedCompany({ modules: [] });
@@ -398,7 +420,7 @@ describe("e-invoice (row 15)", () => {
     const inv = await issued(p, [(await completedPl(p, [300])).plId]);
     const fake = lib.fakeAdapter(() => OCT);
     // An earlier call landed at the IRP but its answer was lost.
-    const first = await fake.generateIrn(PLANT_GSTIN, { DocDtls: { Typ: "INV", No: inv.number, Dt: "03/10/2026" } });
+    const first = await fake.generateIrn({ companyId: p.companyId, gstin: PLANT_GSTIN }, { DocDtls: { Typ: "INV", No: inv.number, Dt: "03/10/2026" } });
     lib.setAdapter(fake);
     await expect(p.as("office").einvoice.generate({ id: inv.id })).resolves.toEqual({ outcome: "generated" });
     const [row] = await env.db.select().from(invoice).where(eq(invoice.id, inv.id));
@@ -421,7 +443,7 @@ describe("e-invoice (row 15)", () => {
     expect((row.snapshot as { party: { pincode: string } }).party.pincode).toBe("395003");
     const sent = fake.script.calls.filter((c) => c.op === "generate").map((c) => (c.body as { BuyerDtls: { Pin: number }; DocDtls: { No: string } }));
     expect(sent.map((b) => b.BuyerDtls.Pin)).toEqual([394210, 395003]);
-    expect(sent.map((b) => b.DocDtls.No)).toEqual([inv.number, inv.number]);
+    expect(sent.map((b) => b.DocDtls.No)).toEqual([inv.number!, inv.number!]);
     const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "invoice.irn.refresh")));
     expect(audits).toHaveLength(1);
     expect(audits[0]!.meta).toMatchObject({ changed: ["party"] });
@@ -614,7 +636,7 @@ describe("procedure coverage (review round)", () => {
     const p = await billingPlant(["billing", "einvoice"]);
     const fake = lib.fakeAdapter(() => new Date());
     // The call lands at the IRP but its answer is lost (Worker timeout).
-    const lossy = { ...fake, generateIrn: async (g: string, payload: Record<string, unknown>) => (await fake.generateIrn(g, payload), { ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) };
+    const lossy = { ...fake, generateIrn: async (g: { companyId: string; gstin: string }, payload: Record<string, unknown>) => (await fake.generateIrn(g, payload), { ok: false as const, code: "relay_unreachable", message: "timeout", retryable: true }) };
     lib.setAdapter(lossy);
     const pl = await completedPl(p, [300]);
     const inv = await issued(p, [pl.plId]);

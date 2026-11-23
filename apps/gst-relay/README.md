@@ -26,18 +26,27 @@ All POST, JSON, signed (see `packages/domain/src/gstRelayAuth.ts`), except `GET 
 | `/v1/ewb/cancel` | `{gstin, ewbNo, reasonCode, remark}` (answers `not_configured` until an EWB ASP account exists) |
 
 Business errors come back as HTTP 200 with `{ok:false, code, message, retryable}`. Relay problems use
-4xx: 400 bad request, 401 unauthorised (also replay), 404 unknown GSTIN, 413 body over 1 MB.
+4xx: 400 bad request, 401 unauthorised (also replay or an unknown tenant), 403 GSTIN not bound to the calling
+plant, 413 body over 1 MB.
+
+## Who may call for which GSTIN
+
+Authority is the orrn plant (tenant), never the GSTIN in the body: a plant admin can edit the letterhead
+GSTIN. Every request carries `x-orrn-tenant` (the company id) and is signed with THAT tenant's key
+(`relayTenantKey(GST_RELAY_SECRET, companyId)` in `@orrn/domain`, derived on the Worker). The relay holds
+only the per-tenant keys, each bound to the GSTINs that plant may act for, and refuses a GSTIN bound to
+another tenant (403 `relay_gstin_not_bound`). A GSTIN may be bound to one tenant only; the relay refuses to
+start otherwise. Make a tenant's key with `GST_RELAY_SECRET=... bun run tenant-key <companyId>`.
 
 ## Run
 
 ```sh
 bun install
-RELAY_SHARED_SECRET=... IRP_PUBLIC_KEY_PEM="$(cat irp.pem)" GST_CREDENTIALS_FILE=/etc/gst-relay/creds.json bun run start
+IRP_PUBLIC_KEY_PEM="$(cat irp.pem)" GST_CREDENTIALS_FILE=/etc/gst-relay/creds.json bun run start
 ```
 
 | Env | Meaning |
 | --- | --- |
-| `RELAY_SHARED_SECRET` | Required, at least 32 characters. Same value the Worker signs with. |
 | `RELAY_PORT` | Default 8787. |
 | `RELAY_HOST` | Default 127.0.0.1. Put a TLS reverse proxy in front. |
 | `IRP_BASE_URL` | IRP base URL. Default is a placeholder sandbox URL; confirm at integrator registration. |
@@ -47,10 +56,17 @@ RELAY_SHARED_SECRET=... IRP_PUBLIC_KEY_PEM="$(cat irp.pem)" GST_CREDENTIALS_FILE
 Credentials file:
 
 ```json
-{ "24ABCDE1234F1Z5": { "username": "...", "password": "...", "clientId": "...", "clientSecret": "..." } }
+{
+  "tenants": {
+    "<orrn company id>": {
+      "key": "<64 hex from bun run tenant-key>",
+      "gstins": { "24ABCDE1234F1Z5": { "username": "...", "password": "...", "clientId": "...", "clientSecret": "..." } }
+    }
+  }
+}
 ```
 
-The relay logs only method, path, status, duration and GSTIN. Never secrets, tokens, SEKs or invoices.
+The relay logs only method, path, status, duration, tenant and GSTIN. Never secrets, tokens, SEKs or invoices.
 
 ### systemd
 
@@ -79,7 +95,8 @@ WantedBy=multi-user.target
 Terminate TLS in Caddy or nginx and proxy to 127.0.0.1:8787. Cloudflare Worker egress IPs are not fixed,
 so an IP allow-list is not possible. The gate is the HMAC signature plus the 5 minute replay window and the
 nonce store (in memory: a restart forgets nonces, but stale timestamps are still refused). Open only 443
-inbound; outbound only to the IRP host. Rotate the shared secret if it leaks.
+inbound; outbound only to the IRP host. Tenant keys are derived from the Worker's `GST_RELAY_SECRET`: if it or any tenant key leaks, rotate the
+secret and re-issue every tenant key. A leaked tenant key can sign only for that tenant's bound GSTINs.
 
 ## Owner items
 
