@@ -423,6 +423,8 @@ export const storeRouter = router({
                 number: doc.number, itemId: item.id, qtyMilli: input.qtyMilli, grnRef: input.grnRef,
                 ratePaise, poNumber: poLine?.poNumber ?? null, poLineId: poLine?.lineId ?? null,
                 rejectedMilli: input.rejectedMilli ?? null,
+                // The order's own rate, so a rate typed over it at the gate shows in the audit.
+                poRatePaise: poLine?.ratePaise ?? null,
               },
             },
             { from: storeTxn, where: and(eq(storeTxn.id, id), eq(storeTxn.companyId, ctx.companyId)) },

@@ -516,6 +516,8 @@ function EntryFormBody({
                   value={itemId}
                   takesStock={mode !== "receive"}
                   onChange={(id) => {
+                    // An order line and its rate belong to the item they were picked for.
+                    if (id !== itemId) setBuy(EMPTY_GRN_BUY);
                     setItemId(id);
                     touch("item");
                     edited();

@@ -47,7 +47,7 @@ export function GrnBuyFields({
 
   // A line from another item (or one that closed meanwhile) no longer applies.
   useEffect(() => {
-    if (draft.poLineId && lines.data && !picked) onChange({ ...draft, poLineId: null });
+    if (draft.poLineId && lines.data && !picked) onChange({ ...draft, poLineId: null, rate: "" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines.data, draft.poLineId, picked]);
 
@@ -69,7 +69,9 @@ export function GrnBuyFields({
             onChange={(e) => {
               const lineId = e.currentTarget.value || null;
               const line = open.find((l) => l.lineId === lineId);
-              onChange({ ...draft, poLineId: lineId, rate: line ? paiseToText(line.ratePaise) : draft.rate });
+              // "No purchase order" drops the rate the order filled in; a rate typed by hand stays.
+              const keptRate = picked && draft.rate.trim() === paiseToText(picked.ratePaise) ? "" : draft.rate;
+              onChange({ ...draft, poLineId: lineId, rate: line ? paiseToText(line.ratePaise) : keptRate });
             }}
           >
             <option value="">{t("store2.grn.noPo")}</option>

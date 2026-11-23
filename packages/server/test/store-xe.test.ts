@@ -186,7 +186,12 @@ describe("purchase orders (row 70)", () => {
         { itemId: p.bearingId, qtyMilli: 2 * U, ratePaise: 150_000, gstBp: 1_200 },
       ],
     });
+    // A field left out stays; only what is sent changes.
+    await p.office.store.po.update({ id: po.id, note: "Call before delivery" });
     const got = await p.storekeeper.store.po.get({ id: po.id });
+    expect(got.po.deliveryDate).toBe("2026-12-10");
+    expect(got.po.terms).toBe("Freight paid");
+    expect(got.po.note).toBe("Call before delivery");
     expect(got.po.status).toBe("draft");
     expect(got.lines).toHaveLength(2);
     expect(got.totals).toEqual({ amountPaise: 530_875, gstPaise: 77_558, totalPaise: 608_433 });

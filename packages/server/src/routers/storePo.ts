@@ -66,6 +66,16 @@ const plantDay = z
   .nullable()
   .optional()
   .transform((s) => s ?? null);
+/** For `update`: a field left out stays as it is (undefined); an empty one clears it (null). */
+const textPatch = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .optional()
+    .transform((s) => (s === undefined ? undefined : s || null));
+const plantDayPatch = z.string().refine(isPlantDay, "Pick a real date").nullable().optional();
 const lineInput = z.object({
   itemId: id64,
   qtyMilli: z.number().int().min(1).max(MAX_STORE_QTY_MILLI),
@@ -384,9 +394,9 @@ export const storePoRouter = router({
       z.object({
         id: id64,
         vendorId: id64.optional(),
-        deliveryDate: plantDay,
-        terms: text(1000),
-        note: text(500),
+        deliveryDate: plantDayPatch,
+        terms: textPatch(1000),
+        note: textPatch(500),
         lines: z.array(lineInput).min(1).max(STORE_MAX_DOC_LINES).optional(),
       }),
     )
@@ -402,9 +412,9 @@ export const storePoRouter = router({
           .update(storePo)
           .set({
             vendorId: input.vendorId ?? po.vendorId,
-            deliveryDate: input.deliveryDate,
-            terms: input.terms,
-            note: input.note,
+            ...(input.deliveryDate !== undefined ? { deliveryDate: input.deliveryDate } : {}),
+            ...(input.terms !== undefined ? { terms: input.terms } : {}),
+            ...(input.note !== undefined ? { note: input.note } : {}),
             serverSeq: seq,
             updatedAt: at,
           })
