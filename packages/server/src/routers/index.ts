@@ -78,6 +78,9 @@ export const appRouter = router({
   maint: lazy(() => import("./maintenance").then((m) => m.maintenanceRouter)),
   // XE parity lane COST: cost per kg, margins, capacity, forecast, dies due (module `costing`, opt-in).
   costing: lazy(() => import("./costing").then((m) => m.costingRouter)),
+  // XE parity lane HR: people, attendance, leave, incentive (module `hr`) and payroll (module `payroll`), both opt-in.
+  hr: lazy(() => import("./hr").then((m) => m.hrRouter)),
+  payroll: lazy(() => import("./payroll").then((m) => m.payrollRouter)),
 });
 export type AppRouter = typeof appRouter;
 

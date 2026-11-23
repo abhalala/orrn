@@ -149,6 +149,15 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "foundry.billets": ["foundry", "supervisor"],
   "foundry.reject": ["foundry", "supervisor"],
   "foundry.plan": ["supervisor", "office", "manager"],
+  "hr.view": ["admin", "manager", "office", "accountant", "supervisor"],
+  "hr.manage": ["admin", "manager"],
+  "attendance.mark": ["supervisor", "manager", "admin"],
+  "attendance.manage": ["manager", "admin", "office"],
+  "leave.apply": ALL_ROLES.filter((r) => r !== "owner"),
+  "leave.approve": ["supervisor", "manager", "admin"],
+  "payroll.view": ["office", "accountant", "manager", "admin"],
+  "payroll.run": ["office", "accountant", "manager"],
+  "payroll.approve": ["manager", "admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -383,6 +392,8 @@ describe("approvals", () => {
       dispatch_late_entry: ["owner", "admin", "manager"],
       price_change: ["owner", "admin", "manager"],
       invoice_cancel: ["owner", "admin", "manager"],
+      leave_request: ["owner", "admin", "manager", "supervisor"],
+      payroll_run: ["owner", "admin", "manager"],
     });
   });
 

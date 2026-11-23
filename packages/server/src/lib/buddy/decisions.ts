@@ -93,6 +93,11 @@ export const BUDDY_DECISIONS = {
     // XE parity lane COST: reads (cost per kg, capacity, forecast, dies due) run under the person's grant
     // (`cost.view`, and `order.price` for margins). The one change, the costing settings, is denied by name.
     costing: allow,
+    // XE parity lane HR. People, attendance, leave and training reads run under the person's grant (`hr.view` and
+    // friends). No HR change is in `changes`, so the buddy cannot mark, apply, approve or import. Device tokens
+    // and bank details are denied by path below. Payroll (salary, bank sheet, statutory files) never reaches it.
+    hr: allow,
+    payroll: deny("Salary, bank details, payslips and statutory files stay with people (XE-HR)."),
   } satisfies Record<string, RouterDecision>,
 
   paths: {
@@ -148,6 +153,39 @@ export const BUDDY_DECISIONS = {
     "complaints.investigate": deny("The investigation is a person's record on the complaint screen."),
     "complaints.reply": deny("The reply goes to the customer; a person writes it on the complaint screen."),
     "complaints.close": deny("Closing a complaint is a person's act on the complaint screen."),
+    // XE parity lane HR: personal data and device credentials stay off the chat.
+    // XE parity lane HR: every HR change is a person's act on the HR screens until the owner reviews it.
+    "hr.attendance.markShift": deny("XE-HR default deny until the owner reviews it."),
+    "hr.checklists.saveItem": deny("XE-HR default deny until the owner reviews it."),
+    "hr.checklists.tick": deny("XE-HR default deny until the owner reviews it."),
+    "hr.devices.newToken": deny("Mints a device push token (a credential) (XE-HR)."),
+    "hr.devices.save": deny("XE-HR default deny until the owner reviews it."),
+    "hr.holidays.remove": deny("XE-HR default deny until the owner reviews it."),
+    "hr.holidays.save": deny("XE-HR default deny until the owner reviews it."),
+    "hr.leave.applyFor": deny("XE-HR default deny until the owner reviews it."),
+    "hr.leave.cancel": deny("XE-HR default deny until the owner reviews it."),
+    "hr.leave.saveKind": deny("XE-HR default deny until the owner reviews it."),
+    "hr.me.applyLeave": deny("XE-HR default deny until the owner reviews it."),
+    "hr.me.cancelLeave": deny("XE-HR default deny until the owner reviews it."),
+    "hr.people.create": deny("Adds a person with bank, PAN and Aadhaar details (XE-HR)."),
+    "hr.people.leave": deny("XE-HR default deny until the owner reviews it."),
+    "hr.people.rejoin": deny("XE-HR default deny until the owner reviews it."),
+    "hr.people.update": deny("Changes a person's bank, PAN, Aadhaar and phone details (XE-HR)."),
+    "hr.punches.commit": deny("Imports a device file the person uploads in the browser (XE-HR)."),
+    "hr.recruitment.saveCandidate": deny("XE-HR default deny until the owner reviews it."),
+    "hr.recruitment.saveOpening": deny("XE-HR default deny until the owner reviews it."),
+    "hr.reviews.add": deny("XE-HR default deny until the owner reviews it."),
+    "hr.roster.copyLastWeek": deny("XE-HR default deny until the owner reviews it."),
+    "hr.roster.set": deny("XE-HR default deny until the owner reviews it."),
+    "hr.settings.save": deny("XE-HR default deny until the owner reviews it."),
+    "hr.training.save": deny("XE-HR default deny until the owner reviews it."),
+    "hr.people.get": deny("A person's card carries bank, PAN, Aadhaar and phone details (XE-HR)."),
+    "hr.people.list": deny("The register carries bank, PAN, Aadhaar and phone details (XE-HR); the buddy reads people through options."),
+    "hr.devices.list": deny("Biometric device settings (XE-HR)."),
+    "hr.punches.preview": deny("Reads a device export file the person uploads in the browser (XE-HR)."),
+    "hr.me.summary": deny("Self-service is the person's own screen (XE-HR)."),
+    "hr.me.attendance": deny("Self-service is the person's own screen (XE-HR)."),
+    "hr.me.leave": deny("Self-service is the person's own screen (XE-HR)."),
     "reports.ageing": {
       kind: "allow",
       unless: { field: "format", values: ["csv"], reason: "§10 scan: the CSV form is a download." },

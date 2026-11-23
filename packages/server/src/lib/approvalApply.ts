@@ -20,6 +20,8 @@ import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "
 import { priceChangeDecision } from "./pricing";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
 import { explainInvoiceCancelAbort, invoiceCancelDecision } from "./billing/invoices";
+import { leaveRequestDecision, leaveRequestPrepare } from "./hr/leave";
+import { payrollRunDecision } from "./hr/payroll";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
@@ -81,6 +83,8 @@ export const APPROVAL_PREPARERS: Partial<
 > = {
   order_reallocate: (ctx, row, decision) => (decision === "approved" ? reallocatePrepare(ctx.db, ctx.companyId, row, ctx.decidedAt, ctx.userId) : Promise.resolve([])),
   phantom_void: phantomVoidHoldRelease,
+  // XE parity lane HR: the working days an approved leave covers (holidays read before the batch).
+  leave_request: leaveRequestPrepare,
 };
 
 /**
@@ -374,6 +378,9 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   price_change: priceChangeDecision,
   // XE-BILL: an approved invoice cancel; its abort is explained by explainInvoiceCancelAbort.
   invoice_cancel: invoiceCancelDecision,
+  // XE parity lane HR: an approved leave writes its attendance days; a run checked under this request is approved.
+  leave_request: leaveRequestDecision,
+  payroll_run: payrollRunDecision,
 };
 
 /**

@@ -178,6 +178,16 @@ export const PLANT_ACTIONS = [
   // XE parity lane COST (module `costing`, opt-in). Rates and margins also take `order.price`.
   "cost.view", // cost per kg, capacity, forecast, dies due, the outlook page
   "cost.manage", // costing settings: stage rates, low-margin line, press hours, die fallbacks
+  // XE parity lane HR (opt-in `hr` and `payroll`). An employee is not a login (CONTRACTS-W3 touchpoint 1).
+  "hr.view", // the people register, checklists, recruitment, training, reviews, timesheets, the incentive sheet
+  "hr.manage", // add and change people, checklists, openings, holidays, leave kinds, training, devices, HR settings
+  "attendance.mark", // mark a shift's attendance on the floor (today and yesterday), the roster
+  "attendance.manage", // correct any day, import device punches, late entries
+  "leave.apply", // apply for one's own leave (a person linked to an employee)
+  "leave.approve", // decide leave (approval leave_request) and apply leave for someone else
+  "payroll.view", // salary figures: structures, runs, payslips, bank sheet, government files, full and final
+  "payroll.run", // salary structures, deductions, make and check a month's run, full and final
+  "payroll.approve", // ask for and lock an approved run (approval payroll_run is decided by manager, admin, owner)
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -373,6 +383,30 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Margins (rate minus cost) also need `order.price`, so admin sees cost but never a margin.
   "cost.view": ["admin", "manager", "accountant"],
   "cost.manage": ["admin", "manager"],
+  // XE parity lane HR: admin and manager run the register; supervisors mark the floor and decide its leave;
+  // the office and the accountant run payroll; only manager and admin (and owner) approve a run.
+  "hr.view": ["admin", "manager", "office", "accountant", "supervisor"],
+  "hr.manage": ["admin", "manager"],
+  "attendance.mark": ["supervisor", "manager", "admin"],
+  "attendance.manage": ["manager", "admin", "office"],
+  "leave.apply": [
+    "admin",
+    "manager",
+    "office",
+    "accountant",
+    "supervisor",
+    "packer",
+    "foundry",
+    "press",
+    "storekeeper",
+    "die_room",
+    "operator",
+    "viewer",
+  ],
+  "leave.approve": ["supervisor", "manager", "admin"],
+  "payroll.view": ["office", "accountant", "manager", "admin"],
+  "payroll.run": ["office", "accountant", "manager"],
+  "payroll.approve": ["manager", "admin"],
   "support.request": [
     "admin",
     "manager",
@@ -495,6 +529,10 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   price_change: ["owner", "admin", "manager"],
   // XE-BILL: cancelling an issued tax invoice (its number stays used). Never the requester.
   invoice_cancel: ["owner", "admin", "manager"],
+  // XE parity lane HR: leave is decided by the floor's supervisor or a manager; a payroll run only by
+  // manager or admin. Never the requester.
+  leave_request: ["owner", "admin", "manager", "supervisor"],
+  payroll_run: ["owner", "admin", "manager"],
 };
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */

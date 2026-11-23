@@ -42,14 +42,18 @@ export const COMPANY_MODULES = [
   "einvoice",
   // XE parity lane COST: cost per kg, margins, capacity, forecast, die maintenance due. Opt-in (OPT_IN_MODULES).
   "costing",
+  // XE parity lane HR (wave 3), both opt-in: people, attendance, leave, incentive (`hr`) and payroll
+  // (`payroll`, which also needs `hr`).
+  "hr",
+  "payroll",
 ] as const;
 export type CompanyModule = (typeof COMPANY_MODULES)[number];
 
 /**
- * Statutory modules: on only when `company.modules` names them (never by an empty list). `payroll` is
- * reserved here for wave 3: it joins `COMPANY_MODULES` when its lane builds it, and is opt-in from then.
+ * Statutory and wave 3 modules: on only when `company.modules` names them (never by an empty list).
+ * `payroll` also needs `hr` (the server refuses payroll with `hr` off, lib/hr/gate.ts).
  */
-export const OPT_IN_MODULES = ["billing", "einvoice", "payroll", "costing"] as const;
+export const OPT_IN_MODULES = ["billing", "einvoice", "payroll", "costing", "hr"] as const;
 export type OptInModule = (typeof OPT_IN_MODULES)[number];
 
 /** The modules an empty list switches on (every module but the opt-in ones). */

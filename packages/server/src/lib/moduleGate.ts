@@ -53,6 +53,9 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   maint: "maintenance",
   // XE parity lane COST (routers/costing.ts), opt-in; its reads call `assertCostingOn` too.
   costing: "costing",
+  // XE parity lane HR: both opt-in; reads are gated too (lib/hr/gate.ts).
+  hr: "hr",
+  payroll: "payroll",
 };
 
 /**
@@ -87,6 +90,8 @@ export const APPROVAL_KIND_MODULE: Readonly<Record<ApprovalKind, CompanyModule>>
   dispatch_late_entry: "dispatches",
   price_change: "pricing",
   invoice_cancel: "billing",
+  leave_request: "hr",
+  payroll_run: "payroll",
 };
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);

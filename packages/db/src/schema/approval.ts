@@ -50,6 +50,9 @@ export const approvalKinds = [
   // number, kind } (ids and the number only: approval.list is open to every role). The applier cancels it,
   // keeps the number used and frees its packing lists. An IRN is cancelled after, by the relay.
   "invoice_cancel",
+  // XE parity lane HR: a leave request (subject = hr_leave_request) and a month's payroll run (subject = pay_run).
+  "leave_request",
+  "payroll_run",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 
