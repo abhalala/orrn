@@ -876,8 +876,9 @@ PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundr
   (released kg + `homogToleranceBp` of it, default 200 = 2 %, ≥ kg used by cuts, store issues and store press draws;
   re-checked in the close batch). Switching the setting on stamps `requireHomogenizingSince` (epoch ms,
   `applyFoundrySettingsEdit`): only cuts, issues and press draws from then on count as used (a reopen counts by the time of the
-  row it reverses); null = count everything. A supervisor's way out of a wrong batch: raise the tolerance, or switch the setting
-  off and on (a fresh start), or off for the close. 6xxx = a code that starts
+  row it reverses); null = count everything. Released pieces and kg have no time bound (lenient). The way out of a wrong batch
+  (`settings.update`, owner/admin): switch the setting off and on (forgets earlier use, not a too-light released kg), turn it off for
+  the close, or raise `homogToleranceBp` (API only, no field on the card yet). 6xxx = a code that starts
   with four digits from 6, optionally behind `AA`, `AW` or `EN AW` (`alloyNeedsHomogenizing`; the alloy master has no series).
   A load re-checks pieces on batches against the cast's logs in its batch.
 - **Reject registers (#43):** reason kinds `log_reject`, `billet_reject` (seeded per plant; "other" needs a note).

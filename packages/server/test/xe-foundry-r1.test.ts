@@ -426,8 +426,12 @@ describe("fix round 2: the homogenizing press gate never gets stuck", () => {
     const [row] = await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, p.companyId));
     expect(typeof (row!.settings as { foundry?: { requireHomogenizingSince?: unknown } }).foundry?.requireHomogenizingSince).toBe("number");
     expect((await errOf(p.as("foundry").foundry.billets.cut(cutOf(r.castId, 1, 200, 190)))).message).toBe("Homogenize the logs of OL-1 before cutting them");
-    await homogenized(p, r.castId, 5, 1_000);
-    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 5, 1_000, 950));
+    await homogenized(p, r.castId, 3, 600);
+    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 3, 600, 570));
+    // Cuts after the switch still use up the homogenized logs.
+    expect((await errOf(p.as("foundry").foundry.billets.cut(cutOf(r.castId, 1, 200, 190)))).message).toBe("Homogenize the logs of OL-1 before cutting them");
+    await homogenized(p, r.castId, 2, 400);
+    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 2, 400, 380));
     expect(await placeKg(p, p.billetStoreId)).toBe(0);
   });
 
@@ -446,6 +450,9 @@ describe("fix round 2: the homogenizing press gate never gets stuck", () => {
       [p.billetStoreId, -kg(310.4)],
       [p.billetStoreId, -kg(310.4)],
     ]);
+    // A press draw after the switch counts: 310.4 of 408 kg used, so another 310.4 kg run is gated again.
+    const third = await closeWorked(p, r.castId);
+    expect((await p.as("supervisor").press.runs.preview({ id: third.runId })).gates).toContain("billets_not_homogenized");
   });
 });
 
