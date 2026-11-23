@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
+Counts: 12397 screen strings in 60 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3164,7 +3164,7 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (398)
+### admin (406)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3384,6 +3384,9 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
 | `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
 | `plan.moduleNames.costing` | Costing | लागत |
+| `plan.moduleNames.masters_plus` | Plant lists, bank and rules | प्लांट लिस्ट, बैंक और नियम |
+| `plan.moduleNames.docs` | Document register | दस्तावेज़ रजिस्टर |
+| `plan.moduleNames.mis` | Office registers and morning page | ऑफ़िस रजिस्टर और सुबह का पेज |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
@@ -3401,6 +3404,11 @@ Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
 | `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
 | `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
+| `plan.moduleHints.masters_plus` | Departments, packing modes, bank accounts, insurance, number formats, approver rules and tooling | विभाग, पैकिंग का तरीका, बैंक खाते, बीमा, नंबर फ़ॉर्मेट, मंज़ूरी के नियम और टूलिंग |
+| `plan.moduleHints.docs` | Licences, certificates and other plant papers with renewal dates | लाइसेंस, सर्टिफ़िकेट और प्लांट के दूसरे कागज़, नवीनीकरण की तारीख के साथ |
+| `plan.moduleHints.mis` | Rejection, recut, WIP and material registers, the owner's morning page and mail, order progress on the portal | रिजेक्शन, रीकट, WIP और माल के रजिस्टर, मालिक का सुबह का पेज और मेल, पोर्टल पर ऑर्डर की प्रगति |
+| `plan.optInTitle` | Extra modules | अतिरिक्त मॉड्यूल |
+| `plan.optInHint` | Off for every plant until you tick them here. The plant sees nothing of a module that is off. | जब तक आप यहां टिक न करें, हर प्लांट के लिए बंद। बंद मॉड्यूल का प्लांट को कुछ नहीं दिखता। |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -11355,7 +11363,7 @@ Please check, Lalubhai:
 | `billet_reject.short_length` | Short length | छोटी लंबाई |
 | `billet_reject.other` | Other | अन्य |
 
-### plantSettings (57)
+### plantSettings (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -11402,6 +11410,9 @@ Please check, Lalubhai:
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
 | `modules.names.maintenance` | Maintenance | मेंटेनेंस |
 | `modules.names.costing` | Costing | लागत |
+| `modules.names.masters_plus` | Plant lists, bank and rules | प्लांट लिस्ट, बैंक और नियम |
+| `modules.names.docs` | Document register | दस्तावेज़ रजिस्टर |
+| `modules.names.mis` | Office registers | ऑफ़िस रजिस्टर |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
 | `letterhead.gstin` | GSTIN | GSTIN |
