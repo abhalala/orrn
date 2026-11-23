@@ -19,8 +19,31 @@ const keys = (items: NavItem[]) => items.map((i) => i.key);
 const ALL = [...TENANT_PRIMARY, ...TENANT_MORE];
 
 describe("visibleItems", () => {
-  test("owner with no modules set sees everything", () => {
+  test("owner with no modules set sees every standard entry; XE entries are opt-in (PROD-GATE)", () => {
     expect(keys(visibleItems(ALL, me("owner")))).toEqual([
+      "today",
+      "pack",
+      "stock",
+      "dispatch",
+      "ingest",
+      "orders",
+      "press",
+      "foundry",
+      "ageing",
+      "reports",
+      "purchase",
+      "approvals",
+      "dies",
+      "customers",
+      "store",
+      "printing",
+      "masters",
+      "guides",
+      "settings",
+      "audit",
+    ]);
+    // With the XE keys named, their entries come in at their places.
+    expect(keys(visibleItems(ALL, me("owner", ["qa", "complaints", "mis", "pricing"])))).toEqual([
       "today",
       "pack",
       "stock",
@@ -101,12 +124,14 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Store and Buying need the store module (XE store: the server refuses store writes with it off).
-    expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
-    // Billing and costing are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
-    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 2);
-    expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
-    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - 1);
-    expect(keys(visibleItems(ALL, me("owner", ["billing", "costing"])))).toHaveLength(ALL.length);
+    expect(visible).toEqual(["today", "ingest", "orders", "reports", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
+    // XE modules are opt-in (PROD-GATE): a plant with no modules named has their five entries off, and naming
+    // them turns them on without touching the rest.
+    const xe = ["qa", "complaints", "owner", "billing", "pricing"];
+    expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - xe.length);
+    for (const k of xe) expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain(k);
+    expect(keys(visibleItems(ALL, me("owner", ["billing"])))).toHaveLength(ALL.length - xe.length + 1);
+    expect(keys(visibleItems(ALL, me("owner", ["billing", "qa", "complaints", "mis", "pricing"])))).toHaveLength(ALL.length);
   });
 
   test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
@@ -123,7 +148,7 @@ describe("visibleItems", () => {
   });
 
   test("Prices for people who read prices or run enquiries, hidden when the pricing module is off (XE-PRICE)", () => {
-    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("pricing");
+    const has = (role: CompanyRole, modules: string[] = ["pricing"]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("pricing");
     for (const role of ["owner", "admin", "manager", "office", "accountant"] as const) {
       expect({ role, pricing: has(role) }).toEqual({ role, pricing: true });
     }
@@ -131,6 +156,7 @@ describe("visibleItems", () => {
       expect({ role, pricing: has(role) }).toEqual({ role, pricing: false });
     }
     expect(has("owner", ["customers"])).toBe(false);
+    expect(has("owner", [])).toBe(false);
     expect(has("owner", ["pricing"])).toBe(true);
   });
 

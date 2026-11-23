@@ -144,7 +144,10 @@ const PATH_ROUTER: Readonly<Record<string, string>> = { casts: "foundry", pack: 
 
 /** The module of a page's own router: the router named by its first path segment (store, orders, vendor, ...). */
 function pageModule(to: string): string | null {
-  const segment = to.replace(/^\//, "").split(/[/?]/)[0]!;
+  const [segment = "", sub = ""] = to.replace(/^\//, "").split(/[/?]/);
+  // The Masters hub is no router of its own: its XE pages are the `masters` / `docs` / `toolRoom` routers
+  // (opt-in, PROD-GATE); every other masters page belongs to the router of what it lists (no module here).
+  if (segment === "masters") return ({ lists: "masters_plus", bank: "masters_plus", rules: "masters_plus", tooling: "masters_plus", documents: "docs" } as Record<string, string>)[sub] ?? null;
   const router = PATH_ROUTER[segment] ?? segment;
   return routerModule(router) ?? routerModule(router.replace(/s$/, ""));
 }

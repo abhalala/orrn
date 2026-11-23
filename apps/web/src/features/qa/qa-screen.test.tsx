@@ -60,7 +60,7 @@ const CHECK: QaCheckRow = {
 
 async function render(node: ReactNode, opts: { role?: Role; modules?: string[]; locale?: "en" | "hi" | "gu"; seed?: (qc: QueryClient) => void } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  qc.setQueryData(trpc.auth.me.queryOptions().queryKey, testMe(opts.role ?? "manager", { modules: opts.modules ?? [] }) as never);
+  qc.setQueryData(trpc.auth.me.queryOptions().queryKey, testMe(opts.role ?? "manager", { modules: opts.modules ?? ["qa"] }) as never);
   opts.seed?.(qc);
   const host = document.createElement("div");
   document.body.appendChild(host);

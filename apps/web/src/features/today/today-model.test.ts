@@ -302,8 +302,10 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
 
   test("owner and manager: every station, in plant-flow order", () => {
     const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides", "enquiries"];
-    expect(keys(me("owner"))).toEqual(all);
-    expect(keys(me("manager"))).toEqual(all);
+    // PROD-GATE: enquiries is a `pricing` tile, and pricing is opt-in.
+    expect(keys(me("owner", ["pricing"]))).toEqual(all);
+    expect(keys(me("manager", ["pricing"]))).toEqual(all);
+    expect(keys(me("owner"))).toEqual(all.filter((k) => k !== "enquiries"));
   });
 
   test("viewer sees no action tiles at all, only numbers (spec section 3 Today)", () => {
@@ -315,7 +317,8 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   });
 
   test("office: orders, dispatch, stock, approvals, enquiries", () => {
-    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals", "enquiries"]);
+    expect(keys(me("office", ["pricing"]))).toEqual(["orders", "dispatch", "stock", "approvals", "enquiries"]);
+    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals"]);
   });
 
   test("foundry approves cast close-outs; the storekeeper works the store; the supervisor keeps approvals", () => {
@@ -334,7 +337,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   test("company modules hide tiles for switched-off areas", () => {
     expect(keys(me("owner", ["customers"]))).toEqual(["approvals", "guides"]);
     expect(keys(me("owner", ["bundles"]))).toEqual(["pack", "stock", "approvals", "guides"]);
-    expect(keys(me("owner", ["pricing"]))).toEqual(["approvals", "guides", "enquiries"]);
+    expect(keys(me("owner", ["customers", "pricing"]))).toEqual(["approvals", "guides", "enquiries"]);
     expect(keys(me("die_room", ["bundles"]))).toEqual([]);
   });
 
@@ -344,7 +347,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   });
 
   test("each tile opens its station", () => {
-    const byKey = Object.fromEntries(todayTiles(me("owner")).map((t) => [t.key, t.to]));
+    const byKey = Object.fromEntries(todayTiles(me("owner", ["pricing"])).map((t) => [t.key, t.to]));
     expect(byKey).toEqual({
       orders: "/orders",
       dieRoom: "/dies/issues",
@@ -361,7 +364,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
 });
 
 describe("tileHint", () => {
-  const tile = (key: string) => todayTiles(me("owner")).find((t) => t.key === key)!;
+  const tile = (key: string) => todayTiles(me("owner", ["pricing"])).find((t) => t.key === key)!;
 
   test("Dispatch carries the open count, grouped, or says none are open", () => {
     expect(tileHint(tile("dispatch"), 14, dflt())).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "14" } });

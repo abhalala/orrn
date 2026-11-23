@@ -27,10 +27,11 @@ import {
   rupeesPerKg,
 } from "./masters-model";
 
-function me(role: CompanyRole): Me {
+/** `modules`: the plant's effective list; the XE masters (`masters_plus`, `docs`) are opt-in (PROD-GATE). */
+function me(role: CompanyRole, modules: string[] = ["masters_plus", "docs"]): Me {
   return {
     user: { id: "u1", name: "U", email: "u@orrn.local" },
-    company: { id: "c1", name: "Co", slug: "co", status: "active", plan: null, role, modules: [] },
+    company: { id: "c1", name: "Co", slug: "co", status: "active", plan: null, role, modules },
     isPlatformAdmin: false,
     platformRole: null,
   } as unknown as Me;
@@ -198,6 +199,11 @@ describe("masterEntries (the Masters page)", () => {
     for (const role of ["owner", "manager", "admin"] as const) {
       expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons", "furnaces", "alloys", "ovens", "trolleys", "recipes", "plantLists", "bank", "rules", "documents", "tooling"]);
     }
+  });
+
+  test("PROD-GATE: without `masters_plus` and `docs` the plant rows are not there", () => {
+    expect(masterEntries(me("owner", [])).filter((e) => e.group === "plant")).toEqual([]);
+    expect(masterEntries(me("owner", ["docs"])).map((e) => e.key).filter((k) => ["plantLists", "bank", "rules", "documents", "tooling"].includes(k))).toEqual(["documents"]);
   });
 
   test("furnaces and alloys only for the people who publish masters", () => {
