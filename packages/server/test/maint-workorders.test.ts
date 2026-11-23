@@ -6,7 +6,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { auditLog, maintAsset, maintPlan, maintWorkOrder } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { DAY, H, NOON, errOf, maintPlant, type MaintPlant } from "./maint-fixture";
@@ -230,6 +230,32 @@ describe("work orders (#65)", () => {
     // The retry in insertWorkOrder reads again and takes WO-2.
     const { id: cmp } = await compressor(p);
     expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-2" });
+  });
+
+  test("five numbers taken under it in a row: a plain CONFLICT, not the database error, and no number used", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const { docSeries } = await import("@orrn/db/schema");
+    const { WO_NUMBER_BUSY } = await import("../src/routers/maintenanceWork");
+    const { id: cmp } = await compressor(p);
+    expect(await p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" })).toMatchObject({ number: "WO-1" });
+    // Before each of the five batches, another writer takes the predicted number.
+    let bumps = 0;
+    const arm = () =>
+      env.beforeNextBatch(async () => {
+        bumps += 1;
+        await env.db
+          .update(docSeries)
+          .set({ value: sql`${docSeries.value} + 1` })
+          .where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "maint_wo")));
+        if (bumps < 5) arm();
+      });
+    arm();
+    expect(await errOf(p.operator.maint.workOrders.create({ assetId: cmp, kind: "breakdown", title: "Trip" }))).toEqual({ code: "CONFLICT", message: WO_NUMBER_BUSY });
+    expect(bumps).toBe(5);
+    const rows = await env.db.select({ value: docSeries.value }).from(docSeries).where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "maint_wo")));
+    // 1 ours + 5 taken by the other writer; the refused call took none.
+    expect(rows.map((r) => r.value)).toEqual([6]);
   });
 
   test("times: none in the future; a done work order keeps them; a new finish moves its plan's reset point", async () => {

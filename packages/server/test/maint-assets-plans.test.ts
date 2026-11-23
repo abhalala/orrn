@@ -7,8 +7,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { auditLog, maintAsset } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 
+import { pressUsageSql } from "../src/lib/maintenance";
 import { createTestEnv, type TestEnv } from "./harness";
 import { DAY, H, NOON, errOf, maintPlant } from "./maint-fixture";
 
@@ -255,6 +257,39 @@ describe("preventive plans (#64)", () => {
     expect(row!.due).toMatchObject({ hoursRun: 11 });
   });
 
+  test("press run hours: a pause made with the real press stop and resume procedures is not run time", async () => {
+    // Ties the pause query to the press audit writer (action names, subject type, subject id).
+    setClock(NOON);
+    const p = await plant();
+    const { id: assetId } = await p.manager.maint.assets.create(asset({ code: "PRESS-1", kind: "press", linkKind: "press", linkId: p.lineId }));
+    await p.manager.maint.plans.create({ assetId, title: "Hydraulic oil", intervalHours: 2000 });
+    const r = await p.run(at(H), null, "running");
+    // audit_log.at is D1's own clock (unixepoch), not the test clock: move each row the procedure just
+    // wrote back to the test time. Action, subject type and subject id stay as the press router wrote them.
+    const stamp = async (ms: number) => {
+      const fresh = await env.db.select({ id: auditLog.id }).from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.subjectId, r)));
+      const unstamped = fresh.length;
+      await env.db
+        .update(auditLog)
+        .set({ at: at(ms) })
+        .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.subjectId, r), sql`${auditLog.at} > ${at(30 * H).getTime()}`));
+      return unstamped;
+    };
+    setClock(at(5 * H));
+    await p.press.press.runs.stop({ id: r });
+    expect(await stamp(5 * H)).toBe(1);
+    setClock(at(15 * H));
+    await p.press.press.runs.resume({ id: r });
+    expect(await stamp(15 * H)).toBe(2);
+    setClock(at(21 * H));
+    await p.press.press.runs.stop({ id: r });
+    expect(await stamp(21 * H)).toBe(3);
+    setClock(at(30 * H));
+    const [row] = await p.manager.maint.plans.due();
+    // 1 h to 21 h = 20 h, less the 10 h pause.
+    expect(row!.due).toMatchObject({ hoursRun: 10 });
+  });
+
   test("furnace and oven hours: locked melts and batches only", async () => {
     setClock(NOON);
     const p = await plant();
@@ -286,5 +321,50 @@ describe("preventive plans (#64)", () => {
       code: "BAD_REQUEST",
       message: "Plans on this asset run on run hours. Change them to days before you remove the link",
     });
+  });
+});
+
+describe("press run-hours query plans (no ANALYZE statistics, as on prod D1)", () => {
+  // Prod D1 has no sqlite_stat1. Without it SQLite drove the pause query from every press_run audit row
+  // in the plant. Each query must start from maint_plan and reach press_run by a range from the plan's
+  // base, then downtime or audit_log per run.
+  const plan = async (q: ReturnType<typeof pressUsageSql>[keyof ReturnType<typeof pressUsageSql>]) => {
+    const { sql: text, params } = new SQLiteSyncDialect().sqlToQuery(q);
+    const out = await env.d1.prepare(`explain query plan ${text}`).bind(...params).all<{ detail: string }>();
+    return out.results.map((r) => r.detail);
+  };
+  const runRange = /^SEARCH r USING INDEX press_run_company_line_end_idx \(company_id=\? AND press_line_id=\? AND <expr>>\?\)$/;
+
+  test("plan -> asset -> press_run by the end-time range -> downtime or audit_log per run", async () => {
+    const p = await plant();
+    const stats = await env.d1.prepare("select count(*) as n from sqlite_master where name = 'sqlite_stat1'").first<{ n: number }>();
+    expect(stats?.n).toBe(0);
+    const q = pressUsageSql(p.companyId, NOON.getTime());
+    const checks: [keyof typeof q, RegExp[]][] = [
+      ["runs", [/^SEARCH p USING INDEX maint_plan_company_asset_idx /, /^SEARCH a USING INDEX sqlite_autoindex_maint_asset_1 \(id=\?\)$/, runRange]],
+      ["downtimeCuts", [/^SEARCH p USING INDEX maint_plan_company_asset_idx /, /^SEARCH a /, runRange, /^SEARCH d USING INDEX press_downtime_company_run_idx \(company_id=\? AND press_run_id=\?\)$/]],
+      [
+        "pauseCuts",
+        [
+          /^SEARCH p USING INDEX maint_plan_company_asset_idx /,
+          /^SEARCH a /,
+          runRange,
+          /^SEARCH x USING INDEX audit_subject_idx \(company_id=\? AND subject_type=\? AND subject_id=\?\)$/,
+          /^SEARCH st USING INDEX audit_subject_idx \(company_id=\? AND subject_type=\? AND subject_id=\?\)$/,
+        ],
+      ],
+    ];
+    for (const [name, steps] of checks) {
+      const lines = (await plan(q[name])).filter((d) => /^(SEARCH|SCAN) /.test(d));
+      // The tables in this order, each found by its index; nothing scanned but the materialized pause rows.
+      let from = 0;
+      for (const step of steps) {
+        const i = lines.findIndex((d, k) => k >= from && step.test(d));
+        expect({ name, step: String(step), found: i >= 0 }).toEqual({ name, step: String(step), found: true });
+        from = i + 1;
+      }
+      expect(lines.filter((d) => /^SCAN /.test(d) && d !== "SCAN c")).toEqual([]);
+      expect(lines.filter((d) => /audit_company_at_idx|press_run_company_line_queue_idx/.test(d))).toEqual([]);
+    }
   });
 });

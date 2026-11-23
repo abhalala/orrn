@@ -59,6 +59,7 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 
 export const WO_CHANGED = "This work order changed since you opened it. Open it again.";
 export const WO_FINAL = "This work order is closed";
+export const WO_NUMBER_BUSY = "Others are raising work orders at the same moment. Try again.";
 export const WO_BAD_MOVE = "A work order cannot move to that status from here";
 export const WO_NEEDS_WORK_DONE = "Write what was done before marking the work order done";
 export const WO_NEEDS_REASON = "Say why the work order is cancelled";
@@ -109,7 +110,7 @@ type NewWo = {
  * on downtime, reading or live plan), the existing row comes back with `replayed: true`. `existing`
  * re-reads that row after a lost race. The WO number is reserved inside the same batch
  * (`docNumberInBatch`), so a lost race takes no number and the series has no gap; when another work
- * order took the predicted number first, it reads again and retries (at most 5 times).
+ * order took the predicted number first, it reads again and retries (at most 5 times, then CONFLICT).
  */
 export async function insertWorkOrder(ctx: WriteCtx, input: NewWo, existing: () => Promise<MaintWorkOrderRow | null>) {
   const prior = await existing();
@@ -169,7 +170,11 @@ export async function insertWorkOrder(ctx: WriteCtx, input: NewWo, existing: () 
         const won = await existing();
         if (won) return { id: won.id, number: won.number, replayed: true as const };
       }
-      if (isDocNumberStale(e) && attempt < 4) continue;
+      if (isDocNumberStale(e)) {
+        if (attempt < 4) continue;
+        // Five numbers taken under us in a row: a plain refusal, never the raw database error.
+        throw new TRPCError({ code: "CONFLICT", message: WO_NUMBER_BUSY });
+      }
       throw e;
     }
   }

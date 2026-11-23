@@ -20269,6 +20269,15 @@
           ],
           "isUnique": false
         },
+        "press_run_company_line_end_idx": {
+          "name": "press_run_company_line_end_idx",
+          "columns": [
+            "company_id",
+            "press_line_id",
+            "coalesce(\"stopped_at\", 9007199254740991)"
+          ],
+          "isUnique": false
+        },
         "press_run_company_line_queue_idx": {
           "name": "press_run_company_line_queue_idx",
           "columns": [
@@ -26558,6 +26567,13 @@
             "isExpression": true
           },
           "(case when \"die_id\" is null then '' else \"die_id\" end)": {
+            "isExpression": true
+          }
+        }
+      },
+      "press_run_company_line_end_idx": {
+        "columns": {
+          "coalesce(\"stopped_at\", 9007199254740991)": {
             "isExpression": true
           }
         }

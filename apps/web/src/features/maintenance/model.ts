@@ -132,6 +132,7 @@ const REFUSALS: readonly [RegExp, MessageKey][] = [
   [/^Not found$/, "maint.errors.notFound"],
   [/changed since you opened it/, "maint.errors.changed"],
   [/^This work order is closed$/, "maint.errors.final"],
+  [/^Others are raising work orders at the same moment/, "maint.errors.numberBusy"],
   [/^A work order cannot move to that status/, "maint.errors.badMove"],
   [/^Write what was done/, "maint.errors.needsWorkDone"],
   [/^Say why the work order is cancelled/, "maint.errors.needsReason"],

@@ -137,6 +137,7 @@ export const maintEn = {
     notFound: "Not found.",
     changed: "This changed since you opened it. Open it again.",
     final: "This work order is closed.",
+    numberBusy: "Others are raising work orders at the same moment. Try again.",
     badMove: "A work order cannot move to that status from here.",
     needsWorkDone: "Write what was done before marking the work order done.",
     needsReason: "Say why the work order is cancelled.",
