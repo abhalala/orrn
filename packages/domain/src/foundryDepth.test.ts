@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import { applyFoundrySettingsEdit, FLOOR_SETTINGS_DEFAULTS, readFloorSettings } from "./settings";
 import {
   alloyNeedsHomogenizing,
   billetCutFigures,
   castingPlan,
   homogCutAllowance,
+  homogKgCeilingG,
   homogRecipeError,
   homogSoak,
   HOMOG_DEFAULT_RECIPE,
@@ -56,6 +58,30 @@ describe("homogenizing", () => {
     expect(homogCutAllowance({ required: true, alloy: "1100", source: "melt", releasedPcs: 0, cutPcs: 0 })).toBeNull();
     expect(homogCutAllowance({ required: true, alloy: "6063", source: "melt", releasedPcs: 20, cutPcs: 5 })).toBe(15);
     expect(homogCutAllowance({ required: true, alloy: "6063", source: "melt", releasedPcs: 2, cutPcs: 5 })).toBe(0);
+  });
+
+  test("fix round 2: the press may weigh past the homogenized kg by the tolerance", () => {
+    expect(homogKgCeilingG(2_000_000, 200)).toBe(2_040_000);
+    expect(homogKgCeilingG(2_000_000, 0)).toBe(2_000_000);
+    expect(homogKgCeilingG(0, 200)).toBe(0);
+    expect(FLOOR_SETTINGS_DEFAULTS.foundry.homogToleranceBp).toBe(200);
+  });
+
+  test("fix round 2: switching homogenizing on stamps the moment; off clears it; on again starts afresh", () => {
+    const off = FLOOR_SETTINGS_DEFAULTS.foundry;
+    const on = applyFoundrySettingsEdit(off, { requireHomogenizing: true }, 1_000);
+    expect(on).toEqual({ requireHomogenizing: true, requireHomogenizingSince: 1_000, homogToleranceBp: 200 });
+    expect(applyFoundrySettingsEdit(on, { requireHomogenizing: true }, 5_000).requireHomogenizingSince).toBe(1_000);
+    expect(applyFoundrySettingsEdit(on, { homogToleranceBp: 50 }, 5_000)).toEqual({ ...on, homogToleranceBp: 50 });
+    const offAgain = applyFoundrySettingsEdit(on, { requireHomogenizing: false }, 6_000);
+    expect(offAgain.requireHomogenizingSince).toBeNull();
+    expect(applyFoundrySettingsEdit(offAgain, { requireHomogenizing: true }, 9_000).requireHomogenizingSince).toBe(9_000);
+    // Stored junk reads back as the defaults; an "on" with no stamp counts everything (since null).
+    expect(readFloorSettings({ foundry: { requireHomogenizing: true, requireHomogenizingSince: "x", homogToleranceBp: -1 } }).foundry).toEqual({
+      requireHomogenizing: true,
+      requireHomogenizingSince: null,
+      homogToleranceBp: 200,
+    });
   });
 });
 

@@ -75,7 +75,7 @@ import { applyTrialVerdictOnReturn } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
-import { castAt, homogKgWithinSql, homogLeft, pressDraws, type PressDraw } from "../lib/foundryDepth";
+import { castAt, homogKgWithinSql, homogLeft, homogWindow, pressDraws, type PressDraw } from "../lib/foundryDepth";
 import { can, type CompanyRole } from "../lib/permissions";
 import {
   billetUsableSql,
@@ -466,7 +466,7 @@ async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReaso
   });
   const depth = await billetDraws(ctx, run, children.billets, settings);
   if (depth.notHomogenized.length > 0) errors.push("billets_not_homogenized");
-  return { children, errors, figures, castInfo, byCast, floor, draws: depth.draws, floorShort: depth.floorShort, homogGated: depth.homogGated };
+  return { children, errors, figures, castInfo, byCast, floor, draws: depth.draws, floorShort: depth.floorShort, homogGated: depth.homogGated, homog: depth.homog };
 }
 
 /** A cast the run's press floor holds less of than the run used (the close still logs; a count corrects it). */
@@ -483,9 +483,11 @@ async function billetDraws(ctx: Ctx, run: LoadedRun, billets: readonly { castId:
   const homogGated: string[] = [];
   const notHomogenized: string[] = [];
   const inputByCast = billetInputByCast(billets);
-  if (inputByCast.size === 0) return { draws, floorShort, homogGated, notHomogenized };
+  const foundrySettings = readFloorSettings(settings).foundry;
+  const homog = homogWindow(foundrySettings);
+  if (inputByCast.size === 0) return { draws, floorShort, homogGated, notHomogenized, homog };
   const store = await resolveBilletStore(ctx.db, ctx.companyId).catch(() => null);
-  const required = readFloorSettings(settings).foundry.requireHomogenizing;
+  const required = foundrySettings.requireHomogenizing;
   for (const [castId, kgG] of inputByCast) {
     const [c] = await ctx.db
       .select({ number: cast.number, alloy: cast.alloy, source: cast.source })
@@ -502,10 +504,10 @@ async function billetDraws(ctx: Ctx, run: LoadedRun, billets: readonly { castId:
     const fromStoreG = d.draws.filter((x) => x.kind === "billet_store").reduce((t, x) => t + x.qtyG, 0);
     if (fromStoreG > 0 && homogCutAllowance({ required, alloy: c.alloy, source: c.source, releasedPcs: 0, cutPcs: 0 }) !== null) {
       homogGated.push(castId);
-      if (fromStoreG > (await homogLeft(ctx.db, ctx.companyId, castId)).kgG) notHomogenized.push(castId);
+      if (fromStoreG > (await homogLeft(ctx.db, ctx.companyId, castId, homog)).kgG) notHomogenized.push(castId);
     }
   }
-  return { draws, floorShort, homogGated, notHomogenized };
+  return { draws, floorShort, homogGated, notHomogenized, homog };
 }
 
 /** The copy's latest kg/12ft reading (for the theoretical hint; never stored). */
@@ -1483,7 +1485,7 @@ export const pressRunRouter = router({
         return { id: run.id, status: run.status, recoveryBp: run.recoveryBp, balanceG: run.balanceG, replayed: true };
       }
       if (run.purpose !== "die_trial" && input.trialResult) bad("Only a die trial run takes a pass or fail");
-      const { errors, figures, byCast, children, draws, floorShort, homogGated } = await evaluateClose(ctx as Ctx, run, input);
+      const { errors, figures, byCast, children, draws, floorShort, homogGated, homog } = await evaluateClose(ctx as Ctx, run, input);
       if (errors.length > 0) gateError(errors);
       const billetStore = await resolveBilletStore(ctx.db, ctx.companyId);
       const scrapG = (run.discardG ?? 0) + (run.endsG ?? 0) + figures.rejectG;
@@ -1570,7 +1572,7 @@ export const pressRunRouter = router({
       });
       statements.push(...ledger.statements, ...ledger.billetLines.map((l) => pressAbortUnless(ctx.db, billetPostedSql(ctx.companyId, run.id, l, seq))));
       // #41: a close racing another use of the same homogenized logs never takes more than came out of released batches.
-      statements.push(...homogGated.map((castId) => pressAbortUnless(ctx.db, homogKgWithinSql(ctx.companyId, castId))));
+      statements.push(...homogGated.map((castId) => pressAbortUnless(ctx.db, homogKgWithinSql(ctx.companyId, castId, homog))));
 
       // C43: the issue goes back to the rack, or stays open for the next queued run of the copy.
       const runLogged = runLanded(run.id, seq, "logged");

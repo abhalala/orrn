@@ -18,6 +18,8 @@ import { billetCut, billetIssue, homogBatch, homogLine } from "@orrn/db/schema/f
 import { location, stockLedger, type LedgerVoucherType, type LocationKind } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
+import { homogKgCeilingG } from "@orrn/domain";
+
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { foundryAbort } from "./foundry";
 import { openReplay, readReplay, type Replay, type ReplayKind } from "./requestReplay";
@@ -179,58 +181,76 @@ export function homogReleasedSql(companyId: string, castId: string, what: "pcs" 
   ), 0)`;
 }
 
-/** Log pieces of the cast that left the billet store as logs: cut on the saw or shear, or issued whole to a press floor. */
-export function homogPcsUsedSql(companyId: string, castId: string): SQL<number> {
+/**
+ * The plant's homogenizing switch as the gate reads it (fix round 2): `since` (epoch ms, 0 = count
+ * everything) bounds which cuts, issues and press draws use up homogenized logs; `toleranceBp` is the
+ * weighing gap a floor-less press may run past the released kg.
+ */
+export type HomogWindow = { since: number; toleranceBp: number };
+
+export function homogWindow(foundry: { requireHomogenizingSince: number | null; homogToleranceBp: number }): HomogWindow {
+  return { since: foundry.requireHomogenizingSince ?? 0, toleranceBp: foundry.homogToleranceBp };
+}
+
+/** Log pieces of the cast that left the billet store as logs since the switch: cut on the saw or shear, or issued whole to a press floor. */
+export function homogPcsUsedSql(companyId: string, castId: string, since: number): SQL<number> {
   return sql<number>`(coalesce((
-    select sum(bc.log_pcs) from ${billetCut} bc where bc.company_id = ${companyId} and bc.cast_id = ${castId}
+    select sum(bc.log_pcs) from ${billetCut} bc where bc.company_id = ${companyId} and bc.cast_id = ${castId} and bc.cut_at >= ${since}
   ), 0) + coalesce((
     select sum(bi.pcs) from ${billetIssue} bi join ${location} bl on bl.id = bi.from_location_id and bl.company_id = bi.company_id
-    where bi.company_id = ${companyId} and bi.cast_id = ${castId} and bl.kind = 'billet_store'
+    where bi.company_id = ${companyId} and bi.cast_id = ${castId} and bl.kind = 'billet_store' and bi.issued_at >= ${since}
   ), 0))`;
 }
 
 /**
- * Log kg of the cast that left the billet store as logs: cut, issued whole, or pressed straight from the
- * store by a press with no floor (its `press_run` rows there, net of reopens). A press close knows kg,
- * not pieces, so the press gate is in kg.
+ * Log kg of the cast that left the billet store as logs since the switch: cut, issued whole, or pressed
+ * straight from the store by a press with no floor (its `press_run` rows there, net of reopens; a reopen
+ * counts by the time of the row it reverses, so reopening a run pressed before the switch frees nothing).
+ * A press close knows kg, not pieces, so the press gate is in kg.
  */
-export function homogKgUsedSql(companyId: string, castId: string): SQL<number> {
+export function homogKgUsedSql(companyId: string, castId: string, since: number): SQL<number> {
   return sql<number>`(coalesce((
-    select sum(bc.log_g) from ${billetCut} bc where bc.company_id = ${companyId} and bc.cast_id = ${castId}
+    select sum(bc.log_g) from ${billetCut} bc where bc.company_id = ${companyId} and bc.cast_id = ${castId} and bc.cut_at >= ${since}
   ), 0) + coalesce((
     select sum(bi.kg_g) from ${billetIssue} bi join ${location} bl on bl.id = bi.from_location_id and bl.company_id = bi.company_id
-    where bi.company_id = ${companyId} and bi.cast_id = ${castId} and bl.kind = 'billet_store'
+    where bi.company_id = ${companyId} and bi.cast_id = ${castId} and bl.kind = 'billet_store' and bi.issued_at >= ${since}
   ), 0) + coalesce((
     select -sum(pl.qty_g) from ${stockLedger} pl join ${location} ll on ll.id = pl.location_id and ll.company_id = pl.company_id
     where pl.company_id = ${companyId} and pl.item_kind = 'billet' and pl.item_ref = ${castId}
       and pl.voucher_type in ('press_run', 'press_run_reopen') and ll.kind = 'billet_store'
+      and coalesce((select o.posted_at from ${stockLedger} o where o.id = pl.reversal_of and o.company_id = pl.company_id), pl.posted_at) >= ${since}
   ), 0))`;
 }
 
-/** Read: the homogenized logs of a cast not yet used, in pieces and kg (may be negative after a setting change). */
-export async function homogLeft(db: OrrnDb, companyId: string, castId: string): Promise<{ pcs: number; kgG: number }> {
+/**
+ * Read: the homogenized logs of a cast not yet used since the switch, in pieces and kg. `kgG` already
+ * includes the press's weighing tolerance on the released kg.
+ */
+export async function homogLeft(db: OrrnDb, companyId: string, castId: string, w: HomogWindow): Promise<{ pcs: number; kgG: number }> {
   const [row] = await db
     .select({
       relPcs: homogReleasedSql(companyId, castId, "pcs"),
       relKg: homogReleasedSql(companyId, castId, "kg"),
-      usedPcs: homogPcsUsedSql(companyId, castId),
-      usedKg: homogKgUsedSql(companyId, castId),
+      usedPcs: homogPcsUsedSql(companyId, castId, w.since),
+      usedKg: homogKgUsedSql(companyId, castId, w.since),
     })
     .from(company)
     .where(eq(company.id, companyId))
     .limit(1);
   const n = (v: unknown) => Number(v ?? 0);
-  return { pcs: n(row?.relPcs) - n(row?.usedPcs), kgG: n(row?.relKg) - n(row?.usedKg) };
+  return { pcs: n(row?.relPcs) - n(row?.usedPcs), kgG: homogKgCeilingG(n(row?.relKg), w.toleranceBp) - n(row?.usedKg) };
 }
 
 /** Write-time twin for a cut or an issue from the store: fails the batch when the pieces used went past the released pieces. */
-export function homogPcsAbort(db: OrrnDb, companyId: string, castId: string): SqliteBatchItem {
-  return foundryAbort(db, companyId, sql`${homogPcsUsedSql(companyId, castId)} > ${homogReleasedSql(companyId, castId, "pcs")}`);
+export function homogPcsAbort(db: OrrnDb, companyId: string, castId: string, w: HomogWindow): SqliteBatchItem {
+  return foundryAbort(db, companyId, sql`${homogPcsUsedSql(companyId, castId, w.since)} > ${homogReleasedSql(companyId, castId, "pcs")}`);
 }
 
-/** The press close's write-time condition: the log kg used is still within the released kg. */
-export function homogKgWithinSql(companyId: string, castId: string): SQL {
-  return sql`${homogKgUsedSql(companyId, castId)} <= ${homogReleasedSql(companyId, castId, "kg")}`;
+/** The press close's write-time condition: the log kg used is still within the released kg plus the weighing tolerance. */
+export function homogKgWithinSql(companyId: string, castId: string, w: HomogWindow): SQL {
+  const rel = homogReleasedSql(companyId, castId, "kg");
+  const bp = Math.max(0, Math.floor(w.toleranceBp));
+  return sql`${homogKgUsedSql(companyId, castId, w.since)} <= ${rel} + ((max(${rel}, 0) * ${bp}) / 10000)`;
 }
 
 // ---------------------------------------------------------------------------

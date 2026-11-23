@@ -76,6 +76,14 @@ export function homogCutAllowance(input: {
   return Math.max(0, input.releasedPcs - input.cutPcs);
 }
 
+/**
+ * The log kg a floor-less press may take from the store against a cast's released kg (fix round 2): the
+ * press weighs its billets, the batch line was typed, so the weighed kg may run past by `toleranceBp`.
+ */
+export function homogKgCeilingG(releasedG: number, toleranceBp: number): number {
+  return releasedG + Math.floor((Math.max(0, releasedG) * Math.max(0, toleranceBp)) / 10_000);
+}
+
 // ---------------------------------------------------------------------------
 // #44 Billet cutting
 // ---------------------------------------------------------------------------

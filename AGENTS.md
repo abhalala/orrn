@@ -873,7 +873,11 @@ PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundr
   `settings.foundry.requireHomogenizing` (default off; off is fully off): one allowance per cast for every way logs leave the
   billet store. Pieces: a cut and a whole-log issue from the store use released pieces (`homogPcsUsedSql`, re-checked in the
   batch by `homogPcsAbort`). Kg: a press with no floor taking logs from the store is the close gate `billets_not_homogenized`
-  (released kg ≥ kg used by cuts, store issues and store press draws; re-checked in the close batch). 6xxx = a code that starts
+  (released kg + `homogToleranceBp` of it, default 200 = 2 %, ≥ kg used by cuts, store issues and store press draws;
+  re-checked in the close batch). Switching the setting on stamps `requireHomogenizingSince` (epoch ms,
+  `applyFoundrySettingsEdit`): only cuts, issues and press draws from then on count as used (a reopen counts by the time of the
+  row it reverses); null = count everything. A supervisor's way out of a wrong batch: raise the tolerance, or switch the setting
+  off and on (a fresh start), or off for the close. 6xxx = a code that starts
   with four digits from 6, optionally behind `AA`, `AW` or `EN AW` (`alloyNeedsHomogenizing`; the alloy master has no series).
   A load re-checks pieces on batches against the cast's logs in its batch.
 - **Reject registers (#43):** reason kinds `log_reject`, `billet_reject` (seeded per plant; "other" needs a note).

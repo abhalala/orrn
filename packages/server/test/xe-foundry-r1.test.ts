@@ -6,7 +6,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 
-import { auditLog, cast, castPlanLine, logReceipt, stockLedger } from "@orrn/db/schema";
+import { auditLog, cast, castPlanLine, company, logReceipt, stockLedger } from "@orrn/db/schema";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
@@ -392,5 +392,98 @@ describe("nits", () => {
     expect(c).toMatchObject({ year: 2026, month: 11 });
     await p.owner.foundry.casts.setSeriesStart({ start: { period: "2026-11", start: 120 } });
     await p.owner.company.updateSettings({ castSeriesStart: { period: "2026-11", start: 121 } });
+  });
+});
+
+describe("fix round 2: the homogenizing press gate never gets stuck", () => {
+  const ON = { settings: { foundry: { requireHomogenizing: true } } };
+  const switchOn = async (p: Plant) => {
+    await Bun.sleep(5);
+    await p.owner.company.updateSettings({ foundry: { requireHomogenizing: true } });
+    await Bun.sleep(5);
+  };
+
+  test("the press may weigh past the homogenized kg by the plant's tolerance (2 % by default)", async () => {
+    const p = await plant(ON);
+    const r = await p.receive({ pcs: 10, kgs: 2_000 });
+    // The batch line was typed as 305 kg; the press weighs 310.4 kg of the same logs (1.8 % over).
+    await homogenized(p, r.castId, 2, 305);
+    const run = await closeWorked(p, r.castId);
+    await p.owner.company.updateSettings({ foundry: { homogToleranceBp: 0 } });
+    expect((await p.as("supervisor").press.runs.preview({ id: run.runId })).gates).toContain("billets_not_homogenized");
+    await p.owner.company.updateSettings({ foundry: { homogToleranceBp: 200 } });
+    expect((await p.as("supervisor").press.runs.preview({ id: run.runId })).gates).toEqual([]);
+    await p.as("supervisor").press.runs.close({ id: run.runId });
+    expect(await pressRows(p, r.castId)).toEqual([[p.billetStoreId, -kg(310.4)]]);
+  });
+
+  test("switching on mid-cast: logs cut before the switch do not use up the logs homogenized after it", async () => {
+    const p = await plant();
+    const r = await p.receive({ pcs: 10, kgs: 2_000 });
+    await rack(p);
+    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 5, 1_000, 950));
+    await switchOn(p);
+    const [row] = await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, p.companyId));
+    expect(typeof (row!.settings as { foundry?: { requireHomogenizingSince?: unknown } }).foundry?.requireHomogenizingSince).toBe("number");
+    expect((await errOf(p.as("foundry").foundry.billets.cut(cutOf(r.castId, 1, 200, 190)))).message).toBe("Homogenize the logs of OL-1 before cutting them");
+    await homogenized(p, r.castId, 5, 1_000);
+    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 5, 1_000, 950));
+    expect(await placeKg(p, p.billetStoreId)).toBe(0);
+  });
+
+  test("switching on mid-cast: a floor-less press that drew before the switch can press the rest once it is homogenized", async () => {
+    const p = await plant();
+    const r = await p.receive({ pcs: 10, kgs: 2_000 });
+    const first = await closeWorked(p, r.castId);
+    await p.as("supervisor").press.runs.close({ id: first.runId });
+    await switchOn(p);
+    const second = await closeWorked(p, r.castId);
+    expect((await p.as("supervisor").press.runs.preview({ id: second.runId })).gates).toContain("billets_not_homogenized");
+    await homogenized(p, r.castId, 2, 400);
+    expect((await p.as("supervisor").press.runs.preview({ id: second.runId })).gates).toEqual([]);
+    await p.as("supervisor").press.runs.close({ id: second.runId });
+    expect(await pressRows(p, r.castId)).toEqual([
+      [p.billetStoreId, -kg(310.4)],
+      [p.billetStoreId, -kg(310.4)],
+    ]);
+  });
+});
+
+describe("fix round 2 nits", () => {
+  test("2: a floor-less close racing an issue from the rack never takes the rack below zero", async () => {
+    const p = await plant();
+    const r = await p.receive({ pcs: 10, kgs: 2_000 });
+    const rackId = await rack(p);
+    await p.as("foundry").foundry.billets.cut(cutOf(r.castId, 2, 316, 300));
+    const p2 = (await p.as("manager").press.lines.create({ code: "P2", name: "Press 2" })).id;
+    const floor2 = await floor(p, p2, "FLOOR-P2");
+    const run = await closeWorked(p, r.castId);
+    const [closed, issued] = await Promise.all([
+      errOf(p.as("supervisor").press.runs.close({ id: run.runId })),
+      errOf(p.as("foundry").foundry.billets.issue({ castId: r.castId, pressLineId: p2, fromLocationId: rackId, pcs: 18, kgG: kg(300) })),
+    ]);
+    expect([closed.code, issued.code]).toContain("OK");
+    const rackKg = await placeKg(p, rackId);
+    expect(rackKg).toBeGreaterThanOrEqual(0);
+    const fromRack = (await pressRows(p, r.castId)).filter(([loc]) => loc === rackId).reduce((t, [, q]) => t - Number(q), 0);
+    const toFloor = await placeKg(p, floor2);
+    expect(rackKg).toBe(kg(300) - toFloor - fromRack);
+    expect(toFloor === 0 || fromRack === 0).toBe(true);
+  });
+
+  test("3: a press floor holding +A of one cast and -A of another cannot be retired or retyped", async () => {
+    const p = await plant();
+    const a = await p.receive({ pcs: 10, kgs: 2_000 });
+    const b = await p.receive({ pcs: 10, kgs: 2_000 });
+    const floorId = await floor(p);
+    await p.as("foundry").foundry.billets.issue({ castId: a.castId, pressLineId: p.pressLineId, fromLocationId: p.billetStoreId, pcs: 2, kgG: kg(310.4) });
+    const run = await closeWorked(p, b.castId);
+    await p.as("supervisor").press.runs.close({ id: run.runId });
+    expect(await placeKg(p, floorId)).toBe(0);
+    expect(await errOf(p.as("manager").stock.locations.update({ id: floorId, active: false }))).toEqual({
+      code: "BAD_REQUEST",
+      message: "Location FLOOR-P1 still holds stock; move it out before retiring the location",
+    });
+    expect((await errOf(p.as("manager").stock.locations.update({ id: floorId, kind: "billet_rack" }))).code).toBe("BAD_REQUEST");
   });
 });

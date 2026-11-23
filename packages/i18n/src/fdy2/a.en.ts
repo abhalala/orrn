@@ -19,7 +19,7 @@ export const fdy2AEn = {
     title: "Foundry",
     intro: "How the foundry cuts logs.",
     requireHomogenizing: "Homogenize 6xxx logs before cutting",
-    requireHomogenizingHint: "On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch.",
+    requireHomogenizingHint: "On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch. Logs used before you switch it on do not count.",
     saved: "Foundry setting saved",
     saveFailed: "Could not save the foundry setting",
   },

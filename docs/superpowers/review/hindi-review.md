@@ -8670,7 +8670,7 @@ Please check, Lalubhai:
 | `settings.title` | Foundry | फाउंड्री |
 | `settings.intro` | How the foundry cuts logs. | फाउंड्री में लॉग कैसे कटते हैं। |
 | `settings.requireHomogenizing` | Homogenize 6xxx logs before cutting | कटाई से पहले 6xxx लॉग होमोजनाइज़ करें |
-| `settings.requireHomogenizingHint` | On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch. | चालू: 6xxx अलॉय के लॉग उतने ही पीस कटते हैं जितने रिलीज़ हुए होमोजनाइज़िंग बैच से निकले। |
+| `settings.requireHomogenizingHint` | On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch. Logs used before you switch it on do not count. | चालू: 6xxx अलॉय के लॉग उतने ही पीस कटते हैं जितने रिलीज़ हुए होमोजनाइज़िंग बैच से निकले। चालू करने से पहले इस्तेमाल हुए लॉग नहीं गिने जाते। |
 | `settings.saved` | Foundry setting saved | फाउंड्री सेटिंग सेव हो गई |
 | `settings.saveFailed` | Could not save the foundry setting | फाउंड्री सेटिंग सेव नहीं हुई |
 | `homog.title` | Homogenizing | होमोजनाइज़िंग |

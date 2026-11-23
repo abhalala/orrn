@@ -1,4 +1,4 @@
--- XE parity lane FOUNDRY (rows 41-47, 50): homogenizing batches, bought-in logs, billet cutting and issue, reject registers, casting plan, typical charge chemistry. Additive: eight new tables, three new columns.
+-- XE parity lane FOUNDRY (rows 41-47, 50): homogenizing batches, bought-in logs, billet cutting and issue, reject registers, casting plan, typical charge chemistry. Additive: nine new tables, three new columns.
 CREATE TABLE `billet_cut` (
 	`id` text PRIMARY KEY NOT NULL,
 	`company_id` text NOT NULL,

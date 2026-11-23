@@ -49,6 +49,8 @@ import {
   castAtAbort,
   homogLeft,
   homogPcsAbort,
+  homogWindow,
+  type HomogWindow,
   keyedBatch,
   openFloorReplay,
   pressFloorFor,
@@ -629,11 +631,12 @@ async function soleRack(ctx: Ctx): Promise<{ id: string; code: string }> {
  * The homogenizing gate for logs leaving the billet store (#41, fix round 1): on only when the plant
  * setting is on and the cast is 6xxx. `pcs` = homogenized log pieces not yet cut or issued whole.
  */
-async function homogGate(ctx: Ctx, c: { id: string; alloy: string | null; source: "melt" | "bought_in" }): Promise<{ on: boolean; pcs: number }> {
+async function homogGate(ctx: Ctx, c: { id: string; alloy: string | null; source: "melt" | "bought_in" }): Promise<{ on: boolean; pcs: number; w: HomogWindow }> {
   const settings = readFloorSettings(await companySettings(ctx.db, ctx.companyId));
+  const w = homogWindow(settings.foundry);
   const on = homogCutAllowance({ required: settings.foundry.requireHomogenizing, alloy: c.alloy, source: c.source, releasedPcs: 0, cutPcs: 0 }) !== null;
-  if (!on) return { on, pcs: Number.POSITIVE_INFINITY };
-  return { on, pcs: Math.max(0, (await homogLeft(ctx.db, ctx.companyId, c.id)).pcs) };
+  if (!on) return { on, pcs: Number.POSITIVE_INFINITY, w };
+  return { on, pcs: Math.max(0, (await homogLeft(ctx.db, ctx.companyId, c.id, w)).pcs), w };
 }
 
 type CutAnswer = { id: string; endG: number; yieldBp: number };
@@ -761,7 +764,7 @@ const billets = router({
           castAtAbort(ctx.db, ctx.companyId, c.id, from.id),
           foundryAbort(ctx.db, ctx.companyId, sql`not ${activePlaceSql(ctx.companyId, to.id, ["billet_rack"])}`),
           // Two cuts at once never cut more logs than came out of released batches.
-          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id)] : []),
+          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id, gate.w)] : []),
           auditInsert(ctx, {
             id: replay?.id,
             action: "foundry.billets.cut",
@@ -837,7 +840,7 @@ const billets = router({
       if (!floor) bad(`Add a press floor location for ${line.code} first (Masters → Locations)`);
       const from = await billetPlace(ctx.db, ctx.companyId, input.fromLocationId, ["billet_store", "billet_rack"]);
       // Whole logs from the store to a press pass the same homogenizing gate as a cut (a rack holds cut billets, already gated).
-      const gate = from.kind === "billet_store" ? await homogGate(ctx, c) : { on: false, pcs: Number.POSITIVE_INFINITY };
+      const gate = from.kind === "billet_store" ? await homogGate(ctx, c) : { on: false, pcs: Number.POSITIVE_INFINITY, w: { since: 0, toleranceBp: 0 } };
       const homogRefusal = (allowed: number): never =>
         bad(allowed === 0 ? `Homogenize the logs of ${c.number} before issuing them` : `Only ${allowed} logs of ${c.number} have been homogenized and not cut or issued`);
       if (gate.on && input.pcs > gate.pcs) homogRefusal(gate.pcs);
@@ -868,7 +871,7 @@ const billets = router({
           }),
           castAtAbort(ctx.db, ctx.companyId, c.id, from.id),
           foundryAbort(ctx.db, ctx.companyId, sql`not ${activePlaceSql(ctx.companyId, floor!.id, ["press_floor"])}`),
-          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id)] : []),
+          ...(gate.on ? [homogPcsAbort(ctx.db, ctx.companyId, c.id, gate.w)] : []),
           auditInsert(ctx, {
             id: replay?.id,
             action: "foundry.billets.issue",

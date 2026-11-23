@@ -7,6 +7,8 @@ import { cast } from "@orrn/db/schema/foundry";
 import { pressRun } from "@orrn/db/schema/press";
 import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
 import {
+  applyFoundrySettingsEdit,
+  HOMOG_TOLERANCE_BP_MAX,
   MAX_SHIFT_NAME,
   MAX_SHIFTS,
   MAX_STANDARD_TEXT,
@@ -202,8 +204,13 @@ export const companyRouter = router({
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
         /** W3-AG-S: ageing switches (manualLoad, split, requireForPack, requireAgeing, requireAgeingSince). */
         ageing: ageingSettingsInput.optional(),
-        /** XE FOUNDRY (#41): 6xxx logs are cut only after a released homogenizing batch (default off). */
-        foundry: z.object({ requireHomogenizing: z.boolean() }).optional(),
+        /**
+         * XE FOUNDRY (#41): 6xxx logs are cut only after a released homogenizing batch (default off).
+         * Switching it on stamps the moment (fix round 2); `homogToleranceBp` is the press weighing gap.
+         */
+        foundry: z
+          .object({ requireHomogenizing: z.boolean().optional(), homogToleranceBp: z.number().int().min(0).max(HOMOG_TOLERANCE_BP_MAX).optional() })
+          .optional(),
         /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
         orderLeadDays: z.number().int().min(0).max(120).optional(),
         /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
@@ -353,7 +360,8 @@ export const companyRouter = router({
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
       if (input.foundry !== undefined) {
-        patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), requireHomogenizing: input.foundry.requireHomogenizing };
+        const next = applyFoundrySettingsEdit(readFloorSettings(row.settings).foundry, input.foundry, now().getTime());
+        patch.foundry = { ...((row.settings?.foundry ?? {}) as Record<string, unknown>), ...next };
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
       if (input.morningSummary !== undefined) {

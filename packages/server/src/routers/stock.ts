@@ -195,6 +195,9 @@ const locationsRouter = router({
       // XE FOUNDRY (fix round 1): a press floor's stock belongs to its press. Moving the floor to another
       // press needs it empty of every cast (a negative cast counts too: count the floor first).
       const repressing = !retyping && existing.kind === "press_floor" && floorLine !== undefined && floorLine !== existing.pressLineId;
+      // Fix round 2: a floor or rack may hold +A of one cast and -A of another (a press can draw past what
+      // was issued), so retiring or retyping one needs every cast at 0, not just the total.
+      const perItem = repressing || ((retiring || retyping) && (existing.kind === "press_floor" || existing.kind === "billet_rack"));
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const mine = and(eq(location.id, existing.id), eq(location.companyId, ctx.companyId), eq(location.serverSeq, seq));
       try {
@@ -207,7 +210,7 @@ const locationsRouter = router({
                 eq(location.id, existing.id),
                 eq(location.companyId, ctx.companyId),
                 retiring || retyping ? locationIsEmpty(ctx.db, ctx.companyId, existing.id) : undefined,
-                repressing
+                perItem
                   ? sql`not exists (select 1 from ${stockLedger} fl where fl.company_id = ${ctx.companyId} and fl.location_id = ${existing.id}
                       group by fl.item_kind, fl.item_ref having sum(fl.qty_g) <> 0)`
                   : undefined,
