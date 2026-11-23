@@ -161,7 +161,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 - Do **not** use `db.transaction()` on Cloudflare D1 — Drizzle emits SQL `BEGIN`, which D1 rejects.
 - Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/server/lib/atomic`) for writes that must succeed or fail together. `atomicBatchLast` returns the rows of the last statement (a SELECT).
-- `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable). The same holds for numbers from `nextDocNumber` / `allocateDocNumbers`.
+- `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable). The same holds for numbers from `nextDocNumber` / `allocateDocNumbers`. `docNumberInBatch` is the gap-free exception (work orders, `maint_wo`): it predicts the next number and returns a bump plus a guard to put in the document's own batch, so a failed batch takes no number; a stale prediction fails the batch (`isDocNumberStale`) and the caller reads again (work orders: at most 5 tries, then CONFLICT, never the raw D1 error).
 - **At most 100 bound parameters per statement** (`D1_MAX_PARAMS` in `packages/db/src/chunk.ts`). `IN (...)` lists go through `mapInChunks` / `chunk` with `IN_LIST_CHUNK` (90); multi-row inserts use `rowsPerStatement(columnsPerRow)` or `pushChunkedInserts`. Never bind an id list into one statement; aggregate with GROUP BY instead. `packages/server/test/d1-limits.test.ts` exercises the limit.
 - Name every bound column of a multi-row INSERT explicitly. Drizzle binds a JS default (`time_unconfirmed`, `source`, ...) for a column a row leaves out, which silently breaks the chunk arithmetic (seen at 7 dies in `pressRunInserts`).
 - No transactions means every multi-row write needs a guard that makes a lost race fail the whole batch. The pattern: the guard lives in the statement's own WHERE (not only in a read before it), and the batch ends with an abort statement (`batchAbortUnless(...)`, or a module's own `dieRoomAbortUnless` / `foundryAbort` / `isStoreDrawAbort` / `isDieRoomAbort`) that violates a NOT NULL unless every statement landed. Catch the abort, re-read, and give the precise refusal (CONFLICT or BAD_REQUEST); `approval.decide` does the same through `explainApplyAbort`.
@@ -222,7 +222,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 ## Document numbers (doc series)
 
 - Plant document numbers (bundle, cast, PL, lot, MRS/GRN, SO, press run, D/C note, count) come
-  only from `nextDocNumber` / `allocateDocNumbers` (`packages/server/src/lib/docNumber.ts`), backed by
+  only from `nextDocNumber` / `allocateDocNumbers` / `docNumberInBatch` (`packages/server/src/lib/docNumber.ts`), backed by
   the `doc_series` counter per (company, doc_type, period). Never build a number client-side or
   with `nextCompanySeq` (that is the `serverSeq` sync cursor and the legacy `BG-` group code).
 - Periods are computed on the company wall clock (`settings.timezone`, default `Asia/Kolkata`):
@@ -712,6 +712,69 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
   so the screen offers "open the melt" instead of Cancel.
 
+## Store buying: indents, purchase orders, GRN against PO, valuation (XE store rows 69 to 73)
+
+- Migration `0061_xe_store`. Tables `store_indent` / `store_indent_line` / `store_po` / `store_po_line`
+  / `store_opening_rate` in `packages/db/src/schema/storeBuy.ts`; `store_item.min_milli` / `reorder_milli`;
+  `store_txn` gains `rate_paise` (nullable), `value_paise` and `rated_milli` (not null, default 0),
+  `rate_pending` (boolean, default false), `po_line_id`, `rejected_milli`.
+  Doc types `indent` (`IND-{n}`) and `store_po` (`PO-{n}`) through `nextDocNumber`.
+- Routers nest under `store` (so the store module gate applies): `store.indents` (`routers/storeIndent.ts`),
+  `store.po` (`routers/storePo.ts`), `store.valuation` / `store.settings` / `store.belowMinimum`
+  (`routers/storeValuation.ts`). Pure rules live in `packages/domain/src/store.ts`.
+- Actions: `indent.raise` (department heads, store, office, manager, admin), `indent.approve` (manager,
+  admin), `po.view` (+ accountant, storekeeper), `po.manage` (office, manager, admin), `store.value`
+  (office, manager, admin, accountant), `store.rate` (office, manager, admin, accountant: the rate is
+  settled by the bill, not at the gate). Indent: open -> approved | rejected (note required) ->
+  ordered (a PO made from it) | cancelled. PO: draft (editable) -> issued -> part_received -> closed;
+  cancel only with no live GRN that took goods in (the indent goes back to approved); close short by hand.
+  `store.indents.fromReorder` holds "no live indent with this item" in the header INSERT's WHERE plus
+  `abortBatchUnlessChanged`, so two clicks give one indent (the loser gets the live one back, `existing`).
+- GRN against PO: `store.receive` takes `poLineId`, `ratePaise` and `rejectedMilli`. The room check
+  (`poLineReceiveGuard`, ordered x (1 + tolerance) minus live GRNs) is in the document INSERT's WHERE, so
+  racing GRNs cannot overrun; `poStatusSync` runs in the same batch, and again on `store.cancel`. An order
+  a full delivery closed (`closed_by` null) still takes a top-up within the tolerance (`poTakesDeliveries`,
+  `poTakesDeliveriesSql`); one closed short by hand takes none. Tolerance:
+  `company.settings.storePoOverReceiptBp` (default 500 = 5 %, max 5000), written with `settingsPatchSql`.
+  `qtyMilli` may be 0 when `rejectedMilli` > 0: a fully rejected delivery is recorded (vendor history) with
+  no stock and no value, and does not count as goods in on the order.
+- Rates: against a PO line the line's rate holds; a different rate, or any rate on a GRN with no PO,
+  needs `store.rate` (FORBIDDEN otherwise; the audit keeps `ratePaise` and `poRatePaise`). With no rate the
+  GRN is `rate_pending`: valued at the item's average when it lands (the average does not move), or unrated
+  at 0 when nothing rated is held. `store.valuation.setGrnRate` (store.rate) sets it later, only while no
+  live MRS of the item was written after the GRN (`storeOutSinceSql`, in the UPDATE's WHERE too).
+- Valuation (weighted average, `lib/storeValue.ts`): every `store_txn.value_paise` and `rated_milli` is
+  frozen at write. The average is held value over RATED held quantity, so stock with no rate never pulls it
+  down. MRS: takes rated stock first, valued at value x part / rated, computed in SQL inside
+  `storeTxnInsert` (`issueTakeSql`); the issue that takes all rated stock takes all the value. Old GRNs from
+  before 0061 are unrated (shown as "rate not set"); `store.valuation.setOpeningRate` (store.rate) inserts a
+  `store_opening_rate` row that rates the unrated quantity held at that moment (computed in the INSERT) and
+  closes any pending GRN it covered. Held qty/value/rated sum live txns plus opening rates; nothing is
+  clamped and the month report adds up (opening + in - out + rated = closing).
+- Cancel keeps values exact: `storeCancelRows` also requires, group-wide, that no live MRS of the item was
+  written after a group GRN that carries a rate or a value (commit order by `rowid`: `created_at` and
+  `server_seq` are read before the batch), and that the unrated quantity held stays >= 0 (an opening rate
+  already rated it). An unrated GRN (every GRN from before 0062, a pending one with no average to borrow)
+  holds no money, so it still cancels after later issues. Refusal, read time and after a lost write
+  (`diagnoseStoreCancel`): "Stock from this delivery has already been issued. Record a return to the vendor
+  instead." A GRN that accepted 0 is never blocked. The rowid order survives a backup restore because
+  `exportCompanyPayload` reads every table `order by rowid` and the restore inserts in payload order.
+- Exchange: value follows units (`exchangeInTake` = `issueTake` over the old leg): the new leg carries the
+  old leg's money on as many units as came back; with fewer in than out the rest is spent, so the average
+  does not move.
+- GRN rate from someone without `store.rate`: `ratePaise: null` is the same as omitted (pending with no PO,
+  the order's rate against a PO line); any other rate that differs from the PO line is FORBIDDEN.
+- MAINT and others read an issue's value with `storeIssueValuePaise(db, companyId, storeTxnId)` (a number;
+  0 for a non-MRS, cancelled, missing or other plant's entry). Issues take rated stock first, so an issue
+  bigger than the rated stock is only partly valued (the unrated part counts at 0). Pass `{ detail: true }`
+  as a 4th argument for `{ valuePaise, qtyMilli, ratedMilli, fullyRated }`; show a spares cost as complete
+  only when `fullyRated`. Rates are always per store unit (per kg, never converted to the plant's weight
+  unit).
+- Web: `/store/buy` (tabs indents, orders, value: rate not set, deliveries waiting for a rate, opening
+  rate), `/store/po/new`, `/store/po/$id` (+ `edit`, lazy A4 `print`), reorder levels on the item page, PO
+  line / rate (read-only without store.rate) / rejected on the GRN form, Today tile `TodayStoreLowTile`
+  (store.txn, store module on) with one-click `store.indents.fromReorder`. Strings in i18n `store2`.
+
 ## Foundry (casts, melts, spectro, close-out)
 
 **Foundry web (W2-FD-W):** `/casts` (list, trace box), `/casts/new`, `/casts/$id` (tail panel, melts, trace tab, cost card for purchase readers, close and cancel), `/casts/$id/melt/$meltId` (the stepper; `$meltId` is a draft, a locked melt as a read-only sheet with the correction request, or `new`), `/casts/$id/certificate` (staff copy), `/casts/inbox`, `/foundry/stock`, `/masters/furnaces`, `/masters/alloys`, `/reports/foundry-yield`, the Today Foundry tile and the Foundry nav entry. A chemical that is not in the store is typed with one of the store's units (`CHEMICAL_UNITS` in `melt-form.ts`, equal to `storeUnits`; the server refuses g, l, ml and pcs; BACKLOG 78). Rules the tests hold: `@orrn/i18n/refusal-foundry` is imported in `features/foundry/errors.ts` (every foundry screen reaches it through `foundryError` / `ErrorLine`; never show `error.message`) and in `features/approvals/review-sheet.tsx` (the approvals sheet shows foundry refusals without loading a foundry screen); any other module that shows a foundry refusal imports it the same way, the lock gates come from the server's `melts.preview` of the SAVED draft (a spectro result or a save refreshes it) and are said through `GATE_KEY`, every figure stored (burn, yield, verdict, tail) is the server's (`melt-form.ts` only previews while typing and never sends one), selects inside a `Field` use `FieldSelect` (a bare `NativeSelect` has no accessible name), search parsers live in the no-import `features/foundry/search.ts`, and `foundry.*` is a lazy dictionary (the floor parts carry gu: `GU_FLOOR_NAMESPACES`; the certificate, masters and yield report read English in gu). `@orrn/domain` declares `sideEffects: false` so its foundry maths used by lazy screens does not enter the `/` closure. The `/preview/foundry*` URLs redirect to the real screens; the fixture components are gone.
@@ -850,6 +913,70 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   across the range, biggest first), and `lotsG` / `streamsG` on every row and in the total; the report shows
   "Metal in by source" and the CSV carries "From lots kg" / "From return streams kg".
 
+## Foundry depth (XE parity lane FOUNDRY, rows 41-47 and 50; migration 0063)
+
+Rides the `foundry` module (no new module key; ROUTER_MODULE `foundry` gates every mutation). Tables in
+`packages/db/src/schema/foundryDepth.ts`, routers `routers/foundryDepth.ts` (`foundry.homog`, `foundry.logs`,
+`foundry.billets`, `foundry.rejects`) and `routers/foundryPlan.ts` (`foundry.chargeMix`, `foundry.casts.dataSheet`),
+shared SQL in `lib/foundryDepth.ts`, pure rules in `@orrn/domain` `foundryDepth.ts`. Actions (append-only in
+PLANT_ACTIONS): `foundry.homog`, `foundry.homogRelease`, `foundry.logs`, `foundry.billets`, `foundry.reject`, `foundry.plan`.
+
+- **Logs vs billets are told apart by location kind**, not by item: the `billet` item (item_ref = cast id) sits at
+  `billet_store` (logs as cast), `billet_rack` (cut billets) or `press_floor` (one press's billets; `location.press_line_id`
+  is required for that kind, another plant's press is Not found). Voucher types `log_receipt`, `billet_cut`, `billet_issue`,
+  `foundry_reject`. A cut debits the store and credits the rack (billets) and the end-cut stream (scrap, default PLANT-SCRAP);
+  an issue moves rack to a press floor; a reject debits a place and credits a return stream (scrap).
+- **Cast tail** = melt logs + bought-in receipts - on hand - press credited - foundry out (`castFoundryOutSql`: the net of
+  `billet_cut` and `foundry_reject` billet rows). `castCloseCheck` counts foundry out as credited. Never post a cut or a
+  reject without its paired credit, or the tail drifts.
+- **Press close draws where the billets are** (`pressDraws`): from the run's press floor when an active `press_floor`
+  exists for the line, whatever it holds (floor reality wins: a short floor goes negative, `press.runs.preview` and `close`
+  return `floorShort` and the screen warns, never blocks; a count corrects it). With no floor: the cast's kg on the active
+  racks first (each rack row guards its own kg at write time), then the billet store for the rest; a plant with no rack
+  stock of the cast draws everything from the store as before. No setting: making a press floor is the switch. A floor that
+  holds any cast (negative included) cannot move to another press (`stock.locations.update`).
+- **Melt cancel and correction** reverse the melt's logs at the billet store, so they also need the store (not only the cast
+  total) to hold the melt's logs after cuts or issues (`meltLogsPlace`, read and in the UPDATE).
+- **Bought-in logs (#42):** `logs.receive` makes a closed `cast` with `source = 'bought_in'` (number = the receipt number `OL-n`,
+  doc type `log_receipt`), the `log_receipt` row and a + ledger row at the billet store, in one batch. Melts, close and cancel
+  refuse it because it is closed. The mill test certificate rides the die-files R2 bucket ticket flow
+  (`{co}/dies/mtc-{receiptId}/{fileId}`, purged with the plant by `dieFilesPurge.ts`); `mtcUrl` mints the signed link.
+- **Homogenizing (#41):** `homog_batch` (doc type `homog`, `HB-n`) on a furnace of `kind = 'homogenizing'` (melts refuse that
+  kind; `seedDefaults` only checks melting furnaces). One `in_furnace` batch per furnace (partial unique index). Soak is ageing's
+  `soakCompliance` with a 60 min reading hold and 30 min over-temperature grace (`homogSoak`). `out` freezes the verdict;
+  `release` passes an ok soak, holds a failed one unless a note is given. No ledger rows. Plant setting
+  `settings.foundry.requireHomogenizing` (default off; off is fully off): one allowance per cast for every way logs leave the
+  billet store. Pieces: a cut and a whole-log issue from the store use released pieces (`homogPcsUsedSql`, re-checked in the
+  batch by `homogPcsAbort`). Kg: a press with no floor taking logs from the store is the close gate `billets_not_homogenized`
+  (released kg + `homogToleranceBp` of it, default 200 = 2 %, ≥ kg used by cuts, store issues and store press draws;
+  re-checked in the close batch). Switching the setting on stamps `requireHomogenizingSince` (epoch ms,
+  `applyFoundrySettingsEdit`): only cuts, issues and press draws from then on count as used (a reopen counts by the time of the
+  row it reverses); null = count everything. Released pieces and kg have no time bound (lenient). The way out of a wrong batch
+  (`settings.update`, owner/admin): switch the setting off and on (forgets earlier use, not a too-light released kg), turn it off for
+  the close, or raise `homogToleranceBp` (API only, no field on the card yet). 6xxx = a code that starts
+  with four digits from 6, optionally behind `AA`, `AW` or `EN AW` (`alloyNeedsHomogenizing`; the alloy master has no series).
+  A load re-checks pieces on batches against the cast's logs in its batch.
+- **Reject registers (#43):** reason kinds `log_reject`, `billet_reject` (seeded per plant; "other" needs a note).
+- **Charge mix (#47):** `suggestChargeMix` is a two-phase simplex (`solveLp`) on typical chemistry per scrap item and per
+  return stream (`charge_chemistry`, edited with masters.publish at `/foundry/chemistry`). It never writes a melt; the web
+  panel on the charge step is display only. Cost (lot rates; streams cost 0) is sent only to reports.read or purchase.receipt.
+- **Casting plan (#46):** `routers/foundryCastPlan.ts` (`foundry.castPlan`). `propose` sums REG's `planBilletNeed` per
+  production press plan (draft or released, window starting in the range, at most 40 plans and 31 days) on the plan's first
+  plant day, less the billets the plan's logged runs already used (they left the stock too), then `castingPlan` takes off
+  billet-item stock by alloy and metal to come (accepted lines in full; an opened line less what its cast MADE: billet rows of
+  voucher `melt`, `melt_cancel`, `log_receipt`, never cuts or issues, which only move billets). Cast size = the largest active melting furnace. `accept`/`update`/`drop` are
+  `foundry.plan` (`accept` takes a `clientRequestId`); `open` is `cast.enter` and opens the cast (doc series, return streams, `cast.open` audit) in the batch that
+  marks the line opened, aborting if the line is no longer accepted. Lines with no alloy are reported, never planned.
+- **Replay keys:** `logs.receive`, `billets.cut`, `billets.issue`, `rejects.create` and `castPlan.accept` take a
+  `clientRequestId` (audit-row record, `openFloorReplay` before any check or doc number, `keyedBatch` answers the first result
+  even when a duplicate trips a stock abort). The web forms send `useRequestKey` keys (`features/foundry/request-key.ts`). A
+  bought-in cast (`source = 'bought_in'`) never blocks the cast book's start for its month.
+- **Buddy:** every foundry-depth write is a `paths` deny in `lib/buddy/decisions.ts` until reviewed for drafts.
+- **Web:** `/foundry/homog`, `/foundry/homog/$id`, `/foundry/logs`, `/foundry/billets` (`tab=stock|cut|issue`),
+  `/foundry/rejects` (`kind=log|billet`, `from`, `to`), `/foundry/chemistry`, `/casts/$id/sheet` (A4 data sheet, a paper:
+  `paper-guard.test.ts`), linked from the `/casts` header. Strings in the `fdy2` namespace (`packages/i18n/src/fdy2`, en+hi).
+  Refusals go through `ErrorLine` and `@orrn/i18n/refusal-foundry` like every foundry screen.
+
 ## Ageing (contracts W3-AG-C, server W3-AG-S, web W3-AG-W)
 
 D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky` @1ebdd0d7 (and `wt/W2-FD-S-omafranky` @ddf3bd9c for the foundry); both are superseded, not merged (D32: the hub's lanes win; 8 satellite test cases were ported into W2-FD-S). Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).
@@ -880,6 +1007,17 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Refusals: `qaRefusal(code)` (`lib/qaRefusals.ts`); the table is `@orrn/i18n/refusal-qa` (registers on import, not in `SERVER_REFUSALS`), checked by `refusal-qa.test.ts`. The quality screens (`features/qa/hooks.ts`), pack (`use-pack-server.ts`) and the foundry (`foundry/errors.ts`) import it. `qa.refusal` is in `GU_FLOOR_NAMESPACES`; the rest of `qa` is office words (en and hi).
 - Web (`apps/web/src/features/qa`): `/qa?tab=waiting|holds|checks|instruments|lists|settings` (`search.ts`, plain parser), nav "Quality" (More, module `qa`). Flags on other screens render nothing and ask nothing without the module or a `qa.*` action (`flags.tsx`): Today tile, the press station line, the order line's alloy short note. Phone: not built (the phone hold screen is the sales hold).
 - Not built here: complaints (REG), test certificate print changes (the MTC is unchanged).
+
+## Maintenance (XE parity lane MAINT, rows 63 to 68)
+
+- Module key `maintenance` (`ROUTER_MODULE.maint`), router `maint`, migration `0062_xe_maint`, namespace `maint` (en + hi; gu has only `nav.maintenance` in `gu-more/maint.ts`). Pure rules in `@orrn/domain` `maintenance.ts` (`maintWoNext`, `pmDue`, `readingFlag`, `reliability`, `labourPaise`, `monthRange`).
+- Tables (`schema/maintenance.ts`): `maint_asset` (code unique per plant, case-insensitive; optional link `link_kind` press | furnace | oven + `link_id` to the existing master, one asset per master; never a copy of the master), `maint_plan` (days and/or run hours, `base_at` is when the plan last counted from), `maint_work_order` (kind breakdown | preventive | condition; a work order from an out-of-limit reading is `condition`, never a breakdown. `WO-n` per financial year, doc type `maint_wo`, reserved inside the insert batch with `docNumberInBatch` so a lost race leaves no gap; one not-cancelled work order per downtime entry and per reading, and one live per plan, all partial unique indexes, so a second tap returns the first with `replayed: true`; a cancelled one frees its source and clears the reading's `work_order_id`), `maint_wo_spare` (MAINT's own link to `store_txn`, one work order per store entry; `store.ts` is never edited), `maint_reading_kind` (limits in thousandths), `maint_reading` (limits snapshot + flag; `source` hand | device), `maint_setting` (labour rate, paise per hour).
+- Actions: `maint.view` (admin, manager, supervisor, office, storekeeper, operator, press, foundry), `maint.manage` (admin, manager, supervisor: register, plans, limits, labour rate, money on the report), `maint.workorder` (admin, manager, supervisor, operator, press, foundry: raise, edit, move, link spares, take readings). Reads call `assertModule(ctx, "maintenance")` themselves; `<Can>` knows nothing of modules, so a query on a shared screen (Today, the press station) is enabled only through `maintReady(me, actions)` in `features/maintenance/model.ts`.
+- Run hours are real, from `base_at` (`lib/maintenance.ts planUsageMinutes`): press runs (not void) minus each run's cuts, furnace melts (`locked`, preheat or charging start to casting end), ageing batches (in to out, not void). A press run's cuts are its downtime entries and its stop-to-resume pauses, each clipped to the run's own span (a downtime logged after the run stopped takes nothing off) and merged so overlaps count once (`mergedMinutes`). There is no pause table: a pause runs from the run's latest `press_run.stop` audit row to each `press_run.resume` audit row (server times, the same clock as `stopped_at`); a resume with no stop row before it takes nothing off, so a plan can only come due earlier. The press queries (`pressUsageSql`) fix their join order by hand because prod D1 has no ANALYZE stats: `maint_plan CROSS JOIN maint_asset CROSS JOIN press_run CROSS JOIN` downtime or audit_log; press_run is read as a range on `press_run_company_line_end_idx` with `coalesce(r.stopped_at, 9007199254740991) > +p.base_at` (the `+` drops affinity, or SQLite skips the expression index), audit_log per run on `audit_subject_idx` with `+` on `at`; a test pins the plans with EXPLAIN QUERY PLAN. Due days are plant calendar days in the company timezone (`pmDue` with `dayOf`: the base's plant day plus the interval, so a clock change never moves it): due today on the due day, overdue from the next plant day; run hours left round up while time is left. An hours plan needs a linked asset whose kind matches the link (press asset to a press, and so on); while an active one exists the link cannot be removed or pointed at another master (no carry-over of hours). Write-time guards (`batchAbortUnlessOn`, refused with no audit row): the asset update re-checks for an active hours plan, an hours plan create/update re-checks the asset still has the link it was checked against, a unit change re-checks for readings, `readings.record` lands only while its kind is still on with the same unit and limits (else `kindOff` or `READING_KIND_CHANGED`), and `spares.link`/`unlink` only while the work order is not cancelled. `plans.due` and `plansDue` have no row cap; `assets.get` takes due figures from the plan rows it returns (`dueOfPlan`). `assets.list` returns at most 500 (`ASSET_LIST_CAP`) and takes `q` (code or name contains, server side). `addFromMasters` leaves out masters already linked before its limit. Asset dates and a plan's `startOn` must be real calendar days. A preventive work order marked done resets its plan's `base_at` in the same batch, guarded on the move landing; editing the finish time of the plan's last done work order moves `base_at` too (the audit row says `planReset` only when the plan really moved). A move to in progress or done refuses effective times that run backwards (start after finish). Start and finish times may not be in the future (5 minutes of clock skew allowed); a done work order cannot clear them. `plans.update` carries `serverSeq`; switching a plan back on restarts `base_at` from now and clears `last_work_order_id`. A reading kind's unit is fixed once it has readings. Status moves only through `maintWoNext`; done needs the work done, cancel a reason; every edit carries `serverSeq` (CONFLICT, no audit row, on a stale save).
+- Spares: the work order screen issues through the existing `store.issue` (purpose `maintenance`, `refId` = work order id, its own `clientRequestId`) and then calls `maint.spares.link`. A storekeeper holds `store.txn` but not `maint.workorder`, so maintenance links it later from the candidates list. A cancelled store entry stays linked and shows as cancelled. Spares value is not counted yet (`valuePaise` null, `TODO(xe-store2)` until `storeIssueValuePaise` exists); the report shows quantity and entries only.
+- Report (`maint.reports.summary`, months bucketed on the plant clock, at most 12): a breakdown is one event, either a press downtime entry with reason `breakdown` on a linked press or a breakdown work order not made from one (never both); condition work orders are not breakdowns. Only closed breakdowns count (downtime stopped, work order done); open ones are listed per asset as `stillOpen` with their age and left out of every figure, their labour and spares entries too (a breakdown work order counts its labour and spares once done and, when made from a downtime entry, once that entry is stopped). Overlapping breakdowns are down time once (`reliability` merges the clipped spans). A breakdown counts wholly in the month it started (failures, MTTR = full repair length / failures); each month's downtime is clipped to the month; MTBF = (minutes in the month minus that downtime) / failures. Each source, the asset list too, reads at most 5,000 rows; past that `truncated` is true and the screen asks for fewer months. Labour cost only for `maint.manage`.
+- Device readings (row 68) are built, not live: `lib/maintDevice.ts` fixes the message shape and the pure mapping; no route writes `source: "device"` yet.
+- Web (`features/maintenance`): `/maintenance` (due plans, open work orders, breakdowns without a work order, readings outside limits), `/maintenance/assets`, `/maintenance/assets/$id` (details, plans, readings, history, spares), `/maintenance/work-orders` (`?status=&asset=`), `/maintenance/work-orders/$id` (moves, edit, spares), `/maintenance/report`. Today's tile (`today-tile.tsx`) and the press station's "Make work order" on a breakdown downtime entry (`station-breakdown.tsx`, online only, never in the outbox). Both show only once the plant has at least one maintenance asset (`maint.today` returns null and `workOrders.breakdowns` returns `hasAssets: false` while the register is empty), so a plant on the default "empty list = every module on" sees nothing new until someone sets maintenance up. Selects and text areas inside a `Field` use `field-controls.tsx` so the label is tied to the control. The demo reseed deletes every maintenance row before `doc_series`, or the next work order reuses WO-1. Spec `maintenance.spec.ts`, group A.
 
 # 10. Pack, stock and dispatch
 
@@ -928,7 +1066,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 
 - Floor writes that a bad network retries take an optional
   `clientRequestId` (`clientRequestIdSchema`): `bundle.createReceipt`, `dispatch.scan`,
-  `dispatch.addBundlesBySerial`, `stock.move`, `orders.create`, `count.start`, the store's receive / issue / exchange, and the
+  `dispatch.addBundlesBySerial`, `stock.move`, `orders.create`, `count.start`, the store's receive / issue / exchange, the
+  foundry's `logs.receive`, `billets.cut`, `billets.issue`, `rejects.create` and `castPlan.accept` (XE FOUNDRY), and the
   `dispatch.create` / `dieInstance.addReading` pair below. The write's own audit row is the record
   (`lib/requestReplay.ts`): its id comes from (company, kind, key), its meta carries the request
   fingerprint and the first answer. A repeat answers the first result with `replayed: true` and writes

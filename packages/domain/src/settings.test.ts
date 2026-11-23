@@ -40,6 +40,8 @@ describe("reason codes (C39: one master with a kind)", () => {
       "die_work",
       "melt_correct",
       "cast_tail",
+      "log_reject", // XE FOUNDRY #43
+      "billet_reject",
     ]);
     expect(isReasonCodeKind("downtime")).toBe(true);
     expect(isReasonCodeKind("threshold")).toBe(false);
@@ -86,10 +88,10 @@ describe("modules (FP-PF-07, C42)", () => {
   test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
     expect([...COMPANY_MODULES]).toEqual([
       "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "pricing",
-      "billing", "einvoice", "costing",
+      "maintenance", "billing", "einvoice", "costing",
     ]);
     expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll", "costing"]);
-    expect(STANDARD_MODULES).toHaveLength(13);
+    expect(STANDARD_MODULES).toHaveLength(14);
   });
   test("opt-in modules are off on an empty list and on only when named", () => {
     for (const m of ["billing", "einvoice", "costing"] as const) {

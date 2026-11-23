@@ -30,6 +30,7 @@ import {
   billetInputByCast,
   closeFigures,
   closeGates,
+  homogCutAllowance,
   readFloorSettings,
   skewUnconfirmed,
   theoreticalHintG,
@@ -74,6 +75,7 @@ import { applyTrialVerdictOnReturn } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
+import { castAt, homogKgWithinSql, homogLeft, homogWindow, pressDraws, type PressDraw } from "../lib/foundryDepth";
 import { can, type CompanyRole } from "../lib/permissions";
 import {
   billetUsableSql,
@@ -149,6 +151,7 @@ const GATE_TEXT: Record<CloseGateError, string> = {
   late_entry_unapproved: "This late entry is waiting for approval",
   downtime_open: "Stop the open downtime first",
   trial_result_missing: "Say whether the die trial passed or failed",
+  billets_not_homogenized: "Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first",
 };
 
 function gateError(errors: CloseGateError[]): never {
@@ -466,7 +469,50 @@ async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReaso
     billetOnHandByCastG,
     balanceWarnBp: floor.press.balanceWarnBp,
   });
-  return { children, errors, figures, castInfo, byCast, floor };
+  const depth = await billetDraws(ctx, run, children.billets, settings);
+  if (depth.notHomogenized.length > 0) errors.push("billets_not_homogenized");
+  return { children, errors, figures, castInfo, byCast, floor, draws: depth.draws, floorShort: depth.floorShort, homogGated: depth.homogGated, homog: depth.homog };
+}
+
+/** A cast the run's press floor holds less of than the run used (the close still logs; a count corrects it). */
+export type FloorShort = { castId: string; castNumber: string; floorCode: string; needG: number; haveG: number };
+
+/**
+ * XE FOUNDRY (#50, #41, fix round 1): where each cast's kg comes off at close (`pressDraws`), the
+ * floor-short warnings (never a gate: the floor's reality wins), and the homogenizing gate for logs a
+ * floor-less press takes straight from the billet store (on only with the plant setting, 6xxx casts).
+ */
+async function billetDraws(ctx: Ctx, run: LoadedRun, billets: readonly { castId: string; kgG: number }[], settings: Record<string, unknown>) {
+  const draws = new Map<string, PressDraw[]>();
+  const floorShort: FloorShort[] = [];
+  const homogGated: string[] = [];
+  const notHomogenized: string[] = [];
+  const inputByCast = billetInputByCast(billets);
+  const foundrySettings = readFloorSettings(settings).foundry;
+  const homog = homogWindow(foundrySettings);
+  if (inputByCast.size === 0) return { draws, floorShort, homogGated, notHomogenized, homog };
+  const store = await resolveBilletStore(ctx.db, ctx.companyId).catch(() => null);
+  const required = foundrySettings.requireHomogenizing;
+  for (const [castId, kgG] of inputByCast) {
+    const [c] = await ctx.db
+      .select({ number: cast.number, alloy: cast.alloy, source: cast.source })
+      .from(cast)
+      .where(and(eq(cast.id, castId), eq(cast.companyId, ctx.companyId)))
+      .limit(1);
+    if (!c) continue;
+    const d = await pressDraws(ctx.db, ctx.companyId, { pressLineId: run.pressLineId ?? null, store, castId, kgG });
+    draws.set(castId, d.draws);
+    if (d.floor) {
+      const haveG = await castAt(ctx.db, ctx.companyId, castId, d.floor.id);
+      if (haveG < kgG) floorShort.push({ castId, castNumber: c.number, floorCode: d.floor.code, needG: kgG, haveG });
+    }
+    const fromStoreG = d.draws.filter((x) => x.kind === "billet_store").reduce((t, x) => t + x.qtyG, 0);
+    if (fromStoreG > 0 && homogCutAllowance({ required, alloy: c.alloy, source: c.source, releasedPcs: 0, cutPcs: 0 }) !== null) {
+      homogGated.push(castId);
+      if (fromStoreG > (await homogLeft(ctx.db, ctx.companyId, castId, homog)).kgG) notHomogenized.push(castId);
+    }
+  }
+  return { draws, floorShort, homogGated, notHomogenized, homog };
 }
 
 /** The copy's latest kg/12ft reading (for the theoretical hint; never stored). */
@@ -768,8 +814,8 @@ export const pressRunRouter = router({
     .input(z.object({ id, billetShortReason: reason.optional(), trialResult: z.enum(["pass", "fail"]).optional() }))
     .query(async ({ ctx, input }) => {
       const run = await loadRun(ctx.db, ctx.companyId, input.id);
-      const { errors, figures, castInfo } = await evaluateClose(ctx as Ctx, run, input);
-      return { saved: false as const, figures: figuresOut(figures), gates: errors, gateText: errors.map((e) => GATE_TEXT[e]), billetsOnHandG: castInfo.onHandG };
+      const { errors, figures, castInfo, floorShort } = await evaluateClose(ctx as Ctx, run, input);
+      return { saved: false as const, figures: figuresOut(figures), gates: errors, gateText: errors.map((e) => GATE_TEXT[e]), billetsOnHandG: castInfo.onHandG, floorShort };
     }),
 
   /**
@@ -1444,7 +1490,7 @@ export const pressRunRouter = router({
         return { id: run.id, status: run.status, recoveryBp: run.recoveryBp, balanceG: run.balanceG, replayed: true };
       }
       if (run.purpose !== "die_trial" && input.trialResult) bad("Only a die trial run takes a pass or fail");
-      const { errors, figures, byCast, children } = await evaluateClose(ctx as Ctx, run, input);
+      const { errors, figures, byCast, children, draws, floorShort, homogGated, homog } = await evaluateClose(ctx as Ctx, run, input);
       if (errors.length > 0) gateError(errors);
       const billetStore = await resolveBilletStore(ctx.db, ctx.companyId);
       const scrapG = (run.discardG ?? 0) + (run.endsG ?? 0) + figures.rejectG;
@@ -1461,10 +1507,22 @@ export const pressRunRouter = router({
       // never grows between the read and the write without being recorded. The run's cast first.
       const inputByCast = billetInputByCast(children.billets);
       const castOrder = [...inputByCast.keys()].sort((a, b) => Number(b === run.castId) - Number(a === run.castId));
-      const charges = castOrder.map((castId) => {
+      // XE FOUNDRY (#50, fix round 1): each cast comes off where its billets are (`pressDraws`): the
+      // press floor, else the racks then the billet store. A second row of one cast guards the cast's
+      // total less the first row's kg, so the D22 condition stays "on hand as read ≥ guard".
+      const charges = castOrder.flatMap((castId) => {
         const kg = inputByCast.get(castId)!;
         const info = byCast.get(castId);
-        return { castId, castNumber: info?.number ?? "", inputG: kg, guardG: Math.min(kg, info?.onHandG ?? 0) };
+        const guardG = Math.min(kg, info?.onHandG ?? 0);
+        const where: PressDraw[] = [...(draws.get(castId) ?? [])];
+        const rest = kg - where.reduce((t, d) => t + d.qtyG, 0);
+        if (rest > 0 || where.length === 0) where.push({ locationId: billetStore.id, code: billetStore.code, kind: "billet_store", qtyG: rest });
+        let posted = 0;
+        return where.map((d) => {
+          const row = { castId, castNumber: info?.number ?? "", inputG: d.qtyG, guardG: guardG - posted, locationId: d.locationId, placeGuard: d.kind === "billet_rack" };
+          posted += d.qtyG;
+          return row;
+        });
       });
       const shortReason = figures.short ? (input.billetShortReason ?? run.billetShortReason) : (input.billetShortReason ?? run.billetShortReason ?? null);
       const statements: SqliteBatchItem[] = [
@@ -1518,6 +1576,8 @@ export const pressRunRouter = router({
         rejectG: figures.rejectG,
       });
       statements.push(...ledger.statements, ...ledger.billetLines.map((l) => pressAbortUnless(ctx.db, billetPostedSql(ctx.companyId, run.id, l, seq))));
+      // #41: a close racing another use of the same homogenized logs never takes more than came out of released batches.
+      statements.push(...homogGated.map((castId) => pressAbortUnless(ctx.db, homogKgWithinSql(ctx.companyId, castId, homog))));
 
       // C43: the issue goes back to the rack, or stays open for the next queued run of the copy.
       const runLogged = runLanded(run.id, seq, "logged");
@@ -1565,6 +1625,7 @@ export const pressRunRouter = router({
               issue: handoff.issue ? (handoff.carryTo ? { carriedTo: handoff.carryTo.number } : "returned") : null,
               trialResult,
               lines: children.lines.length,
+              ...(floorShort.length > 0 ? { floorShort } : {}),
             },
           },
           { from: pressRun, where: and(eq(pressRun.id, run.id), eq(pressRun.serverSeq, seq)) },
@@ -1597,6 +1658,7 @@ export const pressRunRouter = router({
         ...figuresOut(figures),
         issue: handoff.issue ? (handoff.carryTo ? ("carried" as const) : ("returned" as const)) : null,
         carriedTo: handoff.carryTo,
+        floorShort,
         replayed: false,
       };
     }),

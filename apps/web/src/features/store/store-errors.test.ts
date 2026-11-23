@@ -48,6 +48,14 @@ const CASES: [ReturnType<typeof server>, MessageKey][] = [
     ),
     "store.errors.cancelLocationRetired",
   ],
+  [
+    server("BAD_REQUEST", "Stock from this delivery has already been issued. Record a return to the vendor instead."),
+    "store.errors.cancelIssued",
+  ],
+  [
+    server("BAD_REQUEST", "This delivery's stock already has an opening rate. Record a return to the vendor instead."),
+    "store.errors.cancelRated",
+  ],
   [server("BAD_REQUEST", "GRN-4 was already cancelled"), "store.errors.alreadyCancelled"],
   [server("BAD_REQUEST", "MRS-12 belongs to a melt; cancel the melt instead"), "store.errors.sourceLocked"],
   [server("BAD_REQUEST", "MRS-12 belongs to another document (press); cancel it there"), "store.errors.sourceLocked"],

@@ -770,7 +770,9 @@ describe("store.cancel (RP15)", () => {
     const txns = await txnRows(p.companyId);
     expect(txns.filter((t) => t.cancelledAt !== null)).toEqual([]);
     expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
-    // one more unit in: net 1 - 3 + 2 = 0, allowed
+    // one more unit in: net 1 - 3 + 2 = 0, allowed. Nothing here has a rate, so no issue was valued with
+    // the exchange's money and the cancel stays allowed (XE store fix round 3; a rated exchange is refused
+    // after a later issue, store-xe-value.test.ts).
     await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: U });
     await p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "x" });
     expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(0);

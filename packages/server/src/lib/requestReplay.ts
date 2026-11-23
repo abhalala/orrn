@@ -41,7 +41,13 @@ export type ReplayKind =
   | "ageing.start"
   | "ageing.out"
   | "ageing.hardness"
-  | "ageing.release";
+  | "ageing.release"
+  // XE FOUNDRY (fix round 1): the new floor stock writes and the casting plan's accept.
+  | "foundry.logs.receive"
+  | "foundry.billets.cut"
+  | "foundry.billets.issue"
+  | "foundry.reject"
+  | "foundry.castPlan.accept";
 
 export type Replay = {
   /** The audit row id this request writes (and a repeat finds). */

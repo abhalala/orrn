@@ -265,6 +265,10 @@ export const pressRun = sqliteTable(
     index("press_run_company_day_idx").on(table.companyId, table.productionDay),
     index("press_run_company_server_seq_idx").on(table.companyId, table.serverSeq),
     index("press_run_company_line_queue_idx").on(table.companyId, table.pressLineId, table.queuePos),
+    // XE MAINT (0060): run hours since a maintenance plan's base read only the runs that end after it.
+    // A run with no stop sorts last (2^53 - 1). Queries must compare `coalesce(stopped_at, 9007199254740991)`
+    // against an affinity-free value (`+p.base_at`), or SQLite will not use the expression.
+    index("press_run_company_line_end_idx").on(table.companyId, table.pressLineId, sql`coalesce(${table.stoppedAt}, 9007199254740991)`),
     uniqueIndex("press_run_company_mutation_unique")
       .on(table.companyId, table.clientMutationId)
       .where(sql`${table.clientMutationId} IS NOT NULL`),

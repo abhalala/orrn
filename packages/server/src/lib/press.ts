@@ -38,6 +38,7 @@ import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { assertDieAllowed } from "./dieOwner";
 import { createId } from "./id";
 import { defaultReturnStreamStatements } from "./foundry";
+import { castAtSql } from "./foundryDepth";
 import { sqlUuid } from "./ledger";
 
 export const DISCARD_STREAM = "DISCARD";
@@ -210,6 +211,14 @@ export type CloseBilletCharge = {
    * to `inputG` when the store covered it; less (even below zero) when the close records a shortfall.
    */
   guardG: number;
+  /**
+   * XE FOUNDRY (#50, fix round 1): where this row comes off (a press floor, a rack, or the billet
+   * store); `billetStoreId` when absent. One cast may have two rows (rack, then store), the second's
+   * `guardG` already less the first's kg.
+   */
+  locationId?: string;
+  /** A rack row lands only while the rack still holds its kg (a concurrent issue or reject never drives it negative). */
+  placeGuard?: boolean;
 };
 
 export type CloseLedgerInput = {
@@ -261,7 +270,7 @@ export function closeLedgerStatements(
             line: sql<number>`${line}`.as("line"),
             itemKind: sql<string>`'billet'`.as("item_kind"),
             itemRef: sql<string>`${b.castId}`.as("item_ref"),
-            locationId: sql<string>`${i.billetStoreId}`.as("location_id"),
+            locationId: sql<string>`${b.locationId ?? i.billetStoreId}`.as("location_id"),
             qtyG: sql<number>`${-b.inputG}`.as("qty_g"),
             postedAt: sql<number>`${at}`.as("posted_at"),
             reversalOf: sql<string | null>`null`.as("reversal_of"),
@@ -270,7 +279,14 @@ export function closeLedgerStatements(
             createdAt: sql<number>`${at}`.as("created_at"),
           })
           .from(company)
-          .where(and(eq(company.id, i.companyId), runLanded(i.runId, i.seq, "logged"), sql`${billetUsableSql(i.companyId, b.castId)} >= ${b.guardG}`)),
+          .where(
+            and(
+              eq(company.id, i.companyId),
+              runLanded(i.runId, i.seq, "logged"),
+              sql`${billetUsableSql(i.companyId, b.castId)} >= ${b.guardG}`,
+              b.placeGuard && b.locationId ? sql`${castAtSql(i.companyId, b.castId, b.locationId)} >= ${b.inputG}` : undefined,
+            ),
+          ),
       ),
     );
   }

@@ -35,6 +35,14 @@ export const docTypes = [
   "invoice",
   "credit_note",
   "payment",
+  // XE store (rows 69, 70): store indents IND- and store purchase orders PO- (per FY).
+  "indent",
+  "store_po",
+  // XE parity (lane MAINT, #65): maintenance work orders MWO-n per financial year.
+  "maint_wo",
+  // XE FOUNDRY: homogenizing batches HB-, bought-in log receipts OL- (per FY).
+  "homog",
+  "log_receipt",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 

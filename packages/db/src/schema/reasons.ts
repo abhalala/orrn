@@ -25,6 +25,9 @@ export const reasonCodeKinds = [
   "die_work",
   "melt_correct",
   "cast_tail",
+  // XE FOUNDRY #43: log and billet reject registers.
+  "log_reject",
+  "billet_reject",
 ] as const;
 export type ReasonCodeKindColumn = (typeof reasonCodeKinds)[number];
 

@@ -39,6 +39,7 @@ export const CLOSE_GATE_CODES = [
   "late_entry_unapproved",
   "downtime_open",
   "trial_result_missing",
+  "billets_not_homogenized",
 ] as const satisfies readonly CloseGateError[];
 
 /** The message key of one gate code (`press.console.gates.<code>`); null for a code this build does not know. */
@@ -179,6 +180,7 @@ export function stepOfGate(code: string): number {
     case "billet_cast_mismatch":
     case "no_input":
     case "billet_short_reason_missing":
+    case "billets_not_homogenized":
       return 0;
     case "no_lines":
     case "line_without_kg":

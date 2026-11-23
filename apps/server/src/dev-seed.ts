@@ -75,6 +75,7 @@ import { edgeNodeDeployment } from "@orrn/db/schema/spool";
 import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, STANDARD_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
+import { maintAsset, maintPlan, maintReading, maintReadingKind, maintSetting, maintWoSpare, maintWorkOrder } from "@orrn/db/schema/maintenance";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
@@ -1817,6 +1818,15 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
     db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
+    // Maintenance (XE lane MAINT): spares hold RESTRICT keys to store entries and work orders to assets, and
+    // doc_series below restarts WO-1 (the number is unique per company + period): children first.
+    db.delete(maintWoSpare).where(eq(maintWoSpare.companyId, COMPANY_ID)),
+    db.delete(maintReading).where(eq(maintReading.companyId, COMPANY_ID)),
+    db.delete(maintWorkOrder).where(eq(maintWorkOrder.companyId, COMPANY_ID)),
+    db.delete(maintReadingKind).where(eq(maintReadingKind.companyId, COMPANY_ID)),
+    db.delete(maintPlan).where(eq(maintPlan.companyId, COMPANY_ID)),
+    db.delete(maintAsset).where(eq(maintAsset.companyId, COMPANY_ID)),
+    db.delete(maintSetting).where(eq(maintSetting.companyId, COMPANY_ID)),
     // Foundry and store rows hold RESTRICT FKs to lots, locations, store items and casts: delete
     // them child-to-parent before those (else the batch fails once the demo has one melt). Casts go
     // with doc_series, or the next casts.open reuses J1 and hits cast_company_period_seq_unique.

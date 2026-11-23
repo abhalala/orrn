@@ -131,6 +131,24 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "invoice.issue": ["office", "manager", "accountant"],
   "invoice.cancel": ["office", "manager", "accountant"],
   "payment.record": ["office", "accountant", "manager"],
+  // XE store (rows 69 to 73).
+  "indent.raise": ["storekeeper", "supervisor", "foundry", "press", "die_room", "office", "manager", "admin"],
+  "indent.approve": ["manager", "admin"],
+  "po.view": ["storekeeper", "office", "manager", "admin", "accountant"],
+  "po.manage": ["office", "manager", "admin"],
+  "store.value": ["office", "manager", "admin", "accountant"],
+  "store.rate": ["office", "manager", "admin", "accountant"],
+  // XE parity lane MAINT.
+  "maint.view": ["admin", "manager", "supervisor", "office", "storekeeper", "operator", "press", "foundry"],
+  "maint.manage": ["admin", "manager", "supervisor"],
+  "maint.workorder": ["admin", "manager", "supervisor", "operator", "press", "foundry"],
+  // XE parity lane FOUNDRY.
+  "foundry.homog": ["foundry", "supervisor"],
+  "foundry.homogRelease": ["supervisor", "manager"],
+  "foundry.logs": ["foundry", "supervisor", "storekeeper"],
+  "foundry.billets": ["foundry", "supervisor"],
+  "foundry.reject": ["foundry", "supervisor"],
+  "foundry.plan": ["supervisor", "office", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

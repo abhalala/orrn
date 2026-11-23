@@ -87,6 +87,9 @@ export const BUDDY_DECISIONS = {
     // person's grant (the same `price.view` / `order.price` gates). No pricing change is in `changes`,
     // so every pricing mutation is denied to the buddy until it is decided by name.
     pricing: allow,
+    // XE parity lane MAINT: maintenance reads (assets, plans due, work orders, readings, reports). Its writes are
+    // denied by name in `paths` (a person sets up the register and raises and closes work orders).
+    maint: allow,
     // XE parity lane COST: reads (cost per kg, capacity, forecast, dies due) run under the person's grant
     // (`cost.view`, and `order.price` for margins). The one change, the costing settings, is denied by name.
     costing: allow,
@@ -121,6 +124,24 @@ export const BUDDY_DECISIONS = {
     "die.share.view": deny("The public share page, opened with a share token; not a plant tool."),
     // Delta round decision 1 (B1, D-M1): the link's token comes from the request key, which Confirm sets to the draft id
     // that Hermes and the audit log know. The buddy links the person to the die screen instead.
+    // XE parity lane MAINT: every write is a person's act on the maintenance screens.
+    "maint.assets.create": deny("The asset register is set up by a person on the maintenance screen."),
+    "maint.assets.update": deny("The asset register is set up by a person on the maintenance screen."),
+    "maint.assets.addFromMasters": deny("Adds assets in bulk; a person does it on the maintenance screen."),
+    "maint.plans.create": deny("Preventive plans are set up by a person on the asset screen."),
+    "maint.plans.update": deny("Preventive plans are set up by a person on the asset screen."),
+    "maint.plans.makeWorkOrder": deny("Opening a work order is a person's act on the maintenance screen."),
+    "maint.workOrders.create": deny("Raising a work order is a person's act on the maintenance screen."),
+    "maint.workOrders.fromDowntime": deny("Raising a work order is a person's act on the press station or the maintenance screen."),
+    "maint.workOrders.update": deny("The work done, the cause and the times are a person's record on the work order."),
+    "maint.workOrders.move": deny("Moving or closing a work order is a person's act on the work order screen."),
+    "maint.spares.link": deny("Spares are linked by a person on the work order screen."),
+    "maint.spares.unlink": deny("Spares are linked by a person on the work order screen."),
+    "maint.readings.createKind": deny("Reading limits are set up by a person on the asset screen."),
+    "maint.readings.updateKind": deny("Reading limits are set up by a person on the asset screen."),
+    "maint.readings.record": deny("A reading is taken by a person at the machine."),
+    "maint.readings.makeWorkOrder": deny("Raising a work order is a person's act on the maintenance screen."),
+    "maint.settings.set": deny("The labour rate is money; a person sets it on the maintenance screen."),
     "die.share.create": deny("Mints a public share link, which would leave orrn through the chat; the person makes it on the die screen."),
     // XE parity lane REG: a complaint's words go to the customer; a person writes them on the complaint screen.
     "complaints.open": deny("Raising a complaint is a person's act on the bundle or complaint screen."),
@@ -223,6 +244,41 @@ export const BUDDY_DECISIONS = {
     "pricing.worksOrder.issue": deny("Numbers a works order for the floor (XE-PRICE default deny)."),
     "pricing.enquiries.create": deny("Writes an enquiry (XE-PRICE default deny until reviewed)."),
     "pricing.enquiries.update": deny("Changes an enquiry (XE-PRICE default deny until reviewed)."),
+    // XE store (rows 69 to 72): buying (indents, purchase orders, the over-receipt tolerance) commits plant money; not reviewed for the buddy.
+    "store.indents.approve": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.cancel": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.create": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.fromReorder": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.indents.reject": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.cancel": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.close": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.create": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.issue": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.po.update": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.settings.setPoTolerance": deny("Buying store items commits plant money (XE store); not reviewed for the buddy."),
+    "store.valuation.setGrnRate": deny("Sets the money a delivery is worth in the store's value (XE store); the office decides it from the bill."),
+    "store.valuation.setOpeningRate": deny("Sets the money old stock is worth in the store's value (XE store); the office decides it."),
+    // XE FOUNDRY (rows 41-47, 50): writes are denied by default until reviewed for drafts.
+    "foundry.homog.create": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.addLine": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.removeLine": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.start": deny("XE FOUNDRY write: the furnace start takes the server clock on the floor."),
+    "foundry.homog.reading": deny("XE FOUNDRY write: a furnace reading is read off the pyrometer on the floor."),
+    "foundry.homog.out": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.homog.release": deny("XE FOUNDRY write: the homogenizing verdict is a supervisor's act on the screen."),
+    "foundry.homog.void": deny("XE FOUNDRY write: homogenizing batch (not reviewed for drafts yet)."),
+    "foundry.logs.receive": deny("XE FOUNDRY write: posts bought-in logs to the stock ledger (not reviewed for drafts yet)."),
+    "foundry.logs.beginMtc": deny("Mill test certificate upload: the bytes come from the browser only."),
+    "foundry.logs.commitMtc": deny("Mill test certificate upload: the bytes come from the browser only."),
+    "foundry.logs.mtcUrl": deny("§10 scan: mints a signed file link, which would leave orrn through the chat."),
+    "foundry.billets.cut": deny("XE FOUNDRY write: posts a billet cut to the stock ledger (not reviewed for drafts yet)."),
+    "foundry.billets.issue": deny("XE FOUNDRY write: moves billets on the stock ledger (not reviewed for drafts yet)."),
+    "foundry.rejects.create": deny("XE FOUNDRY write: takes logs or billets out of stock (not reviewed for drafts yet)."),
+    "foundry.chargeMix.setChemistry": deny("XE FOUNDRY write: a plant master (not reviewed for drafts yet)."),
+    "foundry.castPlan.accept": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.update": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.drop": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.open": deny("XE FOUNDRY write: opens a cast from the casting plan (not reviewed for drafts yet)."),
     // XE parity lane COST: default deny.
     "costing.settings.update": deny("Changes the plant's cost rates and the low-margin line (XE COST default deny)."),
   } satisfies Record<string, BuddyDecision>,

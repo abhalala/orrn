@@ -74,6 +74,8 @@ export const appRouter = router({
   // XE-BILL (opt-in modules).
   billing: lazy(() => import("./billing").then((m) => m.billingRouter)),
   einvoice: lazy(() => import("./einvoice").then((m) => m.einvoiceRouter)),
+  // XE parity lane MAINT (#63 to #68), module `maintenance`.
+  maint: lazy(() => import("./maintenance").then((m) => m.maintenanceRouter)),
   // XE parity lane COST: cost per kg, margins, capacity, forecast, dies due (module `costing`, opt-in).
   costing: lazy(() => import("./costing").then((m) => m.costingRouter)),
 });

@@ -4,6 +4,7 @@ import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { complaint } from "@orrn/db/schema/complaint";
 import { countSession } from "@orrn/db/schema/count";
+import { maintAsset, maintWorkOrder } from "@orrn/db/schema/maintenance";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import { cast } from "@orrn/db/schema/foundry";
@@ -25,6 +26,8 @@ type Lookup = (db: OrrnDb, companyId: string, ids: string[]) => Promise<Named[]>
  */
 const LOOKUPS: Record<string, Lookup> = {
   complaint: (db, companyId, ids) => db.select({ id: complaint.id, label: complaint.number }).from(complaint).where(and(eq(complaint.companyId, companyId), inArray(complaint.id, ids))),
+  maint_asset: (db, companyId, ids) => db.select({ id: maintAsset.id, label: maintAsset.code }).from(maintAsset).where(and(eq(maintAsset.companyId, companyId), inArray(maintAsset.id, ids))),
+  maint_work_order: (db, companyId, ids) => db.select({ id: maintWorkOrder.id, label: maintWorkOrder.number }).from(maintWorkOrder).where(and(eq(maintWorkOrder.companyId, companyId), inArray(maintWorkOrder.id, ids))),
   sales_order: (db, companyId, ids) => db.select({ id: salesOrder.id, label: salesOrder.number }).from(salesOrder).where(and(eq(salesOrder.companyId, companyId), inArray(salesOrder.id, ids))),
   dispatch: (db, companyId, ids) => db.select({ id: dispatch.id, label: dispatch.code }).from(dispatch).where(and(eq(dispatch.companyId, companyId), inArray(dispatch.id, ids))),
   packing_list: (db, companyId, ids) => db.select({ id: packingList.id, label: packingList.code }).from(packingList).where(and(eq(packingList.companyId, companyId), inArray(packingList.id, ids))),

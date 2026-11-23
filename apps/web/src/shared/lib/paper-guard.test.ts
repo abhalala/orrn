@@ -17,11 +17,13 @@ export const PAPERS: { file: string; what: string }[] = [
   { file: "features/pack/label-sheet.tsx", what: "the pack sticker sheet" },
   { file: "features/die-room/print-card.tsx", what: "the printed die card" },
   { file: "features/foundry/certificate-view.tsx", what: "the foundry test certificate" },
+  { file: "features/foundry/data-sheet-view.tsx", what: "the cast data sheet (XE FOUNDRY #45)" },
   { file: "features/portal/certificate-page.tsx", what: "the portal test certificate" },
   { file: "features/die-room/share-page.tsx", what: "the die share page a party opens from a link" },
   { file: "features/pricing/docs/quote-print.ts", what: "the printed quote" },
   { file: "features/pricing/docs/proforma-print.ts", what: "the printed proforma invoice" },
   { file: "features/pricing/docs/works-order-page.tsx", what: "the works order" },
+  { file: "features/store-buy/po-print.tsx", what: "the store purchase order" },
 ];
 
 const PLANT_STYLE = [/\buseFmt\s*\(/, /\buseLengthUnit\s*\(/, /\buseCompanyWhen\s*\(/, /\buseTenantFmt\s*\(/];

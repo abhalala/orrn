@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
+Counts: 12386 screen strings in 60 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,14 +191,16 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (95)
+### nav (97)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `qa` | Quality | गुणवत्ता |
+| `storeBuying` | Buying | स्टोर खरीद |
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
+| `maintenance` | Maintenance | मेंटेनेंस |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -1762,7 +1764,7 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `bundleNumbers.saved` | Bundle numbers changed | Bundle नंबर बदले गए |
 | `bundleNumbers.change` | Number bundles by | Bundle नंबर इस तरह दें |
 
-### store (189)
+### store (191)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1875,6 +1877,8 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
 | `errors.unitLocked` | The unit can't change because this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
 | `errors.cancelDrawn` | You can't cancel this entry because some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.cancelIssued` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.cancelRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
 | `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
 | `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
 | `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
@@ -2759,7 +2763,7 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row was already imported from an earlier copy of this file. Its row number and values match, so orrn won't add it again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (253)
+### masters (255)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2880,6 +2884,8 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `locations.kind.scrap_store` | Scrap store | स्क्रैप स्टोर |
 | `locations.kind.store` | Central store | सेंट्रल स्टोर |
 | `locations.kind.wip` | Work in progress | काम चालू |
+| `locations.kind.billet_rack` | Billet rack | बिलेट रैक |
+| `locations.kind.press_floor` | Press floor | प्रेस फ़्लोर |
 | `locations.holdsEmpty` | Empty | खाली |
 | `locations.holdsBundles` | {count} {count:bundle\|bundles} | {count} bundle |
 | `locations.holdsKg` | {kg} {massUnit} | {kg} {massUnit} |
@@ -3158,7 +3164,7 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (396)
+### admin (398)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3376,6 +3382,7 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `plan.moduleNames.pricing` | Prices and quotes | भाव और कोटेशन |
 | `plan.moduleNames.billing` | Tax invoices and payments | टैक्स इनवॉइस और भुगतान |
 | `plan.moduleNames.einvoice` | E-invoice and e-way bill | ई-इनवॉइस और ई-वे बिल |
+| `plan.moduleNames.maintenance` | Maintenance | मेंटेनेंस |
 | `plan.moduleNames.costing` | Costing | लागत |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
@@ -3392,6 +3399,7 @@ Counts: 10973 screen strings in 57 groups, 45 guides with 866 strings.
 | `plan.moduleHints.pricing` | Price master, quotes, proformas and enquiries | भाव सूची, कोटेशन, प्रोफॉर्मा और पूछताछ |
 | `plan.moduleHints.billing` | Tax invoices, credit notes, payments and Tally export. Off until switched on | टैक्स इनवॉइस, क्रेडिट नोट, भुगतान और Tally एक्सपोर्ट। चालू करने तक बंद |
 | `plan.moduleHints.einvoice` | IRN and e-way bill through the GST relay. Needs tax invoices | GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी |
+| `plan.moduleHints.maintenance` | Assets, preventive plans, work orders and machine readings | एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग |
 | `plan.moduleHints.costing` | Cost per kg, margins, press load, forecast and dies due (off until named) | प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद) |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
@@ -5583,7 +5591,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (505)
+### press (507)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5718,6 +5726,7 @@ Please check, Lalubhai:
 | `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
 | `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
 | `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
+| `console.gates.billets_not_homogenized` | Logs of a 6xxx cast that were not homogenized cannot go to the press; homogenize them first | 6xxx cast के बिना होमोजेनाइज़ किए लॉग प्रेस में नहीं जा सकते; पहले उन्हें होमोजेनाइज़ करें |
 | `console.errors.generic` | The server did not accept this. | सर्वर ने इसे स्वीकार नहीं किया। |
 | `console.errors.conflict` | This changed on the server while you were working. Reload and try again. | काम करते समय सर्वर पर यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
 | `console.errors.downtimeRunning` | A stoppage is already running on this press. Stop it first. | इस प्रेस पर एक स्टॉपेज पहले से चल रहा है। पहले उसे रोकें। |
@@ -5805,6 +5814,7 @@ Please check, Lalubhai:
 | `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
 | `console.shortStock` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट {short} {massUnit} कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.shortStockNoFigure` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.floorShort` | {cast}: {floor} holds {have} {massUnit} and the run used {need} {massUnit}. The run is logged; the floor will show less than nothing until billets are issued or counted. | {cast}: {floor} पर {have} {massUnit} है और रन में {need} {massUnit} लगे। रन दर्ज होगा; बिलेट देने या गिनती होने तक फ़्लोर पर स्टॉक शून्य से कम दिखेगा। |
 | `console.pressedLength` | Pressed length | प्रेस की लंबाई |
 | `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
 | `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
@@ -6093,7 +6103,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
 | `summary.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 
-### foundry (604)
+### foundry (647)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6155,6 +6165,7 @@ Please check, Lalubhai:
 | `refusal.correctionApproved` | A correction for this melt is approved. Correct it now. | इस मेल्ट का सुधार मंज़ूर है। अब सुधारें। |
 | `refusal.giveBundle` | Scan or type the bundle. | बंडल स्कैन करें या लिखें। |
 | `refusal.simulatorOff` | The furnace simulator is off. | फ़र्नेस सिम्युलेटर बंद है। |
+| `refusal.homogFurnace` | {furnace} is a homogenizing furnace. Pick a melting furnace. | {furnace} होमोजेनाइज़िंग फ़र्नेस है। मेल्टिंग फ़र्नेस चुनें। |
 | `refusal.dayOrder` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
 | `refusal.maxDays` | Pick at most 92 days. | ज़्यादा से ज़्यादा 92 दिन चुनें। |
 | `refusal.addStream` | Add the dross and Fe return streams first in Masters, Return streams. | पहले ड्रॉस और Fe रिटर्न स्ट्रीम जोड़ें (मास्टर्स में, रिटर्न स्ट्रीम)। |
@@ -6183,6 +6194,48 @@ Please check, Lalubhai:
 | `refusal.legacyReserved` | A legacy code cannot be a cast series code or bundle number. To continue the cast book, set its start number. | पुराना कोड कास्ट सीरीज़ का कोड या बंडल नंबर नहीं हो सकता। कास्ट की बही आगे चलाने के लिए उसका शुरुआती नंबर तय करें। |
 | `refusal.legacyTaken` | The legacy code {code} is already on cast {cast}. | पुराना कोड {code} कास्ट {cast} पर पहले से लगा है। |
 | `refusal.castBookMonthUsed` | That month already has a cast. The book can only be continued before the first cast. | उस महीने में कास्ट बन चुकी है। बही सिर्फ़ पहली कास्ट से पहले आगे बढ़ाई जा सकती है। |
+| `refusal.notFoundDepth` | Not found. Refresh the list and try again. | नहीं मिला। सूची रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.addScrapStream` | Add the plant scrap return stream first. It is under Foundry, Stock. | पहले प्लांट का स्क्रैप रिटर्न स्ट्रीम जोड़ें। यह फ़ाउंड्री, स्टॉक में है। |
+| `refusal.streamNotTakenBack` | {name} is not a stream the furnace takes back. | {name} ऐसा स्ट्रीम नहीं है जो फ़र्नेस में वापस लिया जाए। |
+| `refusal.meltingFurnace` | {furnace} is a melting furnace. Pick a homogenizing furnace. | {furnace} मेल्टिंग फ़र्नेस है। होमोजेनाइज़िंग फ़र्नेस चुनें। |
+| `refusal.soakTemp` | Soak temperature must be 300 to 650 °C. | सोक तापमान 300 से 650 °C के बीच होना चाहिए। |
+| `refusal.soakBand` | The band must be 1 to 50 °C. | बैंड 1 से 50 °C के बीच होना चाहिए। |
+| `refusal.soakTime` | Soak time must be 10 minutes to 48 hours. | सोक समय 10 मिनट से 48 घंटे के बीच होना चाहिए। |
+| `refusal.batchNotLoading` | {batch} is not loading now. Open it again. | {batch} में अब लोडिंग नहीं हो रही। इसे फिर खोलें। |
+| `refusal.castCancelled` | {cast} is cancelled. | {cast} रद्द हो चुका है। |
+| `refusal.alloyOther` | {cast} is {alloy}. This batch is {batchAlloy}. | {cast} {alloy} है। यह बैच {batchAlloy} है। |
+| `refusal.logsLeft` | {cast} has {left} logs left to homogenize. | {cast} के {left} लॉग होमोजेनाइज़ करने बाकी हैं। |
+| `refusal.alreadyOnBatch` | {cast} is already on {batch}. | {cast} पहले से {batch} पर है। |
+| `refusal.loadLogsFirst` | Load logs before the batch goes in. | बैच अंदर डालने से पहले लॉग लोड करें। |
+| `refusal.furnaceBusy` | Another batch is in this furnace. Take it out first. | इस फ़र्नेस में दूसरा बैच है। पहले उसे बाहर निकालें। |
+| `refusal.batchNotIn` | {batch} is not in the furnace. | {batch} फ़र्नेस में नहीं है। |
+| `refusal.readingFuture` | A reading cannot be in the future. | रीडिंग आने वाले समय की नहीं हो सकती। |
+| `refusal.readingBefore` | A reading cannot be before the batch went in. | रीडिंग बैच अंदर जाने से पहले की नहीं हो सकती। |
+| `refusal.batchNotOut` | {batch} is not out of the furnace. | {batch} फ़र्नेस से बाहर नहीं निकला है। |
+| `refusal.heldNote` | Write why a held batch is released. | रोके हुए बैच को छोड़ने का कारण लिखें। |
+| `refusal.batchDone` | {batch} is already released or void. | {batch} पहले ही छोड़ा या रद्द किया जा चुका है। |
+| `refusal.vendorInactive` | {name} is not an active vendor. | {name} चालू वेंडर नहीं है। |
+| `refusal.receiptFuture` | The receipt date cannot be in the future. | रसीद की तारीख आने वाले दिन की नहीं हो सकती। |
+| `refusal.certKind` | The certificate must be a PDF or a photo. | सर्टिफ़िकेट PDF या फ़ोटो होना चाहिए। |
+| `refusal.uploadUnfinished` | The upload did not finish. Try again. | अपलोड पूरा नहीं हुआ। फिर कोशिश करें। |
+| `refusal.addBilletRack` | Add a billet rack location first. It is under Masters, Locations. | पहले बिलेट रैक की जगह जोड़ें। यह मास्टर्स, लोकेशन में है। |
+| `refusal.pickBilletRack` | Pick the billet rack the billets go to. | जिस बिलेट रैक में बिलेट जाएँ, उसे चुनें। |
+| `refusal.billetsOver` | Billets cannot weigh more than the logs they were cut from. | बिलेट का वज़न उन लॉग से ज़्यादा नहीं हो सकता जिनसे वे कटे हैं। |
+| `refusal.billetLength` | Billet length is outside the allowed range. | बिलेट की लंबाई तय सीमा से बाहर है। |
+| `refusal.enterLogsCut` | Enter the logs cut and their {massUnit}. | कटे हुए लॉग और उनका {massUnit} लिखें। |
+| `refusal.enterBillets` | Enter the billets and their {massUnit}. | बिलेट और उनका {massUnit} लिखें। |
+| `refusal.homogBeforeCut` | Homogenize the logs of {cast} before cutting them. | {cast} के लॉग काटने से पहले उन्हें होमोजेनाइज़ करें। |
+| `refusal.logsHomogLeft` | Only {pcs} logs of {cast} have been homogenized and not cut. | {cast} के सिर्फ़ {pcs} लॉग होमोजेनाइज़ हुए हैं और कटे नहीं हैं। |
+| `refusal.homogBeforeIssue` | Homogenize the logs of {cast} before issuing them. | {cast} के लॉग प्रेस को देने से पहले उन्हें होमोजेनाइज़ करें। |
+| `refusal.logsHomogLeftIssue` | Only {pcs} logs of {cast} have been homogenized and not cut or issued. | {cast} के सिर्फ़ {pcs} लॉग होमोजेनाइज़ हुए हैं जो अभी कटे या दिए नहीं गए। |
+| `refusal.meltStoreCancel` | Only {kg} {massUnit} of {cast} logs is left at {place}. The rest was cut or issued, so this melt can no longer be cancelled. | {place} पर {cast} के सिर्फ़ {kg} {massUnit} लॉग बचे हैं। बाकी काटे या प्रेस को दिए जा चुके हैं, इसलिए यह मेल्ट अब रद्द नहीं हो सकता। |
+| `refusal.meltStoreCorrect` | Only {kg} {massUnit} of {cast} logs is left at {place}. The rest was cut or issued, so this melt can no longer be corrected. | {place} पर {cast} के सिर्फ़ {kg} {massUnit} लॉग बचे हैं। बाकी काटे या प्रेस को दिए जा चुके हैं, इसलिए यह मेल्ट अब सुधारा नहीं जा सकता। |
+| `refusal.kgAtPlace` | Only {kg} {massUnit} of {cast} is at {place}. | {place} पर {cast} का सिर्फ़ {kg} {massUnit} है। |
+| `refusal.pressFloor` | Add a press floor location for {line} first. It is under Masters, Locations. | पहले {line} के लिए प्रेस फ़्लोर की जगह जोड़ें। यह मास्टर्स, लोकेशन में है। |
+| `refusal.reasonNote` | Add a note for this reason. | इस कारण के लिए नोट जोड़ें। |
+| `refusal.noHold` | {code} cannot hold this item. | {code} में यह सामान नहीं रखा जा सकता। |
+| `refusal.planRange` | Look at 31 days or fewer at a time. | एक बार में 31 दिन या कम देखें। |
+| `refusal.planLineState` | This plan line is no longer accepted. It was opened or dropped. | यह प्लान लाइन अब मानी हुई नहीं है। इसका कास्ट खुल गया या यह हट गई। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
@@ -8561,7 +8614,7 @@ Please check, Lalubhai:
 | `floor.makers.noMaker` | No maker | मेकर नहीं |
 | `floor.makers.empty` | No copy has a cost yet | अभी किसी कॉपी की लागत दर्ज नहीं |
 
-### buddy (398)
+### buddy (402)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8741,6 +8794,7 @@ Please check, Lalubhai:
 | `field.metric` | Reading | रीडिंग |
 | `field.mime` | File type | फ़ाइल की किस्म |
 | `field.min` | Lowest | सबसे कम |
+| `field.minMilli` | Minimum stock (thousandths) | कम से कम स्टॉक (हज़ारवें भाग में) |
 | `field.newRows` | New lines | नई लाइनें |
 | `field.nitridedAt` | Nitrided on | नाइट्राइडिंग की तारीख |
 | `field.occurredAt` | When it happened | कब हुआ |
@@ -8759,6 +8813,7 @@ Please check, Lalubhai:
 | `field.phone` | Phone | फ़ोन |
 | `field.photoUrls` | Photos | फ़ोटो |
 | `field.poNumber` | PO number | PO नंबर |
+| `field.poLineId` | Purchase order line | परचेज़ ऑर्डर की लाइन |
 | `field.preferLineIds` | Order lines to fill first | पहले भरने वाली ऑर्डर लाइनें |
 | `field.pressLineId` | Press | प्रेस |
 | `field.pressPlanDieId` | Die on the press plan | प्रेस प्लान का Die |
@@ -8783,8 +8838,10 @@ Please check, Lalubhai:
 | `field.recipeId` | Recipe | रेसिपी |
 | `field.refId` | Reference | संदर्भ (check) |
 | `field.rejects` | Rejects | रिजेक्ट |
+| `field.rejectedMilli` | Quantity rejected (thousandths) | रिजेक्ट मात्रा (हज़ारवें भाग में) |
 | `field.reliefOperatorId` | Relief operator | रिलीफ ऑपरेटर |
 | `field.remove` | Remove | हटाएं |
+| `field.reorderMilli` | Reorder level (thousandths) | दोबारा मंगाने का स्तर (हज़ारवें भाग में) |
 | `field.requiresNote` | Needs a note | नोट चाहिए |
 | `field.returns` | Returns | वापसी (check) |
 | `field.runId` | Press run | प्रेस रन |
@@ -9007,7 +9064,520 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
-### reg (335)
+### fdy2 (508)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `nav.homog` | Homogenizing | होमोजनाइज़िंग |
+| `nav.logs` | Bought-in logs | बाहर से आए लॉग |
+| `nav.billets` | Billets and logs | बिलेट और लॉग |
+| `nav.rejects` | Reject registers | रिजेक्ट रजिस्टर |
+| `nav.chemistry` | Typical chemistry | सामान्य केमिस्ट्री |
+| `furnaceKind.label` | Kind | प्रकार |
+| `furnaceKind.melting` | Melting | मेल्टिंग |
+| `furnaceKind.homogenizing` | Homogenizing | होमोजनाइज़िंग |
+| `settings.title` | Foundry | फाउंड्री |
+| `settings.intro` | How the foundry cuts logs. | फाउंड्री में लॉग कैसे कटते हैं। |
+| `settings.requireHomogenizing` | Homogenize 6xxx logs before cutting | कटाई से पहले 6xxx लॉग होमोजनाइज़ करें |
+| `settings.requireHomogenizingHint` | On: logs of 6xxx alloys are cut only up to the pieces that came out of a released homogenizing batch. Logs used before you switch it on do not count. | चालू: 6xxx अलॉय के लॉग उतने ही पीस कटते हैं जितने रिलीज़ हुए होमोजनाइज़िंग बैच से निकले। चालू करने से पहले इस्तेमाल हुए लॉग नहीं गिने जाते। |
+| `settings.saved` | Foundry setting saved | फाउंड्री सेटिंग सेव हो गई |
+| `settings.saveFailed` | Could not save the foundry setting | फाउंड्री सेटिंग सेव नहीं हुई |
+| `homog.title` | Homogenizing | होमोजनाइज़िंग |
+| `homog.subtitle` | Logs soaked in the furnace before they are cut. | कटाई से पहले भट्ठी में भिगोए गए लॉग। |
+| `homog.new` | New batch | नया बैच |
+| `homog.empty` | No homogenizing batches yet | अभी कोई होमोजनाइज़िंग बैच नहीं |
+| `homog.emptyBody` | Open a batch, load logs and put it in the furnace. | बैच खोलें, लॉग लोड करें और भट्ठी में डालें। |
+| `homog.loadFailed` | Could not load the homogenizing batches | होमोजनाइज़िंग बैच नहीं खुले |
+| `homog.notFound` | Batch not found | बैच नहीं मिला |
+| `homog.filterAll` | All | सभी |
+| `homog.filterLabel` | Status | स्थिति |
+| `homog.noFurnace` | No homogenizing furnace | होमोजनाइज़िंग भट्ठी नहीं है |
+| `homog.noFurnaceBody` | Add a furnace of kind homogenizing first. | पहले होमोजनाइज़िंग प्रकार की भट्ठी जोड़ें। |
+| `homog.goFurnaces` | Open furnaces | भट्ठियाँ खोलें |
+| `homog.status.loading` | Loading | लोडिंग |
+| `homog.status.in_furnace` | In furnace | भट्ठी में |
+| `homog.status.out` | Out, to decide | बाहर, फ़ैसला बाकी |
+| `homog.status.released` | Released | रिलीज़ |
+| `homog.status.held` | Held | रोका हुआ |
+| `homog.status.void` | Void | रद्द |
+| `homog.stage.load` | Load | लोड |
+| `homog.stage.furnace` | In furnace | भट्ठी में |
+| `homog.stage.out` | Out | बाहर |
+| `homog.stage.release` | Release | रिलीज़ |
+| `homog.verdict.ok` | Soak met | सोक पूरा |
+| `homog.verdict.short` | Soak short | सोक कम |
+| `homog.verdict.over` | Too hot | बहुत गरम |
+| `homog.verdict.no_readings` | No readings | रीडिंग नहीं |
+| `homog.col.number` | Batch | बैच |
+| `homog.col.furnace` | Furnace | भट्ठी |
+| `homog.col.alloy` | Alloy | अलॉय |
+| `homog.col.status` | Status | स्थिति |
+| `homog.col.pieces` | Pieces | पीस |
+| `homog.col.weight` | Weight | वज़न |
+| `homog.col.soak` | Soak | सोक |
+| `homog.recipe` | {temp} °C, plus or minus {tol} °C, {min} min | {temp} °C, ऊपर नीचे {tol} °C, {min} मिनट |
+| `homog.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} पीस, {kg} {massUnit} |
+| `homog.form.title` | New homogenizing batch | नया होमोजनाइज़िंग बैच |
+| `homog.form.furnace` | Furnace | भट्ठी |
+| `homog.form.furnacePick` | Pick a furnace | भट्ठी चुनें |
+| `homog.form.alloy` | Alloy | अलॉय |
+| `homog.form.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `homog.form.temp` | Temperature (°C) | तापमान (°C) |
+| `homog.form.tolerance` | Band, plus or minus (°C) | बैंड, ऊपर नीचे (°C) |
+| `homog.form.soak` | Soak (minutes) | सोक (मिनट) |
+| `homog.form.soakHint` | Time the logs must stay inside the band. | लॉग को बैंड के अंदर कितनी देर रहना है। |
+| `homog.form.note` | Note | नोट |
+| `homog.form.create` | Open batch | बैच खोलें |
+| `homog.form.created` | Batch {number} opened | बैच {number} खुल गया |
+| `homog.form.err.furnace` | Pick a furnace. | भट्ठी चुनें। |
+| `homog.form.err.alloy` | Pick an alloy. | अलॉय चुनें। |
+| `homog.form.err.temp` | Temperature is 300 to 650 °C, one decimal at most. | तापमान 300 से 650 °C, दशमलव के बाद एक अंक तक। |
+| `homog.form.err.band` | Band is 1 to 50 °C, one decimal at most. | बैंड 1 से 50 °C, दशमलव के बाद एक अंक तक। |
+| `homog.form.err.soak` | Soak is 10 to 2880 minutes. | सोक 10 से 2880 मिनट। |
+| `homog.batch.lines` | Logs on this batch | इस बैच के लॉग |
+| `homog.batch.cast` | Cast | कास्ट |
+| `homog.batch.pieces` | Pieces | पीस |
+| `homog.batch.weight` | Weight | वज़न |
+| `homog.batch.noLines` | No logs loaded yet. | अभी कोई लॉग लोड नहीं हुआ। |
+| `homog.batch.addLine` | Add logs | लॉग जोड़ें |
+| `homog.batch.castPick` | Pick a cast | कास्ट चुनें |
+| `homog.batch.castNone` | No cast of {alloy} to pick. | {alloy} की कोई कास्ट नहीं है। |
+| `homog.batch.castOption` | {number}, {kg} {massUnit} in store | {number}, स्टोर में {kg} {massUnit} |
+| `homog.batch.pcs` | Pieces | पीस |
+| `homog.batch.weightLabel` | Weight | वज़न |
+| `homog.batch.lineAdded` | Logs added | लॉग जुड़ गए |
+| `homog.batch.lineRemoved` | Logs removed | लॉग हट गए |
+| `homog.batch.lineErr.cast` | Pick a cast. | कास्ट चुनें। |
+| `homog.batch.lineErr.pcs` | Type the number of pieces. | पीस की गिनती लिखें। |
+| `homog.batch.lineErr.kg` | Type the weight. | वज़न लिखें। |
+| `homog.batch.remove` | Remove | हटाएँ |
+| `homog.batch.start` | Put in furnace | भट्ठी में डालें |
+| `homog.batch.started` | Batch is in the furnace | बैच भट्ठी में है |
+| `homog.batch.startNeedsLines` | Load logs before the batch goes in. | बैच डालने से पहले लॉग लोड करें। |
+| `homog.batch.furnaceLine` | Furnace {code} | भट्ठी {code} |
+| `homog.batch.inLabel` | Went in | अंदर गया |
+| `homog.batch.outLabel` | Came out | बाहर आया |
+| `homog.batch.soakTitle` | Soak | सोक |
+| `homog.batch.soakNeeded` | Needed | ज़रूरी |
+| `homog.batch.inBand` | In band | बैंड में |
+| `homog.batch.unknown` | Unknown | पता नहीं |
+| `homog.batch.above` | Above band | बैंड से ऊपर |
+| `homog.batch.minMax` | Lowest and highest | सबसे कम और सबसे ज़्यादा |
+| `homog.batch.minutes` | {min} min | {min} मिनट |
+| `homog.batch.readings` | Temperature readings | तापमान रीडिंग |
+| `homog.batch.readingAt` | Time | समय |
+| `homog.batch.readingTemp` | Temperature (°C) | तापमान (°C) |
+| `homog.batch.addReading` | Add reading | रीडिंग जोड़ें |
+| `homog.batch.readingSaved` | Reading saved | रीडिंग सेव हुई |
+| `homog.batch.readingInvalid` | Type 0 to 800 °C, one decimal at most. | 0 से 800 °C लिखें, दशमलव के बाद एक अंक तक। |
+| `homog.batch.out` | Take out | बाहर निकालें |
+| `homog.batch.outDone` | Batch is out. {verdict}. | बैच बाहर है। {verdict}। |
+| `homog.batch.outConfirm` | Take {number} out of the furnace now? The soak is judged from the readings. | {number} अभी भट्ठी से निकालें? सोक रीडिंग से जाँचा जाएगा। |
+| `homog.batch.decision` | Decision | फ़ैसला |
+| `homog.batch.decisionBody` | The soak did not meet the recipe. Hold the batch, or release it with a reason. | सोक रेसिपी के हिसाब से पूरा नहीं हुआ। बैच रोकें, या कारण लिखकर रिलीज़ करें। |
+| `homog.batch.heldBody` | This batch is held. Release it only with a reason. | यह बैच रोका हुआ है। कारण लिखकर ही रिलीज़ करें। |
+| `homog.batch.release` | Release | रिलीज़ |
+| `homog.batch.hold` | Hold | रोकें |
+| `homog.batch.releaseWithReason` | Release with a reason | कारण लिखकर रिलीज़ |
+| `homog.batch.released` | Batch released | बैच रिलीज़ हुआ |
+| `homog.batch.held` | Batch held | बैच रोका गया |
+| `homog.batch.reason` | Reason | कारण |
+| `homog.batch.reasonHint` | At least 3 letters. | कम से कम 3 अक्षर। |
+| `homog.batch.reasonRequired` | Write the reason, 3 letters or more. | कारण लिखें, 3 अक्षर या ज़्यादा। |
+| `homog.batch.void` | Void batch | बैच रद्द करें |
+| `homog.batch.voidTitle` | Void {number} | {number} रद्द करें |
+| `homog.batch.voidHint` | The batch is closed and its logs can be cut again. | बैच बंद हो जाता है और उसके लॉग फिर कट सकते हैं। |
+| `homog.batch.voidConfirm` | Void batch | बैच रद्द करें |
+| `homog.batch.voided` | Batch voided | बैच रद्द हुआ |
+| `homog.batch.reasonOnRecord` | Reason on record: {note} | रिकॉर्ड में कारण: {note} |
+| `logs.title` | Bought-in logs | बाहर से आए लॉग |
+| `logs.subtitle` | Logs received from vendors. Each receipt has its own cast number. | वेंडर से आए लॉग। हर रसीद का अपना कास्ट नंबर होता है। |
+| `logs.receive` | Receive logs | लॉग लें |
+| `logs.empty` | No logs received yet | अभी कोई लॉग नहीं आया |
+| `logs.emptyBody` | Receive logs from a vendor to put them in the billet store. | वेंडर से लॉग लें, वे बिलेट स्टोर में चढ़ जाएँगे। |
+| `logs.loadFailed` | Could not load the log receipts | लॉग की रसीदें नहीं खुलीं |
+| `logs.col.number` | Receipt | रसीद |
+| `logs.col.vendor` | Vendor | वेंडर |
+| `logs.col.alloy` | Alloy | अलॉय |
+| `logs.col.day` | Received | आया |
+| `logs.col.size` | Size | साइज़ |
+| `logs.col.pieces` | Pieces | पीस |
+| `logs.col.weight` | Weight | वज़न |
+| `logs.col.vendorCast` | Vendor cast | वेंडर कास्ट |
+| `logs.col.challan` | Challan | चालान |
+| `logs.col.mtc` | MTC | MTC |
+| `logs.sizeBoth` | {dia} x {len} | {dia} x {len} |
+| `logs.sizeNone` | - | - |
+| `logs.castLink` | Open cast {number} | कास्ट {number} खोलें |
+| `logs.form.title` | Receive logs | लॉग लें |
+| `logs.form.vendor` | Vendor | वेंडर |
+| `logs.form.vendorPick` | Search a vendor | वेंडर खोजें |
+| `logs.form.alloy` | Alloy | अलॉय |
+| `logs.form.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `logs.form.day` | Received on | आने का दिन |
+| `logs.form.diameter` | Diameter ({lengthUnit}) | डायमीटर ({lengthUnit}) |
+| `logs.form.length` | Length ({lengthUnit}) | लंबाई ({lengthUnit}) |
+| `logs.form.pcs` | Pieces | पीस |
+| `logs.form.weight` | Weight | वज़न |
+| `logs.form.vendorCast` | Vendor cast no | वेंडर कास्ट नं |
+| `logs.form.challan` | Challan no | चालान नं |
+| `logs.form.note` | Note | नोट |
+| `logs.form.save` | Receive | लें |
+| `logs.form.received` | {number} received | {number} ले लिया |
+| `logs.form.err.vendor` | Pick a vendor. | वेंडर चुनें। |
+| `logs.form.err.alloy` | Pick an alloy. | अलॉय चुनें। |
+| `logs.form.err.day` | Pick the day. | दिन चुनें। |
+| `logs.form.err.future` | The day cannot be in the future. | आगे का दिन नहीं चलेगा। |
+| `logs.form.err.diameter` | Diameter is outside what a log can be. | डायमीटर लॉग के हिसाब से ठीक नहीं है। |
+| `logs.form.err.length` | Length is outside what a log can be. | लंबाई लॉग के हिसाब से ठीक नहीं है। |
+| `logs.form.err.pcs` | Type the number of pieces. | पीस की गिनती लिखें। |
+| `logs.form.err.kg` | Type the weight. | वज़न लिखें। |
+| `logs.mtc.title` | Mill test certificate | मिल टेस्ट सर्टिफिकेट |
+| `logs.mtc.afterReceive` | {number} received. Add the mill test certificate now? | {number} ले लिया। अभी मिल टेस्ट सर्टिफिकेट जोड़ें? |
+| `logs.mtc.add` | Add MTC | MTC जोड़ें |
+| `logs.mtc.replace` | Replace MTC | MTC बदलें |
+| `logs.mtc.view` | View MTC | MTC देखें |
+| `logs.mtc.none` | No MTC yet | अभी MTC नहीं है |
+| `logs.mtc.pick` | Pick a PDF or a photo | PDF या फ़ोटो चुनें |
+| `logs.mtc.badFile` | Pick a PDF or a photo. | PDF या फ़ोटो चुनें। |
+| `logs.mtc.uploading` | Uploading | अपलोड हो रहा है |
+| `logs.mtc.saved` | MTC saved | MTC सेव हुआ |
+| `logs.mtc.failed` | The upload did not finish. Try again. | अपलोड पूरा नहीं हुआ। फिर कोशिश करें। |
+| `logs.mtc.later` | Later | बाद में |
+| `logs.mtc.openFailed` | Could not open the MTC | MTC नहीं खुला |
+| `billets.title` | Billets and logs | बिलेट और लॉग |
+| `billets.subtitle` | Logs in the store, cut billets on the rack, and billets on each press floor. | स्टोर में लॉग, रैक पर कटे बिलेट, और हर प्रेस फ़्लोर पर बिलेट। |
+| `billets.loadFailed` | The billet stock did not load. | बिलेट स्टॉक नहीं खुला। |
+| `billets.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `billets.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} नग, {kg} {massUnit} |
+| `billets.total` | Total on hand: {kg} {massUnit} | कुल स्टॉक: {kg} {massUnit} |
+| `billets.other` | {kg} {massUnit} is at a place that is not a billet place. | {kg} {massUnit} ऐसी जगह है जो बिलेट की जगह नहीं है। |
+| `billets.boughtIn` | Bought in | बाहर से ख़रीदा |
+| `billets.placeEmpty` | Nothing here now. | अभी यहां कुछ नहीं है। |
+| `billets.negative` | A press logged more than was issued to this floor. Check the issues. | प्रेस ने इस फ़्लोर पर आए बिलेट से ज़्यादा दर्ज किया है। इश्यू जांचें। |
+| `billets.noPlaces` | No billet places yet. Add a billet store, a billet rack and a press floor under Masters, Locations. | अभी कोई बिलेट जगह नहीं है। मास्टर्स, लोकेशन में बिलेट स्टोर, बिलेट रैक और प्रेस फ़्लोर जोड़ें। |
+| `billets.noStore` | No billet store yet. | अभी कोई बिलेट स्टोर नहीं है। |
+| `billets.noRack` | No billet rack yet. Add one under Masters, Locations before the first cut. | अभी कोई बिलेट रैक नहीं है। पहली कटाई से पहले मास्टर्स, लोकेशन में एक जोड़ें। |
+| `billets.noFloor` | No press floor yet. | अभी कोई प्रेस फ़्लोर नहीं है। |
+| `billets.noFloorForPress` | No press floor for this press yet. Add one under Masters, Locations. | इस प्रेस का फ़्लोर अभी नहीं है। मास्टर्स, लोकेशन में जोड़ें। |
+| `billets.pressTitle` | Press {press} | प्रेस {press} |
+| `billets.pressNone` | Floors with no press | बिना प्रेस वाले फ़्लोर |
+| `billets.tabs.label` | Billets | बिलेट |
+| `billets.tabs.stock` | Stock | स्टॉक |
+| `billets.tabs.cut` | Cut | कटाई |
+| `billets.tabs.issue` | Issue | इश्यू |
+| `billets.group.store` | Billet store (logs) | बिलेट स्टोर (लॉग) |
+| `billets.group.storeHint` | Logs from the casthouse, before they are cut. | कास्टहाउस से आए लॉग, कटने से पहले। |
+| `billets.group.rack` | Billet rack (cut billets) | बिलेट रैक (कटे बिलेट) |
+| `billets.group.rackHint` | Billets cut to length, waiting for a press. | नाप पर कटे बिलेट, प्रेस का इंतज़ार करते हुए। |
+| `billets.group.floor` | Press floors | प्रेस फ़्लोर |
+| `billets.group.floorHint` | Billets issued to each press, by press. | हर प्रेस को दिए गए बिलेट, प्रेस के हिसाब से। |
+| `billets.machine.saw` | Saw | आरी |
+| `billets.machine.hot_shear` | Hot shear | हॉट शियर |
+| `billets.cut.title` | Cuts | कटाई |
+| `billets.cut.button` | Cut logs | लॉग काटें |
+| `billets.cut.empty` | No cuts yet. | अभी कोई कटाई नहीं हुई। |
+| `billets.cut.loadFailed` | The cuts did not load. | कटाई की सूची नहीं खुली। |
+| `billets.cut.totals` | Logs {logs} {massUnit}, billets {billets} {massUnit}, end cuts {end} {massUnit}, yield {yield} % | लॉग {logs} {massUnit}, बिलेट {billets} {massUnit}, एंड कट {end} {massUnit}, यील्ड {yield} % |
+| `billets.cut.col.at` | When | कब |
+| `billets.cut.col.cast` | Cast | कास्ट |
+| `billets.cut.col.machine` | Machine | मशीन |
+| `billets.cut.col.logs` | Logs in | लॉग लिए |
+| `billets.cut.col.length` | Billet length | बिलेट की लंबाई |
+| `billets.cut.col.billets` | Billets out | बिलेट निकले |
+| `billets.cut.col.end` | End cuts | एंड कट |
+| `billets.cut.col.yield` | Yield | यील्ड |
+| `billets.cut.sheetTitle` | Cut logs | लॉग काटें |
+| `billets.cut.cast` | Cast | कास्ट |
+| `billets.cut.castPick` | Pick a cast | कास्ट चुनें |
+| `billets.cut.inStore` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `billets.cut.noLogs` | No logs in the billet store. Receive logs or finish a melt first. | बिलेट स्टोर में कोई लॉग नहीं है। पहले लॉग लें या मेल्ट पूरी करें। |
+| `billets.cut.machine` | Machine | मशीन |
+| `billets.cut.logPcs` | Log pieces | लॉग के नग |
+| `billets.cut.logKg` | Log weight | लॉग का वज़न |
+| `billets.cut.length` | Billet length | बिलेट की लंबाई |
+| `billets.cut.billetPcs` | Billet pieces | बिलेट के नग |
+| `billets.cut.billetKg` | Billet weight | बिलेट का वज़न |
+| `billets.cut.preview` | End cuts {end} {massUnit}. Yield {yield} %. | एंड कट {end} {massUnit}। यील्ड {yield} %। |
+| `billets.cut.previewHint` | Type both weights to see the end cuts and the yield. | दोनों वज़न लिखें, एंड कट और यील्ड दिख जाएगी। |
+| `billets.cut.save` | Save cut | कटाई सेव करें |
+| `billets.cut.saved` | Cut saved. | कटाई सेव हो गई। |
+| `billets.cut.homogNeeded` | These logs must be homogenized before they are cut. | इन लॉग को काटने से पहले होमोजनाइज़ करना ज़रूरी है। |
+| `billets.cut.issue.cast` | Pick the cast. | कास्ट चुनें। |
+| `billets.cut.issue.logPcs` | Type the log pieces, a whole number. | लॉग के नग लिखें, पूरी संख्या। |
+| `billets.cut.issue.logKg` | Type the log weight. | लॉग का वज़न लिखें। |
+| `billets.cut.issue.lengthMm` | Type the billet length. | बिलेट की लंबाई लिखें। |
+| `billets.cut.issue.billetPcs` | Type the billet pieces, a whole number. | बिलेट के नग लिखें, पूरी संख्या। |
+| `billets.cut.issue.billetKg` | Type the billet weight. | बिलेट का वज़न लिखें। |
+| `billets.cut.issue.more_out_than_in` | Billets cannot weigh more than the logs. | बिलेट का वज़न लॉग से ज़्यादा नहीं हो सकता। |
+| `billets.cut.issue.length_range` | Billet length must be between {min} and {max}. | बिलेट की लंबाई {min} से {max} के बीच होनी चाहिए। |
+| `billets.cut.issue.more_than_stock` | Only {kg} {massUnit} of this cast is in the store. | स्टोर में इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `billets.issue.title` | Issues to press | प्रेस को इश्यू |
+| `billets.issue.button` | Issue to press | प्रेस को दें |
+| `billets.issue.empty` | No billets issued yet. | अभी कोई बिलेट इश्यू नहीं हुआ। |
+| `billets.issue.loadFailed` | The issues did not load. | इश्यू की सूची नहीं खुली। |
+| `billets.issue.col.press` | Press | प्रेस |
+| `billets.issue.col.from` | From | कहां से |
+| `billets.issue.col.pcs` | Pieces | नग |
+| `billets.issue.col.kg` | Weight | वज़न |
+| `billets.issue.sheetTitle` | Issue billets to a press | प्रेस को बिलेट दें |
+| `billets.issue.cast` | Cast on the rack | रैक पर कास्ट |
+| `billets.issue.castPick` | Pick a cast | कास्ट चुनें |
+| `billets.issue.onRack` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `billets.issue.noRack` | No cut billets on the rack. Cut logs first. | रैक पर कटे बिलेट नहीं हैं। पहले लॉग काटें। |
+| `billets.issue.noPress` | No press has a floor yet. Add a press floor under Masters, Locations. | किसी प्रेस का फ़्लोर अभी नहीं है। मास्टर्स, लोकेशन में प्रेस फ़्लोर जोड़ें। |
+| `billets.issue.press` | Press | प्रेस |
+| `billets.issue.pressPick` | Pick a press | प्रेस चुनें |
+| `billets.issue.pcs` | Pieces | नग |
+| `billets.issue.kg` | Weight | वज़न |
+| `billets.issue.save` | Issue | इश्यू करें |
+| `billets.issue.saved` | Billets issued. | बिलेट इश्यू हो गए। |
+| `billets.issue.issue.cast` | Pick the cast. | कास्ट चुनें। |
+| `billets.issue.issue.press` | Pick the press. | प्रेस चुनें। |
+| `billets.issue.issue.pcs` | Type the pieces, a whole number. | नग लिखें, पूरी संख्या। |
+| `billets.issue.issue.kg` | Type the weight. | वज़न लिखें। |
+| `billets.issue.issue.more_than_stock` | Only {kg} {massUnit} of this cast is on the rack. | रैक पर इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `rejects.title` | Reject registers | रिजेक्ट रजिस्टर |
+| `rejects.subtitle` | Logs and billets thrown out, with the reason. The weight goes back as scrap. | फेंके गए लॉग और बिलेट, कारण के साथ। वज़न स्क्रैप बनकर वापस जाता है। |
+| `rejects.loadFailed` | The rejects did not load. | रिजेक्ट की सूची नहीं खुली। |
+| `rejects.kindLabel` | Register | रजिस्टर |
+| `rejects.kind.log` | Log rejects | लॉग रिजेक्ट |
+| `rejects.kind.billet` | Billet rejects | बिलेट रिजेक्ट |
+| `rejects.button` | Reject | रिजेक्ट करें |
+| `rejects.from` | From day | इस दिन से |
+| `rejects.to` | To day | इस दिन तक |
+| `rejects.backwards` | The last day is before the first day. | आख़िरी दिन पहले दिन से पहले है। |
+| `rejects.emptyLog` | No log rejects in this range. | इस अवधि में कोई लॉग रिजेक्ट नहीं। |
+| `rejects.emptyBillet` | No billet rejects in this range. | इस अवधि में कोई बिलेट रिजेक्ट नहीं। |
+| `rejects.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `rejects.col.day` | When | कब |
+| `rejects.col.cast` | Cast | कास्ट |
+| `rejects.col.place` | Place | जगह |
+| `rejects.col.reason` | Reason | कारण |
+| `rejects.col.note` | Note | नोट |
+| `rejects.col.pcs` | Pieces | नग |
+| `rejects.col.kg` | Weight | वज़न |
+| `rejects.col.stream` | Return stream | रिटर्न स्ट्रीम |
+| `rejects.totals.title` | By reason | कारण के हिसाब से |
+| `rejects.totals.sum` | {entries} entries, {pcs} pcs, {kg} {massUnit} | {entries} एंट्री, {pcs} नग, {kg} {massUnit} |
+| `rejects.totals.line` | {pcs} pcs, {kg} {massUnit}, {share} % | {pcs} नग, {kg} {massUnit}, {share} % |
+| `rejects.sheetTitle.log` | Reject logs | लॉग रिजेक्ट करें |
+| `rejects.sheetTitle.billet` | Reject billets | बिलेट रिजेक्ट करें |
+| `rejects.pick` | Cast and place | कास्ट और जगह |
+| `rejects.pickNone` | Pick a cast and place | कास्ट और जगह चुनें |
+| `rejects.onHand` | {kg} {massUnit} of this cast is at {place}. | इस कास्ट के {kg} {massUnit} {place} पर हैं। |
+| `rejects.noStockLog` | No logs in the billet store. | बिलेट स्टोर में कोई लॉग नहीं है। |
+| `rejects.noStockBillet` | No billets on a rack or a press floor. | रैक या प्रेस फ़्लोर पर कोई बिलेट नहीं है। |
+| `rejects.reason` | Reason | कारण |
+| `rejects.reasonNone` | Pick a reason | कारण चुनें |
+| `rejects.note` | Note | नोट |
+| `rejects.noteRequired` | Note (needed for this reason) | नोट (इस कारण के लिए ज़रूरी) |
+| `rejects.pcs` | Pieces | नग |
+| `rejects.kg` | Weight | वज़न |
+| `rejects.stream` | Return stream | रिटर्न स्ट्रीम |
+| `rejects.streamHint` | Leave this alone and the metal goes to plant scrap. | इसे छोड़ दें तो धातु प्लांट स्क्रैप में जाएगी। |
+| `rejects.streamDefault` | Plant scrap | प्लांट स्क्रैप |
+| `rejects.save` | Save reject | रिजेक्ट सेव करें |
+| `rejects.saved` | Reject saved. | रिजेक्ट सेव हो गया। |
+| `rejects.issue.pick` | Pick the cast and place. | कास्ट और जगह चुनें। |
+| `rejects.issue.reason` | Pick the reason. | कारण चुनें। |
+| `rejects.issue.note` | Write a note for this reason. | इस कारण के लिए नोट लिखें। |
+| `rejects.issue.pcs` | Type the pieces, a whole number. | नग लिखें, पूरी संख्या। |
+| `rejects.issue.kg` | Type the weight. | वज़न लिखें। |
+| `rejects.issue.more_than_stock` | Only {kg} {massUnit} of this cast is at that place. | उस जगह इस कास्ट के सिर्फ़ {kg} {massUnit} हैं। |
+| `sheet.title` | Cast data sheet | कास्ट डेटा शीट |
+| `sheet.subtitle` | One cast from melt to billet, on one A4 page. | एक कास्ट, मेल्ट से बिलेट तक, एक A4 पन्ने पर। |
+| `sheet.link` | Data sheet | डेटा शीट |
+| `sheet.loadFailed` | The data sheet did not load. | डेटा शीट नहीं खुली। |
+| `sheet.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `sheet.pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} नग, {kg} {massUnit} |
+| `sheet.celsius` | {temp} °C | {temp} °C |
+| `sheet.minutes` | {done} of {plan} min | {plan} मिनट में से {done} |
+| `sheet.yes` | Yes | हां |
+| `sheet.no` | No | नहीं |
+| `sheet.opened` | Opened | खोली गई |
+| `sheet.closed` | Closed | बंद हुई |
+| `sheet.openedBy` | Opened by | खोलने वाला |
+| `sheet.source` | Source | स्रोत |
+| `sheet.sourceMelt` | Melted here | यहीं गलाई |
+| `sheet.sourceBought` | Bought in | बाहर से ख़रीदी |
+| `sheet.noMelts` | No melts on this cast yet. | इस कास्ट पर अभी कोई मेल्ट नहीं है। |
+| `sheet.lockedBy` | by {name} | {name} द्वारा |
+| `sheet.charge` | Charge | चार्ज |
+| `sheet.logsOut` | Logs out | निकले लॉग |
+| `sheet.temps` | Furnace temperature | फर्नेस का तापमान |
+| `sheet.tempsLine` | {n} readings, {min} to {max} °C | {n} रीडिंग, {min} से {max} °C |
+| `sheet.noTemps` | No readings | कोई रीडिंग नहीं |
+| `sheet.chemistry` | Chemistry against the alloy limits | केमिस्ट्री, अलॉय की सीमा के सामने |
+| `sheet.inLimits` | Inside limits | सीमा के अंदर |
+| `sheet.outside` | {count} outside limits | {count} सीमा से बाहर |
+| `sheet.noSpectro` | No spectro result for this melt. | इस मेल्ट का स्पेक्ट्रो नतीजा नहीं है। |
+| `sheet.w.in` | Metal in | धातु डाली |
+| `sheet.w.logs` | Logs | लॉग |
+| `sheet.w.dross` | Dross | ड्रॉस |
+| `sheet.w.loss` | Burn loss | बर्न लॉस |
+| `sheet.w.yield` | Yield | यील्ड |
+| `sheet.event.preheat` | Preheat start | प्रीहीट शुरू |
+| `sheet.event.chargingStart` | Charging start | चार्जिंग शुरू |
+| `sheet.event.chargingEnd` | Charging end | चार्जिंग ख़त्म |
+| `sheet.event.castingStart` | Casting start | कास्टिंग शुरू |
+| `sheet.event.castingEnd` | Casting end | कास्टिंग ख़त्म |
+| `sheet.event.reading` | Furnace reading | फर्नेस रीडिंग |
+| `sheet.event.homogIn` | Into homogenizing | होमोजनाइज़िंग में गए |
+| `sheet.event.homogOut` | Out of homogenizing | होमोजनाइज़िंग से निकले |
+| `sheet.event.cut` | Logs cut | लॉग कटे |
+| `sheet.event.reject` | Reject | रिजेक्ट |
+| `sheet.receipt.title` | Bought-in receipt | बाहर से ख़रीद की रसीद |
+| `sheet.receipt.number` | Receipt | रसीद |
+| `sheet.receipt.vendor` | Vendor | वेंडर |
+| `sheet.receipt.on` | Received on | मिली तारीख |
+| `sheet.receipt.vendorCast` | Vendor cast no | वेंडर कास्ट नंबर |
+| `sheet.receipt.challan` | Challan | चालान |
+| `sheet.receipt.logs` | Logs | लॉग |
+| `sheet.receipt.size` | Size | साइज़ |
+| `sheet.receipt.sizeLine` | Diameter {dia} {lengthUnit}, length {len} | व्यास {dia} {lengthUnit}, लंबाई {len} |
+| `sheet.receipt.mtc` | Mill certificate | मिल सर्टिफिकेट |
+| `sheet.homog.title` | Homogenizing | होमोजनाइज़िंग |
+| `sheet.homog.col.batch` | Batch | बैच |
+| `sheet.homog.col.temp` | Temperature | तापमान |
+| `sheet.homog.col.soak` | Soak | सोक |
+| `sheet.homog.col.in` | In | अंदर |
+| `sheet.homog.col.out` | Out | बाहर |
+| `sheet.homog.col.pcs` | Logs | लॉग |
+| `sheet.homog.col.by` | Released by | रिलीज़ किया |
+| `sheet.cuts.title` | Cutting | कटाई |
+| `sheet.cuts.col.at` | When | कब |
+| `sheet.cuts.col.machine` | Machine | मशीन |
+| `sheet.cuts.col.logs` | Logs in | लॉग लिए |
+| `sheet.cuts.col.length` | Billet length | बिलेट की लंबाई |
+| `sheet.cuts.col.billets` | Billets out | बिलेट निकले |
+| `sheet.cuts.col.end` | End cuts | एंड कट |
+| `sheet.cuts.col.yield` | Yield | यील्ड |
+| `sheet.cuts.col.by` | By | किसने |
+| `sheet.rejects.title` | Rejects | रिजेक्ट |
+| `sheet.rejects.col.at` | When | कब |
+| `sheet.rejects.col.kind` | Kind | किस्म |
+| `sheet.rejects.col.reason` | Reason | कारण |
+| `sheet.rejects.col.pcs` | Rejected | रिजेक्ट |
+| `sheet.rejects.col.by` | By | किसने |
+| `sheet.who.title` | Who did what | किसने क्या किया |
+| `mix.title` | Suggest a mix | मिक्स सुझाएं |
+| `mix.hint` | Shows the cheapest mix of lots and return streams that keeps the alloy inside its limits. It does not fill the melt. | लॉट और रिटर्न स्ट्रीम का सबसे सस्ता मिक्स दिखाता है जो अलॉय को सीमा के अंदर रखे। यह मेल्ट में कुछ नहीं भरता। |
+| `mix.alloy` | Alloy | अलॉय |
+| `mix.alloyPick` | Pick an alloy | अलॉय चुनें |
+| `mix.target` | Charge weight | चार्ज का वज़न |
+| `mix.targetInvalid` | Type the charge weight. | चार्ज का वज़न लिखें। |
+| `mix.ask` | Suggest | सुझाएं |
+| `mix.loading` | Working out a mix. | मिक्स निकाल रहे हैं। |
+| `mix.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `mix.forTarget` | {alloy}, {kg} {massUnit} charge | {alloy}, {kg} {massUnit} चार्ज |
+| `mix.status.ok` | Inside limits | सीमा के अंदर |
+| `mix.status.outside_limits` | Outside limits | सीमा से बाहर |
+| `mix.status.short_metal` | Not enough metal | धातु कम है |
+| `mix.status.no_sources` | Nothing to mix | मिलाने को कुछ नहीं |
+| `mix.closest` | No mix keeps every element inside its limits. This is the closest one. Outside: {elements}. | कोई मिक्स हर एलिमेंट को सीमा के अंदर नहीं रखता। यह सबसे नज़दीकी है। बाहर: {elements}। |
+| `mix.short` | Only {kg} {massUnit} of metal with a known chemistry is on hand. | जिसकी केमिस्ट्री पता है ऐसी धातु सिर्फ़ {kg} {massUnit} है। |
+| `mix.noSources` | No lot or return stream with a typical chemistry is on hand. | कोई लॉट या रिटर्न स्ट्रीम नहीं है जिसकी सामान्य केमिस्ट्री तय हो। |
+| `mix.lines` | Suggested mix | सुझाया मिक्स |
+| `mix.predicted` | Expected chemistry | अनुमानित केमिस्ट्री |
+| `mix.stream` | return stream | रिटर्न स्ट्रीम |
+| `mix.col.source` | Lot or stream | लॉट या स्ट्रीम |
+| `mix.col.kg` | Weight | वज़न |
+| `mix.col.share` | Share | हिस्सा |
+| `mix.col.reading` | Against limit | सीमा के सामने |
+| `mix.cost` | Cost of this mix: {amount} | इस मिक्स की लागत: {amount} |
+| `mix.skipped` | {count} lots or streams left out because their typical chemistry is not set. | {count} लॉट या स्ट्रीम छोड़े गए, क्योंकि उनकी सामान्य केमिस्ट्री तय नहीं है। |
+| `mix.setChemistry` | Set typical chemistry | सामान्य केमिस्ट्री तय करें |
+| `mix.enterYourself` | Enter these yourself. Nothing is filled in for you. | इन्हें ख़ुद दर्ज करें। आपके लिए कुछ नहीं भरा जाता। |
+| `chemistry.title` | Typical chemistry | सामान्य केमिस्ट्री |
+| `chemistry.subtitle` | The usual make-up of each scrap item and return stream, for the mix suggestion. | हर स्क्रैप आइटम और रिटर्न स्ट्रीम की आम बनावट, मिक्स सुझाव के लिए। |
+| `chemistry.hint` | Values are percent. A blank box means the element is not set. The mix suggestion leaves out anything with no chemistry. | वैल्यू प्रतिशत में हैं। ख़ाली डिब्बे का मतलब एलिमेंट तय नहीं है। जिसकी केमिस्ट्री नहीं है उसे मिक्स सुझाव छोड़ देता है। |
+| `chemistry.loadFailed` | The typical chemistry did not load. | सामान्य केमिस्ट्री नहीं खुली। |
+| `chemistry.group.item` | Scrap items | स्क्रैप आइटम |
+| `chemistry.group.stream` | Return streams | रिटर्न स्ट्रीम |
+| `chemistry.empty.item` | No scrap items yet. | अभी कोई स्क्रैप आइटम नहीं है। |
+| `chemistry.empty.stream` | No return streams yet. | अभी कोई रिटर्न स्ट्रीम नहीं है। |
+| `chemistry.retired` | Retired | बंद |
+| `chemistry.notSet` | Not set | तय नहीं |
+| `chemistry.edit` | Edit | बदलें |
+| `chemistry.sheetTitle` | Typical chemistry: {name} | सामान्य केमिस्ट्री: {name} |
+| `chemistry.sheetHint` | Type the percent of each element. Leave a box blank to clear it. | हर एलिमेंट का प्रतिशत लिखें। मिटाने के लिए डिब्बा ख़ाली छोड़ें। |
+| `chemistry.save` | Save chemistry | केमिस्ट्री सेव करें |
+| `chemistry.saved` | Chemistry saved. | केमिस्ट्री सेव हो गई। |
+| `location.press` | Press | प्रेस |
+| `location.pressHint` | The press this floor serves. Billets issued to the press land here. | यह फ़्लोर किस प्रेस का है। प्रेस को दिए बिलेट यहीं आते हैं। |
+| `location.pressPick` | Pick a press | प्रेस चुनें |
+| `location.pressRequired` | Pick the press this floor serves. | यह फ़्लोर जिस प्रेस का है, उसे चुनें। |
+| `plan.nav` | Casting plan | कास्टिंग प्लान |
+| `plan.title` | Casting plan | कास्टिंग प्लान |
+| `plan.subtitle` | Built from the billet need of the press plans, less the logs and billets in stock and the lines already accepted. | यह प्रेस प्लान की बिलेट ज़रूरत से बना है, जिसमें से स्टॉक के लॉग और बिलेट और पहले मंज़ूर की गई लाइनें घटाई गई हैं। |
+| `plan.loadFailed` | The casting plan did not load. | कास्टिंग प्लान नहीं खुला। |
+| `plan.from` | From day | इस दिन से |
+| `plan.to` | To day | इस दिन तक |
+| `plan.backwards` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
+| `plan.tooLong` | Look at 31 days or fewer at a time. | एक बार में 31 दिन या कम देखें। |
+| `plan.furnaceSize` | Furnace size: {kg} {massUnit} a cast. | फर्नेस का साइज़: एक कास्ट में {kg} {massUnit}। |
+| `plan.furnaceNone` | No furnace size is set, so one cast per row is assumed. | फर्नेस का साइज़ नहीं भरा है, इसलिए हर पंक्ति में एक कास्ट मानी गई है। |
+| `plan.kgLine` | {kg} {massUnit} | {kg} {massUnit} |
+| `plan.proposed.title` | Proposed | सुझाव |
+| `plan.proposed.empty` | Nothing to cast in these days. The stock and accepted lines cover the press plans. | इन दिनों में कास्ट करने को कुछ नहीं है। स्टॉक और मंज़ूर लाइनें प्रेस प्लान पूरे कर देती हैं। |
+| `plan.proposed.col.day` | Day | दिन |
+| `plan.proposed.col.alloy` | Alloy | अलॉय |
+| `plan.proposed.col.need` | Need | ज़रूरत |
+| `plan.proposed.col.covered` | Covered | पूरा |
+| `plan.proposed.col.cast` | To cast | कास्ट करना |
+| `plan.proposed.col.casts` | Casts | कास्ट |
+| `plan.proposed.accept` | Accept | मंज़ूर करें |
+| `plan.proposed.noAlloy` | This alloy is not in the masters. Add it before accepting. | यह अलॉय मास्टर में नहीं है। मंज़ूर करने से पहले जोड़ें। |
+| `plan.proposed.nothing` | Nothing to cast | कास्ट करने को कुछ नहीं |
+| `plan.plans.title` | Press plans used | इस्तेमाल हुए प्रेस प्लान |
+| `plan.plans.empty` | No press plans start in these days. | इन दिनों में कोई प्रेस प्लान शुरू नहीं होता। |
+| `plan.plans.line` | {number} · {day} · billets {kg} {massUnit} | {number} · {day} · बिलेट {kg} {massUnit} |
+| `plan.plans.noAlloy` | {kg} {massUnit} of this plan is on lines with no alloy, so it is not in the plan. | इस प्लान के {kg} {massUnit} की लाइनों में अलॉय नहीं है, इसलिए वह प्लान में नहीं आया। |
+| `plan.plans.truncated` | More press plans start in these days than are read. Look at fewer days. | इन दिनों में जितने प्रेस प्लान पढ़े जाते हैं उससे ज़्यादा शुरू होते हैं। कम दिन देखें। |
+| `plan.lines.title` | Accepted lines | मंज़ूर लाइनें |
+| `plan.lines.empty` | No lines accepted in these days. | इन दिनों में कोई लाइन मंज़ूर नहीं हुई। |
+| `plan.lines.col.day` | Day | दिन |
+| `plan.lines.col.alloy` | Alloy | अलॉय |
+| `plan.lines.col.kg` | Weight | वज़न |
+| `plan.lines.col.status` | Status | हालत |
+| `plan.lines.col.note` | Note | नोट |
+| `plan.lines.col.actions` | Actions | काम |
+| `plan.lines.status.accepted` | Accepted | मंज़ूर |
+| `plan.lines.status.opened` | Opened | खुली |
+| `plan.lines.status.dropped` | Dropped | छोड़ी |
+| `plan.lines.edit` | Edit | बदलें |
+| `plan.lines.drop` | Drop | छोड़ें |
+| `plan.lines.open` | Open a cast | कास्ट खोलें |
+| `plan.lines.cast` | Cast {number} | कास्ट {number} |
+| `plan.lines.proposedWas` | Proposed {kg} {massUnit} | सुझाव {kg} {massUnit} |
+| `plan.totals.title` | Totals by alloy | अलॉय के हिसाब से कुल |
+| `plan.totals.line` | need {need} {massUnit}, covered {covered} {massUnit}, to cast {cast} {massUnit}, {casts} casts | ज़रूरत {need} {massUnit}, पूरा {covered} {massUnit}, कास्ट करना {cast} {massUnit}, {casts} कास्ट |
+| `plan.accept.title` | Accept {alloy} for {day} | {day} के लिए {alloy} मंज़ूर करें |
+| `plan.accept.editTitle` | Change the line for {alloy} | {alloy} की लाइन बदलें |
+| `plan.accept.dropTitle` | Drop the line for {alloy} | {alloy} की लाइन छोड़ें |
+| `plan.accept.proposedHint` | Proposed: {kg} {massUnit} | सुझाव: {kg} {massUnit} |
+| `plan.accept.kg` | Weight to cast | कास्ट करने का वज़न |
+| `plan.accept.day` | Day | दिन |
+| `plan.accept.note` | Note | नोट |
+| `plan.accept.save` | Accept | मंज़ूर करें |
+| `plan.accept.saveEdit` | Save | सेव करें |
+| `plan.accept.confirmDrop` | Drop the line | लाइन छोड़ें |
+| `plan.accept.saved` | Line accepted. | लाइन मंज़ूर हुई। |
+| `plan.accept.updated` | Line saved. | लाइन सेव हुई। |
+| `plan.accept.dropped` | Line dropped. | लाइन छोड़ दी गई। |
+| `plan.accept.opened` | Cast {number} opened. | कास्ट {number} खुली। |
+| `plan.accept.issue.kg` | Enter a weight of 1 {massUnit} or more. | 1 {massUnit} या उससे ज़्यादा वज़न भरें। |
+| `plan.accept.issue.day` | Pick a day. | एक दिन चुनें। |
+| `trace.title` | Bought-in logs | बाहर से खरीदे लॉग |
+| `trace.receipt` | Receipt {number}, received {day} | रसीद {number}, {day} को आई |
+| `trace.vendor` | Vendor {vendor} | वेंडर {vendor} |
+| `trace.vendorCast` | Vendor cast {cast} | वेंडर कास्ट {cast} |
+| `trace.challan` | Challan {challan} | चालान {challan} |
+| `trace.qty` | {pcs} pcs, {kg} {massUnit} | {pcs} पीस, {kg} {massUnit} |
+| `trace.mtc` | Mill test certificate on file | मिल टेस्ट सर्टिफ़िकेट फ़ाइल में है |
+
+### reg (338)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9127,6 +9697,9 @@ Please check, Lalubhai:
 | `reports.materials.group.pack_reject` | Pack rejects | पैक रिजेक्ट |
 | `reports.materials.group.press` | Press close | प्रेस क्लोज़ |
 | `reports.materials.group.cast_tail` | Billet count at cast close | कास्ट बंद होने पर billet गिनती |
+| `reports.materials.group.log_receipt` | Bought-in logs | बाहर से खरीदे लॉग |
+| `reports.materials.group.billet_cut` | Logs cut into billets | लॉग से बिलेट कटाई |
+| `reports.materials.group.foundry_reject` | Log and billet rejects | लॉग और बिलेट रिजेक्ट |
 | `reports.materials.group.move` | Moves not netted | जो मूव नेट नहीं हुए |
 | `complaints.title` | Complaints | शिकायतें |
 | `complaints.subtitle` | What customers reported about a bundle, and what the plant did about it. | ग्राहक ने बंडल के बारे में क्या बताया और प्लांट ने उस पर क्या किया। |
@@ -9893,7 +10466,798 @@ Please check, Lalubhai:
 | `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
 | `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
 
-### reasons (79)
+### store2 (366)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `buy.title` | Buying | खरीद |
+| `buy.subtitle` | Indents, purchase orders and what the store is worth | इंडेंट, परचेज़ ऑर्डर और स्टोर का मूल्य |
+| `buy.tabs.indents` | Indents | इंडेंट |
+| `buy.tabs.orders` | Purchase orders | परचेज़ ऑर्डर |
+| `buy.tabs.value` | Store value | स्टोर का मूल्य |
+| `buy.noAccess` | Buying is for department heads, the office, the store and managers. | खरीद विभाग प्रमुखों, ऑफिस, स्टोर और मैनेजरों के लिए है। |
+| `buy.openStore` | Store | स्टोर |
+| `status.indent.open` | Waiting | इंतज़ार में |
+| `status.indent.approved` | Approved | मंज़ूर |
+| `status.indent.rejected` | Rejected | नामंज़ूर |
+| `status.indent.ordered` | Ordered | ऑर्डर हुआ |
+| `status.indent.cancelled` | Cancelled | रद्द |
+| `status.po.draft` | Draft | ड्राफ्ट |
+| `status.po.issued` | Sent | भेजा गया |
+| `status.po.part_received` | Part received | कुछ माल आया |
+| `status.po.closed` | Closed | बंद |
+| `status.po.cancelled` | Cancelled | रद्द |
+| `money.noRate` | No rate | रेट नहीं |
+| `money.perUnit` | {rate} per {unit} | {rate} प्रति {unit} |
+| `money.ratePending` | Rate pending | रेट बाकी |
+| `grn.entryPo` | Purchase order | परचेज़ ऑर्डर |
+| `grn.entryRate` | Rate | रेट |
+| `grn.entryValue` | Value | मूल्य |
+| `grn.poLine` | Against a purchase order | परचेज़ ऑर्डर के सामने |
+| `grn.noPo` | No purchase order | कोई परचेज़ ऑर्डर नहीं |
+| `grn.poLineOption` | {po} line {line}, {vendor}: {left} {unit} still to come | {po} लाइन {line}, {vendor}: {left} {unit} आना बाकी |
+| `grn.poLineHint` | Pick the order line this delivery is for. The rate comes from the order. | यह माल ऑर्डर की जिस लाइन का है वह चुनें। रेट ऑर्डर से आता है। |
+| `grn.noOpenLines` | No open purchase order has this item. | किसी खुले परचेज़ ऑर्डर में यह आइटम नहीं है। |
+| `grn.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `grn.rateHint` | Rupees, from the vendor's bill. Leave empty if you do not know it yet. | रुपये में, वेंडर के बिल से। पता न हो तो खाली छोड़ें। |
+| `grn.rateFromPo` | From the order: {rate} | ऑर्डर से: {rate} |
+| `grn.rateByOffice` | The office sets the rate. Until then this delivery counts at the average rate. | रेट ऑफ़िस तय करता है। तब तक यह माल औसत रेट पर गिना जाएगा। |
+| `grn.rateInvalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में डालें, जैसे 84.50 |
+| `grn.rejected` | Rejected at inspection | जांच में लौटाया |
+| `grn.rejectedHint` | What you turned back. It does not go into the store. | जो आपने वापस किया। यह स्टोर में नहीं जाता। |
+| `grn.accepted` | Accepted into the store | स्टोर में लिया |
+| `grn.left` | Still to come on this line: {qty} | इस लाइन पर आना बाकी: {qty} |
+| `grn.lineGone` | This order line is no longer open (another delivery or a close used it up). Pick another line, or receive without the order. | यह ऑर्डर लाइन अब खुली नहीं है (किसी और माल या बंद करने से पूरी हो गई)। दूसरी लाइन चुनें, या बिना ऑर्डर के माल लें। |
+| `grn.dropPo` | Receive without the order | बिना ऑर्डर के माल लें |
+| `item.levels` | Reorder levels | रीऑर्डर लेवल |
+| `item.min` | Minimum | न्यूनतम |
+| `item.minHint` | Below this, Today asks for an indent. | इससे कम होने पर टुडे इंडेंट मांगता है। |
+| `item.reorder` | Reorder quantity | रीऑर्डर मात्रा |
+| `item.reorderHint` | How much one indent asks for. Empty means enough to reach the minimum. | एक इंडेंट कितना मांगे। खाली हो तो न्यूनतम तक पहुंचने जितना। |
+| `item.none` | Not set | तय नहीं |
+| `item.showLevels` | Minimum {min}, reorder {reorder} | न्यूनतम {min}, रीऑर्डर {reorder} |
+| `today.title` | Store items running low | स्टोर में कम पड़ते आइटम |
+| `today.open` | Open the store | स्टोर खोलें |
+| `today.have` | {have} left, minimum {min} | {have} बचा, न्यूनतम {min} |
+| `today.makeIndent` | Make indent | इंडेंट बनाएं |
+| `today.making` | Making indent | इंडेंट बन रहा है |
+| `today.made` | Indent {number} made | इंडेंट {number} बना |
+| `today.already` | Indent {number} is already raised | इंडेंट {number} पहले से बना है |
+| `today.openIndent` | Open {number} | {number} खोलें |
+| `today.failed` | The indent was not made. Try again. | इंडेंट नहीं बना। फिर से कोशिश करें। |
+| `errors.overReceipt` | {po} line {line} can take only {qty} {unit} more. Check the delivery, or ask the office to raise the order. | {po} लाइन {line} पर अब सिर्फ {qty} {unit} और आ सकता है। माल जांचें, या ऑफिस से ऑर्डर बढ़वाएं। |
+| `errors.poWrongItem` | That order line is for another item. | ऑर्डर की वह लाइन किसी और आइटम की है। |
+| `errors.poNotOpen` | {po} is not open for deliveries. | {po} पर अब माल नहीं लिया जा सकता। |
+| `errors.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्या जांचें। |
+| `errors.notFound` | Not found. It may have been removed, or it belongs to another plant. | नहीं मिला। शायद हटा दिया गया, या यह किसी और प्लांट का है। |
+| `errors.vendorNotConfirmed` | This vendor is not confirmed yet. Ask a manager to confirm it in Masters. | यह वेंडर अभी पक्का नहीं है। मैनेजर से मास्टर्स में पक्का करवाएं। |
+| `errors.wrongStatus` | {number} has moved on. Open it again to see where it stands. | {number} आगे बढ़ चुका है। फिर से खोलकर देखें। |
+| `errors.indentNotApproved` | Only an approved indent can become a purchase order. | सिर्फ मंज़ूर इंडेंट ही परचेज़ ऑर्डर बन सकता है। |
+| `errors.indentChanged` | The indent changed meanwhile. Open it again. | इस बीच इंडेंट बदल गया। फिर से खोलें। |
+| `errors.poHasGoods` | {po} already has goods in. Close it short instead of cancelling. | {po} पर माल आ चुका है। रद्द करने की जगह बाकी छोड़कर बंद करें। |
+| `errors.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `errors.tooManyLines` | At most 40 items on one document. | एक कागज़ पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `errors.sameItemTwice` | The same item is on it twice. Put it on one line. | एक ही आइटम दो बार है। उसे एक लाइन में रखें। |
+| `errors.notBelow` | This item is not below its minimum any more. | यह आइटम अब न्यूनतम से कम नहीं है। |
+| `errors.forbidden` | You do not have permission to do that. | आपको यह करने की अनुमति नहीं है। |
+| `errors.rateOfficeOnlyPo` | Only the office can change the order's rate. Leave the rate as the order has it. | ऑर्डर का रेट सिर्फ़ ऑफ़िस बदल सकता है। रेट वैसा ही रहने दें जैसा ऑर्डर में है। |
+| `errors.rateOfficeOnly` | Only the office can set a rate. Leave it empty and the office will set it. | रेट सिर्फ़ ऑफ़िस तय कर सकता है। इसे खाली छोड़ें, ऑफ़िस तय कर देगा। |
+| `errors.allRated` | All of this item in the store already has a rate. | स्टोर में इस आइटम के सारे माल का रेट पहले से तय है। |
+| `errors.issuedSince` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.openingRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.unknown` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `indent.show` | Show | दिखाएँ |
+| `indent.all` | All | सभी |
+| `indent.raise` | Raise indent | इंडेंट बनाएँ |
+| `indent.columns.number` | Indent | इंडेंट |
+| `indent.columns.department` | Department | विभाग |
+| `indent.columns.neededBy` | Needed by | कब तक चाहिए |
+| `indent.columns.items` | Items | आइटम |
+| `indent.columns.status` | Status | स्थिति |
+| `indent.notSet` | Not set | तय नहीं |
+| `indent.empty.title` | No indents yet | अभी कोई इंडेंट नहीं |
+| `indent.empty.body` | An indent asks the store to buy what a department needs. | इंडेंट से स्टोर को बताया जाता है कि विभाग को क्या खरीदना है। |
+| `indent.empty.filtered` | No indents with this status. | इस स्थिति का कोई इंडेंट नहीं। |
+| `indent.more` | Showing the latest {count} indents. Pick a status to narrow the list. | ताज़ा {count} इंडेंट दिख रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `indent.form.title` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.department` | Department | विभाग |
+| `indent.form.departmentHint` | Who needs it, like Press or Maintenance. | किसे चाहिए, जैसे प्रेस या मेंटेनेंस। |
+| `indent.form.departmentRequired` | Enter the department. | विभाग लिखें। |
+| `indent.form.neededBy` | Needed by | कब तक चाहिए |
+| `indent.form.neededByHint` | Optional. The day the store should have it. | ज़रूरी नहीं। स्टोर में किस दिन तक माल चाहिए। |
+| `indent.form.neededByInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `indent.form.reason` | Reason | कारण |
+| `indent.form.reasonHint` | Optional. Why it is needed. | ज़रूरी नहीं। क्यों चाहिए। |
+| `indent.form.items` | Items | आइटम |
+| `indent.form.item` | Item {n} | आइटम {n} |
+| `indent.form.itemPlaceholder` | Pick an item | आइटम चुनें |
+| `indent.form.qty` | Quantity | मात्रा |
+| `indent.form.addItem` | Add item | आइटम जोड़ें |
+| `indent.form.removeItem` | Remove item {n} | आइटम {n} हटाएँ |
+| `indent.form.noItems` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `indent.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `indent.form.twice` | This item is on the indent already. Put it on one line. | यह आइटम इंडेंट में पहले से है। इसे एक ही लाइन में रखें। |
+| `indent.form.tooMany` | At most 40 items on one indent. | एक इंडेंट में ज़्यादा से ज़्यादा 40 आइटम। |
+| `indent.form.noActiveItems` | The store has no items yet. Add items in the store first. | स्टोर में अभी कोई आइटम नहीं है। पहले स्टोर में आइटम जोड़ें। |
+| `indent.form.submit` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.raised` | Indent {number} raised | इंडेंट {number} बन गया |
+| `indent.detail.title` | Indent {number} | इंडेंट {number} |
+| `indent.detail.raisedOn` | Raised {date} | बनाया {date} |
+| `indent.detail.department` | Department | विभाग |
+| `indent.detail.neededBy` | Needed by | कब तक चाहिए |
+| `indent.detail.reason` | Reason | कारण |
+| `indent.detail.noReason` | No reason given | कारण नहीं लिखा |
+| `indent.detail.items` | Items | आइटम |
+| `indent.detail.order` | Purchase order | परचेज़ ऑर्डर |
+| `indent.detail.openOrder` | Open {number} | {number} खोलें |
+| `indent.detail.makeOrder` | Make purchase order | PO बनाएँ |
+| `indent.detail.makeOrderHint` | This indent is approved. Make the purchase order to buy it. | यह इंडेंट मंज़ूर है। खरीदने के लिए PO बनाएँ। |
+| `indent.detail.loadFailed` | This indent did not load. | यह इंडेंट नहीं खुला। |
+| `indent.detail.approve` | Approve | मंज़ूर करें |
+| `indent.detail.reject` | Reject | नामंज़ूर करें |
+| `indent.detail.cancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.approved` | Indent {number} approved | इंडेंट {number} मंज़ूर हुआ |
+| `indent.detail.rejected` | Indent {number} rejected | इंडेंट {number} नामंज़ूर हुआ |
+| `indent.detail.cancelled` | Indent {number} cancelled | इंडेंट {number} रद्द हुआ |
+| `indent.detail.noteLabel` | Note | नोट |
+| `indent.detail.noteHint` | Optional. The person who raised it sees this. | ज़रूरी नहीं। इंडेंट बनाने वाले को यह दिखेगा। |
+| `indent.detail.rejectReason` | Why are you rejecting it? | नामंज़ूर क्यों कर रहे हैं? |
+| `indent.detail.rejectRequired` | Say why, so the department knows. | कारण लिखें, ताकि विभाग को पता चले। |
+| `indent.detail.confirmReject` | Reject indent | इंडेंट नामंज़ूर करें |
+| `indent.detail.cancelReason` | Why are you cancelling it? | रद्द क्यों कर रहे हैं? |
+| `indent.detail.cancelRequired` | Say why. | कारण लिखें। |
+| `indent.detail.confirmCancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.back` | Keep it | रहने दें |
+| `po.list.label` | Purchase orders | परचेज़ ऑर्डर |
+| `po.list.filter` | Show | दिखाएं |
+| `po.list.all` | All | सभी |
+| `po.list.new` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.list.number` | Number | नंबर |
+| `po.list.vendor` | Vendor | वेंडर |
+| `po.list.delivery` | Delivery by | डिलीवरी तक |
+| `po.list.items` | Items | आइटम |
+| `po.list.amount` | Amount | रकम |
+| `po.list.status` | Status | स्थिति |
+| `po.list.noDate` | Not given | तय नहीं |
+| `po.list.empty` | No purchase orders yet | अभी कोई परचेज़ ऑर्डर नहीं |
+| `po.list.emptyBody` | A purchase order tells a vendor what to send, at what rate and by when. | परचेज़ ऑर्डर वेंडर को बताता है कि क्या भेजना है, किस रेट पर और कब तक। |
+| `po.list.emptyFiltered` | No purchase orders with this status. | इस स्थिति का कोई परचेज़ ऑर्डर नहीं। |
+| `po.list.capped` | Showing the latest {count}. Pick a status to narrow the list. | ताज़ा {count} दिखाए जा रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `po.list.loadFailed` | The purchase orders did not load. | परचेज़ ऑर्डर नहीं खुले। |
+| `po.form.newTitle` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.form.editTitle` | Change purchase order | परचेज़ ऑर्डर बदलें |
+| `po.form.subtitle` | Pick the vendor, add the items and send it from the next page. | वेंडर चुनें, आइटम जोड़ें और अगले पन्ने से भेजें। |
+| `po.form.fromIndent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.form.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.form.vendor` | Vendor | वेंडर |
+| `po.form.vendorPlaceholder` | Search a vendor | वेंडर खोजें |
+| `po.form.vendorHint` | Only confirmed vendors are listed. | सिर्फ़ पक्के किए गए वेंडर दिखते हैं। |
+| `po.form.vendorRequired` | Pick a vendor. | वेंडर चुनें। |
+| `po.form.delivery` | Delivery by | डिलीवरी तक |
+| `po.form.deliveryHint` | The day the vendor should deliver. Leave empty if there is none. | वह दिन जब तक वेंडर माल दे। न हो तो खाली छोड़ें। |
+| `po.form.deliveryInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `po.form.terms` | Terms | शर्तें |
+| `po.form.termsHint` | Payment, freight and anything else the vendor must know. It prints on the order. | पेमेंट, भाड़ा और वेंडर को जो भी जानना ज़रूरी है। यह ऑर्डर पर छपता है। |
+| `po.form.note` | Note for the office | ऑफिस के लिए नोट |
+| `po.form.noteHint` | Kept with the order. It does not print. | ऑर्डर के साथ रखा जाता है। यह छपता नहीं। |
+| `po.form.lines` | Items | आइटम |
+| `po.form.line` | Item {n} | आइटम {n} |
+| `po.form.item` | Item | आइटम |
+| `po.form.itemPlaceholder` | Search an item | आइटम खोजें |
+| `po.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `po.form.qty` | Quantity | मात्रा |
+| `po.form.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `po.form.rateNoUnit` | Rate | रेट |
+| `po.form.rateHint` | Rupees, like 84.50 | रुपये में, जैसे 84.50 |
+| `po.form.rateInvalid` | Enter the rate in rupees, like 84.50. | रेट रुपये में डालें, जैसे 84.50। |
+| `po.form.gst` | GST | GST |
+| `po.form.gstInvalid` | Enter GST from 0 to 28. | GST 0 से 28 के बीच डालें। |
+| `po.form.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्याएं जांचें। |
+| `po.form.sameItem` | This item is on another line. Put it on one line. | यह आइटम दूसरी लाइन पर भी है। इसे एक ही लाइन पर रखें। |
+| `po.form.lineTotal` | Line total {total} | लाइन का कुल {total} |
+| `po.form.addLine` | Add an item | आइटम जोड़ें |
+| `po.form.removeLine` | Remove item {n} | आइटम {n} हटाएं |
+| `po.form.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `po.form.tooManyLines` | At most 40 items on one order. | एक ऑर्डर पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `po.form.amount` | Amount | रकम |
+| `po.form.gstTotal` | GST | GST |
+| `po.form.total` | Total | कुल |
+| `po.form.save` | Save order | ऑर्डर सेव करें |
+| `po.form.saved` | {number} saved | {number} सेव हुआ |
+| `po.form.notDraft` | {number} is not a draft any more, so it cannot be changed. | {number} अब ड्राफ्ट नहीं है, इसलिए बदला नहीं जा सकता। |
+| `po.form.openOrder` | Open {number} | {number} खोलें |
+| `po.form.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.form.noAccess` | Making purchase orders is for the office and managers. | परचेज़ ऑर्डर बनाना ऑफिस और मैनेजरों के लिए है। |
+| `po.form.indentNotUsable` | This indent is not approved any more, so it cannot become an order. | यह इंडेंट अब मंज़ूर नहीं है, इसलिए ऑर्डर नहीं बन सकता। |
+| `po.form.fixErrors` | Fix the marked boxes and save again. | निशान वाले खाने ठीक करके फिर सेव करें। |
+| `po.detail.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.detail.title` | Purchase order {number} | परचेज़ ऑर्डर {number} |
+| `po.detail.subtitle` | {vendor} | {vendor} |
+| `po.detail.vendor` | Vendor | वेंडर |
+| `po.detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.detail.delivery` | Delivery by | डिलीवरी तक |
+| `po.detail.terms` | Terms | शर्तें |
+| `po.detail.note` | Note | नोट |
+| `po.detail.indent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.detail.createdAt` | Made | बना |
+| `po.detail.sentAt` | Sent | भेजा |
+| `po.detail.closeNote` | Closed short: {note} | कम माल पर बंद: {note} |
+| `po.detail.cancelReason` | Cancelled: {reason} | रद्द: {reason} |
+| `po.detail.lines` | Items | आइटम |
+| `po.detail.item` | Item | आइटम |
+| `po.detail.ordered` | Ordered | ऑर्डर |
+| `po.detail.received` | Received | आया |
+| `po.detail.rate` | Rate | रेट |
+| `po.detail.gst` | GST | GST |
+| `po.detail.total` | Total | कुल |
+| `po.detail.totalsAmount` | Amount | रकम |
+| `po.detail.totalsGst` | GST | GST |
+| `po.detail.totalsTotal` | Total | कुल |
+| `po.detail.grns` | GRNs against this order | इस ऑर्डर के GRN |
+| `po.detail.grnNumber` | GRN | GRN |
+| `po.detail.grnQty` | Accepted | लिया गया |
+| `po.detail.grnRejected` | Rejected | लौटाया |
+| `po.detail.grnStatus` | Status | स्थिति |
+| `po.detail.grnCancelled` | Cancelled | रद्द |
+| `po.detail.grnLive` | Counted | गिना गया |
+| `po.detail.noGrns` | No goods have come against this order yet. | इस ऑर्डर पर अभी कोई माल नहीं आया। |
+| `po.detail.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.detail.noAccess` | Purchase orders are for the office, the store and managers. | परचेज़ ऑर्डर ऑफिस, स्टोर और मैनेजरों के लिए हैं। |
+| `po.detail.notFound` | This purchase order was not found. | यह परचेज़ ऑर्डर नहीं मिला। |
+| `po.detail.noRate` | No rate | रेट नहीं |
+| `po.action.edit` | Change | बदलें |
+| `po.action.send` | Send | भेजें |
+| `po.action.closeShort` | Close short | कम माल पर बंद करें |
+| `po.action.cancel` | Cancel order | ऑर्डर रद्द करें |
+| `po.action.print` | Print | प्रिंट |
+| `po.send.title` | Send {number}? | {number} भेजें? |
+| `po.send.body` | After it is sent, the lines can no longer be changed. The store can then receive goods against it. | भेजने के बाद लाइनें बदली नहीं जा सकतीं। फिर स्टोर इस पर माल ले सकता है। |
+| `po.send.confirm` | Send order | ऑर्डर भेजें |
+| `po.send.done` | {number} sent | {number} भेजा गया |
+| `po.close.title` | Close {number} short? | {number} कम माल पर बंद करें? |
+| `po.close.body` | The goods still to come will not be expected. This cannot be undone. | जो माल आना बाकी है उसकी उम्मीद नहीं रहेगी। यह वापस नहीं होगा। |
+| `po.close.note` | Why is it closed short? | कम माल पर क्यों बंद कर रहे हैं? |
+| `po.close.noteHint` | For example, the vendor cannot supply the rest. | जैसे, वेंडर बाकी माल नहीं दे सकता। |
+| `po.close.noteRequired` | Say why it is closed short. | बताएं कि कम माल पर क्यों बंद हुआ। |
+| `po.close.confirm` | Close short | कम माल पर बंद करें |
+| `po.close.keep` | Keep it open | खुला रहने दें |
+| `po.close.done` | {number} closed | {number} बंद हुआ |
+| `po.cancel.title` | Cancel {number}? | {number} रद्द करें? |
+| `po.cancel.body` | The vendor should be told. An indent this order was made from becomes approved again. | वेंडर को बता दें। जिस इंडेंट से यह ऑर्डर बना था वह फिर मंज़ूर हो जाएगा। |
+| `po.cancel.reason` | Why is it cancelled? | क्यों रद्द कर रहे हैं? |
+| `po.cancel.reasonHint` | Kept with the order. | ऑर्डर के साथ रखा जाता है। |
+| `po.cancel.reasonRequired` | Say why it is cancelled. | बताएं कि क्यों रद्द हुआ। |
+| `po.cancel.confirm` | Cancel order | ऑर्डर रद्द करें |
+| `po.cancel.keep` | Keep the order | ऑर्डर रहने दें |
+| `po.cancel.done` | {number} cancelled | {number} रद्द हुआ |
+| `po.print.title` | Purchase order | परचेज़ ऑर्डर |
+| `po.print.back` | Back to the order | ऑर्डर पर वापस |
+| `po.print.number` | Order no. | ऑर्डर नं. |
+| `po.print.date` | Date | तारीख |
+| `po.print.delivery` | Delivery by | डिलीवरी तक |
+| `po.print.to` | To | प्रति |
+| `po.print.from` | From | से |
+| `po.print.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.print.phone` | Phone {phone} | फ़ोन {phone} |
+| `po.print.sl` | No. | नं. |
+| `po.print.item` | Item | आइटम |
+| `po.print.qty` | Quantity | मात्रा |
+| `po.print.unit` | Unit | इकाई |
+| `po.print.rate` | Rate | रेट |
+| `po.print.gst` | GST | GST |
+| `po.print.amount` | Amount | रकम |
+| `po.print.totalsAmount` | Amount | रकम |
+| `po.print.totalsGst` | GST | GST |
+| `po.print.totalsTotal` | Total | कुल |
+| `po.print.terms` | Terms | शर्तें |
+| `po.print.forPlant` | For {plant} | {plant} के लिए |
+| `po.print.signature` | Authorised signatory | अधिकृत हस्ताक्षर |
+| `po.print.draftMark` | Draft, not sent | ड्राफ्ट, भेजा नहीं गया |
+| `po.print.cancelledMark` | Cancelled | रद्द |
+| `po.print.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.print.footer` | Printed {date} | छपा {date} |
+| `value.nowTitle` | Store value now | स्टोर का मूल्य अभी |
+| `value.nowTotal` | Total value | कुल मूल्य |
+| `value.nowHint` | Stock with no rate is left out of the value until it gets a rate. A delivery waiting for its rate counts at the average rate. | बिना रेट का माल रेट मिलने तक मूल्य में नहीं गिना जाता। रेट की राह देखता माल औसत रेट पर गिना जाता है। |
+| `value.columns.item` | Item | आइटम |
+| `value.columns.held` | In the store | स्टोर में |
+| `value.columns.rate` | Average rate | औसत रेट |
+| `value.columns.value` | Value | मूल्य |
+| `value.noRate` | No rate | रेट नहीं |
+| `value.unrated` | Rate not set: {qty} | रेट तय नहीं: {qty} |
+| `value.unratedShort` | Rate not set | रेट तय नहीं |
+| `value.ratePending` | Rate pending | रेट बाकी |
+| `value.pending.title` | Deliveries waiting for a rate | रेट की राह देखता माल |
+| `value.pending.hint` | Taken in without a rate. Each counts at the average rate until its own rate is set. | बिना रेट के लिया गया। अपना रेट तय होने तक हर एक औसत रेट पर गिना जाता है। |
+| `value.pending.empty` | No delivery is waiting for a rate. | किसी माल का रेट बाकी नहीं है। |
+| `value.pending.columns.delivery` | Delivery | माल आया |
+| `value.pending.columns.item` | Item | आइटम |
+| `value.pending.columns.qty` | Quantity | मात्रा |
+| `value.pending.columns.value` | Counted at | इस भाव पर गिना |
+| `value.pending.columns.rate` | Rate | रेट |
+| `value.pending.rateLabel` | Rate per {unit} | रेट प्रति {unit} |
+| `value.pending.set` | Set rate | रेट डालें |
+| `value.pending.saved` | Rate saved | रेट सहेज लिया गया |
+| `value.pending.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.pending.locked` | Stock went out after this delivery, so its rate can no longer change. | इस माल के बाद स्टोर से माल निकल चुका है, इसलिए इसका रेट अब बदल नहीं सकता। |
+| `value.opening.open` | Opening rate | शुरुआती रेट |
+| `value.opening.title` | Opening rate for {name} | {name} का शुरुआती रेट |
+| `value.opening.hint` | Give a rate to stock that came in before rates were kept. | जो माल रेट रखना शुरू होने से पहले आया था, उसे रेट दें। |
+| `value.opening.label` | Rate per {unit} | रेट प्रति {unit} |
+| `value.opening.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.opening.save` | Save opening rate | शुरुआती रेट सहेजें |
+| `value.opening.saved` | Opening rate saved | शुरुआती रेट सहेज लिया गया |
+| `value.opening.close` | Close | बंद करें |
+| `value.nowEmpty` | The store holds nothing yet. | स्टोर में अभी कुछ नहीं है। |
+| `value.loadFailed` | The store value did not load. | स्टोर का मूल्य नहीं खुला। |
+| `value.monthTitle` | Month end report | महीने के अंत की रिपोर्ट |
+| `value.month` | Month | महीना |
+| `value.monthName.m1` | January | जनवरी |
+| `value.monthName.m2` | February | फ़रवरी |
+| `value.monthName.m3` | March | मार्च |
+| `value.monthName.m4` | April | अप्रैल |
+| `value.monthName.m5` | May | मई |
+| `value.monthName.m6` | June | जून |
+| `value.monthName.m7` | July | जुलाई |
+| `value.monthName.m8` | August | अगस्त |
+| `value.monthName.m9` | September | सितंबर |
+| `value.monthName.m10` | October | अक्टूबर |
+| `value.monthName.m11` | November | नवंबर |
+| `value.monthName.m12` | December | दिसंबर |
+| `value.monthYear` | {month} {year} | {month} {year} |
+| `value.monthColumns.item` | Item | आइटम |
+| `value.monthColumns.opening` | Opening | शुरुआत |
+| `value.monthColumns.received` | Received | आया |
+| `value.monthColumns.issued` | Issued | निकला |
+| `value.monthColumns.closing` | Closing | अंत |
+| `value.monthColumns.rated` | Old stock rated | पुराने माल का रेट |
+| `value.monthColumns.qty` | Quantity | मात्रा |
+| `value.monthColumns.value` | Value | मूल्य |
+| `value.totals` | Total | कुल |
+| `value.monthEmpty` | Nothing moved in the store up to this month. | इस महीने तक स्टोर में कोई हलचल नहीं हुई। |
+| `value.download` | Download CSV | CSV डाउनलोड करें |
+| `value.csvHead.item` | Item | आइटम |
+| `value.csvHead.unit` | Unit | इकाई |
+| `value.csvHead.openingQty` | Opening quantity | शुरुआत की मात्रा |
+| `value.csvHead.openingValue` | Opening value | शुरुआत का मूल्य |
+| `value.csvHead.receivedQty` | Received quantity | आई मात्रा |
+| `value.csvHead.receivedValue` | Received value | आया मूल्य |
+| `value.csvHead.issuedQty` | Issued quantity | निकली मात्रा |
+| `value.csvHead.issuedValue` | Issued value | निकला मूल्य |
+| `value.csvHead.closingQty` | Closing quantity | अंत की मात्रा |
+| `value.csvHead.closingValue` | Closing value | अंत का मूल्य |
+| `value.csvHead.ratedValue` | Old stock rated value | पुराने माल के रेट का मूल्य |
+| `value.csvHead.closingUnratedQty` | Closing quantity, rate not set | अंत की मात्रा, रेट तय नहीं |
+| `value.csvFile` | store-value-{month}.csv | store-value-{month}.csv |
+| `value.allowance.title` | Over-delivery allowance | ज़्यादा माल की छूट |
+| `value.allowance.body` | How much more than the ordered quantity a purchase order line may take in, as a percent of the line. | PO की लाइन पर ऑर्डर से कितना ज़्यादा माल आ सकता है, लाइन के प्रतिशत में। |
+| `value.allowance.label` | Allowance percent | छूट का प्रतिशत |
+| `value.allowance.hint` | From 0 to 50. Zero means a line takes exactly what was ordered. | 0 से 50 तक। शून्य का मतलब लाइन पर ठीक उतना ही माल जितना मँगाया। |
+| `value.allowance.invalid` | Enter a percent from 0 to 50, like 5. | 0 से 50 के बीच प्रतिशत लिखें, जैसे 5। |
+| `value.allowance.save` | Save allowance | छूट सहेजें |
+| `value.allowance.saved` | Allowance saved | छूट सहेज ली गई |
+
+### maint (415)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Maintenance | मेंटेनेंस |
+| `subtitle` | Machines, the work on them and what is due next. | मशीनें, उन पर हुआ काम और आगे क्या बाकी है। |
+| `noAccess` | Your role does not see maintenance. | आपके रोल को मेंटेनेंस नहीं दिखता। |
+| `moduleOff` | Maintenance is not on for this plant. | इस प्लांट में मेंटेनेंस चालू नहीं है। |
+| `loadFailed` | Could not load maintenance. Try again. | मेंटेनेंस लोड नहीं हुआ। फिर से कोशिश करें। |
+| `showMore` | Show more | और दिखाएँ |
+| `saved` | Saved | सेव हो गया |
+| `none` | None | कोई नहीं |
+| `kind.press` | Press | प्रेस |
+| `kind.furnace` | Furnace | फर्नेस |
+| `kind.oven` | Ageing oven | एजिंग ओवन |
+| `kind.compressor` | Compressor | कंप्रेसर |
+| `kind.crane` | Crane | क्रेन |
+| `kind.dg_set` | DG set | DG सेट |
+| `kind.other` | Other | अन्य |
+| `link.press` | Press | प्रेस |
+| `link.furnace` | Furnace | फर्नेस |
+| `link.oven` | Ageing oven | एजिंग ओवन |
+| `criticality.A` | Critical A | ज़रूरी A |
+| `criticality.B` | Critical B | ज़रूरी B |
+| `criticality.C` | Critical C | ज़रूरी C |
+| `criticalityHint.A` | Stops the plant when it stops | यह रुके तो प्लांट रुकता है |
+| `criticalityHint.B` | Slows the plant | प्लांट धीमा होता है |
+| `criticalityHint.C` | Can wait | रुक सकता है |
+| `assetStatus.running` | Running | चालू |
+| `assetStatus.standby` | Standby | स्टैंडबाय |
+| `assetStatus.under_repair` | Under repair | मरम्मत में |
+| `assetStatus.retired` | Retired | हटाया गया |
+| `woKind.breakdown` | Breakdown | ब्रेकडाउन |
+| `woKind.preventive` | Preventive | प्रिवेंटिव |
+| `woKind.condition` | Condition | कंडीशन |
+| `woStatus.open` | Open | खुला |
+| `woStatus.in_progress` | In progress | काम चालू |
+| `woStatus.waiting_spares` | Waiting for spares | स्पेयर का इंतज़ार |
+| `woStatus.done` | Done | पूरा |
+| `woStatus.cancelled` | Cancelled | रद्द |
+| `woSource.manual` | Raised by hand | हाथ से बनाया |
+| `woSource.downtime` | From press downtime | प्रेस की रुकावट से |
+| `woSource.plan` | From a plan | प्लान से |
+| `woSource.reading` | From a reading | रीडिंग से |
+| `priority.high` | High | ऊँची |
+| `priority.medium` | Medium | मध्यम |
+| `priority.low` | Low | कम |
+| `flag.ok` | In limit | सीमा में |
+| `flag.low` | Below limit | सीमा से नीचे |
+| `flag.high` | Above limit | सीमा से ऊपर |
+| `due.inDays` | Due in {n} days | {n} दिन में बाकी |
+| `due.today` | Due today | आज बाकी |
+| `due.overdueDays` | Overdue by {n} days | {n} दिन से देर |
+| `due.inHours` | Due in {n} run hours | {n} रन घंटे में बाकी |
+| `due.overHours` | Over by {n} run hours | {n} रन घंटे ज़्यादा |
+| `due.hoursNow` | Run hours reached | रन घंटे पूरे हुए |
+| `due.hoursRun` | {n} run hours since last done | पिछली बार से {n} रन घंटे |
+| `due.state.ok` | On time | समय पर |
+| `due.state.soon` | Due soon | जल्द बाकी |
+| `due.state.overdue` | Overdue | देर हो गई |
+| `home.dueTitle` | Plans due | बाकी प्लान |
+| `home.dueEmpty` | Nothing is due in the next 7 days. | अगले 7 दिन में कुछ बाकी नहीं। |
+| `home.openTitle` | Open work orders | खुले वर्क ऑर्डर |
+| `home.openEmpty` | No open work orders. | कोई खुला वर्क ऑर्डर नहीं। |
+| `home.breakdownsTitle` | Press breakdowns | प्रेस ब्रेकडाउन |
+| `home.breakdownsHint` | Breakdowns logged on the press in the last 30 days. | पिछले 30 दिन में प्रेस पर दर्ज ब्रेकडाउन। |
+| `home.breakdownsEmpty` | No breakdowns in the last 30 days. | पिछले 30 दिन में कोई ब्रेकडाउन नहीं। |
+| `home.flaggedTitle` | Readings outside limits | सीमा से बाहर रीडिंग |
+| `home.flaggedEmpty` | No readings outside limits in the last 30 days. | पिछले 30 दिन में सीमा से बाहर कोई रीडिंग नहीं। |
+| `home.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएँ |
+| `home.openWorkOrder` | Open {number} | {number} खोलें |
+| `home.noAsset` | Add this press to the assets first | पहले इस प्रेस को एसेट में जोड़ें |
+| `home.since` | Since {time} | {time} से |
+| `home.minutes` | {min} min | {min} मिनट |
+| `home.assets` | Assets | एसेट |
+| `home.workOrders` | Work orders | वर्क ऑर्डर |
+| `home.report` | Report | रिपोर्ट |
+| `home.newWorkOrder` | New work order | नया वर्क ऑर्डर |
+| `today.title` | Maintenance | मेंटेनेंस |
+| `today.open` | Open maintenance | मेंटेनेंस खोलें |
+| `today.overdue` | Plans overdue | देर वाले प्लान |
+| `today.overdueMeta` | Past their date or run hours | तारीख या रन घंटे पार |
+| `today.soon` | Due soon | जल्द बाकी |
+| `today.soonMeta` | In 7 days or the last run hours | 7 दिन में या आखिरी रन घंटे |
+| `today.live` | Open work orders | खुले वर्क ऑर्डर |
+| `today.liveMeta` | Breakdowns and plans in hand | हाथ में ब्रेकडाउन और प्लान |
+| `today.flagged` | Readings out of limit | सीमा से बाहर रीडिंग |
+| `today.flaggedMeta` | Last 7 days, no work order yet | पिछले 7 दिन, अभी वर्क ऑर्डर नहीं |
+| `today.loadFailed` | Could not load. Try again. | नहीं खुला। फिर कोशिश करें। |
+| `station.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएँ |
+| `station.workOrder` | Work order {number} | वर्क ऑर्डर {number} |
+| `station.offline` | Make the work order when the tablet is back online. | टैबलेट ऑनलाइन होने पर वर्क ऑर्डर बनाएँ। |
+| `errors.notFound` | Not found. | नहीं मिला। |
+| `errors.changed` | This changed since you opened it. Open it again. | खोलने के बाद यह बदल गया। फिर से खोलें। |
+| `errors.final` | This work order is closed. | यह वर्क ऑर्डर बंद है। |
+| `errors.numberBusy` | Others are raising work orders at the same moment. Try again. | इसी समय दूसरे लोग भी वर्क ऑर्डर बना रहे हैं। फिर से कोशिश करें। |
+| `errors.badMove` | A work order cannot move to that status from here. | वर्क ऑर्डर यहाँ से उस स्टेटस में नहीं जा सकता। |
+| `errors.needsWorkDone` | Write what was done before marking the work order done. | पूरा करने से पहले लिखें कि क्या काम हुआ। |
+| `errors.needsReason` | Say why the work order is cancelled. | बताएँ कि वर्क ऑर्डर क्यों रद्द हुआ। |
+| `errors.finishBeforeStart` | The finish time is before the start time. | खत्म होने का समय शुरू के समय से पहले है। |
+| `errors.notBreakdown` | Only a downtime entry with the breakdown reason makes a work order. | सिर्फ़ ब्रेकडाउन कारण वाली रुकावट से वर्क ऑर्डर बनता है। |
+| `errors.noAsset` | No asset points at this press yet. Add it to the assets first. | अभी कोई एसेट इस प्रेस से नहीं जुड़ा। पहले इसे एसेट में जोड़ें। |
+| `errors.spareNotMaintenance` | Only a store issue for maintenance can be linked. | सिर्फ़ मेंटेनेंस के लिए स्टोर इशू जोड़ा जा सकता है। |
+| `errors.spareCancelled` | That store issue was cancelled. | वह स्टोर इशू रद्द हो चुका है। |
+| `errors.spareTaken` | That store issue is already on a work order. | वह स्टोर इशू पहले से एक वर्क ऑर्डर पर है। |
+| `errors.spareNotLinked` | That store issue is not on this work order. | वह स्टोर इशू इस वर्क ऑर्डर पर नहीं है। |
+| `errors.noRunHours` | This asset has no run hours. Link it to a press, furnace or oven, or plan by days. | इस एसेट के रन घंटे नहीं हैं। इसे प्रेस, फर्नेस या ओवन से जोड़ें, या दिनों से प्लान करें। |
+| `errors.needsInterval` | A plan needs days, run hours or both. | प्लान में दिन, रन घंटे या दोनों चाहिए। |
+| `errors.hoursPlans` | Plans on this asset run on run hours. Change them to days before you change or remove the link. | इस एसेट के प्लान रन घंटों पर हैं। जोड़ बदलने या हटाने से पहले उन्हें दिनों पर करें। |
+| `errors.codeTaken` | Another asset already has that code. | यह कोड पहले से दूसरे एसेट का है। |
+| `errors.linkTaken` | Another asset already points at that press, furnace or oven. | उस प्रेस, फर्नेस या ओवन से पहले से दूसरा एसेट जुड़ा है। |
+| `errors.linkMissing` | That press, furnace or oven is not in this plant. | वह प्रेस, फर्नेस या ओवन इस प्लांट में नहीं है। |
+| `errors.notMember` | The person is not a member of this plant. | यह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `errors.limitInvalid` | Give a low limit, a high limit or both, with the low below the high. | नीचे की सीमा, ऊपर की सीमा या दोनों दें, नीचे वाली ऊपर वाली से कम हो। |
+| `errors.kindTaken` | This asset already reads something by that name. | इस एसेट पर इस नाम की रीडिंग पहले से है। |
+| `errors.kindOff` | That reading is switched off. | वह रीडिंग बंद है। |
+| `errors.kindChanged` | This reading's unit or limits changed just now. Take the reading again. | इस रीडिंग की यूनिट या सीमा अभी बदली है। रीडिंग फिर से लें। |
+| `errors.inLimit` | That reading is inside its limits. | वह रीडिंग सीमा के अंदर है। |
+| `errors.retired` | This asset is retired. | यह एसेट हटाया जा चुका है। |
+| `errors.timeFuture` | A start or finish time cannot be in the future. | शुरू या खत्म होने का समय आगे का नहीं हो सकता। |
+| `errors.doneKeepsTimes` | A done work order keeps its start and finish times. | पूरे हुए वर्क ऑर्डर का शुरू और खत्म होने का समय रहता है। |
+| `errors.linkKindMismatch` | A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven. | प्रेस एसेट प्रेस से, फर्नेस एसेट फर्नेस से और ओवन एसेट ओवन से जुड़ता है। |
+| `errors.unitLocked` | This reading already has readings in its unit. Add a new reading kind for another unit. | इस रीडिंग की इसी यूनिट में रीडिंग हो चुकी हैं। दूसरी यूनिट के लिए नई रीडिंग जोड़ें। |
+| `errors.moduleOff` | Maintenance is not on for this plant. | इस प्लांट में मेंटेनेंस चालू नहीं है। |
+| `errors.forbidden` | Your role cannot do this. | आपका रोल यह नहीं कर सकता। |
+| `errors.unknown` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `workOrders.title` | Work orders | वर्क ऑर्डर |
+| `workOrders.subtitle` | Breakdowns and planned jobs, from raised to done. | ब्रेकडाउन और तय काम, लिखे जाने से पूरा होने तक। |
+| `workOrders.back` | Back to work orders | वर्क ऑर्डर पर वापस |
+| `workOrders.loadFailed` | Could not load work orders. Try again. | वर्क ऑर्डर नहीं खुल सके। फिर कोशिश करें। |
+| `workOrders.filter.label` | Show work orders | वर्क ऑर्डर दिखाएं |
+| `workOrders.filter.live` | Open work | चालू काम |
+| `workOrders.filter.all` | All | सब |
+| `workOrders.onlyAsset` | Showing one machine only. | सिर्फ़ एक मशीन दिख रही है। |
+| `workOrders.allAssets` | Show all machines | सारी मशीनें दिखाएं |
+| `workOrders.empty` | No work orders here. | यहां कोई वर्क ऑर्डर नहीं है। |
+| `workOrders.cols.number` | Number | नंबर |
+| `workOrders.cols.asset` | Machine | मशीन |
+| `workOrders.cols.kind` | Type | तरह |
+| `workOrders.cols.priority` | Priority | प्राथमिकता |
+| `workOrders.cols.status` | Status | हालत |
+| `workOrders.cols.assignee` | Assigned to | किसे सौंपा |
+| `workOrders.cols.raised` | Raised | कब लिखा |
+| `workOrders.unassigned` | Not assigned | किसी को नहीं सौंपा |
+| `workOrders.new.button` | New work order | नया वर्क ऑर्डर |
+| `workOrders.new.title` | New work order | नया वर्क ऑर्डर |
+| `workOrders.new.subtitle` | Say which machine and what is wrong. | बताएं कौन सी मशीन और क्या खराबी है। |
+| `workOrders.new.asset` | Machine | मशीन |
+| `workOrders.new.assetPlaceholder` | Choose a machine | मशीन चुनें |
+| `workOrders.new.assetRequired` | Choose a machine. | मशीन चुनें। |
+| `workOrders.new.kind` | Type | तरह |
+| `workOrders.new.what` | What is wrong | क्या खराबी है |
+| `workOrders.new.whatHint` | A short line the crew can read at a glance. | छोटी सी लाइन, जो टीम एक नज़र में पढ़ ले। |
+| `workOrders.new.whatRequired` | Say what is wrong. | बताएं क्या खराबी है। |
+| `workOrders.new.priority` | Priority | प्राथमिकता |
+| `workOrders.new.priorityFromAsset` | From the machine | मशीन के हिसाब से |
+| `workOrders.new.assignTo` | Assign to | किसे सौंपें |
+| `workOrders.new.submit` | Make work order | वर्क ऑर्डर बनाएं |
+| `workOrders.new.created` | Work order {number} made | वर्क ऑर्डर {number} बन गया |
+| `workOrders.detail.title` | Work order {number} | वर्क ऑर्डर {number} |
+| `workOrders.detail.notFound` | This work order was not found. | यह वर्क ऑर्डर नहीं मिला। |
+| `workOrders.detail.facts` | The work order | वर्क ऑर्डर |
+| `workOrders.detail.machine` | Machine | मशीन |
+| `workOrders.detail.kind` | Type | तरह |
+| `workOrders.detail.source` | How it was raised | कैसे बना |
+| `workOrders.detail.priority` | Priority | प्राथमिकता |
+| `workOrders.detail.status` | Status | हालत |
+| `workOrders.detail.raised` | Raised | कब लिखा |
+| `workOrders.detail.raisedBy` | {when} by {name} | {name} ने, {when} |
+| `workOrders.detail.assigned` | Assigned to | किसे सौंपा |
+| `workOrders.detail.started` | Started | शुरू हुआ |
+| `workOrders.detail.finished` | Finished | पूरा हुआ |
+| `workOrders.detail.notYet` | Not yet | अभी नहीं |
+| `workOrders.detail.what` | What is wrong | क्या खराबी है |
+| `workOrders.detail.cause` | Cause | वजह |
+| `workOrders.detail.workDone` | What was done | क्या किया गया |
+| `workOrders.detail.labour` | Labour | मेहनत का समय |
+| `workOrders.detail.cancelReason` | Why it was cancelled | रद्द क्यों हुआ |
+| `workOrders.detail.downtimeTitle` | The press stop it came from | प्रेस का जिस रुकावट से यह बना |
+| `workOrders.detail.downtimeLine` | Line {line}, stopped {start} | लाइन {line}, रुकी {start} |
+| `workOrders.detail.downtimeStill` | Still stopped | अभी भी रुकी है |
+| `workOrders.detail.downtimeUntil` | Running again {stop} | फिर चालू हुई {stop} |
+| `workOrders.detail.planTitle` | The plan it came from | जिस प्लान से यह बना |
+| `workOrders.detail.planSteps` | Steps | काम के कदम |
+| `workOrders.detail.planNoSteps` | The plan has no steps written. | प्लान में कदम नहीं लिखे हैं। |
+| `workOrders.moves.title` | Move this work order | इस वर्क ऑर्डर को आगे बढ़ाएं |
+| `workOrders.moves.open` | Reopen | फिर खोलें |
+| `workOrders.moves.in_progress` | Start work | काम शुरू करें |
+| `workOrders.moves.waiting_spares` | Wait for spares | स्पेयर का इंतज़ार |
+| `workOrders.moves.done` | Mark done | पूरा करें |
+| `workOrders.moves.cancelled` | Cancel work order | वर्क ऑर्डर रद्द करें |
+| `workOrders.moves.moved` | Moved to {status} | अब हालत: {status} |
+| `workOrders.done.title` | Mark done | पूरा करें |
+| `workOrders.done.subtitle` | Write what was done so the next person knows. | क्या किया गया लिखें, ताकि अगला आदमी जान सके। |
+| `workOrders.done.label` | What was done | क्या किया गया |
+| `workOrders.done.submit` | Mark done | पूरा करें |
+| `workOrders.cancel.title` | Cancel this work order | यह वर्क ऑर्डर रद्द करें |
+| `workOrders.cancel.subtitle` | A cancelled work order cannot be opened again. | रद्द वर्क ऑर्डर दोबारा नहीं खुल सकता। |
+| `workOrders.cancel.label` | Why is it cancelled | रद्द क्यों किया |
+| `workOrders.cancel.submit` | Cancel work order | वर्क ऑर्डर रद्द करें |
+| `workOrders.cancel.keep` | Keep it | रहने दें |
+| `workOrders.edit.title` | Edit work order | वर्क ऑर्डर बदलें |
+| `workOrders.edit.what` | What is wrong | क्या खराबी है |
+| `workOrders.edit.priority` | Priority | प्राथमिकता |
+| `workOrders.edit.assignedTo` | Assigned to | किसे सौंपा |
+| `workOrders.edit.cause` | Cause | वजह |
+| `workOrders.edit.workDone` | What was done | क्या किया गया |
+| `workOrders.edit.labour` | Labour time | मेहनत का समय |
+| `workOrders.edit.labourHint` | Hours and minutes like 1:30, or minutes like 90. | घंटे और मिनट जैसे 1:30, या मिनट जैसे 90। |
+| `workOrders.edit.labourBad` | Write hours and minutes like 1:30, or minutes like 90. | घंटे और मिनट जैसे 1:30 लिखें, या मिनट जैसे 90। |
+| `workOrders.edit.started` | Started | शुरू हुआ |
+| `workOrders.edit.finished` | Finished | पूरा हुआ |
+| `workOrders.edit.whatRequired` | Say what is wrong. | बताएं क्या खराबी है। |
+| `workOrders.edit.finishBeforeStart` | The finish time is before the start time. | पूरा होने का समय शुरू होने से पहले का है। |
+| `workOrders.edit.timeBad` | Write a date and time the system can keep, or clear the box. | ऐसी तारीख और समय लिखें जो सिस्टम में दर्ज हो सके, या खाना खाली कर दें। |
+| `workOrders.edit.changedTitle` | Someone else changed this work order. | यह वर्क ऑर्डर किसी और ने बदल दिया है। |
+| `workOrders.edit.changedBody` | Your changes are not saved yet. Look at the new work order, then choose how to go on. | आपके बदलाव अभी सेव नहीं हुए। नया वर्क ऑर्डर देखें, फिर आगे का रास्ता चुनें। |
+| `workOrders.edit.nowOn` | {field}, now: {value} | {field}, अब: {value} |
+| `workOrders.edit.keepMine` | Keep my changes on the new work order | मेरे बदलाव नए वर्क ऑर्डर पर रखें |
+| `workOrders.edit.dropMine` | Drop my changes | मेरे बदलाव छोड़ें |
+| `workOrders.edit.save` | Save changes | बदलाव सेव करें |
+| `workOrders.edit.saved` | Saved | सेव हो गया |
+| `workOrders.edit.nothing` | Nothing has changed yet. | अभी कुछ बदला नहीं है। |
+| `workOrders.edit.closed` | A cancelled work order cannot be edited. | रद्द वर्क ऑर्डर बदला नहीं जा सकता। |
+| `workOrders.spares.title` | Spares used | लगे हुए स्पेयर |
+| `workOrders.spares.hint` | Store issues for maintenance that went into this job. | मेंटेनेंस के स्टोर इश्यू जो इस काम में लगे। |
+| `workOrders.spares.empty` | No spares on this work order yet. | इस वर्क ऑर्डर पर अभी कोई स्पेयर नहीं है। |
+| `workOrders.spares.issuedOn` | Issued {when} | इश्यू हुआ {when} |
+| `workOrders.spares.cancelledInStore` | Cancelled in the store | स्टोर में रद्द हुआ |
+| `workOrders.spares.remove` | Remove | हटाएं |
+| `workOrders.spares.removed` | Removed from this work order | इस वर्क ऑर्डर से हट गया |
+| `workOrders.spares.forThis` | Issued for this work order | इसी वर्क ऑर्डर के लिए इश्यू हुआ |
+| `workOrders.spares.issueButton` | Issue from the store | स्टोर से इश्यू करें |
+| `workOrders.spares.issueTitle` | Issue from the store | स्टोर से इश्यू करें |
+| `workOrders.spares.issueSubtitle` | Take a spare out of the store for this job. | इस काम के लिए स्टोर से स्पेयर निकालें। |
+| `workOrders.spares.issueItem` | Item | आइटम |
+| `workOrders.spares.issueQty` | Quantity | मात्रा |
+| `workOrders.spares.issueNote` | Note | नोट |
+| `workOrders.spares.issueNoteHint` | Optional. | चाहें तो लिखें। |
+| `workOrders.spares.issueSubmit` | Issue | इश्यू करें |
+| `workOrders.spares.issueNoItems` | The store has no items to issue. | स्टोर में इश्यू करने लायक कोई आइटम नहीं है। |
+| `workOrders.spares.issueNoLocation` | The store has no place set up yet. | स्टोर की जगह अभी तय नहीं है। |
+| `workOrders.spares.issueRetry` | Could not load the store. Try again. | स्टोर नहीं खुल सका। फिर कोशिश करें। |
+| `workOrders.spares.issued` | Issued {number} | {number} इश्यू हुआ |
+| `workOrders.spares.issueCancelled` | Store issue {number} was cancelled, so nothing was issued. Issue again if you still need the part. | स्टोर इश्यू {number} रद्द हो चुका है, इसलिए कुछ इश्यू नहीं हुआ। पुर्जा चाहिए तो फिर से इश्यू करें। |
+| `workOrders.spares.issuedNotLinked` | Issue {number} was made. Someone on maintenance will add it to this work order. | इश्यू {number} हो गया। मेंटेनेंस का कोई साथी इसे इस वर्क ऑर्डर में जोड़ देगा। |
+| `workOrders.spares.addButton` | Add a store issue | स्टोर इश्यू जोड़ें |
+| `workOrders.spares.addTitle` | Add a store issue | स्टोर इश्यू जोड़ें |
+| `workOrders.spares.addSubtitle` | Issues for maintenance in the last 90 days that are not on a work order. | पिछले 90 दिन के मेंटेनेंस इश्यू जो किसी वर्क ऑर्डर पर नहीं हैं। |
+| `workOrders.spares.addEmpty` | No store issues are waiting to be added. | जोड़ने के लिए कोई स्टोर इश्यू नहीं है। |
+| `workOrders.spares.add` | Add | जोड़ें |
+| `workOrders.spares.added` | Added to this work order | इस वर्क ऑर्डर में जुड़ गया |
+| `assets.title` | Assets | एसेट |
+| `assets.subtitle` | Every machine and its history in one list. | हर मशीन और उसका पूरा इतिहास एक सूची में। |
+| `assets.showRetired` | Show retired | बंद किए हुए भी दिखाएं |
+| `assets.add` | Add asset | एसेट जोड़ें |
+| `assets.addFromMasters` | Add presses, furnaces and ovens | प्रेस, फर्नेस और ओवन जोड़ें |
+| `assets.addedFromMasters` | {count} {count:asset\|assets} added | {count} {count:एसेट\|एसेट} जुड़ गए |
+| `assets.noneToAdd` | Every press, furnace and oven is already an asset. | हर प्रेस, फर्नेस और ओवन पहले से एसेट है। |
+| `assets.empty` | No assets yet. | अभी कोई एसेट नहीं है। |
+| `assets.emptyHint` | Add an asset, or add your presses, furnaces and ovens in one go. | एक एसेट जोड़ें, या अपने प्रेस, फर्नेस और ओवन एक साथ जोड़ें। |
+| `assets.loadFailed` | Could not load the assets. Try again. | एसेट नहीं खुले। फिर कोशिश करें। |
+| `assets.search` | Search by code or name | कोड या नाम से खोजें |
+| `assets.capped` | Showing the first 500 assets. Search by code or name to find others. | पहले 500 एसेट दिख रहे हैं। बाकी के लिए कोड या नाम से खोजें। |
+| `assets.cols.code` | Code | कोड |
+| `assets.cols.name` | Name | नाम |
+| `assets.cols.kind` | Kind | किस्म |
+| `assets.cols.criticality` | Criticality | अहमियत |
+| `assets.cols.status` | Status | हालत |
+| `assets.cols.openWorkOrders` | Open work orders | खुले वर्क ऑर्डर |
+| `assets.cols.location` | Location | जगह |
+| `assets.form.addTitle` | Add asset | एसेट जोड़ें |
+| `assets.form.editTitle` | Change asset | एसेट बदलें |
+| `assets.form.code` | Code | कोड |
+| `assets.form.name` | Name | नाम |
+| `assets.form.kind` | Kind | किस्म |
+| `assets.form.link` | Press, furnace or oven | प्रेस, फर्नेस या ओवन |
+| `assets.form.linkHint` | Link it to count run hours. One asset for each. | चलने के घंटे गिनने के लिए जोड़ें। हर एक के लिए एक ही एसेट। |
+| `assets.form.linkNone` | Not linked | जुड़ा नहीं है |
+| `assets.form.linkTaken` | Already asset {code} | पहले से एसेट {code} है |
+| `assets.form.linkRetired` | retired | बंद |
+| `assets.form.linkLoading` | Loading presses, furnaces and ovens | प्रेस, फर्नेस और ओवन की सूची खुल रही है |
+| `assets.form.linkFailed` | Could not load the list to link. | जोड़ने की सूची नहीं खुली। |
+| `assets.form.linkWrongKind` | This link does not fit the kind. Choose a matching one or Not linked. | यह जोड़ किस्म से मेल नहीं खाता। मेल वाला चुनें या जुड़ा नहीं है। |
+| `assets.form.make` | Make | कंपनी |
+| `assets.form.serialNo` | Serial number | सीरियल नंबर |
+| `assets.form.purchasedOn` | Bought on | खरीदने की तारीख |
+| `assets.form.warrantyUntil` | Warranty until | वारंटी कब तक |
+| `assets.form.location` | Location | जगह |
+| `assets.form.criticality` | Criticality | अहमियत |
+| `assets.form.status` | Status | हालत |
+| `assets.form.note` | Note | नोट |
+| `assets.form.save` | Save asset | एसेट सेव करें |
+| `assets.form.needsCodeName` | Give a code and a name. | कोड और नाम लिखें। |
+| `assets.detail.back` | Assets | एसेट |
+| `assets.detail.notFound` | This asset was not found. | यह एसेट नहीं मिला। |
+| `assets.detail.loadFailed` | Could not load this asset. Try again. | यह एसेट नहीं खुला। फिर कोशिश करें। |
+| `assets.detail.details` | Details | ब्योरा |
+| `assets.detail.edit` | Change | बदलें |
+| `assets.detail.linkedTo` | Linked to | इससे जुड़ा है |
+| `assets.detail.notLinked` | Not linked to a press, furnace or oven | किसी प्रेस, फर्नेस या ओवन से जुड़ा नहीं है |
+| `assets.detail.make` | Make | कंपनी |
+| `assets.detail.serialNo` | Serial number | सीरियल नंबर |
+| `assets.detail.purchasedOn` | Bought on | खरीदने की तारीख |
+| `assets.detail.warranty` | Warranty | वारंटी |
+| `assets.detail.underWarranty` | Under warranty until {day} | {day} तक वारंटी में है |
+| `assets.detail.warrantyEnded` | Warranty ended {day} | वारंटी {day} को खत्म हुई |
+| `assets.detail.noWarranty` | No warranty date | वारंटी की तारीख नहीं है |
+| `assets.detail.location` | Location | जगह |
+| `assets.detail.note` | Note | नोट |
+| `assets.detail.saved` | Asset saved | एसेट सेव हो गया |
+| `assets.plans.title` | Preventive plans | बचाव के प्लान |
+| `assets.plans.hint` | Work to do again and again, by days, run hours or both. | जो काम बार बार करना है, दिनों से, चलने के घंटों से या दोनों से। |
+| `assets.plans.add` | Add plan | प्लान जोड़ें |
+| `assets.plans.edit` | Change plan | प्लान बदलें |
+| `assets.plans.empty` | No plans on this asset. | इस एसेट पर कोई प्लान नहीं है। |
+| `assets.plans.everyDays` | Every {n} {n:day\|days} | हर {n} {n:दिन\|दिन} |
+| `assets.plans.everyHours` | Every {n} run hours | हर {n} चलने के घंटे |
+| `assets.plans.everyBoth` | Every {days} {days:day\|days} or every {hours} run hours, whichever comes first | हर {days} {days:दिन\|दिन} या हर {hours} चलने के घंटे, जो पहले आए |
+| `assets.plans.inactive` | Switched off | बंद है |
+| `assets.plans.workOrder` | Work order {number} | वर्क ऑर्डर {number} |
+| `assets.plans.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएं |
+| `assets.plans.planTitle` | Title | शीर्षक |
+| `assets.plans.steps` | Steps | काम के कदम |
+| `assets.plans.days` | Every how many days | कितने दिन में एक बार |
+| `assets.plans.hours` | Every how many run hours | कितने चलने के घंटे में एक बार |
+| `assets.plans.hoursNeedLink` | Run hours need a press, furnace or oven linked to this asset. | चलने के घंटों के लिए इस एसेट से प्रेस, फर्नेस या ओवन जुड़ा होना चाहिए। |
+| `assets.plans.active` | Plan is on | प्लान चालू है |
+| `assets.plans.startOn` | Count from | यहां से गिनें |
+| `assets.plans.startOnHint` | The day the last job was done. Empty means today. | जिस दिन पिछला काम हुआ। खाली हो तो आज। |
+| `assets.plans.save` | Save plan | प्लान सेव करें |
+| `assets.plans.saved` | Plan saved | प्लान सेव हो गया |
+| `assets.plans.needsTitle` | Give the plan a title. | प्लान का शीर्षक लिखें। |
+| `assets.plans.needsInterval` | Give days, run hours or both. | दिन, चलने के घंटे या दोनों लिखें। |
+| `assets.readings.title` | Readings | रीडिंग |
+| `assets.readings.hint` | Things you check by hand, such as oil temperature or pressure. | जो चीजें हाथ से जांचते हैं, जैसे तेल का तापमान या दबाव। |
+| `assets.readings.addKind` | Add reading | रीडिंग जोड़ें |
+| `assets.readings.editKind` | Change reading | रीडिंग बदलें |
+| `assets.readings.kindEmpty` | No readings set up on this asset. | इस एसेट पर कोई रीडिंग तय नहीं है। |
+| `assets.readings.kindName` | Name | नाम |
+| `assets.readings.unit` | Unit | इकाई |
+| `assets.readings.unitHint` | As you write it on the machine. | जैसे मशीन पर लिखते हैं। |
+| `assets.readings.low` | Low limit | नीचे की हद |
+| `assets.readings.high` | High limit | ऊपर की हद |
+| `assets.readings.limitHint` | Leave one empty if it has no limit. | जिसकी हद नहीं है उसे खाली छोड़ें। |
+| `assets.readings.active` | Reading is on | रीडिंग चालू है |
+| `assets.readings.inactive` | Switched off | बंद है |
+| `assets.readings.noLimits` | No limits | कोई हद नहीं |
+| `assets.readings.limitsBoth` | Between {min} and {max} {unit} | {min} से {max} {unit} के बीच |
+| `assets.readings.limitMin` | At least {min} {unit} | कम से कम {min} {unit} |
+| `assets.readings.limitMax` | At most {max} {unit} | ज्यादा से ज्यादा {max} {unit} |
+| `assets.readings.saveKind` | Save reading | रीडिंग सेव करें |
+| `assets.readings.kindSaved` | Reading saved | रीडिंग सेव हो गई |
+| `assets.readings.take` | Take a reading | रीडिंग लें |
+| `assets.readings.value` | Value | मान |
+| `assets.readings.note` | Note | नोट |
+| `assets.readings.record` | Save value | मान सेव करें |
+| `assets.readings.recorded` | Value saved | मान सेव हो गया |
+| `assets.readings.needsValue` | Type a number, with at most 3 decimals. | एक संख्या लिखें, दशमलव के बाद ज्यादा से ज्यादा 3 अंक। |
+| `assets.readings.needsName` | Give a name and a unit. | नाम और इकाई लिखें। |
+| `assets.readings.needsLimit` | Type the limits as numbers. | हद संख्या में लिखें। |
+| `assets.readings.recent` | Recent readings | हाल की रीडिंग |
+| `assets.readings.recentEmpty` | No readings yet. | अभी कोई रीडिंग नहीं है। |
+| `assets.readings.makeWorkOrder` | Make work order | वर्क ऑर्डर बनाएं |
+| `assets.readings.workOrder` | Work order made | वर्क ऑर्डर बन गया |
+| `assets.history.title` | Service history | मरम्मत का इतिहास |
+| `assets.history.empty` | No work orders on this asset. | इस एसेट पर कोई वर्क ऑर्डर नहीं है। |
+| `assets.history.cols.number` | Number | नंबर |
+| `assets.history.cols.kind` | Kind | किस्म |
+| `assets.history.cols.status` | Status | हालत |
+| `assets.history.cols.title` | Work | काम |
+| `assets.history.cols.raised` | Raised | बना |
+| `assets.history.cols.finished` | Finished | खत्म |
+| `assets.history.cols.labour` | Labour | मेहनत (घंटा:मिनट) |
+| `assets.spares.title` | Spares used | लगे हुए स्पेयर |
+| `assets.spares.empty` | No spares used on this asset. | इस एसेट पर कोई स्पेयर नहीं लगा। |
+| `assets.spares.cols.workOrder` | Work order | वर्क ऑर्डर |
+| `assets.spares.cols.entry` | Store entry | स्टोर एंट्री |
+| `assets.spares.cols.item` | Item | सामान |
+| `assets.spares.cols.qty` | Quantity | मात्रा |
+| `assets.spares.cols.issued` | Issued | निकाला |
+| `assets.spares.cancelled` | Cancelled in the store | स्टोर में रद्द हुआ |
+| `reports.title` | Maintenance report | मेंटेनेंस रिपोर्ट |
+| `reports.subtitle` | Breakdowns, downtime, repair time and cost for each asset. | हर एसेट के ब्रेकडाउन, बंद रहने का समय, मरम्मत का समय और खर्च। |
+| `reports.back` | Maintenance | मेंटेनेंस |
+| `reports.from` | From month | शुरू का महीना |
+| `reports.to` | To month | आखिरी महीना |
+| `reports.rangeBad` | Choose a month in both boxes. | दोनों डिब्बों में महीना चुनें। |
+| `reports.rangeOrder` | The first month must not be after the last month. | पहला महीना आखिरी महीने के बाद का नहीं हो सकता। |
+| `reports.rangeLong` | Choose at most 12 months. | ज्यादा से ज्यादा 12 महीने चुनें। |
+| `reports.loadFailed` | Could not load the report. Try again. | रिपोर्ट नहीं खुली। फिर कोशिश करें। |
+| `reports.empty` | No assets yet. Add assets to see this report. | अभी कोई एसेट नहीं है। रिपोर्ट देखने के लिए एसेट जोड़ें। |
+| `reports.total` | Whole range | पूरी अवधि |
+| `reports.byMonth` | By month | महीने के हिसाब से |
+| `reports.month` | Month | महीना |
+| `reports.breakdowns` | Breakdowns | ब्रेकडाउन |
+| `reports.downtime` | Downtime | बंद रहा (घंटा:मिनट) |
+| `reports.repair` | Time to repair | मरम्मत का समय (घंटा:मिनट) |
+| `reports.between` | Time between breakdowns (hours) | दो ब्रेकडाउन के बीच का समय (घंटे) |
+| `reports.labour` | Labour | मेहनत (घंटा:मिनट) |
+| `reports.spares` | Spares entries | स्पेयर की एंट्री |
+| `reports.labourCost` | Labour cost | मेहनत का खर्च |
+| `reports.sparesNotCounted` | Spares value is not counted yet. Store rates come later, so only the number of spares entries is shown. | स्पेयर की कीमत अभी नहीं गिनी जाती। स्टोर के रेट बाद में आएंगे, इसलिए अभी सिर्फ स्पेयर की एंट्री की गिनती दिखती है। |
+| `reports.noLabourRate` | Set the labour rate to see the labour cost. | मेहनत का खर्च देखने के लिए मजदूरी का रेट डालें। |
+| `reports.monthRule` | A breakdown counts in the month it started. Downtime is split across the months it ran in. | ब्रेकडाउन उसी महीने में गिना जाता है जिसमें वह शुरू हुआ। डाउनटाइम उन महीनों में बँटता है जिनमें वह चला। |
+| `reports.truncated` | More than 5,000 entries in these months. The figures stop there. Choose fewer months. | इन महीनों में 5,000 से ज़्यादा एंट्री हैं। आंकड़े वहीं रुक गए। कम महीने चुनें। |
+| `reports.stillOpen` | Still open | अभी खुले |
+| `reports.stillOpenHint` | Not counted in the figures until the breakdown is closed. | ब्रेकडाउन बंद होने तक ये आंकड़ों में नहीं गिने जाते। |
+| `reports.openFor` | Open for {time} | {time} से खुला |
+| `reports.openForDays` | Open for {n} days | {n} दिन से खुला |
+| `reports.downtimeEntry` | Downtime entry | डाउनटाइम एंट्री |
+| `reports.rate.title` | Labour rate | मजदूरी का रेट |
+| `reports.rate.hint` | Rupees paid for one hour of work. Labour cost is hours multiplied by this rate. Leave it empty to show no cost. | एक घंटे के काम के लिए दिए जाने वाले रुपये। मेहनत का खर्च घंटे गुणा इस रेट से बनता है। खाली छोड़ें तो खर्च नहीं दिखेगा। |
+| `reports.rate.label` | Rupees per hour | रुपये प्रति घंटा |
+| `reports.rate.save` | Save rate | रेट सेव करें |
+| `reports.rate.saved` | Labour rate saved | मजदूरी का रेट सेव हो गया |
+| `reports.rate.needsNumber` | Type rupees, with at most 2 decimals. | रुपये लिखें, दशमलव के बाद ज्यादा से ज्यादा 2 अंक। |
+| `reports.rate.tooBig` | That rate is too large. | यह रेट बहुत बड़ा है। |
+| `reports.rate.loadFailed` | Could not load the labour rate. | मजदूरी का रेट नहीं खुला। |
+
+### reasons (93)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9910,6 +11274,8 @@ Please check, Lalubhai:
 | `kinds.die_work` | Die work | Die का काम |
 | `kinds.melt_correct` | Correct a locked melt | लॉक मेल्ट का सुधार |
 | `kinds.cast_tail` | Cast close-out | कास्ट क्लोज़-आउट |
+| `kinds.log_reject` | Log reject | लॉग रिजेक्ट |
+| `kinds.billet_reject` | Billet reject | बिलेट रिजेक्ट |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -9976,8 +11342,20 @@ Please check, Lalubhai:
 | `cast_tail.remelted` | Billets sent back to the furnace | बिलेट फ़र्नेस में वापस गए |
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
+| `log_reject.crack` | Crack | दरार |
+| `log_reject.inclusion` | Inclusion | इन्क्लूज़न |
+| `log_reject.size` | Wrong size | गलत साइज़ |
+| `log_reject.chemistry` | Chemistry out | केमिस्ट्री बाहर |
+| `log_reject.bend` | Bent log | टेढ़ा लॉग |
+| `log_reject.other` | Other | अन्य |
+| `billet_reject.crack` | Crack | दरार |
+| `billet_reject.inclusion` | Inclusion | इन्क्लूज़न |
+| `billet_reject.size` | Wrong size | गलत साइज़ |
+| `billet_reject.chemistry` | Chemistry out | केमिस्ट्री बाहर |
+| `billet_reject.short_length` | Short length | छोटी लंबाई |
+| `billet_reject.other` | Other | अन्य |
 
-### plantSettings (56)
+### plantSettings (57)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -10022,6 +11400,7 @@ Please check, Lalubhai:
 | `modules.names.pricing` | Prices and quotes | भाव और कोटेशन |
 | `modules.names.billing` | Tax invoices | टैक्स इनवॉइस |
 | `modules.names.einvoice` | E-invoice | ई-इनवॉइस |
+| `modules.names.maintenance` | Maintenance | मेंटेनेंस |
 | `modules.names.costing` | Costing | लागत |
 | `letterhead.title` | Letterhead | लेटरहेड |
 | `letterhead.legalName` | Legal name | कानूनी नाम |
@@ -10162,7 +11541,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (431)
+### audit (480)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -10217,6 +11596,8 @@ Please check, Lalubhai:
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
 | `subjectTypes.complaint` | Complaint | शिकायत |
+| `subjectTypes.maint_asset` | Asset | एसेट |
+| `subjectTypes.maint_work_order` | Work order | वर्क ऑर्डर |
 | `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
 | `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `subjectTypes.ingest_artifact` | Import file | इम्पोर्ट की फ़ाइल |
@@ -10237,6 +11618,8 @@ Please check, Lalubhai:
 | `subjectTypes.invoice` | Invoice | इनवॉइस |
 | `subjectTypes.payment` | Payment | भुगतान |
 | `subjectTypes.gst_hsn` | HSN code | HSN कोड |
+| `subjectTypes.store_indent` | Indent | इंडेंट |
+| `subjectTypes.store_po` | Purchase order | परचेज़ ऑर्डर |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -10360,6 +11743,20 @@ Please check, Lalubhai:
 | `actions.complaint__reply` | Complaint answered | शिकायत का जवाब दिया |
 | `actions.complaint__close` | Complaint closed | शिकायत बंद हुई |
 | `actions.mis__morning__sent` | Morning summary sent | सुबह का सारांश भेजा |
+| `actions.maint__asset__create` | Asset added | एसेट जोड़ा |
+| `actions.maint__asset__update` | Asset changed | एसेट बदला |
+| `actions.maint__asset__addFromMasters` | Presses, furnaces and ovens added as assets | प्रेस, फर्नेस और ओवन एसेट में जोड़े |
+| `actions.maint__plan__create` | Maintenance plan added | मेंटेनेंस प्लान जोड़ा |
+| `actions.maint__plan__update` | Maintenance plan changed | मेंटेनेंस प्लान बदला |
+| `actions.maint__workorder__create` | Work order raised | वर्क ऑर्डर बनाया |
+| `actions.maint__workorder__update` | Work order changed | वर्क ऑर्डर बदला |
+| `actions.maint__workorder__move` | Work order status changed | वर्क ऑर्डर का स्टेटस बदला |
+| `actions.maint__spare__link` | Spare added to a work order | वर्क ऑर्डर पर स्पेयर जोड़ा |
+| `actions.maint__spare__unlink` | Spare taken off a work order | वर्क ऑर्डर से स्पेयर हटाया |
+| `actions.maint__limit__create` | Reading limit added | रीडिंग की सीमा जोड़ी |
+| `actions.maint__limit__update` | Reading limit changed | रीडिंग की सीमा बदली |
+| `actions.maint__reading__record` | Machine reading taken | मशीन की रीडिंग ली |
+| `actions.maint__settings__update` | Maintenance labour rate changed | मेंटेनेंस लेबर रेट बदला |
 | `actions.customer__delete` | Customer removed | ग्राहक हटाया |
 | `actions.customer__import` | Customers imported | ग्राहक इंपोर्ट किए |
 | `actions.customer__update` | Customer changed | ग्राहक बदला |
@@ -10425,6 +11822,25 @@ Please check, Lalubhai:
 | `actions.foundry__castSeries__set` | Cast number series moved | कास्ट नंबर सीरीज़ बदली |
 | `actions.foundry__furnace__create` | Furnace added | फर्नेस जोड़ी |
 | `actions.foundry__furnace__update` | Furnace changed | फर्नेस बदली |
+| `actions.foundry__castPlan__accept` | Casting plan line accepted | कास्टिंग प्लान लाइन मानी |
+| `actions.foundry__castPlan__drop` | Casting plan line dropped | कास्टिंग प्लान लाइन हटाई |
+| `actions.foundry__castPlan__open` | Cast opened from the casting plan | कास्टिंग प्लान से कास्ट खोला |
+| `actions.foundry__castPlan__update` | Casting plan line changed | कास्टिंग प्लान लाइन बदली |
+| `actions.foundry__billets__cut` | Logs cut into billets | लॉग से बिलेट काटे |
+| `actions.foundry__billets__issue` | Billets issued to a press | बिलेट प्रेस को दिए |
+| `actions.foundry__chemistry__set` | Typical chemistry set | सामान्य केमिस्ट्री तय की |
+| `actions.foundry__homog__create` | Homogenizing batch opened | होमोजेनाइज़िंग बैच खोला |
+| `actions.foundry__homog__hold` | Homogenizing batch held | होमोजेनाइज़िंग बैच रोका |
+| `actions.foundry__homog__load` | Logs loaded for homogenizing | होमोजेनाइज़िंग के लिए लॉग लोड किए |
+| `actions.foundry__homog__out` | Homogenizing batch taken out | होमोजेनाइज़िंग बैच बाहर निकाला |
+| `actions.foundry__homog__release` | Homogenizing batch released | होमोजेनाइज़िंग बैच पास किया |
+| `actions.foundry__homog__start` | Homogenizing started | होमोजेनाइज़िंग शुरू |
+| `actions.foundry__homog__unload` | Logs taken off a homogenizing batch | होमोजेनाइज़िंग बैच से लॉग हटाए |
+| `actions.foundry__homog__void` | Homogenizing batch voided | होमोजेनाइज़िंग बैच रद्द |
+| `actions.foundry__logs__mtc` | Mill test certificate added | मिल टेस्ट सर्टिफ़िकेट जोड़ा |
+| `actions.foundry__logs__receive` | Bought-in logs received | बाहर से खरीदे लॉग आए |
+| `actions.foundry__reject__billet` | Billets rejected | बिलेट रिजेक्ट किए |
+| `actions.foundry__reject__log` | Logs rejected | लॉग रिजेक्ट किए |
 | `actions.foundry__melt__correct` | Melt corrected | मेल्ट सुधारा |
 | `actions.foundry__melt__correct_request` | Melt correction sent for approval | मेल्ट सुधारने की मंज़ूरी मांगी |
 | `actions.foundry__melt__discard` | Draft melt thrown away | ड्राफ्ट मेल्ट हटाया |
@@ -10562,6 +11978,18 @@ Please check, Lalubhai:
 | `actions.store__exchange` | Store items exchanged | स्टोर आइटम बदले |
 | `actions.store__issue` | Store items issued | स्टोर से सामान दिया |
 | `actions.store__receive` | Store items received | स्टोर में सामान आया |
+| `actions.store__indent__create` | Indent raised | इंडेंट बना |
+| `actions.store__indent__approve` | Indent approved | इंडेंट मंज़ूर |
+| `actions.store__indent__reject` | Indent rejected | इंडेंट नामंज़ूर |
+| `actions.store__indent__cancel` | Indent cancelled | इंडेंट रद्द |
+| `actions.store__po__create` | Purchase order made | परचेज़ ऑर्डर बना |
+| `actions.store__po__update` | Purchase order changed | परचेज़ ऑर्डर बदला |
+| `actions.store__po__issue` | Purchase order sent | परचेज़ ऑर्डर भेजा |
+| `actions.store__po__close` | Purchase order closed short | परचेज़ ऑर्डर बाकी छोड़कर बंद |
+| `actions.store__po__cancel` | Purchase order cancelled | परचेज़ ऑर्डर रद्द |
+| `actions.store__settings__update` | Over-delivery allowance changed | ज़्यादा माल की छूट बदली |
+| `actions.store__rate__set` | Pending delivery rate set | रुके हुए माल का रेट डाला |
+| `actions.store__rate__opening` | Opening rate given to old stock | पुराने स्टॉक का शुरुआती रेट डाला |
 | `actions.store_item__create` | Store item added | स्टोर आइटम जोड़ा |
 | `actions.store_item__update` | Store item changed | स्टोर आइटम बदला |
 | `actions.support_request__close` | Help request closed | मदद की रिक्वेस्ट बंद की |

@@ -27,6 +27,8 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
   quote: (id) => `/pricing/quotes/${id}`,
   enquiry: () => "/pricing/enquiries",
   invoice: (id) => `/billing/${id}`,
+  maint_asset: (id) => `/maintenance/assets/${id}`,
+  maint_work_order: (id) => `/maintenance/work-orders/${id}`,
 };
 
 export const AUDIT_SUBJECT_TYPES = Object.keys(SUBJECT_PATHS);

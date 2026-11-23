@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
 import { bundle, bundleGroup, packReject } from "@orrn/db/schema/inventory";
+import { pressLine } from "@orrn/db/schema/press";
 import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem } from "@orrn/db/schema/store";
 
@@ -68,6 +69,22 @@ function isLocationCodeConflict(e: unknown): boolean {
   return false;
 }
 
+/**
+ * XE FOUNDRY (#50): a `press_floor` location names the press line it serves; no other kind carries one.
+ * Returns the id to store (null for other kinds), or refuses.
+ */
+async function floorPressLine(ctx: { db: OrrnDb; companyId: string }, kind: string, pressLineId: string | null | undefined): Promise<string | null> {
+  if (kind !== "press_floor") return null;
+  if (!pressLineId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the press this floor serves" });
+  const [line] = await ctx.db
+    .select({ id: pressLine.id })
+    .from(pressLine)
+    .where(and(eq(pressLine.id, pressLineId), eq(pressLine.companyId, ctx.companyId)))
+    .limit(1);
+  if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Press line not found" });
+  return line.id;
+}
+
 const locationsRouter = router({
   list: companyProcedure
     .input(z.object({ includeInactive: z.boolean().default(false) }).default({ includeInactive: false }))
@@ -87,9 +104,12 @@ const locationsRouter = router({
         name: z.string().trim().min(1, "Name is required").max(100),
         kind: z.enum(locationKinds),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
+        /** XE FOUNDRY (#50): the press a `press_floor` location serves. */
+        pressLineId: z.string().min(1).max(64).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const pressLineId = await floorPressLine(ctx, input.kind, input.pressLineId);
       const [dupe] = await ctx.db
         .select({ id: location.id })
         .from(location)
@@ -109,6 +129,7 @@ const locationsRouter = router({
             name: input.name,
             kind: input.kind,
             sortOrder: input.sortOrder ?? 0,
+            pressLineId,
             createdBy: ctx.session.user.id,
           }),
           auditInsert(auditCtx(ctx), {
@@ -136,6 +157,7 @@ const locationsRouter = router({
         kind: z.enum(locationKinds).optional(),
         active: z.boolean().optional(),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
+        pressLineId: z.string().min(1).max(64).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -143,6 +165,11 @@ const locationsRouter = router({
         where: and(eq(location.id, input.id), eq(location.companyId, ctx.companyId)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+      const nextKind = input.kind ?? existing.kind;
+      const floorLine =
+        input.kind !== undefined || input.pressLineId !== undefined
+          ? await floorPressLine(ctx, nextKind, input.pressLineId === undefined ? existing.pressLineId : input.pressLineId)
+          : undefined;
 
       if (input.code && input.code !== existing.code) {
         const [dupe] = await ctx.db
@@ -159,11 +186,18 @@ const locationsRouter = router({
         ...(input.kind !== undefined ? { kind: input.kind } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+        ...(floorLine !== undefined ? { pressLineId: floorLine } : {}),
       };
       // A retired or re-typed location must be empty. The check is part of the UPDATE itself, so a
       // move or pack that lands after our read cannot slip a bundle in underneath it.
       const retiring = input.active === false && existing.active;
       const retyping = input.kind !== undefined && input.kind !== existing.kind;
+      // XE FOUNDRY (fix round 1): a press floor's stock belongs to its press. Moving the floor to another
+      // press needs it empty of every cast (a negative cast counts too: count the floor first).
+      const repressing = !retyping && existing.kind === "press_floor" && floorLine !== undefined && floorLine !== existing.pressLineId;
+      // Fix round 2: a floor or rack may hold +A of one cast and -A of another (a press can draw past what
+      // was issued), so retiring or retyping one needs every cast at 0, not just the total.
+      const perItem = repressing || ((retiring || retyping) && (existing.kind === "press_floor" || existing.kind === "billet_rack"));
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const mine = and(eq(location.id, existing.id), eq(location.companyId, ctx.companyId), eq(location.serverSeq, seq));
       try {
@@ -176,6 +210,10 @@ const locationsRouter = router({
                 eq(location.id, existing.id),
                 eq(location.companyId, ctx.companyId),
                 retiring || retyping ? locationIsEmpty(ctx.db, ctx.companyId, existing.id) : undefined,
+                perItem
+                  ? sql`not exists (select 1 from ${stockLedger} fl where fl.company_id = ${ctx.companyId} and fl.location_id = ${existing.id}
+                      group by fl.item_kind, fl.item_ref having sum(fl.qty_g) <> 0)`
+                  : undefined,
               ),
             ),
           auditInsertGuarded(
@@ -200,8 +238,8 @@ const locationsRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `Location ${existing.code} still holds stock; move it out before ${
-            retiring ? "retiring" : "changing the kind of"
-          } the location`,
+            retiring ? "retiring the location" : repressing ? "moving the floor to another press" : "changing the kind of the location"
+          }`,
         });
       }
       return { success: true };

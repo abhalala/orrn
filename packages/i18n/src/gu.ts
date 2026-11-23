@@ -13,6 +13,7 @@ import { refusalGu } from "./native/refusal.gu";
 import { guAdminLimits } from "./gu-more/admin-limits";
 import { guAgeing } from "./gu-more/ageing";
 import { guReg } from "./gu-more/reg";
+import { guMaint } from "./gu-more/maint";
 import { guAgeingWeb } from "./gu-more/ageing-web";
 import { guApprovals } from "./gu-more/approvals";
 import { guPressBoard } from "./gu-more/press-board";
@@ -20,6 +21,7 @@ import { guAuth } from "./gu-more/auth";
 import { guBuddy } from "./gu-more/buddy";
 import { guQa } from "./gu-more/qa";
 import { guCost } from "./gu-more/cost";
+import { guStore2 } from "./gu-more/store2";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
@@ -865,6 +867,7 @@ const guBase = {
       billetsOnce: "એક રન પર એક cast. બીજી cast નવો રન છે.",
       shortStock: "આ cast માટે બિલેટ સ્ટોકમાં {kg} {massUnit} દેખાય છે. રન તોલેલા {massUnit} સાથે નોંધાશે; cast પર બિલેટ {short} {massUnit} ઓછા દેખાશે. સ્ટોક કેમ ઓછો છે તે કહો.",
       shortStockNoFigure: "આ cast માટે બિલેટ સ્ટોકમાં {kg} {massUnit} દેખાય છે. રન તોલેલા {massUnit} સાથે નોંધાશે; cast પર બિલેટ ઓછા દેખાશે. સ્ટોક કેમ ઓછો છે તે કહો.",
+      floorShort: "{cast}: {floor} પર {have} {massUnit} છે અને રનમાં {need} {massUnit} વપરાયા. રન નોંધાશે; બિલેટ અપાય કે ગણતરી થાય ત્યાં સુધી ફ્લોર પર સ્ટોક શૂન્યથી ઓછો દેખાશે.",
       pressedLength: "પ્રેસની લંબાઈ",
       pressedLengthHint: "વૈકલ્પિક. ભર્યા પછી જ પીસ ગુણ્યા કટ લંબાઈ તપાસાય છે.",
       pcsOrdered: "મોકલેલા {pcs} પીસ",
@@ -988,6 +991,7 @@ const guBase = {
         late_entry_unapproved: "પછીથી ભરેલો આ રન મંજૂરીની રાહ જુએ છે",
         downtime_open: "પહેલાં ખુલ્લો બંધ સમય પૂરો કરો",
         trial_result_missing: "die ટ્રાયલ પાસ થયો કે ફેલ તે કહો",
+        billets_not_homogenized: "6xxx cast ના હોમોજેનાઇઝ કર્યા વગરના લોગ પ્રેસમાં જઈ શકે નહીં; પહેલાં તેમને હોમોજેનાઇઝ કરો",
       },
       errors: {
         generic: "સર્વરે આ સ્વીકાર્યું નથી.",
@@ -1669,6 +1673,8 @@ const guBase = {
       die_work: "Die નું કામ",
       melt_correct: "લૉક મેલ્ટનો સુધારો",
       cast_tail: "કાસ્ટ ક્લોઝ-આઉટ",
+      log_reject: "લૉગ રિજેક્ટ",
+      billet_reject: "બિલેટ રિજેક્ટ",
     },
     downtime: {
       die_change: "Die બદલી",
@@ -1760,6 +1766,22 @@ const guBase = {
       scale_difference: "કાંટાનો ફરક",
       remelted: "બિલેટ ફર્નેસમાં પાછા ગયા",
       scrapped: "બિલેટ સ્ક્રેપ થયા",
+      other: "અન્ય",
+    },
+    log_reject: {
+      crack: "તિરાડ",
+      inclusion: "ઇન્ક્લુઝન",
+      size: "ખોટી સાઇઝ",
+      chemistry: "કેમિસ્ટ્રી બહાર",
+      bend: "વાંકો લૉગ",
+      other: "અન્ય",
+    },
+    billet_reject: {
+      crack: "તિરાડ",
+      inclusion: "ઇન્ક્લુઝન",
+      size: "ખોટી સાઇઝ",
+      chemistry: "કેમિસ્ટ્રી બહાર",
+      short_length: "ટૂંકી લંબાઈ",
       other: "અન્ય",
     },
   },
@@ -1857,6 +1879,7 @@ export const gu = mergeGu(
   guAdminLimits,
   guAgeing,
   guReg,
+  guMaint,
   guAgeingWeb,
   guApprovals,
   guAuth,
@@ -1879,6 +1902,7 @@ export const gu = mergeGu(
   guBuddy,
   guQa,
   guCost,
+  guStore2,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1902,4 +1926,6 @@ export const gu = mergeGu(
   typeof guBuddy &
   typeof guReg &
   typeof guCost &
-  typeof guQa satisfies GuMessages;
+  typeof guQa &
+  typeof guStore2 &
+  typeof guMaint satisfies GuMessages;

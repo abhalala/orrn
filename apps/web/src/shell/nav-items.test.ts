@@ -4,7 +4,7 @@ import type { CompanyRole, Me } from "@orrn/server/lib/permissions";
 
 import { bundleDetailPath } from "../shared/lib/paths";
 
-import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
+import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, moduleOn, visibleItems, type NavItem } from "./nav-items";
 
 function me(role: CompanyRole, modules?: string[]): Me {
   return {
@@ -34,12 +34,14 @@ describe("visibleItems", () => {
       "reports",
       "complaints",
       "owner",
+      "maintenance",
       "purchase",
       "approvals",
       "dies",
       "customers",
       "pricing",
       "store",
+      "storeBuying",
       "printing",
       "masters",
       "guides",
@@ -84,7 +86,7 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "purchase", "dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "maintenance", "purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {
@@ -98,8 +100,8 @@ describe("visibleItems", () => {
 
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit"]);
+    // Store and Buying need the store module (XE store: the server refuses store writes with it off).
+    expect(visible).toEqual(["today", "ingest", "orders", "reports", "owner", "purchase", "approvals", "customers", "printing", "masters", "guides", "settings", "audit"]);
     // Billing and costing are opt-in: a plant with no modules named has them off, and naming one turns it on without touching the rest.
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length - 2);
     expect(keys(visibleItems(ALL, me("owner", [])))).not.toContain("billing");
@@ -258,5 +260,23 @@ describe("costing is opt-in (XE parity lane COST)", () => {
   });
   test("a floor role never sees it", () => {
     expect(shown("operator", ["costing"])).toBe(false);
+  });
+});
+
+describe("store module", () => {
+  test("Store and Buying carry the store module and hide when it is off", () => {
+    for (const key of ["store", "storeBuying"]) {
+      expect(TENANT_MORE.find((i) => i.key === key)?.module).toBe("store");
+      expect(keys(visibleItems(ALL, me("owner", ["customers"])))).not.toContain(key);
+      expect(keys(visibleItems(ALL, me("owner", ["Store"])))).toContain(key);
+      expect(keys(visibleItems(ALL, me("owner")))).toContain(key);
+    }
+  });
+
+  test("moduleOn: empty or missing list is all on; otherwise case-insensitive membership", () => {
+    expect(moduleOn(undefined, "store")).toBe(true);
+    expect(moduleOn(me("owner", []), "store")).toBe(true);
+    expect(moduleOn(me("owner", ["STORE"]), "store")).toBe(true);
+    expect(moduleOn(me("owner", ["press"]), "store")).toBe(false);
   });
 });
