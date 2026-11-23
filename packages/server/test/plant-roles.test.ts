@@ -146,6 +146,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "foundry.billets": ["foundry", "supervisor"],
   "foundry.reject": ["foundry", "supervisor"],
   "foundry.plan": ["supervisor", "office", "manager"],
+  "device.view": ["admin", "manager", "supervisor", "office", "storekeeper"],
+  "device.manage": ["admin", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
