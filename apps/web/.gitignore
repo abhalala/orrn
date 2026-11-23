@@ -42,7 +42,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-*.log*
+# Log files only: `*.log*` also matched route files such as foundry.logs.tsx.
+*.log
+*.log.[0-9]*
 
 # TypeScript
 *.tsbuildinfo
