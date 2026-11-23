@@ -339,7 +339,10 @@ describe("press run-hours query plans (no ANALYZE statistics, as on prod D1)", (
     const p = await plant();
     const stats = await env.d1.prepare("select count(*) as n from sqlite_master where name = 'sqlite_stat1'").first<{ n: number }>();
     expect(stats?.n).toBe(0);
-    const q = pressUsageSql(p.companyId, NOON.getTime());
+    for (const q of [pressUsageSql(p.companyId, NOON.getTime()), pressUsageSql(p.companyId, NOON.getTime(), crypto.randomUUID())]) await checkPlans(q);
+  });
+
+  async function checkPlans(q: ReturnType<typeof pressUsageSql>) {
     const checks: [keyof typeof q, RegExp[]][] = [
       ["runs", [/^SEARCH p USING INDEX maint_plan_company_asset_idx /, /^SEARCH a USING INDEX sqlite_autoindex_maint_asset_1 \(id=\?\)$/, runRange]],
       ["downtimeCuts", [/^SEARCH p USING INDEX maint_plan_company_asset_idx /, /^SEARCH a /, runRange, /^SEARCH d USING INDEX press_downtime_company_run_idx \(company_id=\? AND press_run_id=\?\)$/]],
@@ -356,6 +359,8 @@ describe("press run-hours query plans (no ANALYZE statistics, as on prod D1)", (
     ];
     for (const [name, steps] of checks) {
       const lines = (await plan(q[name])).filter((d) => /^(SEARCH|SCAN) /.test(d));
+      // The pause rows are materialized first; the plan of every query still opens on maint_plan.
+      expect(lines.find((d) => d !== "SCAN c")).toMatch(/^SEARCH p USING INDEX maint_plan_company_asset_idx /);
       // The tables in this order, each found by its index; nothing scanned but the materialized pause rows.
       let from = 0;
       for (const step of steps) {
@@ -366,5 +371,5 @@ describe("press run-hours query plans (no ANALYZE statistics, as on prod D1)", (
       expect(lines.filter((d) => /^SCAN /.test(d) && d !== "SCAN c")).toEqual([]);
       expect(lines.filter((d) => /audit_company_at_idx|press_run_company_line_queue_idx/.test(d))).toEqual([]);
     }
-  });
+  }
 });
