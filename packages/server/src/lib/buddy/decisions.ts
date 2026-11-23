@@ -219,6 +219,10 @@ export const BUDDY_DECISIONS = {
     "foundry.billets.issue": deny("XE FOUNDRY write: moves billets on the stock ledger (not reviewed for drafts yet)."),
     "foundry.rejects.create": deny("XE FOUNDRY write: takes logs or billets out of stock (not reviewed for drafts yet)."),
     "foundry.chargeMix.setChemistry": deny("XE FOUNDRY write: a plant master (not reviewed for drafts yet)."),
+    "foundry.castPlan.accept": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.update": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.drop": deny("XE FOUNDRY write: casting plan (not reviewed for drafts yet)."),
+    "foundry.castPlan.open": deny("XE FOUNDRY write: opens a cast from the casting plan (not reviewed for drafts yet)."),
   } satisfies Record<string, BuddyDecision>,
 
   /**

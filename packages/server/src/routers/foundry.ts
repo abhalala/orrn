@@ -132,6 +132,7 @@ import {
 import { assertLotsInspected, isQaAbort, lotsInspectedGuardStatements } from "../lib/qa";
 import { foundryDepthRouter } from "./foundryDepth";
 import { foundryDataSheetProcedures, foundryPlanRouter } from "./foundryPlan";
+import { foundryCastPlanRouter } from "./foundryCastPlan";
 import { foundryMastersRouter } from "./foundryMasters";
 import { MELT_GATE_TEXT, meltStepperProcedures } from "./foundryMelt";
 import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
@@ -2119,4 +2120,5 @@ export const foundryRouter = router({
   ...foundryDepthRouter,
   /** XE FOUNDRY: charge-mix suggestion and the typical chemistry master (casting plan joins after REG). */
   ...foundryPlanRouter,
+  ...foundryCastPlanRouter,
 });

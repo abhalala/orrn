@@ -204,6 +204,11 @@ foundry.billets.issue	mutation	deny	reversible
 foundry.billets.issues	query	allow	reversible
 foundry.billets.places	query	allow	reversible
 foundry.billets.stock	query	allow	reversible
+foundry.castPlan.accept	mutation	deny	reversible
+foundry.castPlan.drop	mutation	deny	reversible
+foundry.castPlan.open	mutation	deny	reversible
+foundry.castPlan.propose	query	allow	reversible
+foundry.castPlan.update	mutation	deny	reversible
 foundry.casts.cancel	mutation	allow	irreversible
 foundry.casts.close	mutation	allow	irreversible
 foundry.casts.closePreview	query	allow	reversible

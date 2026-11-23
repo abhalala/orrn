@@ -320,3 +320,85 @@ describe("#47 charge-mix suggestion", () => {
     expect((await errOf(q.as("foundry").foundry.chargeMix.suggest({ alloyId, targetKgG: kg(100) }))).code).toBe("NOT_FOUND");
   });
 });
+
+describe("#46 casting plan", () => {
+  const today = async () => {
+    const { zonedYmd } = await import("../src/lib/dayWindow");
+    const d = zonedYmd("Asia/Kolkata", Date.now());
+    return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+  };
+  async function planned(p: Plant, pcs = 10) {
+    const s = await p.section({ alloy: "6063" });
+    const o = await p.confirmedOrder([{ sectionId: s, pcs }]);
+    const t = Date.now();
+    return p.as("office").plans.create({ windowStart: t, windowEnd: t + 3_600_000, pressLineId: p.pressLineId, dies: [{ sectionId: s, lines: [{ salesOrderLineId: o.lineIds[0]!, pcs }] }] });
+  }
+
+  test("the press plan's billet need (REG billetNeed) less stock and accepted lines is proposed by alloy and day", async () => {
+    const p = await plant();
+    const day = await today();
+    await planned(p);
+    const first = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(first.plans).toHaveLength(1);
+    expect(first.rows).toHaveLength(1);
+    const need = first.rows[0]!;
+    expect(need).toMatchObject({ day, alloy: "6063", coveredG: 0, casts: 1 });
+    expect(need.needG).toBeGreaterThan(kg(120)); // 10 pcs of 12 kg at a recovery under 100 %
+    expect(need.castG).toBe(need.needG);
+    expect(need.alloyId).not.toBeNull();
+
+    // Bought-in logs of the alloy cover part of it.
+    await p.receive({ kgs: 50 });
+    const second = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(second.rows[0]).toMatchObject({ coveredG: kg(50), castG: need.needG - kg(50) });
+
+    // An accepted line counts as metal to come; opening its cast keeps it counted until the cast has logs.
+    const line = await p.as("supervisor").foundry.castPlan.accept({ day, alloyId: need.alloyId!, kgG: need.needG - kg(50), proposedG: need.needG - kg(50) });
+    const third = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(third.rows[0]).toMatchObject({ castG: 0, casts: 0 });
+    expect(third.lines).toEqual([expect.objectContaining({ id: line.id, status: "accepted", alloy: "6063" })]);
+
+    const opened = await p.as("foundry").foundry.castPlan.open({ id: line.id });
+    const [c] = await env.db.select().from(cast).where(eq(cast.id, opened.castId));
+    expect(c).toMatchObject({ status: "open", alloy: "6063", source: "melt" });
+    const fourth = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(fourth.rows[0]).toMatchObject({ castG: 0 });
+    expect(fourth.lines[0]).toMatchObject({ status: "opened", castId: opened.castId, castNumber: opened.number });
+    const actions = await audits(p.companyId);
+    expect(actions).toEqual(expect.arrayContaining(["foundry.castPlan.accept", "cast.open", "foundry.castPlan.open"]));
+
+    // An opened line cannot open again, be changed or dropped.
+    expect(await errOf(p.as("foundry").foundry.castPlan.open({ id: line.id }))).toEqual({ code: "BAD_REQUEST", message: "Only an accepted plan line can open a cast" });
+    expect((await errOf(p.as("supervisor").foundry.castPlan.drop({ id: line.id }))).code).toBe("BAD_REQUEST");
+    expect((await errOf(p.as("supervisor").foundry.castPlan.update({ id: line.id, day, kgG: kg(10) }))).code).toBe("BAD_REQUEST");
+  });
+
+  test("edit and drop an accepted line; roles; another plant's line and alloy are Not found", async () => {
+    const p = await plant();
+    const q = await plant();
+    const day = await today();
+    const alloyId = (await p.as("viewer").foundry.alloys.list()).items.find((a) => a.code === "6063")!.id;
+    const line = await p.as("office").foundry.castPlan.accept({ day, alloyId, kgG: kg(4_000), proposedG: kg(3_800), note: "Two casts" });
+    await p.as("office").foundry.castPlan.update({ id: line.id, day, kgG: kg(4_500) });
+    let got = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(got.lines[0]).toMatchObject({ kgG: kg(4_500), proposedG: kg(3_800), status: "accepted" });
+    await p.as("manager").foundry.castPlan.drop({ id: line.id, note: "Order moved" });
+    got = await p.as("viewer").foundry.castPlan.propose({ from: day, to: day });
+    expect(got.lines[0]).toMatchObject({ status: "dropped" });
+    expect((await errOf(p.as("foundry").foundry.castPlan.open({ id: line.id }))).code).toBe("BAD_REQUEST");
+
+    // Roles: the planner accepts, edits and drops (not the foundry hand or a packer); opening is cast.enter.
+    expect((await errOf(p.as("foundry").foundry.castPlan.accept({ day, alloyId, kgG: kg(100), proposedG: 0 }))).code).toBe("FORBIDDEN");
+    expect((await errOf(p.as("packer").foundry.castPlan.accept({ day, alloyId, kgG: kg(100), proposedG: 0 }))).code).toBe("FORBIDDEN");
+    const other = await p.as("office").foundry.castPlan.accept({ day, alloyId, kgG: kg(100), proposedG: 0 });
+    expect((await errOf(p.as("packer").foundry.castPlan.open({ id: other.id }))).code).toBe("FORBIDDEN");
+
+    // Tenancy.
+    expect((await errOf(q.as("office").foundry.castPlan.accept({ day, alloyId, kgG: kg(100), proposedG: 0 }))).code).toBe("NOT_FOUND");
+    expect((await errOf(q.as("office").foundry.castPlan.update({ id: other.id, day, kgG: kg(200) }))).code).toBe("NOT_FOUND");
+    expect((await errOf(q.as("office").foundry.castPlan.drop({ id: other.id }))).code).toBe("NOT_FOUND");
+    expect((await errOf(q.as("foundry").foundry.castPlan.open({ id: other.id }))).code).toBe("NOT_FOUND");
+    expect((await q.as("viewer").foundry.castPlan.propose({ from: day, to: day })).lines).toEqual([]);
+    expect((await errOf(p.as("viewer").foundry.castPlan.propose({ from: day, to: "2020-01-01" }))).code).toBe("BAD_REQUEST");
+  });
+});
