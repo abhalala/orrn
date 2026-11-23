@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9202 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9203 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -8272,7 +8272,7 @@ Please check, Lalubhai:
 - `draft.blocked.bidi`: Buddy: Confirm is off because a value holds hidden text-direction marks. Is छिपे निशान जो लिखावट का क्रम बदल देते हैं clear?
 - `draft.marked`: Buddy: the warning under a value with hidden text-direction marks. Is it clear?
 
-### qa (269)
+### qa (270)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -8282,6 +8282,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर कोशिश करें। |
 | `failed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
 | `saved` | Saved | सेव हुआ |
+| `required` | Fill this in. | इसे भरें। |
 | `tabs.waiting` | Waiting | इंतज़ार में |
 | `tabs.holds` | On hold | होल्ड पर |
 | `tabs.checks` | Checks | जाँच |
@@ -8499,9 +8500,9 @@ Please check, Lalubhai:
 | `substitutes.removed` | Removed | हटाया गया |
 | `substitutes.empty` | No substitutes yet. | अभी कोई विकल्प नहीं। |
 | `substitutes.short` | Alloy short | अलॉय कम |
-| `substitutes.shortBody` | {alloy}: {have} kg of billets for {need} kg left. | {alloy}: {need} kg के लिए बिलेट {have} kg बचे हैं। |
+| `substitutes.shortBody` | {alloy}: {have} {massUnit} of billets for {need} {massUnit} left. | {alloy}: {need} {massUnit} के लिए बिलेट {have} {massUnit} बचे हैं। |
 | `substitutes.allowed` | Allowed instead | इसके बदले मान्य |
-| `substitutes.onHand` | {kg} kg on hand | {kg} kg हाथ में |
+| `substitutes.onHand` | {kg} {massUnit} on hand | {kg} {massUnit} हाथ में |
 | `substitutes.noneAllowed` | No substitute is allowed for {alloy}. | {alloy} के लिए कोई विकल्प मान्य नहीं। |
 | `settings.title` | Quality switches | गुणवत्ता स्विच |
 | `settings.firstPiece` | Pack waits for the first piece | पैक के लिए पहला पीस ज़रूरी |
