@@ -27,6 +27,7 @@ import { bundleTransfer, openSalesOrderStatuses, salesOrder, salesOrderLine, sal
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
+import { notInProcessSql } from "../lib/process";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
@@ -1456,6 +1457,8 @@ export const orderFlowProcedures = {
         eq(bundle.status, "available"),
         input.sectionId ? eq(bundle.dieId, input.sectionId) : undefined,
         input.includeUnassigned ? sql`${bundle.salesOrderLineId} is null` : plant,
+        // XE JOBWORK: not out for job work or on a process step.
+        notInProcessSql(ctx.companyId),
       );
       const rows = await ctx.db
         .select({
@@ -1531,6 +1534,8 @@ export const orderFlowProcedures = {
         eq(bundle.dieId, input.sectionId),
         eq(bundle.status, "available"),
         sql`not ${pendingReallocationOf(ctx.companyId, sql`${bundle.id}`)}`,
+        // XE JOBWORK: not out for job work or on a process step.
+        notInProcessSql(ctx.companyId),
       );
       const rows = await ctx.db
         .select({

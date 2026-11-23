@@ -65,6 +65,7 @@ import {
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import { ageingAbortUnless, ageingReopenBlocker, closeEmptyStatements, isAgeingAbort, isUniqueOn, lineLoadedPcsSql, openBundleRows, pressLinesLoaded, pressLinesNotOverloadedSql, remainingOf } from "../lib/ageing";
+import { assertNotInProcess } from "../lib/process";
 import {
   ageingAvailableBundlesInput,
   ageingAvailableLinesInput,
@@ -625,6 +626,8 @@ const loadProcedure = actionProcedure("ageing.load")
     const bundleIds = input.bundles.map((b) => b.bundleId);
     if (new Set(bundleIds).size !== bundleIds.length) throw ageingRefusal("bundle_on_batch", { serial: "", batch: batch?.number ?? "" });
     const onTrolley = await openBundleRows(ctx.db, ctx.companyId, bundleIds);
+    // XE JOBWORK: a bundle out for job work or on a process step does not go on a trolley.
+    await assertNotInProcess(ctx.db, ctx.companyId, bundleIds);
     for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
       const found = await ctx.db.all<{
         id: string;

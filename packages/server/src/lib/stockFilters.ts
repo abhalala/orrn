@@ -16,6 +16,7 @@ import { company } from "@orrn/db/schema/tenant";
 
 import type { OrrnDb } from "./atomic";
 import { companyTimezone } from "./dayWindow";
+import { notAtVendorSql } from "./process";
 import { isPlantStockSql } from "./reallocate";
 import { addDays, localMidnight } from "./zonedBuckets";
 
@@ -48,6 +49,8 @@ export function emptyKindTotals(): KindTotals {
 export async function stockFilterConditions(db: OrrnDb, companyId: string, f: StockFilters): Promise<SQL[]> {
   const out: SQL[] = [];
   if (f.locationId) out.push(eq(bundle.locationId, f.locationId));
+  // XE JOBWORK: bundles out at a job-work vendor are not plant stock; a vendor's own place still lists them when asked by name.
+  else out.push(notAtVendorSql(companyId));
   if (f.customerId) {
     out.push(
       sql`exists (select 1 from sales_order_line sl join sales_order so on so.id = sl.sales_order_id and so.company_id = sl.company_id where sl.id = ${bundle.salesOrderLineId} and sl.company_id = ${companyId} and so.customer_id = ${f.customerId})`,

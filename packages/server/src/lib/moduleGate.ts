@@ -54,6 +54,9 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
 export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
   "stock.move": "bundles",
   "stock.openingBalance": "bundles",
+  // XE JOBWORK: the `process` router serves three modules (jobwork, drawbench, fabrication), so each
+  // step mutation calls assertModule for its kind; the vendor master belongs to job-work.
+  "process.vendors.save": "jobwork",
 };
 
 /**

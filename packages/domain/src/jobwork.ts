@@ -94,7 +94,7 @@ export type ReturnFigures = {
   yieldBp: number;
 };
 
-export type ReturnRefusal = "no_output" | "negative_weight" | "gain_too_high" | "output_over_input";
+export type ProcessReturnRefusal = "no_output" | "negative_weight" | "gain_too_high" | "output_over_input";
 
 export function returnFigures(i: ReturnFiguresInput): ReturnFigures {
   const lossG = i.inputG - i.outputG - i.rejectG - i.scrapG;
@@ -107,7 +107,7 @@ export function returnFigures(i: ReturnFiguresInput): ReturnFigures {
 }
 
 /** Why a return cannot be saved, or null. A gain is allowed only up to MAX_GAIN_BP and only when a coat is put on. */
-export function returnRefusal(i: ReturnFiguresInput, opts: { coat: boolean }): ReturnRefusal | null {
+export function returnRefusal(i: ReturnFiguresInput, opts: { coat: boolean }): ProcessReturnRefusal | null {
   if ([i.inputG, i.outputG, i.rejectG, i.scrapG].some((g) => !Number.isInteger(g) || g < 0)) return "negative_weight";
   if (i.outputG === 0 && i.rejectG === 0 && i.scrapG === 0) return "no_output";
   const f = returnFigures(i);

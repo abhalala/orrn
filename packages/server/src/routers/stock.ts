@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
 import { bundle, bundleGroup, packReject } from "@orrn/db/schema/inventory";
-import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
+import { ledgerItemKinds, location, MASTER_LOCATION_KINDS, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem } from "@orrn/db/schema/store";
 
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -37,6 +37,8 @@ import {
   type PostingCtx,
 } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
+import { assertNotInProcess, notInProcessSql } from "../lib/process";
+import { jobworkRefusal } from "../lib/processRefusals";
 import { foldKindTotals, stockFilterConditions, stockFilterShape, stockPosition } from "../lib/stockFilters";
 
 const locationCode = z
@@ -85,7 +87,7 @@ const locationsRouter = router({
       z.object({
         code: locationCode,
         name: z.string().trim().min(1, "Name is required").max(100),
-        kind: z.enum(locationKinds),
+        kind: z.enum(MASTER_LOCATION_KINDS),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
       }),
     )
@@ -133,7 +135,7 @@ const locationsRouter = router({
         id: z.string(),
         code: locationCode.optional(),
         name: z.string().trim().min(1).max(100).optional(),
-        kind: z.enum(locationKinds).optional(),
+        kind: z.enum(MASTER_LOCATION_KINDS).optional(),
         active: z.boolean().optional(),
         sortOrder: z.number().int().min(0).max(10_000).optional(),
       }),
@@ -143,6 +145,8 @@ const locationsRouter = router({
         where: and(eq(location.id, input.id), eq(location.companyId, ctx.companyId)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+      // XE JOBWORK: a vendor's place is kept with the vendor (process.vendors.save), never here.
+      if (existing.kind === "vendor") throw jobworkRefusal("vendor_location");
 
       if (input.code && input.code !== existing.code) {
         const [dupe] = await ctx.db
@@ -340,6 +344,9 @@ export const stockRouter = router({
         });
       }
 
+      // XE JOBWORK: a bundle out for job work or on a process step comes back only through its step.
+      await assertNotInProcess(ctx.db, ctx.companyId, rows.map((b) => b.id));
+
       const toMove = rows.filter((b) => b.locationId !== to.id);
       const unchanged = rows.length - toMove.length;
       if (toMove.length === 0) {
@@ -361,6 +368,8 @@ export const stockRouter = router({
           bundleIds: toMove.map((b) => b.id),
           toLocationId: to.id,
           reason: input.reason ?? null,
+          // Write time: a bundle that went on a process step after the read is left where it is.
+          onlyIf: notInProcessSql(ctx.companyId),
         }),
         // Only if at least one bundle of this request landed (bundles carry the request's seq).
         auditInsertGuarded(
