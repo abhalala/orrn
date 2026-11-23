@@ -296,7 +296,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "docs.manage": ["admin", "manager", "office"],
   "approvalRule.manage": ["admin"],
   "refFormat.manage": ["admin"],
-  // XE-BILL: the billing desk (office), the accountant and the manager; the admin keeps GST settings.
+  // XE-BILL: the billing desk (office), the accountant and the manager. GST settings (incl. the e-invoice start
+  // date) are the admin's and theirs too: the billing desk keeps them up to date (review N2: comment corrected).
   "gst.settings": ["admin", "manager", "accountant", "office"],
   "invoice.read": ["office", "manager", "accountant", "admin"],
   "invoice.issue": ["office", "manager", "accountant"],

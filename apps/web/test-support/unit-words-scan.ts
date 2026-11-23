@@ -17,7 +17,11 @@ const DICT: Record<string, unknown> = { en, hi, gu };
  * Anything not listed here must use {massUnit}, {sectionUnit} or {lengthUnit} (or carry the figure with its unit already).
  */
 export const FIXED_UNIT_KEYS: { prefix: string; why: string }[] = [
-  { prefix: "bill.", why: "a tax invoice is billed per kg: the quantity and the rate are in kg, the unit code of the HSN, whatever unit the plant shows on screen" },
+  // XE-BILL (review N3): only the invoice paper's rate and the typed rate per kg. The GST unit code is KGS
+  // whatever unit the plant shows on screen; other billing screen text follows the plant's unit setting.
+  { prefix: "bill.doc.rate", why: "the tax invoice's rate is per kg: the HSN unit code is KGS" },
+  { prefix: "bill.new.perKg", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
+  { prefix: "bill.new.rates", why: "a rate typed for the tax invoice is per kg (UQC KGS)" },
   { prefix: "units.", why: "the unit words themselves (and the names in the pickers)" },
   { prefix: "settings.", why: "Settings names the units it lets a plant choose" },
   { prefix: "packingList.", why: "the packing list view mirrors the paper, which keeps kg and feet and inches until the paper has its own setting" },
