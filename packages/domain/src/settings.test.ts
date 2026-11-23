@@ -86,13 +86,13 @@ describe("modules (FP-PF-07, C42)", () => {
   test("allowed set includes purchase (D6) and the opt-in statutory modules last (XE-BILL)", () => {
     expect([...COMPANY_MODULES]).toEqual([
       "customers", "dies", "bundles", "dispatches", "orders", "foundry", "press", "ageing", "store", "purchase", "complaints", "qa", "pricing",
-      "billing", "einvoice",
+      "billing", "einvoice", "costing",
     ]);
-    expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll"]);
+    expect([...OPT_IN_MODULES]).toEqual(["billing", "einvoice", "payroll", "costing"]);
     expect(STANDARD_MODULES).toHaveLength(13);
   });
   test("opt-in modules are off on an empty list and on only when named", () => {
-    for (const m of ["billing", "einvoice"] as const) {
+    for (const m of ["billing", "einvoice", "costing"] as const) {
       expect(isModuleOn([], m)).toBe(false);
       expect(isModuleOn(null, m)).toBe(false);
       expect(isModuleOn(["press", "dispatches"], m)).toBe(false);
