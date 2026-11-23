@@ -55,7 +55,7 @@ describe("orderedNavItems", () => {
     const result = order({ order: ["today"] });
     expect(keys(result.primary)).toEqual(["today", "pack", "stock", "dispatch"]);
     // XE modules are opt-in (PROD-GATE): a plant that names no modules has none of their entries.
-    expect(keys(result.more)).toEqual(keys(TENANT_MORE).filter((k) => !["billing", "qa", "complaints", "owner", "pricing", "storeBuying", "maintenance"].includes(k)));
+    expect(keys(result.more)).toEqual(keys(TENANT_MORE).filter((k) => !["billing", "qa", "complaints", "owner", "pricing", "storeBuying", "maintenance", "costing"].includes(k)));
   });
 
   test("items newly visible to the person follow saved items in default order", () => {

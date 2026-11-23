@@ -1655,8 +1655,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   (document register), `mis` (office registers, owner page and mail, billet need, recut reason, portal order
   progress), `maintenance` (assets, preventive plans, work orders, spares, readings; MAINT), `store_buy` (indents, store purchase orders, GRN against an order, store rates and value,
   reorder levels), `foundry_plus` (homogenizing, bought-in logs, billet racks and press floors, cuts, issues, reject
-  registers, charge mix, typical chemistry, casting plan, cast data sheet). Reserved for open lanes (opt-in when they join `COMPANY_MODULES`): `payroll`, `costing`,
-  `jobwork`.
+  registers, charge mix, typical chemistry, casting plan, cast data sheet). `costing` (cost per kg, margins, press load, forecast, dies due; COST). Reserved for open lanes (opt-in when
+  they join `COMPANY_MODULES`): `payroll`, `jobwork`.
 - Server: `companyProcedure` asserts an opt-in module on READS as well as writes (`ROUTER_MODULE` /
   `PROCEDURE_MODULE`); `portalProcedure` paths call `assertModule` themselves. A feature that rides a core
   router or answer (a key in `orders.get`, the PL header, `dashboard.today`, `portal.*`) adds its key only

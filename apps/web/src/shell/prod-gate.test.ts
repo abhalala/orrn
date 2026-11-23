@@ -35,7 +35,7 @@ const VARIANTS = [
 
 describe("XE nav entries are all module-gated", () => {
   test("the XE entries of the menu each name an opt-in module", () => {
-    expect([...XE_NAV].sort()).toEqual(["billing", "complaints", "maintenance", "owner", "pricing", "qa", "storeBuying"]);
+    expect([...XE_NAV].sort()).toEqual(["billing", "complaints", "costing", "maintenance", "owner", "pricing", "qa", "storeBuying"]);
   });
 });
 
