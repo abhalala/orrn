@@ -21,7 +21,7 @@ import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema, requestRowIds } from "../lib/importReplay";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { GSTIN_RE, nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -300,7 +300,7 @@ export const vendorRouter = router({
         const owner = await keyOwner(ctx, k);
         if (owner) throw taken(owner.name);
       }
-      const publish = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
+      const publish = ctxCan(ctx, "masters.publish");
       const status = publish ? "active" : "draft";
       const id = requestId ?? crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);

@@ -140,8 +140,8 @@ describe("standards form", () => {
 
 describe("modules, letterhead, devices, support contact", () => {
   test("an empty module list means every module is on; a list turns the rest off", () => {
-    // Every standard module; the opt-in ones (billing, einvoice, payroll, costing) stay off (XE-BILL, XE COST).
-    const optIn = ["billing", "einvoice", "costing"];
+    // Every standard module; the opt-in ones (billing, einvoice, payroll, costing, api) stay off (XE-BILL, XE COST, XE PLATFORM).
+    const optIn = ["billing", "einvoice", "costing", "api"];
     expect(moduleStates([]).every((m) => m.on === !optIn.includes(m.id))).toBe(true);
     expect(moduleStates(undefined).every((m) => m.on === !optIn.includes(m.id))).toBe(true);
     expect(moduleStates(["billing"]).find((m) => m.id === "billing")?.on).toBe(true);
@@ -252,5 +252,35 @@ describe("cast book start (FP-FD-02)", () => {
     expect(castBookStart("100000")).toBeNull();
     expect(castBookStart("12.5")).toBeNull();
     expect(castBookStart("")).toBeNull();
+  });
+});
+
+describe("settings tabs of XE PLATFORM", () => {
+  // The same fields as the Roles and Plant API entries in sections.tsx (not imported here: it loads every tab
+  // component, which breaks the module mocks of other settings tests in the same run).
+  const { readFileSync } = require("node:fs") as typeof import("node:fs");
+  const { sectionVisible } = require("./model") as typeof import("./model");
+  const me = (role: string, modules: string[], actions?: string[]) =>
+    ({ user: { id: "u" }, company: { role, modules, ...(actions ? { actions } : {}) }, isPlatformAdmin: false }) as never;
+  const api = { requires: ["api.manage"], module: "api" } as const;
+  const roles = { requires: ["role.manage", "users.manage"] } as const;
+
+  test("sections.tsx carries these fields", () => {
+    const src = readFileSync(new URL("./sections.tsx", import.meta.url), "utf8");
+    expect(src).toContain('{ id: "roles", labelKey: "plat3.tabs.roles", requires: ["role.manage", "users.manage"]');
+    expect(src).toContain('{ id: "api", labelKey: "plat3.tabs.api", requires: ["api.manage"], module: "api"');
+  });
+
+  test("Plant API shows only with the api module named and the api action", () => {
+    expect(sectionVisible(api, me("admin", ["customers"]))).toBe(false);
+    expect(sectionVisible(api, me("admin", []))).toBe(false);
+    expect(sectionVisible(api, me("admin", ["api"]))).toBe(true);
+    expect(sectionVisible(api, me("manager", ["api"]))).toBe(false);
+  });
+
+  test("Roles shows to the people who manage roles or people", () => {
+    expect(sectionVisible(roles, me("admin", []))).toBe(true);
+    expect(sectionVisible(roles, me("manager", []))).toBe(false);
+    expect(sectionVisible(roles, me("viewer", []))).toBe(false);
   });
 });

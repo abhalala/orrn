@@ -6,6 +6,7 @@ import type { Context as HonoContext } from "hono";
 
 import { acceptLiveInvitesFor } from "./lib/acceptInvite";
 import type { IngestSource } from "./lib/ingest/source";
+import type { Action } from "./lib/permissions";
 import { COMPANY_HEADER, IMPERSONATE_HEADER, resolveTenantContext } from "./lib/tenantContext";
 
 export type { ImpersonationInfo } from "./lib/tenantContext";
@@ -43,12 +44,19 @@ export async function createContext({ context }: CreateContextOptions) {
     impersonateHeader: context.req.header(IMPERSONATE_HEADER),
   });
 
+  const { actions, customRole, ...tenantRest } = tenant;
   return {
     auth: null,
     db,
     request: context.req.raw,
     session,
-    ...tenant,
+    ...tenantRest,
+    /**
+     * XE PLATFORM row 79: the member's effective actions (custom roles) and the custom role they hold. Every action
+     * check reads `actions` through `ctxCan` (`lib/permissions.ts`). Optional in the type so contexts built by hand in
+     * tests need not name them (then the fixed role's set applies).
+     */
+    ...({ actions, customRole } as { actions?: ReadonlySet<Action> | null; customRole?: { id: string; name: string } | null }),
     // Optional in the type so contexts built elsewhere (tests, the Infinity Portal adapters) need not name it.
     ...({ waitUntil: workerWaitUntil(context) } as { waitUntil?: (job: Promise<unknown>) => void }),
     /**

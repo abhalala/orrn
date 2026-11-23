@@ -68,6 +68,12 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   "buddy_grant",
   "buddy_call",
   "buddy_draft",
+  // XE PLATFORM row 83: API tokens and webhook endpoints are credentials; rate counters and the delivery outbox
+  // are transient. A restored plant makes new tokens and endpoints.
+  "api_token",
+  "api_rate",
+  "webhook_endpoint",
+  "webhook_delivery",
 ]);
 
 /**

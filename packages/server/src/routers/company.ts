@@ -6,6 +6,7 @@ import { bundle } from "@orrn/db/schema/inventory";
 import { cast } from "@orrn/db/schema/foundry";
 import { pressRun } from "@orrn/db/schema/press";
 import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
+import { customRole, membershipCustomRole } from "@orrn/db/schema/xePlatform";
 import {
   applyFoundrySettingsEdit,
   HOMOG_TOLERANCE_BP_MAX,
@@ -115,7 +116,7 @@ export const companyRouter = router({
     }),
 
   membersList: companyProcedure.query(async ({ ctx }) => {
-    return ctx.db.query.membership.findMany({
+    const members = await ctx.db.query.membership.findMany({
       where: eq(membership.companyId, ctx.companyId),
       with: {
         user: {
@@ -127,6 +128,14 @@ export const companyRouter = router({
         }
       }
     });
+    // XE PLATFORM row 79: the custom role each member holds (its base is `role`), or null. One query for the plant.
+    const held = await ctx.db
+      .select({ membershipId: membershipCustomRole.membershipId, id: customRole.id, name: customRole.name })
+      .from(membershipCustomRole)
+      .innerJoin(customRole, and(eq(customRole.id, membershipCustomRole.customRoleId), eq(customRole.companyId, ctx.companyId)))
+      .where(eq(membershipCustomRole.companyId, ctx.companyId));
+    const byMember = new Map(held.map((h) => [h.membershipId, { id: h.id, name: h.name }]));
+    return members.map((m) => ({ ...m, customRole: byMember.get(m.id) ?? null }));
   }),
 
   updateSettings: actionProcedure("settings.update")
@@ -600,6 +609,10 @@ export const companyRouter = router({
               eq(membership.companyId, ctx.companyId),
             ),
           ),
+        // XE PLATFORM row 79: picking a fixed role takes away any custom role, in the same batch.
+        ctx.db
+          .delete(membershipCustomRole)
+          .where(and(eq(membershipCustomRole.membershipId, input.membershipId), eq(membershipCustomRole.companyId, ctx.companyId))),
         auditInsert(ctx, {
           action: "member.updateRole",
           subjectType: "membership",

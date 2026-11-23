@@ -1,8 +1,10 @@
+import type { CompanyModule } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { Action } from "@orrn/server/lib/permissions";
 import type { ReactNode } from "react";
 
 import { AboutTab } from "./about-tab";
+import { ApiTab } from "./api-tab";
 import { BackupTab } from "./backup-tab";
 import { BuddyTab } from "./buddy-tab";
 import { CompanyTab } from "./company-tab";
@@ -10,6 +12,7 @@ import { DataTab } from "./data-tab";
 import { DevicesTab } from "./devices-tab";
 import { ModulesTab } from "./modules-tab";
 import { PrintingTab } from "./printing-tab";
+import { RolesTab } from "./roles-tab";
 import { SecurityTab } from "./security-tab";
 import { ShiftsTab } from "./shifts-tab";
 import { SignInTab } from "./sign-in-tab";
@@ -28,6 +31,8 @@ export type SettingsSection = {
   id: string;
   labelKey: MessageKey;
   requires?: readonly Action[];
+  /** Hidden while the plant has this module off (`isModuleOn`, so an opt-in module is off until named). */
+  module?: CompanyModule;
   /** The person's own account, not the plant's: hidden while a Godseye admin impersonates the plant. */
   ownAccount?: boolean;
   render(): ReactNode;
@@ -40,6 +45,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "standards", labelKey: "settings.tabs.standards", render: () => <StandardsTab /> },
   { id: "modules", labelKey: "settings.tabs.modules", render: () => <ModulesTab /> },
   { id: "team", labelKey: "settings.tabs.team", render: () => <TeamTab /> },
+  // Roles (XE PLATFORM row 79): read with `role.manage` or `users.manage`; changing needs `role.manage` (the buttons say so).
+  { id: "roles", labelKey: "plat3.tabs.roles", requires: ["role.manage", "users.manage"], render: () => <RolesTab /> },
+  // Plant API (row 83): opt-in module `api`, plant admin (`api.manage`).
+  { id: "api", labelKey: "plat3.tabs.api", requires: ["api.manage"], module: "api", render: () => <ApiTab /> },
   // Devices: `device.list` is users.manage. Backup: `backup.status` is settings.update.
   { id: "devices", labelKey: "settings.tabs.devices", requires: ["users.manage"], render: () => <DevicesTab /> },
   { id: "backup", labelKey: "settings.tabs.backup", requires: ["settings.update"], render: () => <BackupTab /> },

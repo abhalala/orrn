@@ -36,7 +36,7 @@ import {
 
 import type { OrrnDb } from "./atomic";
 import { MODULE_OFF_MESSAGE } from "./moduleGate";
-import { can, type CompanyRole } from "./permissions";
+import { ctxCan, type PermissionCtx } from "./permissions";
 import { companyToday } from "./purchase";
 
 export const DAY_MS = 86_400_000;
@@ -72,8 +72,8 @@ export function assertCostingOn(co: Pick<CostingCompany, "on">): void {
 }
 
 /** Rates and margins: `order.price` AND the plant shows rates on orders (the C23 rule, as `analytics.orders`). */
-export function ratesAllowed(role: CompanyRole | null | undefined, co: Pick<CostingCompany, "priceOnSalesOrder">): boolean {
-  return co.priceOnSalesOrder && can({ company: role ? { role } : null, isPlatformAdmin: false, platformRole: null } as never, "order.price");
+export function ratesAllowed(ctx: PermissionCtx, co: Pick<CostingCompany, "priceOnSalesOrder">): boolean {
+  return co.priceOnSalesOrder && ctxCan(ctx, "order.price");
 }
 
 // ---------------------------------------------------------------------------

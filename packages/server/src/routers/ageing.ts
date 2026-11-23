@@ -124,7 +124,7 @@ import { atomicBatch, chunk, IN_LIST_CHUNK, pushChunkedInserts, type OrrnDb, typ
 import { auditInsert } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
-import { can } from "../lib/permissions";
+import { can, type PermissionCtx, meOfCtx } from "../lib/permissions";
 import { registerReopenBlocker } from "../lib/press/reopenBlockers";
 import { companySettings, shiftAt } from "../lib/press";
 import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
@@ -140,11 +140,12 @@ const num = (v: unknown) => (v == null ? 0 : Number(v));
 type Ctx = {
   db: OrrnDb;
   companyId: string;
-  role: string;
+  role: PermissionCtx["role"];
+  actions?: PermissionCtx["actions"];
   session: { user: { id: string } };
   impersonation?: unknown;
 };
-const meOf = (ctx: { role: string }) => ({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }) as Parameters<typeof can>[0];
+const meOf = (ctx: PermissionCtx) => meOfCtx(ctx);
 const userOf = (ctx: Ctx) => ctx.session.user.id;
 const audit = (ctx: Ctx) => ctx as unknown as Parameters<typeof auditInsert>[0];
 const simulatorOn = () => ovenSimulatorEnabled(env as never);

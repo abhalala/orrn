@@ -17,7 +17,7 @@ import type { LengthUnit } from "../lib/length";
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { settingsPatchSql } from "../lib/companySettings";
-import { can, type MemberNavOrder } from "../lib/permissions";
+import { actionList, ctxActions, ctxCan, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { buddyAccess, buddyOn } from "../lib/buddy/access";
 import { now } from "../lib/clock";
@@ -200,6 +200,13 @@ export const authRouter = router({
               /** The EFFECTIVE list (B1): every module that is on, spelled out, so old phones keep their tabs. */
               modules: effectiveModules(companyRow.modules),
               role: ctx.role,
+              /**
+               * XE PLATFORM row 79: the member's effective actions (the fixed role's set, or the custom role's). The
+               * client's `can()` reads this list; the server checks the same set on every call.
+               */
+              actions: actionList(ctxActions(ctx)) as string[],
+              /** The custom role the member holds (its base is `role`), or null. */
+              customRole: ctx.customRole ?? null,
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
               /** Units and formats every screen of this plant uses (default, then the plant's choice). */
               units: screenPrefs(readUnitSettings(companyRow.settings)),
@@ -437,7 +444,7 @@ export const authRouter = router({
       // ignored for them.
       const mayUpdateSettings = Boolean(
         ctx.companyId &&
-          can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
+          ctxCan(ctx, "settings.update"),
       );
       // Council round 2 (Claude N-M1): this is an `auth.*` procedure, open to a weak session so the secure
       // step can finish; the company keys are written only when the session could write settings anyway:

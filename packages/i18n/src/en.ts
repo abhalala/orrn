@@ -36,6 +36,7 @@ import { regEn } from "./reg/en";
 import { store2En } from "./store2/en";
 import { maintEn } from "./maint/en";
 import { fdy2En } from "./fdy2/en";
+import { plat3En } from "./plat3/en";
 
 export const en = {
   common: {
@@ -3816,6 +3817,7 @@ export const en = {
         einvoice: "E-invoice and e-way bill",
         maintenance: "Maintenance",
         costing: "Costing",
+        api: "Plant API and webhooks",
       },
       moduleHints: {
         customers: "Customer list and addresses",
@@ -3835,6 +3837,7 @@ export const en = {
         einvoice: "IRN and e-way bill through the GST relay. Needs tax invoices",
         maintenance: "Assets, preventive plans, work orders and machine readings",
         costing: "Cost per kg, margins, press load, forecast and dies due (off until named)",
+        api: "Lets your own software read orders, stock, dispatches and invoices. Off until switched on",
       },
       save: "Save plan",
       saved: "Plan saved",
@@ -6545,6 +6548,7 @@ export const en = {
 
   reg: regEn,
   cost: costEn,
+  plat3: plat3En,
   qa: qaEn,
   store2: store2En,
   maint: maintEn,
@@ -6729,6 +6733,7 @@ export const en = {
         einvoice: "E-invoice",
         maintenance: "Maintenance",
         costing: "Costing",
+        api: "Plant API",
       },
     },
     letterhead: {
@@ -6954,6 +6959,10 @@ export const en = {
       qa_alloy_substitute: "Alloy substitute",
       qa_instrument: "Instrument",
       price_rate: "Price rate",
+      custom_role: "Role",
+      api_token: "API token",
+      webhook_endpoint: "Webhook",
+      webhook_delivery: "Webhook message",
       quote: "Quote",
       proforma: "Proforma invoice",
       enquiry: "Enquiry",
@@ -7227,6 +7236,16 @@ export const en = {
       member__invite__resend: "Invite sent again",
       member__remove: "Team member removed",
       member__updateRole: "Team member's role changed",
+      member__customRole: "Team member's own role changed",
+      role__create: "Role made",
+      role__update: "Role changed",
+      role__delete: "Role deleted",
+      api__token__create: "API token made",
+      api__token__revoke: "API token revoked",
+      api__webhook__create: "Webhook added",
+      api__webhook__update: "Webhook changed",
+      api__webhook__delete: "Webhook deleted",
+      api__webhook__resend: "Webhook message sent again",
       nitriding__add: "Nitriding logged",
       nitriding__back: "Die back from nitriding",
       nitriding__out: "Die sent for nitriding",

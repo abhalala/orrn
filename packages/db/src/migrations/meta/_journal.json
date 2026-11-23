@@ -442,6 +442,13 @@
       "when": 1795409780590,
       "tag": "0063_xe_foundry",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1795410788772,
+      "tag": "0066_xe_platform",
+      "breakpoints": true
     }
   ]
 }

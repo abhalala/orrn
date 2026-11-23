@@ -55,7 +55,7 @@ import { settingsPatchSql } from "../lib/companySettings";
 import { docPeriod } from "../lib/docNumber";
 import { DEFAULT_TIMEZONE, isValidTimezone } from "../lib/dayWindow";
 import { assertModule } from "../lib/moduleGate";
-import { APPROVER_ROLES, approvalRuleRoles, canAny, type Action, type CompanyRole } from "../lib/permissions";
+import { APPROVER_ROLES, approvalRuleRoles, type Action, ctxCanAny } from "../lib/permissions";
 import { now as clockNow } from "../lib/clock";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -79,7 +79,6 @@ const notFound = (): never => {
 
 /** Who may read the plant's bank accounts: the people who handle prices, papers and accounts. */
 const BANK_READERS: readonly Action[] = ["masters.publish", "order.price", "export.accounts", "invoice.link"];
-const meOf = (role: CompanyRole) => ({ company: { role }, isPlatformAdmin: false, platformRole: null });
 
 const sameWords = (a: string, b: string) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -296,7 +295,7 @@ export const plantMastersRouter = router({
   bank: router({
     /** The plant's accounts, default first. Only for the people who see prices, papers or accounts. */
     list: companyProcedure.input(z.object({ includeRetired: z.boolean().default(false) }).optional()).query(async ({ ctx, input }) => {
-      if (!canAny(meOf(ctx.role), BANK_READERS)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      if (!ctxCanAny(ctx, BANK_READERS)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       return ctx.db
         .select({
           id: plantBankAccount.id,

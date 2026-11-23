@@ -20,6 +20,7 @@ import { regHi } from "./reg/hi";
 import { store2Hi } from "./store2/hi";
 import { maintHi } from "./maint/hi";
 import { fdy2Hi } from "./fdy2/hi";
+import { plat3Hi } from "./plat3/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -3803,6 +3804,7 @@ export const hi = {
         einvoice: "ई-इनवॉइस और ई-वे बिल",
         maintenance: "मेंटेनेंस",
         costing: "लागत",
+        api: "प्लांट API और webhook",
       },
       moduleHints: {
         customers: "कस्टमर लिस्ट और पते",
@@ -3822,6 +3824,7 @@ export const hi = {
         einvoice: "GST रिले से IRN और ई-वे बिल। टैक्स इनवॉइस ज़रूरी",
         maintenance: "एसेट, प्रिवेंटिव प्लान, वर्क ऑर्डर और मशीन रीडिंग",
         costing: "प्रति kg लागत, मार्जिन, प्रेस का लोड, अनुमान और ड्यू डाई (नाम लेने तक बंद)",
+        api: "आपका अपना सॉफ़्टवेयर ऑर्डर, स्टॉक, dispatch और इनवॉइस पढ़ सके। चालू करने तक बंद",
       },
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
@@ -6526,6 +6529,7 @@ export const hi = {
 
   reg: regHi,
   cost: costHi,
+  plat3: plat3Hi,
   qa: qaHi,
   store2: store2Hi,
   maint: maintHi,
@@ -6710,6 +6714,7 @@ export const hi = {
         einvoice: "ई-इनवॉइस",
         maintenance: "मेंटेनेंस",
         costing: "लागत",
+        api: "प्लांट API",
       },
     },
     letterhead: {
@@ -6935,6 +6940,10 @@ export const hi = {
       qa_alloy_substitute: "मिश्रधातु विकल्प",
       qa_instrument: "उपकरण",
       price_rate: "दाम का रेट",
+      custom_role: "रोल",
+      api_token: "API टोकन",
+      webhook_endpoint: "Webhook",
+      webhook_delivery: "Webhook का संदेश",
       quote: "कोटेशन",
       proforma: "प्रोफार्मा इनवॉइस",
       enquiry: "पूछताछ",
@@ -7208,6 +7217,16 @@ export const hi = {
       member__invite__resend: "इनवाइट फिर से भेजा",
       member__remove: "टीम मेंबर हटाया",
       member__updateRole: "टीम मेंबर का रोल बदला",
+      member__customRole: "टीम मेंबर का अपना रोल बदला",
+      role__create: "रोल बनाया",
+      role__update: "रोल बदला",
+      role__delete: "रोल हटाया",
+      api__token__create: "API टोकन बनाया",
+      api__token__revoke: "API टोकन रद्द किया",
+      api__webhook__create: "Webhook जोड़ा",
+      api__webhook__update: "Webhook बदला",
+      api__webhook__delete: "Webhook हटाया",
+      api__webhook__resend: "Webhook का संदेश फिर भेजा",
       nitriding__add: "नाइट्राइडिंग दर्ज की",
       nitriding__back: "डाई नाइट्राइडिंग से वापस",
       nitriding__out: "डाई नाइट्राइडिंग को भेजी",

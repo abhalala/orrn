@@ -35,3 +35,4 @@ export * from "./receivables";
 export * from "./store";
 export * from "./maintenance";
 export * from "./costing";
+export * from "./platformApi";

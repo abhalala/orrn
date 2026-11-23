@@ -37,7 +37,7 @@ import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { settingsPatchSql } from "../lib/companySettings";
-import { canAny, type Action, type CompanyRole } from "../lib/permissions";
+import { type Action, type PermissionCtx, ctxCanAny } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
 import { assertMasterOfKind } from "./plantMasters";
 
@@ -59,8 +59,7 @@ const notFound = (): never => {
 
 /** Who sees die cost (money): managers and the people who read the plant's numbers. */
 const DIE_COST_READERS: readonly Action[] = ["masters.publish", "analytics.view"];
-const meOf = (role: CompanyRole) => ({ company: { role }, isPlatformAdmin: false, platformRole: null });
-const seesCost = (role: CompanyRole) => canAny(meOf(role), DIE_COST_READERS);
+const seesCost = (ctx: PermissionCtx) => ctxCanAny(ctx, DIE_COST_READERS);
 
 /** Statuses a piece may be put in by hand. `awaiting_inspection` and `failed` move only by an inspection. */
 const HAND_STATUSES = ["in_store", "in_use", "at_maker", "retired"] as const;
@@ -324,7 +323,7 @@ export const toolRoomRouter = router({
       .where(and(eq(dieCopyExtra.dieInstanceId, copy.id), eq(dieCopyExtra.companyId, ctx.companyId)))
       .limit(1);
     const made = await producedG(ctx.db, ctx.companyId, copy.id);
-    const cost = seesCost(ctx.role) ? (extra?.costPaise ?? null) : undefined;
+    const cost = seesCost(ctx) ? (extra?.costPaise ?? null) : undefined;
     return {
       dieInstanceId: copy.id,
       category: cat ? { id: cat.id, name: cat.name, expectedLifeG: cat.expectedLifeG } : null,
@@ -364,7 +363,7 @@ export const toolRoomRouter = router({
      * cost per kg over them. Copies without a maker group as "no maker".
      */
     byMaker: companyProcedure.query(async ({ ctx }) => {
-      if (!seesCost(ctx.role)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      if (!seesCost(ctx)) throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       const made = ctx.db
         .select({ copyId: pressRun.dieInstanceId, g: sql<number>`sum(${pressRun.goodG})`.as("g") })
         .from(pressRun)

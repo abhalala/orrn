@@ -20,13 +20,16 @@ import { toast } from "sonner";
 import { PortalLoginsSection } from "@/features/portal/staff-logins";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
-import { useMe } from "@/shared/lib/me";
+import { canAny, useMe } from "@/shared/lib/me";
 import { requestIdFor } from "@/features/dispatch/request-key";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
+import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { MemberAssign } from "./member-assign";
 import { invitableRoles, isExpired, validEmail } from "./model";
+import { platformRefusal } from "./platform-refusal";
+import { choiceValue, currentChoice, memberCustomRole, parseChoice, roleWithinMine, saveCall } from "./roles-model";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 type Member = Outputs["company"]["membersList"][number];
@@ -64,7 +67,15 @@ export function TeamTab() {
     {
       key: "role",
       header: t("settings.team.role"),
-      cell: (m) => <Badge tone={m.role === "owner" || m.role === "admin" ? "brand" : "neutral"}>{t(`roles.${m.role}`)}</Badge>,
+      cell: (m) => {
+        const own = memberCustomRole(m as Member & { customRole?: { id: string; name: string } | null }, me);
+        return (
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge tone={m.role === "owner" || m.role === "admin" ? "brand" : "neutral"}>{own ? own.name : t(`roles.${m.role}`)}</Badge>
+            {own ? <span className="text-[13px] text-muted-foreground">{t("plat3.roles.copyOf", { role: t(`roles.${m.role}`) })}</span> : null}
+          </span>
+        );
+      },
     },
     {
       key: "assign",
@@ -412,24 +423,37 @@ function RoleSheet({ member, onClose }: { member: Member | null; onClose(): void
   const { data: me } = useMe();
   const queryClient = useQueryClient();
   const roles = invitableRoles(me?.company?.role, COMPANY_ROLES);
-  const [role, setRole] = useState<CompanyRole>("viewer");
+  const [choice, setChoice] = useState<string>("fixed:viewer");
   const [forId, setForId] = useState<string | null>(null);
+  // The plant's own roles (XE PLATFORM row 79): listed for whoever manages roles or people.
+  const own = useQuery({ ...trpc.roles.list.queryOptions(), enabled: member !== null && canAny(me, ["role.manage", "users.manage"]), meta: INLINE_ERROR_META });
+  const customRoles = own.data?.roles ?? [];
+  const current = member ? currentChoice(member.role, memberCustomRole(member as Member & { customRole?: { id: string; name: string } | null }, me)) : null;
   // Start from the member's current role each time a different member opens.
-  if (member && member.id !== forId) {
+  if (member && member.id !== forId && current) {
     setForId(member.id);
-    setRole(member.role as CompanyRole);
+    setChoice(choiceValue(current));
   }
+  const done = () => {
+    void queryClient.invalidateQueries({ queryKey: trpc.company.membersList.queryKey() });
+    void queryClient.invalidateQueries({ queryKey: trpc.roles.list.queryKey() });
+    toast.success(t("settings.team.roleChanged"));
+    onClose();
+  };
   const update = useOnceMutation(
-    trpc.company.membersUpdateRole.mutationOptions({
-      onSuccess: () => {
-        toast.success(t("settings.team.roleChanged"));
-        void queryClient.invalidateQueries({ queryKey: trpc.company.membersList.queryKey() });
-        onClose();
-      },
-      onError: () => toast.error(t("settings.team.roleFailed")),
-    }),
+    trpc.company.membersUpdateRole.mutationOptions({ onSuccess: done, onError: () => toast.error(t("settings.team.roleFailed")) }),
   );
+  // `roles.assign`: an own role, or null to go back to the fixed role underneath.
+  const assign = useOnceMutation(trpc.roles.assign.mutationOptions({ onSuccess: done, onError: (e) => toast.error(platformRefusal(t, e)) }));
+  const next = parseChoice(choice);
+  const call = member && next && current ? saveCall(next, current, member.role) : null;
+  const picked = next?.kind === "custom" ? customRoles.find((r) => r.id === next.id) : undefined;
   const name = member ? member.user.name || member.user.email : "";
+  const save = () => {
+    if (!member || !call) return;
+    if (call.call === "assign") assign.mutate({ membershipId: member.id, customRoleId: call.customRoleId });
+    else update.mutate({ membershipId: member.id, role: call.role as CompanyRole });
+  };
   return (
     <Sheet
       open={member !== null}
@@ -440,25 +464,34 @@ function RoleSheet({ member, onClose }: { member: Member | null; onClose(): void
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button
-            type="button"
-            loading={update.isPending}
-            disabled={!member || role === member.role}
-            onClick={() => member && update.mutate({ membershipId: member.id, role })}
-            data-testid="member-save-role"
-          >
+          <Button type="button" loading={update.isPending || assign.isPending} disabled={!member || call === null} onClick={save} data-testid="member-save-role">
             {t("settings.team.saveRole")}
           </Button>
         </FormActions>
       }
     >
-      <Field id="member-role-select" label={t("settings.team.role")} hint={t(`settings.team.roleHints.${role}`)}>
-        <NativeSelect id="member-role-select" value={role} onChange={(e) => setRole(e.target.value as CompanyRole)} data-testid="member-role">
-          {roles.map((r) => (
-            <option key={r} value={r}>
-              {t(`roles.${r}`)}
-            </option>
-          ))}
+      <Field
+        id="member-role-select"
+        label={t("settings.team.role")}
+        hint={next?.kind === "fixed" ? t(`settings.team.roleHints.${next.role as CompanyRole}`) : picked ? t("plat3.roles.copyOf", { role: t(`roles.${picked.baseRole}`) }) : t("plat3.member.hint")}
+      >
+        <NativeSelect id="member-role-select" value={choice} onChange={(e) => setChoice(e.target.value)} data-testid="member-role">
+          <optgroup label={t("plat3.member.fixed")}>
+            {roles.map((r) => (
+              <option key={r} value={`fixed:${r}`}>
+                {t(`roles.${r}`)}
+              </option>
+            ))}
+          </optgroup>
+          {customRoles.length > 0 ? (
+            <optgroup label={t("plat3.member.custom")}>
+              {customRoles.map((r) => (
+                <option key={r.id} value={`custom:${r.id}`} disabled={!roleWithinMine(r, own.data?.mine ?? [])}>
+                  {t("plat3.member.customTag", { role: r.name, base: t(`roles.${r.baseRole}`) })}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </NativeSelect>
       </Field>
     </Sheet>

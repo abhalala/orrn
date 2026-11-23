@@ -1,9 +1,10 @@
 import type { createDb } from "@orrn/db";
-import { company, membership, platformAdmin } from "@orrn/db/schema";
+import { company, customRole, membership, membershipCustomRole, platformAdmin } from "@orrn/db/schema";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import { resolveImpersonation } from "./impersonation";
+import { effectiveActions, type Action, type CustomRoleGrant } from "./permissions";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -49,22 +50,81 @@ export type ActiveMembership = {
  * last chosen with `company.switch`, else the newest membership.
  */
 export async function listActiveMemberships(db: Db, userId: string) {
-  return db
-    .select({
-      id: membership.id,
-      companyId: membership.companyId,
-      role: membership.role,
-      companyStatus: company.status,
-      name: company.name,
-      /** Null while this plant's onboarding is open for the person (plan 2026-11-18, Task 9). */
-      onboardedAt: membership.onboardedAt,
-      /** 1 when the plant requires secure sign-in (council round 1, A4). */
-      strict: sql<number | null>`json_extract(${company.settings}, '$.requireStrongSignIn')`,
-    })
-    .from(membership)
-    .innerJoin(company, eq(company.id, membership.companyId))
-    .where(and(eq(membership.userId, userId), eq(company.status, "active")))
-    .orderBy(desc(membership.lastActiveAt), desc(membership.createdAt), desc(membership.id));
+  const base = {
+    id: membership.id,
+    companyId: membership.companyId,
+    role: membership.role,
+    companyStatus: company.status,
+    name: company.name,
+    /** Null while this plant's onboarding is open for the person (plan 2026-11-18, Task 9). */
+    onboardedAt: membership.onboardedAt,
+    /** 1 when the plant requires secure sign-in (council round 1, A4). */
+    strict: sql<number | null>`json_extract(${company.settings}, '$.requireStrongSignIn')`,
+  };
+  const where = and(eq(membership.userId, userId), eq(company.status, "active"));
+  const order = [desc(membership.lastActiveAt), desc(membership.createdAt), desc(membership.id)] as const;
+  try {
+    // XE PLATFORM: the custom role a member holds (if any) rides the same query: no extra round trip per request.
+    return await db
+      .select({
+        ...base,
+        customRoleId: customRole.id,
+        customRoleName: customRole.name,
+        customRoleBase: customRole.baseRole,
+        customRoleAdded: customRole.added,
+        customRoleRemoved: customRole.removed,
+      })
+      .from(membership)
+      .innerJoin(company, eq(company.id, membership.companyId))
+      .leftJoin(membershipCustomRole, eq(membershipCustomRole.membershipId, membership.id))
+      .leftJoin(
+        customRole,
+        and(eq(customRole.id, membershipCustomRole.customRoleId), eq(customRole.companyId, membership.companyId)),
+      )
+      .where(where)
+      .orderBy(...order);
+  } catch (error) {
+    // The app may deploy before migration 0066 (the `auth.me` note on buddy tables): then nobody holds a custom
+    // role and every member keeps the fixed role. Any other error is real.
+    if (!isMissingCustomRoleTable(error)) throw error;
+    const rows = await db
+      .select(base)
+      .from(membership)
+      .innerJoin(company, eq(company.id, membership.companyId))
+      .where(where)
+      .orderBy(...order);
+    return rows.map((r) => ({
+      ...r,
+      customRoleId: null,
+      customRoleName: null,
+      customRoleBase: null,
+      customRoleAdded: null,
+      customRoleRemoved: null,
+    }));
+  }
+}
+
+function isMissingCustomRoleTable(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let e: unknown = error;
+  while (e && !seen.has(e)) {
+    seen.add(e);
+    const message = e instanceof Error ? e.message : String(e);
+    if (/no such table: (custom_role|membership_custom_role)/.test(message)) return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/** The custom role of a membership row from `listActiveMemberships`, as `effectiveActions` takes it. */
+export function customGrantOf(row: {
+  customRoleId: string | null;
+  customRoleBase: CompanyRole | null;
+  customRoleAdded: string[] | null;
+  customRoleRemoved: string[] | null;
+}): CustomRoleGrant | null {
+  if (!row.customRoleId || !row.customRoleBase) return null;
+  return { baseRole: row.customRoleBase, added: row.customRoleAdded ?? [], removed: row.customRoleRemoved ?? [] };
 }
 
 /**
@@ -107,6 +167,10 @@ export async function resolveTenantContext(
   let effectiveMember: ActiveMembership | null = ownMember;
   let effectiveCompanyId: string | null = ownMember?.companyId ?? null;
   let effectiveRole: CompanyRole | null = ownMember?.role ?? null;
+  // XE PLATFORM row 79: the effective action set, read fresh on every request (an edited role applies at once).
+  let actions: ReadonlySet<Action> | null = chosen ? effectiveActions(chosen.role, customGrantOf(chosen)) : null;
+  let customRoleInfo: { id: string; name: string } | null =
+    chosen?.customRoleId && chosen.customRoleName ? { id: chosen.customRoleId, name: chosen.customRoleName } : null;
   let impersonationHeaderRejected = false;
   // RP2: a named company the user can't act in is an error, not a fallback.
   let companyHeaderRejected = Boolean(input.companyHeader) && !requested;
@@ -130,6 +194,8 @@ export async function resolveTenantContext(
       };
       effectiveCompanyId = resolved.companyId;
       effectiveRole = "owner";
+      actions = effectiveActions("owner");
+      customRoleInfo = null;
       // Impersonation picks the company itself; the plant header is irrelevant.
       companyHeaderRejected = false;
       impersonation = {
@@ -145,6 +211,8 @@ export async function resolveTenantContext(
     membership: effectiveMember,
     companyId: effectiveCompanyId,
     role: effectiveRole,
+    actions,
+    customRole: customRoleInfo,
     isPlatformAdmin,
     platformRole,
     impersonation,

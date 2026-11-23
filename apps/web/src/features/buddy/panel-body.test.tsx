@@ -149,7 +149,7 @@ describe("on a phone the Buddy panel is a modal dialog", () => {
       expect(dialog).not.toBeNull();
       expect(dialog.getAttribute("aria-modal")).toBe("true");
       const labelledBy = dialog.getAttribute("aria-labelledby")!;
-      expect(document.getElementById(labelledBy)?.textContent).toBe("Buddy");
+      expect(document.getElementById(labelledBy)?.textContent).toBe("Ask orrn");
       expect(view.q("buddy-new-chat")?.textContent).toContain("New chat");
       expect(dialog.querySelector("textarea")?.getAttribute("aria-label")).toBe("Message to Buddy");
       expect(document.querySelector("[data-slot='sheet-overlay']")).not.toBeNull();
@@ -201,7 +201,7 @@ describe("from 1024 px the Buddy panel is a non-modal dialog docked beside the p
       const dialog = view.dialog()!;
       expect(dialog).not.toBeNull();
       expect(dialog.getAttribute("aria-modal")).toBe("false");
-      expect(document.getElementById(dialog.getAttribute("aria-labelledby")!)?.textContent).toBe("Buddy");
+      expect(document.getElementById(dialog.getAttribute("aria-labelledby")!)?.textContent).toBe("Ask orrn");
       expect(document.querySelector("[data-slot='sheet-overlay']")).toBeNull();
       for (const el of [view.opener, view.host]) {
         expect(el.getAttribute("aria-hidden")).toBeNull();

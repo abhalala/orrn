@@ -43,7 +43,10 @@ export const BUDDY_DECISIONS = {
     backup: deny("Whole-plant exports and restores (§4.2, §10 bulk export)."),
     support: deny("Support tickets go to platform staff (§4.2)."),
     buddy: deny("The buddy's own grants and drafts: browser session only, so Hermes cannot confirm its own drafts (§4.4)."),
-    billing: deny("Tax invoices, GST, payments: money and statutory numbers stay with people (XE-BILL)."),
+    // XE PLATFORM row 91: billing reads (invoices, payments, outstanding) run under the person's grant, the same
+    // `invoice.read` gate and opt-in module. No billing change is in `changes`, so every billing write stays denied;
+    // the exports are denied by path below.
+    billing: allow,
     einvoice: deny("IRN and e-way bills at the GST portal (XE-BILL)."),
     ingest: "per-procedure",
 
@@ -77,9 +80,16 @@ export const BUDDY_DECISIONS = {
     complaints: allow,
     // XE parity lane ADM (wave 1). Kept from the buddy until the owner reviews them: bank accounts,
     // approver rules and number formats are plant settings, die cost is money, documents mint file links.
-    masters: deny("XE wave 1: bank accounts, approver rules and number formats are plant settings (§4.2), not yet reviewed for the buddy."),
-    toolRoom: deny("XE wave 1: tooling and die cost (money), not yet reviewed for the buddy."),
-    docs: deny("XE wave 1: the document register mints signed file links, which would leave orrn through the chat."),
+    // XE PLATFORM row 91: the ADM reads run under the person's grant (bank readers, die cost readers: the routers' own
+    // gates). No ADM change is in `changes`, so settings writes stay denied. Bank account numbers and file links are
+    // denied by path below.
+    masters: allow,
+    toolRoom: allow,
+    docs: allow,
+    // XE PLATFORM: custom roles. The list reads under `role.manage` / `users.manage`; every change is denied by name.
+    roles: allow,
+    // XE PLATFORM: plant API tokens and webhooks. Never readable or writable by the buddy (CONTRACTS-W3 item 6).
+    api: deny("Plant API tokens and webhook secrets: never read or changed by the buddy (CONTRACTS-W3 item 6)."),
     // XE parity lane QA: reads (registers, holds, instruments). No quality change is listed in `changes`, so the
     // buddy cannot hold, release or record a check until the owner decides.
     qa: allow,
@@ -232,6 +242,55 @@ export const BUDDY_DECISIONS = {
     "qa.substitutes.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.tempers.save": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
     "qa.waiting.place": deny("A quality decision made by a person at the material (XE QA); not reviewed for the buddy."),
+    // XE PLATFORM row 91: what stays off the buddy inside the newly allowed XE routers (§10 scan).
+    "masters.bank.list": deny("Bank account numbers stay off the chat; the person reads them on the Masters screen."),
+    "docs.files.url": deny("§10 scan: mints a signed file link, which would leave orrn through the chat."),
+    "billing.export.tally": deny("§10 scan: a bulk accounts export (a download), not a question."),
+    "billing.export.salesRegister": deny("§10 scan: a month's sales register with GSTINs (bulk export)."),
+    "billing.export.ewbJson": deny("§10 scan: the e-way bill JSON file for the portal (a download)."),
+    // XE PLATFORM row 91: every billing change is denied by name until reviewed.
+    "billing.hsn.assign": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.hsn.save": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.hsn.seedDefaults": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.invoices.createCreditDraft": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.invoices.createDraft": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.invoices.discard": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.invoices.issue": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.invoices.requestCancel": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.party.save": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.payments.record": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.payments.void": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    "billing.settings.save": deny("Billing writes: money and statutory numbers stay with people (XE-BILL); reads only (XE PLATFORM row 91)."),
+    // XE PLATFORM row 91: every docs change is denied by name until reviewed.
+    "docs.create": deny("Document register writes and uploads: a person on the screen (file bytes come from the browser only)."),
+    "docs.files.beginUpload": deny("Document register writes and uploads: a person on the screen (file bytes come from the browser only)."),
+    "docs.files.commit": deny("Document register writes and uploads: a person on the screen (file bytes come from the browser only)."),
+    "docs.update": deny("Document register writes and uploads: a person on the screen (file bytes come from the browser only)."),
+    // XE PLATFORM row 91: every masters change is denied by name until reviewed.
+    "masters.approvalRules.set": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.bank.create": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.bank.setActive": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.bank.setDefault": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.bank.update": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.insurance.set": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.lists.addStarters": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.lists.create": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.lists.update": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.numberFormats.set": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.packing.setForDispatch": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.packing.setForLine": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    "masters.people.assign": deny("Plant masters and settings writes (§4.2): a person on the Masters screen; reads only (XE PLATFORM row 91)."),
+    // XE PLATFORM row 91: every toolRoom change is denied by name until reviewed.
+    "toolRoom.cost.set": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "toolRoom.inspections.record": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "toolRoom.minStock.set": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "toolRoom.sections.setCategory": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "toolRoom.tooling.create": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "toolRoom.tooling.update": deny("Tool room writes (die cost is money): a person on the screen; reads only (XE PLATFORM row 91)."),
+    "roles.create": deny("Making a role changes what people may do; a person does it on the Roles screen."),
+    "roles.update": deny("Editing a role changes what people may do; a person does it on the Roles screen."),
+    "roles.delete": deny("Deleting a role changes what people may do; a person does it on the Roles screen."),
+    "roles.assign": deny("Giving someone a role changes what they may do; a person does it on the People screen."),
     // XE-PRICE: every pricing change is denied by default (fix round 1 of PR #15); decide each by name to allow it.
     "pricing.rates.propose": deny("Proposes a master rate or a customer term; prices go through a person (XE-PRICE default deny)."),
     "pricing.settings.update": deny("Changes which metal list prices every order and the GST estimate (XE-PRICE default deny)."),

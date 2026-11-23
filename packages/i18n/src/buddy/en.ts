@@ -6,6 +6,8 @@
 export const buddyEn = {
   title: "Buddy",
   open: "Open Buddy",
+  /** The launcher and panel name (XE PLATFORM row 91). "orrn" stays in Latin. */
+  askOrrn: "Ask orrn",
   newChat: "New chat",
   addFile: "Add a file",
   addFileHint: "Files go in on the Imports page. Buddy never gets the file itself.",

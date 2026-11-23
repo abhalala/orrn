@@ -53,6 +53,8 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   maint: "maintenance",
   // XE parity lane COST (routers/costing.ts), opt-in; its reads call `assertCostingOn` too.
   costing: "costing",
+  // XE PLATFORM: plant API tokens and webhooks (opt-in); its reads are gated in routers/apiAccess.ts too.
+  api: "api",
 };
 
 /**

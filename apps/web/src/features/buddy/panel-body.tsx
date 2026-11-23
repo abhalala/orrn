@@ -201,7 +201,7 @@ export function BuddyPanelBody({ open, onOpenChange, chat, drafts, decisions, wh
       open={open}
       onOpenChange={onOpenChange}
       modal={modal}
-      title={t("buddy.title")}
+      title={t("buddy.askOrrn")}
       className={cn(
         docked
           ? // From 1024 px: a full-height column at the right edge, the page beside it. The classes do not depend on

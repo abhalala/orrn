@@ -30,7 +30,7 @@ import type { Context } from "../context";
 import { abortBatchUnlessChanged, atomicBatch, isBatchAbort, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { decodeListCursor, encodeListCursor, listCursorInput } from "../lib/dieRoom";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
 import { nextCompanySeq } from "../lib/sequence";
@@ -188,7 +188,7 @@ async function decide(ctx: Ctx, id: string, action: Exclude<StoreIndentAction, "
   if (!to) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `${indent.number} is ${indent.status}; it cannot be ${DECISION_WORDS[action]}` });
   }
-  if (action === "cancel" && indent.createdBy !== ctx.session.user.id && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "indent.approve")) {
+  if (action === "cancel" && indent.createdBy !== ctx.session.user.id && !ctxCan(ctx, "indent.approve")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
   }
   const userId = ctx.session.user.id;

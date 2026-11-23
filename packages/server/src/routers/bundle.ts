@@ -32,6 +32,8 @@ import {
 } from "@orrn/db/schema/inventory";
 
 import { actionProcedure, companyProcedure, router } from "../index";
+import { webhookOutboxStatement } from "../lib/webhooks/outbox";
+import { scheduleDrain } from "../lib/webhooks/schedule";
 import { auditInsert } from "../lib/audit";
 import { legacyBundleMap } from "@orrn/db/schema/legacy";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
@@ -42,7 +44,7 @@ import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
-import { can } from "../lib/permissions";
+import { ctxCan } from "../lib/permissions";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { allocateDocNumbers, allocatePartyBundleNumbers } from "../lib/docNumber";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
@@ -604,7 +606,7 @@ export const bundleRouter = router({
       const pinnedCopyId = line?.dieInstanceId ?? null;
       const pinOverridden = Boolean(pinnedCopyId && input.dieInstanceId && input.dieInstanceId !== pinnedCopyId);
       if (pinOverridden) {
-        const officeMay = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.manage");
+        const officeMay = ctxCan(ctx, "order.manage");
         if (!input.overridePin) {
           const [pin] = await ctx.db
             .select({ code: dieInstance.code })
@@ -1475,6 +1477,25 @@ export const bundleRouter = router({
           ledgerPosting,
           ...ageingRestore,
           ...holdRelease,
+          // XE PLATFORM row 83: `stock.adjusted` is a finished bundle taken off stock (void) or put back (restore)
+          // by hand. Written only if the status change above landed (this batch has no abort statement).
+          ...(input.toStatus === "void" || existing.status === "void"
+            ? [
+                webhookOutboxStatement(
+                  ctx.db,
+                  ctx.companyId,
+                  "stock.adjusted",
+                  {
+                    bundleId: existing.id,
+                    serial: existing.serial,
+                    change: input.toStatus === "void" ? "voided" : "restored",
+                    weightG: existing.weightG ?? null,
+                    pcs: existing.quantity ?? null,
+                  },
+                  sql`exists (select 1 from "bundle" b where b."company_id" = ${ctx.companyId} and b."id" = ${existing.id} and b."status" = ${input.toStatus} and b."server_seq" = ${seq})`,
+                ),
+              ]
+            : []),
           ctx.db.insert(bundleStatusEvent).values({
             id: eventId,
             companyId: ctx.companyId,
@@ -1504,6 +1525,7 @@ export const bundleRouter = router({
         throw e;
       }
 
+      if (input.toStatus === "void" || existing.status === "void") scheduleDrain(ctx);
       return { success: true };
     }),
 

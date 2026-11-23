@@ -34,6 +34,8 @@ import { loadPartyGst, loadPlantGst, type PartyGst, type PlantGst } from "./fact
 import { currentIrpAdapter } from "./irp";
 import { billingAbortUnless, isBillingAbort, issuedLanded, issueStatements } from "./numbering";
 import { composeSnapshot, needsIrnFor, type CreditLineInput, type InvoiceSnapshot } from "./snapshot";
+import { webhookOutboxStatement } from "../webhooks/outbox";
+import { scheduleDrain } from "../webhooks/schedule";
 
 export type BillCtx = Pick<Context, "session" | "impersonation"> & { db: OrrnDb; companyId: string; session: NonNullable<Context["session"]> };
 
@@ -361,6 +363,17 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
         .where(and(eq(packingList.companyId, ctx.companyId), sql`${packingList.id} in ${sourceLists}`, sql`json_extract(${packingList.snapshot}, '$.version') = 2`, landed)),
     );
   }
+  // XE PLATFORM row 83: the webhook outbox row lands with the issue or not at all (no row unless `api` is on). The
+  // number is set in SQL by this batch, so the event names the invoice id; the receiver reads the number back.
+  statements.push(
+    webhookOutboxStatement(ctx.db, ctx.companyId, "invoice.issued", {
+      invoiceId: row.id,
+      kind: row.kind,
+      invoiceDate,
+      customerId: row.customerId,
+      status: needsIrn ? "irn_pending" : "issued",
+    }),
+  );
   statements.push(
     auditInsertGuarded(
       ctx,
@@ -379,6 +392,7 @@ export async function issueDocument(ctx: BillCtx, invoiceId: string, modules: st
     }
     throw e;
   }
+  scheduleDrain(ctx as Parameters<typeof scheduleDrain>[0]);
   if (needsIrn) {
     const adapter = currentIrpAdapter();
     if (adapter) await generateIrn(ctx.db, ctx.companyId, row.id, adapter, Date.now());

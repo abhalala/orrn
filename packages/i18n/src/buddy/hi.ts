@@ -5,6 +5,7 @@
 export const buddyHi = {
   title: "Buddy",
   open: "Buddy खोलें",
+  askOrrn: "orrn से पूछें",
   newChat: "नई बातचीत",
   addFile: "फ़ाइल जोड़ें",
   addFileHint: "फ़ाइलें इम्पोर्ट पेज पर डाली जाती हैं। Buddy को फ़ाइल कभी नहीं मिलती।",
