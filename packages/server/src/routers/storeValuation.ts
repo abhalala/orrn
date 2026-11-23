@@ -153,40 +153,40 @@ export const storeValuationRouter = router({
   pending: rateReader
     .input(z.object({ limit: z.number().int().min(1).max(200).default(200), cursor: listCursorInput }).default({ limit: 200 }))
     .query(async ({ ctx, input }) => {
-    const after = decodeListCursor(input.cursor);
-    const rows = await ctx.db
-      .select({
-        id: storeTxn.id,
-        number: storeTxn.number,
-        itemId: storeTxn.itemId,
-        itemName: storeItem.name,
-        unit: storeItem.unit,
-        qtyMilli: storeTxn.qtyMilli,
-        valuePaise: storeTxn.valuePaise,
-        grnRef: storeTxn.grnRef,
-        createdAt: storeTxn.createdAt,
-        outSince: sql<number>`(case when ${storeOutSinceSql(ctx.companyId, sql`${storeTxn}`)} then 1 else 0 end)`,
-      })
-      .from(storeTxn)
-      .innerJoin(storeItem, and(eq(storeItem.id, storeTxn.itemId), eq(storeItem.companyId, storeTxn.companyId)))
-      .where(
-        and(
-          eq(storeTxn.companyId, ctx.companyId),
-          eq(storeTxn.kind, "grn"),
-          sql`${storeTxn.cancelledAt} is null`,
-          eq(storeTxn.ratePending, true),
-          after ? or(lt(storeTxn.createdAt, new Date(after.at)), and(eq(storeTxn.createdAt, new Date(after.at)), lt(storeTxn.id, after.id))) : undefined,
-        ),
-      )
-      .orderBy(desc(storeTxn.createdAt), desc(storeTxn.id))
-      .limit(input.limit + 1);
-    const page = rows.slice(0, input.limit);
-    const last = page[page.length - 1];
-    return {
-      items: page.map(({ outSince, ...r }) => ({ ...r, canSet: Number(outSince) !== 1 })),
-      nextCursor: rows.length > input.limit && last ? encodeListCursor(last.createdAt, last.id) : null,
-    };
-  }),
+      const after = decodeListCursor(input.cursor);
+      const rows = await ctx.db
+        .select({
+          id: storeTxn.id,
+          number: storeTxn.number,
+          itemId: storeTxn.itemId,
+          itemName: storeItem.name,
+          unit: storeItem.unit,
+          qtyMilli: storeTxn.qtyMilli,
+          valuePaise: storeTxn.valuePaise,
+          grnRef: storeTxn.grnRef,
+          createdAt: storeTxn.createdAt,
+          outSince: sql<number>`(case when ${storeOutSinceSql(ctx.companyId, sql`${storeTxn}`)} then 1 else 0 end)`,
+        })
+        .from(storeTxn)
+        .innerJoin(storeItem, and(eq(storeItem.id, storeTxn.itemId), eq(storeItem.companyId, storeTxn.companyId)))
+        .where(
+          and(
+            eq(storeTxn.companyId, ctx.companyId),
+            eq(storeTxn.kind, "grn"),
+            sql`${storeTxn.cancelledAt} is null`,
+            eq(storeTxn.ratePending, true),
+            after ? or(lt(storeTxn.createdAt, new Date(after.at)), and(eq(storeTxn.createdAt, new Date(after.at)), lt(storeTxn.id, after.id))) : undefined,
+          ),
+        )
+        .orderBy(desc(storeTxn.createdAt), desc(storeTxn.id))
+        .limit(input.limit + 1);
+      const page = rows.slice(0, input.limit);
+      const last = page[page.length - 1];
+      return {
+        items: page.map(({ outSince, ...r }) => ({ ...r, canSet: Number(outSince) !== 1 })),
+        nextCursor: rows.length > input.limit && last ? encodeListCursor(last.createdAt, last.id) : null,
+      };
+    }),
 
   /**
    * Set a pending GRN's rate (store.rate). Only while nothing went out of the item after it: no issue

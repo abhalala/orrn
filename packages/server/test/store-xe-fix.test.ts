@@ -197,6 +197,19 @@ describe("reorder indent at write time", () => {
   });
 });
 
+describe("reorder indent for a retired item", () => {
+  test("refused up front with the real reason, no indent and no retry", async () => {
+    const p = await plant();
+    await p.storekeeper.store.items.update({ id: p.fluxId, minMilli: 20 * U });
+    await p.storekeeper.store.items.update({ id: p.fluxId, active: false });
+    await expect(p.storekeeper.store.indents.fromReorder({ itemId: p.fluxId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Cover flux is retired",
+    });
+    expect(await env.db.select().from(storeIndent).where(eq(storeIndent.companyId, p.companyId))).toHaveLength(0);
+  });
+});
+
 describe("reorder coverage follows the order's lines", () => {
   test("an item the order left out of an ordered indent stays reorderable; the item on the order is covered", async () => {
     const p = await plant();

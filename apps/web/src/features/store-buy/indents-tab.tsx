@@ -160,7 +160,9 @@ function IndentDetail({ id, onClose }: { id: string | null; onClose(): void }) {
   // The indent on screen now: a decision that finishes after the person opened another indent must not
   // clear that one's note or close it.
   const shownId = useRef(id);
-  shownId.current = id;
+  useEffect(() => {
+    shownId.current = id;
+  }, [id]);
   // Busy until the lists have refetched, not only until the server answered.
   const [settling, setSettling] = useState(false);
   const approve = useMutation(trpc.store.indents.approve.mutationOptions());

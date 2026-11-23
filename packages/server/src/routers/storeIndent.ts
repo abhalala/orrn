@@ -333,6 +333,7 @@ export const storeIndentRouter = router({
       // Two tries: a GRN or a level change between the read and the write makes the first one stale.
       for (let attempt = 0; ; attempt++) {
         const item = await loadStoreItem(ctx.db, ctx.companyId, input.itemId);
+        if (!item.active) throw new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is retired` });
         const live = await findLive(item.id);
         if (live) return { id: live.id, number: live.number, existing: true as const };
         const store = await resolveStoreLocation(ctx.db, ctx.companyId);

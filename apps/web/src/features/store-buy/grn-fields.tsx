@@ -28,6 +28,8 @@ export function useOpenPoLines(itemId: string | null) {
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     ),
     enabled: itemId !== null && can(me, "store.txn"),
+    // A failed lookup shows Retry at once: while retries back off, an empty picker would look like "no open order".
+    retry: false,
   });
   const data = q.data ? { items: q.data.pages.flatMap((p) => p.items), complete: !q.hasNextPage } : undefined;
   return {
