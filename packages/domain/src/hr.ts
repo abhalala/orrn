@@ -23,7 +23,6 @@ export const HR_LEAVE_STATUSES = ["pending", "approved", "rejected", "cancelled"
 export type HrLeaveStatus = (typeof HR_LEAVE_STATUSES)[number];
 
 export const MINUTE_MS = 60_000;
-export const DAY_MS = 86_400_000;
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** `YYYY-MM-DD` of a local wall millisecond. */
