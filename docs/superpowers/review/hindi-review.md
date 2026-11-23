@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
+Counts: 9987 screen strings in 54 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -195,7 +195,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 
 | Key | English | हिंदी |
 |---|---|---|
-| `qa` | Quality | गुणवत्ता |
+| `storeBuying` | Buying | खरीद |
 | `ageing` | Ageing | एजिंग |
 | `complaints` | Complaints | शिकायतें |
 | `owner` | Owner | मालिक |
@@ -1755,7 +1755,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `bundleNumbers.saved` | Bundle numbers changed | Bundle नंबर बदले गए |
 | `bundleNumbers.change` | Number bundles by | Bundle नंबर इस तरह दें |
 
-### store (189)
+### store (191)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1868,6 +1868,8 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
 | `errors.unitLocked` | The unit can't change because this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
 | `errors.cancelDrawn` | You can't cancel this entry because some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.cancelIssued` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.cancelRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
 | `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
 | `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
 | `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
@@ -3151,7 +3153,7 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (388)
+### admin (386)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3363,7 +3365,6 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleNames.press` | Press | प्रेस |
 | `plan.moduleNames.ageing` | Ageing | एजिंग |
 | `plan.moduleNames.store` | Store | स्टोर |
-| `plan.moduleNames.qa` | Quality | गुणवत्ता |
 | `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleNames.complaints` | Complaints | शिकायतें |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
@@ -3375,7 +3376,6 @@ Counts: 9904 screen strings in 54 groups, 45 guides with 866 strings.
 | `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
 | `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
 | `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
-| `plan.moduleHints.qa` | Quality checks, holds and instruments | गुणवत्ता जांच, होल्ड और उपकरण |
 | `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.moduleHints.complaints` | Customer complaints on a bundle, with the trace and the reply | बंडल पर ग्राहक की शिकायत, ट्रेस और जवाब के साथ |
 | `plan.save` | Save plan | प्लान सेव करें |
@@ -8948,286 +8948,374 @@ Please check, Lalubhai:
 | `recut.placeholder` | Bend at one end | एक सिरे पर मुड़ा हुआ |
 | `recut.hint` | Optional. Saved with this bundle so the office can see why the line ran short. | वैकल्पिक। इस बंडल के साथ सेव होता है ताकि ऑफिस देख सके कि लाइन छोटी क्यों रही। |
 
-### qa (276)
+### store2 (364)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `title` | Quality | गुणवत्ता |
-| `subtitle` | Checks, holds and the lists behind them | जाँच, होल्ड और उनकी सूचियाँ |
-| `moduleOff` | Quality is off for this plant. Ask orrn support to turn it on. | इस प्लांट के लिए गुणवत्ता बंद है। orrn सपोर्ट से चालू करवाएँ। |
-| `loadFailed` | Couldn't load. Try again. | लोड नहीं हो सका। फिर कोशिश करें। |
-| `failed` | Could not save. Check the connection and try again. | सेव नहीं हो सका। कनेक्शन देखें और फिर कोशिश करें। |
-| `saved` | Saved | सेव हुआ |
-| `required` | Fill this in. | इसे भरें। |
-| `tabs.waiting` | Waiting | इंतज़ार में |
-| `tabs.holds` | On hold | होल्ड पर |
-| `tabs.checks` | Checks | जाँच |
-| `tabs.instruments` | Instruments | उपकरण |
-| `tabs.lists` | Lists | सूचियाँ |
-| `tabs.settings` | Settings | सेटिंग |
-| `kind.incoming` | Incoming inspection | आवक जाँच |
-| `kind.first_piece` | First piece | पहला पीस |
-| `kind.in_process` | In-process check | प्रक्रिया के दौरान जाँच |
-| `kind.clearance` | Clearance | क्लियरेंस |
-| `kind.dimension` | Dimensions | माप |
-| `kind.mechanical` | Mechanical test | मैकेनिकल टेस्ट |
-| `kind.ultrasonic` | Ultrasonic test | अल्ट्रासोनिक टेस्ट |
-| `subject.press_run` | Press run | प्रेस रन |
-| `subject.bundle` | Bundle | Bundle |
-| `subject.purchase_lot` | Scrap lot | स्क्रैप लॉट |
-| `subject.store_grn` | Store GRN | स्टोर GRN |
-| `subject.cast` | Cast | कास्ट |
-| `subject.ageing_batch` | Ageing batch | एजिंग बैच |
-| `stage.incoming` | Incoming | आवक |
-| `stage.press` | Press | Press |
-| `stage.ageing` | Ageing | एजिंग |
-| `stage.pack` | Pack | पैक |
-| `stage.dispatch` | Dispatch | डिस्पैच |
-| `result.pass` | Pass | पास |
-| `result.fail` | Fail | फ़ेल |
-| `result.unchecked` | Not checked | जाँच नहीं हुई |
-| `state.waiting` | Waiting | इंतज़ार में |
-| `state.failed` | Failed | फ़ेल हुआ |
-| `state.passed` | Passed | पास हुआ |
-| `waiting.stage` | Stage | चरण |
-| `waiting.station` | Inspection point | जाँच बिंदु |
-| `waiting.allStations` | All points | सभी बिंदु |
-| `waiting.number` | Number | नंबर |
-| `waiting.since` | Since | कब से |
-| `waiting.empty` | Nothing waits at this stage. | इस चरण में कुछ इंतज़ार में नहीं है। |
-| `waiting.dispatchHint` | At dispatch the hold list is the queue. Open On hold. | डिस्पैच पर होल्ड सूची ही कतार है। होल्ड पर खोलें। |
-| `waiting.putAt` | Put at | यहाँ रखें |
-| `waiting.placed` | Placed at {code} | {code} पर रखा गया |
-| `waiting.check` | Check | जाँच |
-| `holds.holdTitle` | Put a bundle on quality hold | Bundle को गुणवत्ता होल्ड पर रखें |
-| `holds.holdHint` | A held bundle stays in stock. The dispatch scan refuses it until someone releases it. | होल्ड वाला bundle स्टॉक में रहता है। जब तक कोई छोड़ता नहीं, डिस्पैच स्कैन उसे मना करता है। |
-| `holds.serial` | Bundle serial | Bundle सीरियल |
-| `holds.reason` | Reason | कारण |
-| `holds.hold` | Hold | होल्ड |
-| `holds.held` | {serial} is on quality hold | {serial} गुणवत्ता होल्ड पर है |
-| `holds.release` | Release | छोड़ें |
-| `holds.releaseTitle` | Release {serial} | {serial} छोड़ें |
-| `holds.note` | What was done | क्या किया गया |
-| `holds.noteHint` | Say what was checked or fixed before release. | छोड़ने से पहले क्या जाँचा या ठीक किया, लिखें। |
-| `holds.released` | {serial} released | {serial} छोड़ा गया |
-| `holds.empty` | No bundle is on quality hold. | कोई bundle गुणवत्ता होल्ड पर नहीं है। |
-| `holds.logEmpty` | No holds yet. | अभी कोई होल्ड नहीं। |
-| `holds.show` | Show | दिखाएँ |
-| `holds.open` | Open holds | खुले होल्ड |
-| `holds.log` | Hold log | होल्ड लॉग |
-| `holds.bundle` | Bundle | Bundle |
-| `holds.section` | Section | सेक्शन |
-| `holds.weight` | Weight | वज़न |
-| `holds.when` | Held | होल्ड हुआ |
-| `holds.heldBy` | Held by {name} | {name} ने होल्ड किया |
-| `holds.releasedBy` | Released by {name} | {name} ने छोड़ा |
-| `holds.releasedAt` | Released | छोड़ा गया |
-| `checks.kindFilter` | Check | जाँच |
-| `checks.all` | All checks | सभी जाँच |
-| `checks.record` | Record a check | जाँच दर्ज करें |
-| `checks.empty` | No checks recorded yet. | अभी कोई जाँच दर्ज नहीं। |
-| `checks.subject` | On | किस पर |
-| `checks.result` | Result | नतीजा |
-| `checks.by` | By | किसने |
-| `checks.when` | When | कब |
-| `checks.station` | Point | बिंदु |
-| `checks.detail` | Detail | ब्योरा |
-| `checks.flagged` | Out of tolerance: {names} | टॉलरेंस से बाहर: {names} |
-| `checks.low` | Below the minimum: {names} | न्यूनतम से कम: {names} |
-| `checks.unchecked` | Not compared (other hardness scale or no limits): {names} | मिलान नहीं किया (दूसरा हार्डनेस स्केल या कोई सीमा नहीं): {names} |
-| `checks.noLimits` | No temper limits to check against | जाँचने के लिए टेम्पर की कोई सीमा नहीं |
-| `checks.more` | Show older | पुराने दिखाएँ |
-| `run.find` | Find a press run | प्रेस रन खोजें |
-| `run.findHint` | The run number, such as PR-12 | रन नंबर, जैसे PR-12 |
-| `run.show` | Show | दिखाएँ |
-| `run.title` | Run {number} | रन {number} |
-| `run.firstPiece` | First piece | पहला पीस |
-| `run.notChecked` | Not checked | जाँचा नहीं गया |
-| `run.blocksPack` | Pack waits for a passed first piece. | पैक के लिए पहला पीस पास होना ज़रूरी है। |
-| `run.inProcess` | In-process checks | प्रक्रिया के दौरान जाँच |
-| `run.due` | A check is due: {count} bundles since the last one. | जाँच बाकी है: पिछली जाँच के बाद {count} bundle। |
-| `run.notDue` | No check is due. | कोई जाँच बाकी नहीं। |
-| `run.breaches` | Readings out of the quality plan | गुणवत्ता प्लान से बाहर रीडिंग |
-| `run.noBreaches` | Every press reading is inside the plan. | प्रेस की हर रीडिंग प्लान के अंदर है। |
-| `run.noPlan` | No quality plan for this section. | इस सेक्शन का कोई गुणवत्ता प्लान नहीं। |
-| `run.notFound` | No press run with that number in this plant. | इस प्लांट में उस नंबर का कोई प्रेस रन नहीं। |
-| `sheet.title` | Record a check | जाँच दर्ज करें |
-| `sheet.kind` | Check | जाँच |
-| `sheet.subjectType` | On | किस पर |
-| `sheet.number` | Number | नंबर |
-| `sheet.numberHint` | As written on the paper | जैसा कागज़ पर लिखा है |
-| `sheet.find` | Find | खोजें |
-| `sheet.notFound` | Nothing with that number in this plant. | इस प्लांट में उस नंबर का कुछ नहीं मिला। |
-| `sheet.found` | Found {number} | {number} मिला |
-| `sheet.result` | Result | नतीजा |
-| `sheet.stage` | For stage | किस चरण के लिए |
-| `sheet.station` | Inspection point | जाँच बिंदु |
-| `sheet.instrument` | Instrument | उपकरण |
-| `sheet.none` | None | कोई नहीं |
-| `sheet.note` | Note | नोट |
-| `sheet.save` | Save check | जाँच सेव करें |
-| `sheet.recorded` | Check recorded | जाँच दर्ज हुई |
-| `sheet.standard` | Standard | मानक |
-| `sheet.operator` | Operator | ऑपरेटर |
-| `sheet.needSubject` | Find what the check is on first. | पहले खोजें कि जाँच किस पर है। |
-| `sheet.dims.title` | Dimensions | माप |
-| `sheet.dims.name` | Name | नाम |
-| `sheet.dims.nominal` | Nominal (mm) | नॉमिनल (mm) |
-| `sheet.dims.minus` | Minus (mm) | माइनस (mm) |
-| `sheet.dims.plus` | Plus (mm) | प्लस (mm) |
-| `sheet.dims.measured` | Measured (mm) | नापा गया (mm) |
-| `sheet.dims.add` | Add a dimension | माप जोड़ें |
-| `sheet.dims.remove` | Remove | हटाएँ |
-| `sheet.dims.bad` | Fill the name and every number of each dimension. | हर माप का नाम और सभी नंबर भरें। |
-| `sheet.mech.tensile` | Tensile (MPa) | टेन्साइल (MPa) |
-| `sheet.mech.yield` | Yield (MPa) | यील्ड (MPa) |
-| `sheet.mech.elongation` | Elongation (%) | एलोंगेशन (%) |
-| `sheet.mech.hardness` | Hardness | हार्डनेस |
-| `sheet.mech.temper` | Temper | टेम्पर |
-| `sheet.mech.temperPlan` | From the quality plan | गुणवत्ता प्लान से |
-| `sheet.mech.scaleTemper` | Same as the temper | टेम्पर जैसा |
-| `sheet.readings.title` | Readings | रीडिंग |
-| `sheet.readings.name` | What | क्या |
-| `sheet.readings.value` | Seen | देखा गया |
-| `sheet.readings.add` | Add a reading | रीडिंग जोड़ें |
-| `instruments.add` | Add instrument | उपकरण जोड़ें |
-| `instruments.code` | Code | कोड |
-| `instruments.name` | Name | नाम |
-| `instruments.range` | Range | रेंज |
-| `instruments.place` | Where | कहाँ |
-| `instruments.interval` | Calibrate every (days) | कैलिब्रेशन हर (दिन) |
-| `instruments.last` | Last calibrated | आखिरी कैलिब्रेशन |
-| `instruments.next` | Next due | अगली तारीख |
-| `instruments.status` | Status | स्थिति |
-| `instruments.states.ok` | In date | तारीख के अंदर |
-| `instruments.states.due_soon` | Due soon | जल्द देय |
-| `instruments.states.overdue` | Overdue | देरी हो चुकी |
-| `instruments.states.unknown` | No date | तारीख नहीं |
-| `instruments.calibrate` | Calibrate | कैलिब्रेट करें |
-| `instruments.calibrateTitle` | Calibrate {code} | {code} कैलिब्रेट करें |
-| `instruments.calibratedOn` | Calibrated on | कैलिब्रेशन की तारीख |
-| `instruments.certificate` | Certificate | सर्टिफिकेट |
-| `instruments.upload` | Upload certificate | सर्टिफिकेट अपलोड करें |
-| `instruments.uploaded` | Certificate saved | सर्टिफिकेट सेव हुआ |
-| `instruments.view` | Open certificate | सर्टिफिकेट खोलें |
-| `instruments.uploadFailed` | The file did not upload. Check the connection and try again. | फ़ाइल अपलोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
-| `instruments.empty` | No instruments yet. | अभी कोई उपकरण नहीं। |
-| `instruments.edit` | Edit | बदलें |
-| `instruments.editTitle` | Edit {code} | {code} बदलें |
-| `instruments.retire` | Take out of use | उपयोग से हटाएँ |
-| `instruments.reactivate` | Put back in use | फिर उपयोग में लाएँ |
-| `instruments.note` | Note | नोट |
-| `instruments.invalid` | Fill the code and the name. | कोड और नाम भरें। |
-| `lists.tempers` | Tempers | टेम्पर |
-| `lists.plans` | Quality plans | गुणवत्ता प्लान |
-| `lists.stations` | Inspection points | जाँच बिंदु |
-| `lists.substitutes` | Alloy substitutes | अलॉय विकल्प |
-| `tempers.add` | Add temper | टेम्पर जोड़ें |
-| `tempers.edit` | Edit | बदलें |
-| `tempers.editTitle` | Edit temper {code} | टेम्पर {code} बदलें |
-| `tempers.code` | Code | कोड |
-| `tempers.alloy` | Alloy | अलॉय |
-| `tempers.alloyHint` | Blank for every alloy | खाली छोड़ें तो हर अलॉय के लिए |
-| `tempers.name` | Name | नाम |
-| `tempers.method` | Hardness scale | हार्डनेस स्केल |
-| `tempers.methods.webster` | Webster | Webster |
-| `tempers.methods.hb` | Brinell | Brinell |
-| `tempers.hardnessMin` | Lowest hardness | न्यूनतम हार्डनेस |
-| `tempers.tensileMin` | Lowest tensile (MPa) | न्यूनतम टेन्साइल (MPa) |
-| `tempers.yieldMin` | Lowest yield (MPa) | न्यूनतम यील्ड (MPa) |
-| `tempers.elongationMin` | Lowest elongation (%) | न्यूनतम एलोंगेशन (%) |
-| `tempers.recipes` | Ageing recipes | एजिंग रेसिपी |
-| `tempers.noRecipe` | No ageing recipe | कोई एजिंग रेसिपी नहीं |
-| `tempers.empty` | No tempers yet. | अभी कोई टेम्पर नहीं। |
-| `tempers.pick` | Pick from the temper list | टेम्पर सूची से चुनें |
-| `plans.add` | Add plan | प्लान जोड़ें |
-| `plans.edit` | Edit | बदलें |
-| `plans.editTitle` | Quality plan for {section} | {section} का गुणवत्ता प्लान |
-| `plans.section` | Section | सेक्शन |
-| `plans.sectionHint` | The section code, such as 1234 | सेक्शन कोड, जैसे 1234 |
-| `plans.copy` | Die copy | Die कॉपी |
-| `plans.allCopies` | Every copy | हर कॉपी |
-| `plans.temper` | Temper | टेम्पर |
-| `plans.billetTemp` | Billet temperature (°C) | बिलेट तापमान (°C) |
-| `plans.exitTemp` | Exit temperature (°C) | एग्ज़िट तापमान (°C) |
-| `plans.ramSpeed` | Ram speed (mm/s) | रैम स्पीड (mm/s) |
-| `plans.ageingTemp` | Ageing temperature (°C) | एजिंग तापमान (°C) |
-| `plans.ageingSoak` | Ageing soak (minutes) | एजिंग सोक (मिनट) |
-| `plans.everyBundles` | In-process check every (bundles) | प्रक्रिया जाँच हर (bundle) |
-| `plans.everyMinutes` | In-process check every (minutes) | प्रक्रिया जाँच हर (मिनट) |
-| `plans.min` | Lowest | न्यूनतम |
-| `plans.max` | Highest | अधिकतम |
-| `plans.dimensions` | Dimensions to check | जाँचने के माप |
-| `plans.limits` | Limits | सीमाएँ |
-| `plans.empty` | No quality plans yet. | अभी कोई गुणवत्ता प्लान नहीं। |
-| `plans.sectionNotFound` | No section with that code. | इस कोड का कोई सेक्शन नहीं। |
-| `plans.sectionPick` | Pick the section | सेक्शन चुनें |
-| `stations.add` | Add point | बिंदु जोड़ें |
-| `stations.edit` | Edit | बदलें |
-| `stations.editTitle` | Edit point {code} | बिंदु {code} बदलें |
-| `stations.code` | Code | कोड |
-| `stations.name` | Name | नाम |
-| `stations.stage` | Stage | चरण |
-| `stations.empty` | No inspection points yet. | अभी कोई जाँच बिंदु नहीं। |
-| `stations.retire` | Take out of use | उपयोग से हटाएँ |
-| `stations.reactivate` | Put back in use | फिर उपयोग में लाएँ |
-| `substitutes.add` | Add substitute | विकल्प जोड़ें |
-| `substitutes.alloy` | Alloy | अलॉय |
-| `substitutes.substitute` | Allowed instead | इसके बदले मान्य |
-| `substitutes.customer` | Party | पार्टी |
-| `substitutes.everyParty` | Every party | हर पार्टी |
-| `substitutes.note` | Note | नोट |
-| `substitutes.remove` | Remove | हटाएँ |
-| `substitutes.removed` | Removed | हटाया गया |
-| `substitutes.empty` | No substitutes yet. | अभी कोई विकल्प नहीं। |
-| `substitutes.short` | Alloy short | अलॉय कम |
-| `substitutes.shortBody` | {alloy}: {have} {massUnit} of billets for {need} {massUnit} left. | {alloy}: {need} {massUnit} के लिए बिलेट {have} {massUnit} बचे हैं। |
-| `substitutes.allowed` | Allowed instead | इसके बदले मान्य |
-| `substitutes.onHand` | {kg} {massUnit} on hand | {kg} {massUnit} हाथ में |
-| `substitutes.noneAllowed` | No substitute is allowed for {alloy}. | {alloy} के लिए कोई विकल्प मान्य नहीं। |
-| `settings.title` | Quality switches | गुणवत्ता स्विच |
-| `settings.firstPiece` | Pack waits for the first piece | पैक के लिए पहला पीस ज़रूरी |
-| `settings.firstPieceHint` | On: no bundle is packed from a run until its first piece passes. | चालू: रन का पहला पीस पास होने तक उससे कोई bundle पैक नहीं होता। |
-| `settings.lotInspection` | Melt waits for incoming inspection | मेल्ट के लिए आवक जाँच ज़रूरी |
-| `settings.lotInspectionHint` | On: a scrap lot is charged to a melt only after it passes inspection. | चालू: स्क्रैप लॉट जाँच में पास होने के बाद ही मेल्ट में डलता है। |
-| `settings.everyBundles` | In-process check every N bundles | प्रक्रिया जाँच हर N bundle |
-| `settings.everyMinutes` | In-process check every N minutes | प्रक्रिया जाँच हर N मिनट |
-| `settings.blankOff` | Leave blank for off. | बंद रखने के लिए खाली छोड़ें। |
-| `settings.since` | On since {date} | {date} से चालू |
-| `settings.save` | Save switches | स्विच सेव करें |
-| `today.title` | Quality | गुणवत्ता |
-| `today.onHold` | {count} on quality hold | {count} गुणवत्ता होल्ड पर |
-| `today.overdue` | {count} instruments overdue | {count} उपकरण की देरी |
-| `today.dueSoon` | {count} due within 7 days | {count} 7 दिन में देय |
-| `today.allClear` | No hold and no instrument overdue. | कोई होल्ड नहीं और कोई उपकरण देरी पर नहीं। |
-| `today.open` | Open quality | गुणवत्ता खोलें |
-| `refusal.bundleOnHold` | Bundle {serial} is on quality hold | Bundle {serial} गुणवत्ता होल्ड पर है |
-| `refusal.alreadyOnHold` | Bundle {serial} is already on quality hold | Bundle {serial} पहले से गुणवत्ता होल्ड पर है |
-| `refusal.notOnHold` | Bundle {serial} is not on quality hold | Bundle {serial} गुणवत्ता होल्ड पर नहीं है |
-| `refusal.bundleNotInStock` | Bundle {serial} is not in stock; only stock can go on quality hold | Bundle {serial} स्टॉक में नहीं है; सिर्फ़ स्टॉक होल्ड पर जा सकता है |
-| `refusal.bundleOnLoad` | Bundle {serial} is held on a load; take it off the load first | Bundle {serial} लोड पर रुका है; पहले उसे लोड से हटाएँ |
-| `refusal.lotWaiting` | {lot} is waiting for inspection | {lot} जाँच के इंतज़ार में है |
-| `refusal.lotFailed` | {lot} failed inspection | {lot} जाँच में फ़ेल हुआ |
-| `refusal.firstPieceWaiting` | The first piece of {run} is not checked yet | {run} का पहला पीस अभी जाँचा नहीं गया |
-| `refusal.firstPieceFailed` | The first piece of {run} failed; check a new piece first | {run} का पहला पीस फ़ेल हुआ; पहले नया पीस जाँचें |
-| `refusal.kindSubject` | This check cannot be recorded on that | यह जाँच उस पर दर्ज नहीं हो सकती |
-| `refusal.dimensionsNone` | Enter at least one dimension | कम से कम एक माप भरें |
-| `refusal.dimensionsTooMany` | Enter at most {n} dimensions | ज़्यादा से ज़्यादा {n} माप भरें |
-| `refusal.dimensionsBadValue` | Each dimension needs a name, a nominal above zero and its tolerances | हर माप में नाम, शून्य से ऊपर नॉमिनल और उसकी टॉलरेंस चाहिए |
-| `refusal.dimensionsDuplicate` | A dimension is listed twice | एक माप दो बार लिखा है |
-| `refusal.mechanicalNone` | Enter at least one test value | कम से कम एक टेस्ट वैल्यू भरें |
-| `refusal.resultNeeded` | Pick pass or fail | पास या फ़ेल चुनें |
-| `refusal.temperCode` | Use a temper code such as T6, T5 or O, at most 8 letters and digits | T6, T5 या O जैसा टेम्पर कोड लें, ज़्यादा से ज़्यादा 8 अक्षर और अंक |
-| `refusal.temperTaken` | Temper {code} is already in the list | टेम्पर {code} सूची में पहले से है |
-| `refusal.temperYield` | The yield minimum cannot be above the tensile minimum | न्यूनतम यील्ड, न्यूनतम टेन्साइल से ऊपर नहीं हो सकती |
-| `refusal.planLimits` | A lower limit is above its upper limit | एक निचली सीमा अपनी ऊपरी सीमा से ऊपर है |
-| `refusal.planSavedMeanwhile` | Someone saved this quality plan just now; open it again and save | यह गुणवत्ता प्लान अभी किसी और ने सेव किया; फिर से खोलें और सेव करें |
-| `refusal.substituteSame` | An alloy cannot be its own substitute | कोई अलॉय अपना ही विकल्प नहीं हो सकता |
-| `refusal.substituteTaken` | {alloy} is already a substitute here | {alloy} यहाँ पहले से विकल्प है |
-| `refusal.instrumentTaken` | Instrument {code} is already in the list | उपकरण {code} सूची में पहले से है |
-| `refusal.instrumentCode` | Use letters, digits and dashes for the instrument code, at most 24 | उपकरण कोड में अक्षर, अंक और डैश लें, ज़्यादा से ज़्यादा 24 |
-| `refusal.calibrationFuture` | The calibration date cannot be in the future | कैलिब्रेशन की तारीख आगे की नहीं हो सकती |
-| `refusal.certificateKind` | The certificate must be a PDF or a photo | सर्टिफिकेट PDF या फोटो होना चाहिए |
+| `buy.title` | Buying | खरीद |
+| `buy.subtitle` | Indents, purchase orders and what the store is worth | इंडेंट, परचेज़ ऑर्डर और स्टोर का मूल्य |
+| `buy.tabs.indents` | Indents | इंडेंट |
+| `buy.tabs.orders` | Purchase orders | परचेज़ ऑर्डर |
+| `buy.tabs.value` | Store value | स्टोर का मूल्य |
+| `buy.noAccess` | Buying is for department heads, the office, the store and managers. | खरीद विभाग प्रमुखों, ऑफिस, स्टोर और मैनेजरों के लिए है। |
+| `buy.openStore` | Store | स्टोर |
+| `status.indent.open` | Waiting | इंतज़ार में |
+| `status.indent.approved` | Approved | मंज़ूर |
+| `status.indent.rejected` | Rejected | नामंज़ूर |
+| `status.indent.ordered` | Ordered | ऑर्डर हुआ |
+| `status.indent.cancelled` | Cancelled | रद्द |
+| `status.po.draft` | Draft | ड्राफ्ट |
+| `status.po.issued` | Sent | भेजा गया |
+| `status.po.part_received` | Part received | कुछ माल आया |
+| `status.po.closed` | Closed | बंद |
+| `status.po.cancelled` | Cancelled | रद्द |
+| `money.noRate` | No rate | रेट नहीं |
+| `money.perUnit` | {rate} per {unit} | {rate} प्रति {unit} |
+| `money.ratePending` | Rate pending | रेट बाकी |
+| `grn.entryPo` | Purchase order | परचेज़ ऑर्डर |
+| `grn.entryRate` | Rate | रेट |
+| `grn.entryValue` | Value | मूल्य |
+| `grn.poLine` | Against a purchase order | परचेज़ ऑर्डर के सामने |
+| `grn.noPo` | No purchase order | कोई परचेज़ ऑर्डर नहीं |
+| `grn.poLineOption` | {po} line {line}, {vendor}: {left} {unit} still to come | {po} लाइन {line}, {vendor}: {left} {unit} आना बाकी |
+| `grn.poLineHint` | Pick the order line this delivery is for. The rate comes from the order. | यह माल ऑर्डर की जिस लाइन का है वह चुनें। रेट ऑर्डर से आता है। |
+| `grn.noOpenLines` | No open purchase order has this item. | किसी खुले परचेज़ ऑर्डर में यह आइटम नहीं है। |
+| `grn.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `grn.rateHint` | Rupees, from the vendor's bill. Leave empty if you do not know it yet. | रुपये में, वेंडर के बिल से। पता न हो तो खाली छोड़ें। |
+| `grn.rateFromPo` | From the order: {rate} | ऑर्डर से: {rate} |
+| `grn.rateByOffice` | The office sets the rate. Until then this delivery counts at the average rate. | रेट ऑफ़िस तय करता है। तब तक यह माल औसत रेट पर गिना जाएगा। |
+| `grn.rateInvalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में डालें, जैसे 84.50 |
+| `grn.rejected` | Rejected at inspection | जांच में लौटाया |
+| `grn.rejectedHint` | What you turned back. It does not go into the store. | जो आपने वापस किया। यह स्टोर में नहीं जाता। |
+| `grn.accepted` | Accepted into the store | स्टोर में लिया |
+| `grn.left` | Still to come on this line: {qty} | इस लाइन पर आना बाकी: {qty} |
+| `item.levels` | Reorder levels | रीऑर्डर लेवल |
+| `item.min` | Minimum | न्यूनतम |
+| `item.minHint` | Below this, Today asks for an indent. | इससे कम होने पर टुडे इंडेंट मांगता है। |
+| `item.reorder` | Reorder quantity | रीऑर्डर मात्रा |
+| `item.reorderHint` | How much one indent asks for. Empty means enough to reach the minimum. | एक इंडेंट कितना मांगे। खाली हो तो न्यूनतम तक पहुंचने जितना। |
+| `item.none` | Not set | तय नहीं |
+| `item.showLevels` | Minimum {min}, reorder {reorder} | न्यूनतम {min}, रीऑर्डर {reorder} |
+| `today.title` | Store items running low | स्टोर में कम पड़ते आइटम |
+| `today.open` | Open the store | स्टोर खोलें |
+| `today.have` | {have} left, minimum {min} | {have} बचा, न्यूनतम {min} |
+| `today.makeIndent` | Make indent | इंडेंट बनाएं |
+| `today.making` | Making indent | इंडेंट बन रहा है |
+| `today.made` | Indent {number} made | इंडेंट {number} बना |
+| `today.already` | Indent {number} is already raised | इंडेंट {number} पहले से बना है |
+| `today.openIndent` | Open {number} | {number} खोलें |
+| `today.failed` | The indent was not made. Try again. | इंडेंट नहीं बना। फिर से कोशिश करें। |
+| `errors.overReceipt` | {po} line {line} can take only {qty} {unit} more. Check the delivery, or ask the office to raise the order. | {po} लाइन {line} पर अब सिर्फ {qty} {unit} और आ सकता है। माल जांचें, या ऑफिस से ऑर्डर बढ़वाएं। |
+| `errors.poWrongItem` | That order line is for another item. | ऑर्डर की वह लाइन किसी और आइटम की है। |
+| `errors.poNotOpen` | {po} is not open for deliveries. | {po} पर अब माल नहीं लिया जा सकता। |
+| `errors.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्या जांचें। |
+| `errors.notFound` | Not found. It may have been removed, or it belongs to another plant. | नहीं मिला। शायद हटा दिया गया, या यह किसी और प्लांट का है। |
+| `errors.vendorNotConfirmed` | This vendor is not confirmed yet. Ask a manager to confirm it in Masters. | यह वेंडर अभी पक्का नहीं है। मैनेजर से मास्टर्स में पक्का करवाएं। |
+| `errors.wrongStatus` | {number} has moved on. Open it again to see where it stands. | {number} आगे बढ़ चुका है। फिर से खोलकर देखें। |
+| `errors.indentNotApproved` | Only an approved indent can become a purchase order. | सिर्फ मंज़ूर इंडेंट ही परचेज़ ऑर्डर बन सकता है। |
+| `errors.indentChanged` | The indent changed meanwhile. Open it again. | इस बीच इंडेंट बदल गया। फिर से खोलें। |
+| `errors.poHasGoods` | {po} already has goods in. Close it short instead of cancelling. | {po} पर माल आ चुका है। रद्द करने की जगह बाकी छोड़कर बंद करें। |
+| `errors.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `errors.tooManyLines` | At most 40 items on one document. | एक कागज़ पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `errors.sameItemTwice` | The same item is on it twice. Put it on one line. | एक ही आइटम दो बार है। उसे एक लाइन में रखें। |
+| `errors.notBelow` | This item is not below its minimum any more. | यह आइटम अब न्यूनतम से कम नहीं है। |
+| `errors.forbidden` | You do not have permission to do that. | आपको यह करने की अनुमति नहीं है। |
+| `errors.rateOfficeOnlyPo` | Only the office can change the order's rate. Leave the rate as the order has it. | ऑर्डर का रेट सिर्फ़ ऑफ़िस बदल सकता है। रेट वैसा ही रहने दें जैसा ऑर्डर में है। |
+| `errors.rateOfficeOnly` | Only the office can set a rate. Leave it empty and the office will set it. | रेट सिर्फ़ ऑफ़िस तय कर सकता है। इसे खाली छोड़ें, ऑफ़िस तय कर देगा। |
+| `errors.allRated` | All of this item in the store already has a rate. | स्टोर में इस आइटम के सारे माल का रेट पहले से तय है। |
+| `errors.issuedSince` | Some stock from this delivery has already gone out. Record a return to the vendor instead. | इस माल में से स्टोर से माल निकल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.openingRated` | Opening rate was already given to this delivery's stock. Record a return to the vendor instead. | इस माल को शुरुआती रेट मिल चुका है। इसकी जगह वेंडर को वापसी दर्ज करें। |
+| `errors.unknown` | That did not work. Try again. | यह नहीं हुआ। फिर से कोशिश करें। |
+| `indent.show` | Show | दिखाएँ |
+| `indent.all` | All | सभी |
+| `indent.raise` | Raise indent | इंडेंट बनाएँ |
+| `indent.columns.number` | Indent | इंडेंट |
+| `indent.columns.department` | Department | विभाग |
+| `indent.columns.neededBy` | Needed by | कब तक चाहिए |
+| `indent.columns.items` | Items | आइटम |
+| `indent.columns.status` | Status | स्थिति |
+| `indent.notSet` | Not set | तय नहीं |
+| `indent.empty.title` | No indents yet | अभी कोई इंडेंट नहीं |
+| `indent.empty.body` | An indent asks the store to buy what a department needs. | इंडेंट से स्टोर को बताया जाता है कि विभाग को क्या खरीदना है। |
+| `indent.empty.filtered` | No indents with this status. | इस स्थिति का कोई इंडेंट नहीं। |
+| `indent.more` | Showing the latest {count} indents. Pick a status to narrow the list. | ताज़ा {count} इंडेंट दिख रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `indent.form.title` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.department` | Department | विभाग |
+| `indent.form.departmentHint` | Who needs it, like Press or Maintenance. | किसे चाहिए, जैसे प्रेस या मेंटेनेंस। |
+| `indent.form.departmentRequired` | Enter the department. | विभाग लिखें। |
+| `indent.form.neededBy` | Needed by | कब तक चाहिए |
+| `indent.form.neededByHint` | Optional. The day the store should have it. | ज़रूरी नहीं। स्टोर में किस दिन तक माल चाहिए। |
+| `indent.form.neededByInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `indent.form.reason` | Reason | कारण |
+| `indent.form.reasonHint` | Optional. Why it is needed. | ज़रूरी नहीं। क्यों चाहिए। |
+| `indent.form.items` | Items | आइटम |
+| `indent.form.item` | Item {n} | आइटम {n} |
+| `indent.form.itemPlaceholder` | Pick an item | आइटम चुनें |
+| `indent.form.qty` | Quantity | मात्रा |
+| `indent.form.addItem` | Add item | आइटम जोड़ें |
+| `indent.form.removeItem` | Remove item {n} | आइटम {n} हटाएँ |
+| `indent.form.noItems` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `indent.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `indent.form.twice` | This item is on the indent already. Put it on one line. | यह आइटम इंडेंट में पहले से है। इसे एक ही लाइन में रखें। |
+| `indent.form.tooMany` | At most 40 items on one indent. | एक इंडेंट में ज़्यादा से ज़्यादा 40 आइटम। |
+| `indent.form.noActiveItems` | The store has no items yet. Add items in the store first. | स्टोर में अभी कोई आइटम नहीं है। पहले स्टोर में आइटम जोड़ें। |
+| `indent.form.submit` | Raise indent | इंडेंट बनाएँ |
+| `indent.form.raised` | Indent {number} raised | इंडेंट {number} बन गया |
+| `indent.detail.title` | Indent {number} | इंडेंट {number} |
+| `indent.detail.raisedOn` | Raised {date} | बनाया {date} |
+| `indent.detail.department` | Department | विभाग |
+| `indent.detail.neededBy` | Needed by | कब तक चाहिए |
+| `indent.detail.reason` | Reason | कारण |
+| `indent.detail.noReason` | No reason given | कारण नहीं लिखा |
+| `indent.detail.items` | Items | आइटम |
+| `indent.detail.order` | Purchase order | परचेज़ ऑर्डर |
+| `indent.detail.openOrder` | Open {number} | {number} खोलें |
+| `indent.detail.makeOrder` | Make purchase order | PO बनाएँ |
+| `indent.detail.makeOrderHint` | This indent is approved. Make the purchase order to buy it. | यह इंडेंट मंज़ूर है। खरीदने के लिए PO बनाएँ। |
+| `indent.detail.loadFailed` | This indent did not load. | यह इंडेंट नहीं खुला। |
+| `indent.detail.approve` | Approve | मंज़ूर करें |
+| `indent.detail.reject` | Reject | नामंज़ूर करें |
+| `indent.detail.cancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.approved` | Indent {number} approved | इंडेंट {number} मंज़ूर हुआ |
+| `indent.detail.rejected` | Indent {number} rejected | इंडेंट {number} नामंज़ूर हुआ |
+| `indent.detail.cancelled` | Indent {number} cancelled | इंडेंट {number} रद्द हुआ |
+| `indent.detail.noteLabel` | Note | नोट |
+| `indent.detail.noteHint` | Optional. The person who raised it sees this. | ज़रूरी नहीं। इंडेंट बनाने वाले को यह दिखेगा। |
+| `indent.detail.rejectReason` | Why are you rejecting it? | नामंज़ूर क्यों कर रहे हैं? |
+| `indent.detail.rejectRequired` | Say why, so the department knows. | कारण लिखें, ताकि विभाग को पता चले। |
+| `indent.detail.confirmReject` | Reject indent | इंडेंट नामंज़ूर करें |
+| `indent.detail.cancelReason` | Why are you cancelling it? | रद्द क्यों कर रहे हैं? |
+| `indent.detail.cancelRequired` | Say why. | कारण लिखें। |
+| `indent.detail.confirmCancel` | Cancel indent | इंडेंट रद्द करें |
+| `indent.detail.back` | Keep it | रहने दें |
+| `po.list.label` | Purchase orders | परचेज़ ऑर्डर |
+| `po.list.filter` | Show | दिखाएं |
+| `po.list.all` | All | सभी |
+| `po.list.new` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.list.number` | Number | नंबर |
+| `po.list.vendor` | Vendor | वेंडर |
+| `po.list.delivery` | Delivery by | डिलीवरी तक |
+| `po.list.items` | Items | आइटम |
+| `po.list.amount` | Amount | रकम |
+| `po.list.status` | Status | स्थिति |
+| `po.list.noDate` | Not given | तय नहीं |
+| `po.list.empty` | No purchase orders yet | अभी कोई परचेज़ ऑर्डर नहीं |
+| `po.list.emptyBody` | A purchase order tells a vendor what to send, at what rate and by when. | परचेज़ ऑर्डर वेंडर को बताता है कि क्या भेजना है, किस रेट पर और कब तक। |
+| `po.list.emptyFiltered` | No purchase orders with this status. | इस स्थिति का कोई परचेज़ ऑर्डर नहीं। |
+| `po.list.capped` | Showing the latest {count}. Pick a status to narrow the list. | ताज़ा {count} दिखाए जा रहे हैं। सूची छोटी करने के लिए स्थिति चुनें। |
+| `po.list.loadFailed` | The purchase orders did not load. | परचेज़ ऑर्डर नहीं खुले। |
+| `po.form.newTitle` | New purchase order | नया परचेज़ ऑर्डर |
+| `po.form.editTitle` | Change purchase order | परचेज़ ऑर्डर बदलें |
+| `po.form.subtitle` | Pick the vendor, add the items and send it from the next page. | वेंडर चुनें, आइटम जोड़ें और अगले पन्ने से भेजें। |
+| `po.form.fromIndent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.form.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.form.vendor` | Vendor | वेंडर |
+| `po.form.vendorPlaceholder` | Search a vendor | वेंडर खोजें |
+| `po.form.vendorHint` | Only confirmed vendors are listed. | सिर्फ़ पक्के किए गए वेंडर दिखते हैं। |
+| `po.form.vendorRequired` | Pick a vendor. | वेंडर चुनें। |
+| `po.form.delivery` | Delivery by | डिलीवरी तक |
+| `po.form.deliveryHint` | The day the vendor should deliver. Leave empty if there is none. | वह दिन जब तक वेंडर माल दे। न हो तो खाली छोड़ें। |
+| `po.form.deliveryInvalid` | Pick a real date. | सही तारीख चुनें। |
+| `po.form.terms` | Terms | शर्तें |
+| `po.form.termsHint` | Payment, freight and anything else the vendor must know. It prints on the order. | पेमेंट, भाड़ा और वेंडर को जो भी जानना ज़रूरी है। यह ऑर्डर पर छपता है। |
+| `po.form.note` | Note for the office | ऑफिस के लिए नोट |
+| `po.form.noteHint` | Kept with the order. It does not print. | ऑर्डर के साथ रखा जाता है। यह छपता नहीं। |
+| `po.form.lines` | Items | आइटम |
+| `po.form.line` | Item {n} | आइटम {n} |
+| `po.form.item` | Item | आइटम |
+| `po.form.itemPlaceholder` | Search an item | आइटम खोजें |
+| `po.form.itemRequired` | Pick an item. | आइटम चुनें। |
+| `po.form.qty` | Quantity | मात्रा |
+| `po.form.rate` | Rate per {unit} | रेट प्रति {unit} |
+| `po.form.rateNoUnit` | Rate | रेट |
+| `po.form.rateHint` | Rupees, like 84.50 | रुपये में, जैसे 84.50 |
+| `po.form.rateInvalid` | Enter the rate in rupees, like 84.50. | रेट रुपये में डालें, जैसे 84.50। |
+| `po.form.gst` | GST | GST |
+| `po.form.gstInvalid` | Enter GST from 0 to 28. | GST 0 से 28 के बीच डालें। |
+| `po.form.tooLarge` | Quantity times rate is too large. Check both numbers. | मात्रा गुणा रेट बहुत बड़ा है। दोनों संख्याएं जांचें। |
+| `po.form.sameItem` | This item is on another line. Put it on one line. | यह आइटम दूसरी लाइन पर भी है। इसे एक ही लाइन पर रखें। |
+| `po.form.lineTotal` | Line total {total} | लाइन का कुल {total} |
+| `po.form.addLine` | Add an item | आइटम जोड़ें |
+| `po.form.removeLine` | Remove item {n} | आइटम {n} हटाएं |
+| `po.form.noLines` | Add at least one item. | कम से कम एक आइटम जोड़ें। |
+| `po.form.tooManyLines` | At most 40 items on one order. | एक ऑर्डर पर ज़्यादा से ज़्यादा 40 आइटम। |
+| `po.form.amount` | Amount | रकम |
+| `po.form.gstTotal` | GST | GST |
+| `po.form.total` | Total | कुल |
+| `po.form.save` | Save order | ऑर्डर सेव करें |
+| `po.form.saved` | {number} saved | {number} सेव हुआ |
+| `po.form.notDraft` | {number} is not a draft any more, so it cannot be changed. | {number} अब ड्राफ्ट नहीं है, इसलिए बदला नहीं जा सकता। |
+| `po.form.openOrder` | Open {number} | {number} खोलें |
+| `po.form.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.form.noAccess` | Making purchase orders is for the office and managers. | परचेज़ ऑर्डर बनाना ऑफिस और मैनेजरों के लिए है। |
+| `po.form.indentNotUsable` | This indent is not approved any more, so it cannot become an order. | यह इंडेंट अब मंज़ूर नहीं है, इसलिए ऑर्डर नहीं बन सकता। |
+| `po.form.fixErrors` | Fix the marked boxes and save again. | निशान वाले खाने ठीक करके फिर सेव करें। |
+| `po.detail.back` | Purchase orders | परचेज़ ऑर्डर |
+| `po.detail.title` | Purchase order {number} | परचेज़ ऑर्डर {number} |
+| `po.detail.subtitle` | {vendor} | {vendor} |
+| `po.detail.vendor` | Vendor | वेंडर |
+| `po.detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.detail.delivery` | Delivery by | डिलीवरी तक |
+| `po.detail.terms` | Terms | शर्तें |
+| `po.detail.note` | Note | नोट |
+| `po.detail.indent` | Made from indent {number} | इंडेंट {number} से बना |
+| `po.detail.createdAt` | Made | बना |
+| `po.detail.sentAt` | Sent | भेजा |
+| `po.detail.closeNote` | Closed short: {note} | कम माल पर बंद: {note} |
+| `po.detail.cancelReason` | Cancelled: {reason} | रद्द: {reason} |
+| `po.detail.lines` | Items | आइटम |
+| `po.detail.item` | Item | आइटम |
+| `po.detail.ordered` | Ordered | ऑर्डर |
+| `po.detail.received` | Received | आया |
+| `po.detail.rate` | Rate | रेट |
+| `po.detail.gst` | GST | GST |
+| `po.detail.total` | Total | कुल |
+| `po.detail.totalsAmount` | Amount | रकम |
+| `po.detail.totalsGst` | GST | GST |
+| `po.detail.totalsTotal` | Total | कुल |
+| `po.detail.grns` | GRNs against this order | इस ऑर्डर के GRN |
+| `po.detail.grnNumber` | GRN | GRN |
+| `po.detail.grnQty` | Accepted | लिया गया |
+| `po.detail.grnRejected` | Rejected | लौटाया |
+| `po.detail.grnStatus` | Status | स्थिति |
+| `po.detail.grnCancelled` | Cancelled | रद्द |
+| `po.detail.grnLive` | Counted | गिना गया |
+| `po.detail.noGrns` | No goods have come against this order yet. | इस ऑर्डर पर अभी कोई माल नहीं आया। |
+| `po.detail.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.detail.noAccess` | Purchase orders are for the office, the store and managers. | परचेज़ ऑर्डर ऑफिस, स्टोर और मैनेजरों के लिए हैं। |
+| `po.detail.notFound` | This purchase order was not found. | यह परचेज़ ऑर्डर नहीं मिला। |
+| `po.detail.noRate` | No rate | रेट नहीं |
+| `po.action.edit` | Change | बदलें |
+| `po.action.send` | Send | भेजें |
+| `po.action.closeShort` | Close short | कम माल पर बंद करें |
+| `po.action.cancel` | Cancel order | ऑर्डर रद्द करें |
+| `po.action.print` | Print | प्रिंट |
+| `po.send.title` | Send {number}? | {number} भेजें? |
+| `po.send.body` | After it is sent, the lines can no longer be changed. The store can then receive goods against it. | भेजने के बाद लाइनें बदली नहीं जा सकतीं। फिर स्टोर इस पर माल ले सकता है। |
+| `po.send.confirm` | Send order | ऑर्डर भेजें |
+| `po.send.done` | {number} sent | {number} भेजा गया |
+| `po.close.title` | Close {number} short? | {number} कम माल पर बंद करें? |
+| `po.close.body` | The goods still to come will not be expected. This cannot be undone. | जो माल आना बाकी है उसकी उम्मीद नहीं रहेगी। यह वापस नहीं होगा। |
+| `po.close.note` | Why is it closed short? | कम माल पर क्यों बंद कर रहे हैं? |
+| `po.close.noteHint` | For example, the vendor cannot supply the rest. | जैसे, वेंडर बाकी माल नहीं दे सकता। |
+| `po.close.noteRequired` | Say why it is closed short. | बताएं कि कम माल पर क्यों बंद हुआ। |
+| `po.close.confirm` | Close short | कम माल पर बंद करें |
+| `po.close.keep` | Keep it open | खुला रहने दें |
+| `po.close.done` | {number} closed | {number} बंद हुआ |
+| `po.cancel.title` | Cancel {number}? | {number} रद्द करें? |
+| `po.cancel.body` | The vendor should be told. An indent this order was made from becomes approved again. | वेंडर को बता दें। जिस इंडेंट से यह ऑर्डर बना था वह फिर मंज़ूर हो जाएगा। |
+| `po.cancel.reason` | Why is it cancelled? | क्यों रद्द कर रहे हैं? |
+| `po.cancel.reasonHint` | Kept with the order. | ऑर्डर के साथ रखा जाता है। |
+| `po.cancel.reasonRequired` | Say why it is cancelled. | बताएं कि क्यों रद्द हुआ। |
+| `po.cancel.confirm` | Cancel order | ऑर्डर रद्द करें |
+| `po.cancel.keep` | Keep the order | ऑर्डर रहने दें |
+| `po.cancel.done` | {number} cancelled | {number} रद्द हुआ |
+| `po.print.title` | Purchase order | परचेज़ ऑर्डर |
+| `po.print.back` | Back to the order | ऑर्डर पर वापस |
+| `po.print.number` | Order no. | ऑर्डर नं. |
+| `po.print.date` | Date | तारीख |
+| `po.print.delivery` | Delivery by | डिलीवरी तक |
+| `po.print.to` | To | प्रति |
+| `po.print.from` | From | से |
+| `po.print.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `po.print.phone` | Phone {phone} | फ़ोन {phone} |
+| `po.print.sl` | No. | नं. |
+| `po.print.item` | Item | आइटम |
+| `po.print.qty` | Quantity | मात्रा |
+| `po.print.unit` | Unit | इकाई |
+| `po.print.rate` | Rate | रेट |
+| `po.print.gst` | GST | GST |
+| `po.print.amount` | Amount | रकम |
+| `po.print.totalsAmount` | Amount | रकम |
+| `po.print.totalsGst` | GST | GST |
+| `po.print.totalsTotal` | Total | कुल |
+| `po.print.terms` | Terms | शर्तें |
+| `po.print.forPlant` | For {plant} | {plant} के लिए |
+| `po.print.signature` | Authorised signatory | अधिकृत हस्ताक्षर |
+| `po.print.draftMark` | Draft, not sent | ड्राफ्ट, भेजा नहीं गया |
+| `po.print.cancelledMark` | Cancelled | रद्द |
+| `po.print.loadFailed` | The order did not load. | ऑर्डर नहीं खुला। |
+| `po.print.footer` | Printed {date} | छपा {date} |
+| `value.nowTitle` | Store value now | स्टोर का मूल्य अभी |
+| `value.nowTotal` | Total value | कुल मूल्य |
+| `value.nowHint` | Stock with no rate is left out of the value until it gets a rate. A delivery waiting for its rate counts at the average rate. | बिना रेट का माल रेट मिलने तक मूल्य में नहीं गिना जाता। रेट की राह देखता माल औसत रेट पर गिना जाता है। |
+| `value.columns.item` | Item | आइटम |
+| `value.columns.held` | In the store | स्टोर में |
+| `value.columns.rate` | Average rate | औसत रेट |
+| `value.columns.value` | Value | मूल्य |
+| `value.noRate` | No rate | रेट नहीं |
+| `value.unrated` | Rate not set: {qty} | रेट तय नहीं: {qty} |
+| `value.unratedShort` | Rate not set | रेट तय नहीं |
+| `value.ratePending` | Rate pending | रेट बाकी |
+| `value.pending.title` | Deliveries waiting for a rate | रेट की राह देखता माल |
+| `value.pending.hint` | Taken in without a rate. Each counts at the average rate until its own rate is set. | बिना रेट के लिया गया। अपना रेट तय होने तक हर एक औसत रेट पर गिना जाता है। |
+| `value.pending.empty` | No delivery is waiting for a rate. | किसी माल का रेट बाकी नहीं है। |
+| `value.pending.columns.delivery` | Delivery | माल आया |
+| `value.pending.columns.item` | Item | आइटम |
+| `value.pending.columns.qty` | Quantity | मात्रा |
+| `value.pending.columns.value` | Counted at | इस भाव पर गिना |
+| `value.pending.columns.rate` | Rate | रेट |
+| `value.pending.rateLabel` | Rate per {unit} | रेट प्रति {unit} |
+| `value.pending.set` | Set rate | रेट डालें |
+| `value.pending.saved` | Rate saved | रेट सहेज लिया गया |
+| `value.pending.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.pending.locked` | Stock went out after this delivery, so its rate can no longer change. | इस माल के बाद स्टोर से माल निकल चुका है, इसलिए इसका रेट अब बदल नहीं सकता। |
+| `value.opening.open` | Opening rate | शुरुआती रेट |
+| `value.opening.title` | Opening rate for {name} | {name} का शुरुआती रेट |
+| `value.opening.hint` | Give a rate to stock that came in before rates were kept. | जो माल रेट रखना शुरू होने से पहले आया था, उसे रेट दें। |
+| `value.opening.label` | Rate per {unit} | रेट प्रति {unit} |
+| `value.opening.invalid` | Enter the rate in rupees, like 84.50 | रेट रुपये में लिखें, जैसे 84.50 |
+| `value.opening.save` | Save opening rate | शुरुआती रेट सहेजें |
+| `value.opening.saved` | Opening rate saved | शुरुआती रेट सहेज लिया गया |
+| `value.opening.close` | Close | बंद करें |
+| `value.nowEmpty` | The store holds nothing yet. | स्टोर में अभी कुछ नहीं है। |
+| `value.loadFailed` | The store value did not load. | स्टोर का मूल्य नहीं खुला। |
+| `value.monthTitle` | Month end report | महीने के अंत की रिपोर्ट |
+| `value.month` | Month | महीना |
+| `value.monthName.m1` | January | जनवरी |
+| `value.monthName.m2` | February | फ़रवरी |
+| `value.monthName.m3` | March | मार्च |
+| `value.monthName.m4` | April | अप्रैल |
+| `value.monthName.m5` | May | मई |
+| `value.monthName.m6` | June | जून |
+| `value.monthName.m7` | July | जुलाई |
+| `value.monthName.m8` | August | अगस्त |
+| `value.monthName.m9` | September | सितंबर |
+| `value.monthName.m10` | October | अक्टूबर |
+| `value.monthName.m11` | November | नवंबर |
+| `value.monthName.m12` | December | दिसंबर |
+| `value.monthYear` | {month} {year} | {month} {year} |
+| `value.monthColumns.item` | Item | आइटम |
+| `value.monthColumns.opening` | Opening | शुरुआत |
+| `value.monthColumns.received` | Received | आया |
+| `value.monthColumns.issued` | Issued | निकला |
+| `value.monthColumns.closing` | Closing | अंत |
+| `value.monthColumns.rated` | Old stock rated | पुराने माल का रेट |
+| `value.monthColumns.qty` | Quantity | मात्रा |
+| `value.monthColumns.value` | Value | मूल्य |
+| `value.totals` | Total | कुल |
+| `value.monthEmpty` | Nothing moved in the store up to this month. | इस महीने तक स्टोर में कोई हलचल नहीं हुई। |
+| `value.download` | Download CSV | CSV डाउनलोड करें |
+| `value.csvHead.item` | Item | आइटम |
+| `value.csvHead.unit` | Unit | इकाई |
+| `value.csvHead.openingQty` | Opening quantity | शुरुआत की मात्रा |
+| `value.csvHead.openingValue` | Opening value | शुरुआत का मूल्य |
+| `value.csvHead.receivedQty` | Received quantity | आई मात्रा |
+| `value.csvHead.receivedValue` | Received value | आया मूल्य |
+| `value.csvHead.issuedQty` | Issued quantity | निकली मात्रा |
+| `value.csvHead.issuedValue` | Issued value | निकला मूल्य |
+| `value.csvHead.closingQty` | Closing quantity | अंत की मात्रा |
+| `value.csvHead.closingValue` | Closing value | अंत का मूल्य |
+| `value.csvHead.ratedValue` | Old stock rated value | पुराने माल के रेट का मूल्य |
+| `value.csvHead.closingUnratedQty` | Closing quantity, rate not set | अंत की मात्रा, रेट तय नहीं |
+| `value.csvFile` | store-value-{month}.csv | store-value-{month}.csv |
+| `value.allowance.title` | Over-delivery allowance | ज़्यादा माल की छूट |
+| `value.allowance.body` | How much more than the ordered quantity a purchase order line may take in, as a percent of the line. | PO की लाइन पर ऑर्डर से कितना ज़्यादा माल आ सकता है, लाइन के प्रतिशत में। |
+| `value.allowance.label` | Allowance percent | छूट का प्रतिशत |
+| `value.allowance.hint` | From 0 to 50. Zero means a line takes exactly what was ordered. | 0 से 50 तक। शून्य का मतलब लाइन पर ठीक उतना ही माल जितना मँगाया। |
+| `value.allowance.invalid` | Enter a percent from 0 to 50, like 5. | 0 से 50 के बीच प्रतिशत लिखें, जैसे 5। |
+| `value.allowance.save` | Save allowance | छूट सहेजें |
+| `value.allowance.saved` | Allowance saved | छूट सहेज ली गई |
 
 ### reasons (79)
 
@@ -9313,7 +9401,7 @@ Please check, Lalubhai:
 | `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
 | `cast_tail.other` | Other | अन्य |
 
-### plantSettings (52)
+### plantSettings (51)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9352,7 +9440,6 @@ Please check, Lalubhai:
 | `modules.names.press` | Press | प्रेस |
 | `modules.names.ageing` | Ageing | एजिंग |
 | `modules.names.store` | Store | स्टोर |
-| `modules.names.qa` | Quality | गुणवत्ता |
 | `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `modules.names.complaints` | Complaints | शिकायतें |
 | `letterhead.title` | Letterhead | लेटरहेड |
@@ -9494,7 +9581,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (383)
+### audit (379)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9557,11 +9644,8 @@ Please check, Lalubhai:
 | `subjectTypes.ingest_hole` | Import layout | इम्पोर्ट का लेआउट |
 | `subjectTypes.buddy_draft` | Buddy change | Buddy का बदलाव |
 | `subjectTypes.buddy_grant` | Hermes connection | Hermes कनेक्शन |
-| `subjectTypes.qa_check` | Quality check | गुणवत्ता जांच |
-| `subjectTypes.qa_temper` | Temper | टेम्पर |
-| `subjectTypes.qa_station` | Inspection point | जांच स्थान |
-| `subjectTypes.qa_alloy_substitute` | Alloy substitute | मिश्रधातु विकल्प |
-| `subjectTypes.qa_instrument` | Instrument | उपकरण |
+| `subjectTypes.store_indent` | Indent | इंडेंट |
+| `subjectTypes.store_po` | Purchase order | परचेज़ ऑर्डर |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
@@ -9780,19 +9864,6 @@ Please check, Lalubhai:
 | `actions.portal__user__accept` | Party login accepted | पार्टी लॉगिन स्वीकार हुआ |
 | `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
 | `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
-| `actions.qa__check__record` | Quality check recorded | गुणवत्ता जांच दर्ज |
-| `actions.qa__hold` | Bundle put on quality hold | बंडल गुणवत्ता होल्ड पर रखा |
-| `actions.qa__release` | Bundle released from quality hold | बंडल गुणवत्ता होल्ड से छोड़ा |
-| `actions.qa__place` | Put at an inspection point | जांच स्थान पर रखा |
-| `actions.qa__settings__update` | Quality switches changed | गुणवत्ता स्विच बदले |
-| `actions.qa__temper__save` | Temper saved | टेम्पर सेव |
-| `actions.qa__plan__save` | Quality plan saved | गुणवत्ता प्लान सेव |
-| `actions.qa__station__save` | Inspection point saved | जांच स्थान सेव |
-| `actions.qa__substitute__save` | Alloy substitute saved | मिश्रधातु विकल्प सेव |
-| `actions.qa__substitute__remove` | Alloy substitute removed | मिश्रधातु विकल्प हटाया |
-| `actions.qa__instrument__save` | Instrument saved | उपकरण सेव |
-| `actions.qa__instrument__calibrate` | Instrument calibrated | उपकरण कैलिब्रेट किया |
-| `actions.qa__instrument__certificate` | Calibration certificate saved | कैलिब्रेशन सर्टिफिकेट सेव |
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
 | `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |
@@ -9846,6 +9917,18 @@ Please check, Lalubhai:
 | `actions.store__exchange` | Store items exchanged | स्टोर आइटम बदले |
 | `actions.store__issue` | Store items issued | स्टोर से सामान दिया |
 | `actions.store__receive` | Store items received | स्टोर में सामान आया |
+| `actions.store__indent__create` | Indent raised | इंडेंट बना |
+| `actions.store__indent__approve` | Indent approved | इंडेंट मंज़ूर |
+| `actions.store__indent__reject` | Indent rejected | इंडेंट नामंज़ूर |
+| `actions.store__indent__cancel` | Indent cancelled | इंडेंट रद्द |
+| `actions.store__po__create` | Purchase order made | परचेज़ ऑर्डर बना |
+| `actions.store__po__update` | Purchase order changed | परचेज़ ऑर्डर बदला |
+| `actions.store__po__issue` | Purchase order sent | परचेज़ ऑर्डर भेजा |
+| `actions.store__po__close` | Purchase order closed short | परचेज़ ऑर्डर बाकी छोड़कर बंद |
+| `actions.store__po__cancel` | Purchase order cancelled | परचेज़ ऑर्डर रद्द |
+| `actions.store__settings__update` | Over-delivery allowance changed | ज़्यादा माल की छूट बदली |
+| `actions.store__rate__set` | Pending delivery rate set | रुके हुए माल का रेट डाला |
+| `actions.store__rate__opening` | Opening rate given to old stock | पुराने स्टॉक का शुरुआती रेट डाला |
 | `actions.store_item__create` | Store item added | स्टोर आइटम जोड़ा |
 | `actions.store_item__update` | Store item changed | स्टोर आइटम बदला |
 | `actions.support_request__close` | Help request closed | मदद की रिक्वेस्ट बंद की |
