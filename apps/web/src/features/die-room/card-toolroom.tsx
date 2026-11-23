@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgWithUnit } from "@/shared/lib/fmt-text";
+import { kgWithUnit, massUnit } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { readUnitEntry, unitEntryText, unitProblemText } from "@/shared/lib/unit-input";
 import { trpc } from "@/shared/utils/trpc";
@@ -73,7 +73,7 @@ export function ToolRoomView({ data, recordAction, costAction }: { data: ToolRoo
               </dd>
             </div>
             <div className="min-w-0">
-              <dt className="text-[12px] font-medium text-muted-foreground">{t("adm.floor.copy.costPerKg")}</dt>
+              <dt className="text-[12px] font-medium text-muted-foreground">{t("adm.floor.copy.costPerKg", { massUnit: massUnit(fmt) })}</dt>
               <dd className="m-0 font-mono text-[14px] tabular-nums" data-testid="toolroom-cost-kg">
                 {data.costPerKgPaise == null ? t("adm.floor.copy.noRun") : fmt.q("order.rate", data.costPerKgPaise)}
               </dd>

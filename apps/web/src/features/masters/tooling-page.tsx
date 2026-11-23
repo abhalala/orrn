@@ -207,7 +207,7 @@ function MakerCostSection() {
     },
   ];
   return (
-    <MasterSection id="tooling-cost" title={t("adm.masters.tooling.cost.title")} hint={t("adm.masters.tooling.cost.hint")}>
+    <MasterSection id="tooling-cost" title={t("adm.masters.tooling.cost.title")} hint={t("adm.masters.tooling.cost.hint", { massUnit: massUnit(fmt) })}>
       <ResponsiveList rows={query.data ?? []} columns={columns} rowKey={(r) => r.makerId ?? "none"} loading={query.isLoading} label={t("adm.masters.tooling.cost.title")} empty={null} />
     </MasterSection>
   );

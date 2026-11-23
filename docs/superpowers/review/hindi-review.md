@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 9238 screen strings in 52 groups, 45 guides with 866 strings.
+Counts: 9260 screen strings in 52 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -8104,7 +8104,7 @@ Please check, Lalubhai:
 | `masters.tooling.minSave` | Save the least to keep | कम से कम की संख्या सहेजें |
 | `masters.tooling.minSaved` | Saved | सहेजा गया |
 | `masters.tooling.cost.title` | Die cost by maker | मेकर के हिसाब से die की लागत |
-| `masters.tooling.cost.hint` | What the dies from each maker cost for every kg they have pushed. | हर मेकर की die की लागत, उनसे निकले हर kg के हिसाब से। |
+| `masters.tooling.cost.hint` | What the dies from each maker cost for every {massUnit} they have pushed. | हर मेकर की die की लागत, उनसे निकले हर {massUnit} के हिसाब से। |
 | `masters.tooling.cost.maker` | Maker | मेकर |
 | `masters.tooling.cost.noMaker` | No maker | मेकर नहीं |
 | `masters.tooling.cost.copies` | Dies | die |
@@ -8127,7 +8127,7 @@ Please check, Lalubhai:
 | `floor.copy.notesNeeded` | Say what failed | बताइए क्या फेल हुआ |
 | `floor.copy.recorded` | Inspection recorded | जांच दर्ज हो गई |
 | `floor.copy.cost` | Purchase cost | खरीद की लागत |
-| `floor.copy.costPerKg` | Cost per kg made | बने माल की लागत प्रति किलो |
+| `floor.copy.costPerKg` | Cost per {massUnit} made | बने माल की लागत प्रति {massUnit} |
 | `floor.copy.noCost` | Not entered | दर्ज नहीं |
 | `floor.copy.noRun` | Not run yet | अभी चला नहीं |
 | `floor.copy.editCost` | Edit cost | लागत बदलें |
@@ -8146,12 +8146,12 @@ Please check, Lalubhai:
 | `floor.today.open` | Open tooling | टूलिंग खोलें |
 | `floor.today.of` | {held} of {min} | {min} में से {held} |
 | `floor.today.meta` | In hand against the minimum | न्यूनतम के मुकाबले हाथ में |
-| `floor.makers.title` | Cost per kg by maker | मेकर के हिसाब से लागत प्रति किलो |
+| `floor.makers.title` | Cost per {massUnit} by maker | मेकर के हिसाब से लागत प्रति {massUnit} |
 | `floor.makers.maker` | Maker | मेकर |
 | `floor.makers.copies` | Copies | कॉपी |
 | `floor.makers.cost` | Cost | लागत |
 | `floor.makers.made` | Made | बना माल |
-| `floor.makers.perKg` | Per kg | प्रति किलो |
+| `floor.makers.perKg` | Per {massUnit} | प्रति {massUnit} |
 | `floor.makers.noMaker` | No maker | मेकर नहीं |
 | `floor.makers.empty` | No copy has a cost yet | अभी किसी कॉपी की लागत दर्ज नहीं |
 
@@ -8864,7 +8864,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (337)
+### audit (359)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -9205,6 +9205,28 @@ Please check, Lalubhai:
 | `actions.vendor__create` | Vendor added | वेंडर जोड़ा |
 | `actions.vendor__merge` | Vendors merged | वेंडर मिलाए |
 | `actions.vendor__update` | Vendor changed | वेंडर बदला |
+| `actions.plant_master__create` | Plant list choice added | प्लांट की सूची में विकल्प जोड़ा |
+| `actions.plant_master__starters` | Standard choices added to a plant list | प्लांट की सूची में मानक विकल्प जोड़े |
+| `actions.plant_master__update` | Plant list choice changed | प्लांट की सूची का विकल्प बदला |
+| `actions.bank_account__create` | Bank account added | बैंक खाता जोड़ा |
+| `actions.bank_account__update` | Bank account changed | बैंक खाता बदला |
+| `actions.bank_account__default` | Default bank account set | मुख्य बैंक खाता तय किया |
+| `actions.bank_account__restore` | Bank account brought back | बैंक खाता वापस चालू किया |
+| `actions.bank_account__retire` | Bank account retired | बैंक खाता बंद किया |
+| `actions.company__insurance__update` | Transit insurance changed | ट्रांज़िट बीमा बदला |
+| `actions.company__number_format__update` | Document numbering changed | कागज़ों की नंबरिंग बदली |
+| `actions.company__approval_rule__update` | Who approves a request changed | रिक्वेस्ट कौन मंज़ूर करे, यह बदला |
+| `actions.membership__assign` | Team member's department or designation changed | टीम मेंबर का विभाग या पद बदला |
+| `actions.order_line__packing_mode` | Mode of packing set on an order line | ऑर्डर लाइन का पैकिंग तरीका तय किया |
+| `actions.dispatch__packing_mode` | Mode of packing set on a load | लोड का पैकिंग तरीका तय किया |
+| `actions.tooling__create` | Tooling piece added | टूलिंग पीस जोड़ा |
+| `actions.tooling__update` | Tooling piece status changed | टूलिंग पीस की हालत बदली |
+| `actions.die_copy__cost` | Die copy cost changed | डाई कॉपी की लागत बदली |
+| `actions.tooling__min_stock` | Tooling minimum to keep changed | टूलिंग कम से कम कितनी रखनी है, यह बदला |
+| `actions.die__category` | Die category set | डाई की श्रेणी तय की |
+| `actions.plant_document__create` | Document added | दस्तावेज़ जोड़ा |
+| `actions.plant_document__update` | Document changed | दस्तावेज़ बदला |
+| `actions.plant_document__file` | Document file attached | दस्तावेज़ की फ़ाइल लगाई |
 
 ### portal (186)
 

@@ -299,7 +299,7 @@ export const admMastersEn = {
     minSaved: "Saved",
     cost: {
       title: "Die cost by maker",
-      hint: "What the dies from each maker cost for every kg they have pushed.",
+      hint: "What the dies from each maker cost for every {massUnit} they have pushed.",
       maker: "Maker",
       noMaker: "No maker",
       copies: "Dies",

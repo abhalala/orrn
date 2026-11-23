@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Can } from "@/shared/components/can";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgWithUnit } from "@/shared/lib/fmt-text";
+import { kgWithUnit, massUnit } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -30,7 +30,7 @@ export function CostByMakerTable({ rows }: { rows: readonly MakerCostRow[] }) {
             <th scope="col" className="px-3 py-2 text-right font-medium">{t("adm.floor.makers.copies")}</th>
             <th scope="col" className="px-3 py-2 text-right font-medium">{t("adm.floor.makers.cost")}</th>
             <th scope="col" className="px-3 py-2 text-right font-medium">{t("adm.floor.makers.made")}</th>
-            <th scope="col" className="px-3 py-2 text-right font-medium">{t("adm.floor.makers.perKg")}</th>
+            <th scope="col" className="px-3 py-2 text-right font-medium">{t("adm.floor.makers.perKg", { massUnit: massUnit(fmt) })}</th>
           </tr>
         </thead>
         <tbody>
@@ -51,11 +51,12 @@ export function CostByMakerTable({ rows }: { rows: readonly MakerCostRow[] }) {
 
 function CostByMakerSection() {
   const { t } = useT();
+  const fmt = useFmt();
   const query = useQuery({ ...trpc.toolRoom.cost.byMaker.queryOptions(), meta: INLINE_ERROR_META });
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-labelledby="makers-cost" data-testid="makers-cost">
       <h2 id="makers-cost" className="m-0 text-[17px] leading-6 font-semibold">
-        {t("adm.floor.makers.title")}
+        {t("adm.floor.makers.title", { massUnit: massUnit(fmt) })}
       </h2>
       {query.isError ? (
         <div role="alert" className="flex flex-col items-start gap-2">

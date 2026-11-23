@@ -299,7 +299,7 @@ export const admMastersHi = {
     minSaved: "सहेजा गया",
     cost: {
       title: "मेकर के हिसाब से die की लागत",
-      hint: "हर मेकर की die की लागत, उनसे निकले हर kg के हिसाब से।",
+      hint: "हर मेकर की die की लागत, उनसे निकले हर {massUnit} के हिसाब से।",
       maker: "मेकर",
       noMaker: "मेकर नहीं",
       copies: "die",
