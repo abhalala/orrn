@@ -50,6 +50,7 @@ export const maintEn = {
   woKind: {
     breakdown: "Breakdown",
     preventive: "Preventive",
+    condition: "Condition",
   },
   woStatus: {
     open: "Open",
@@ -80,6 +81,7 @@ export const maintEn = {
     overdueDays: "Overdue by {n} days",
     inHours: "Due in {n} run hours",
     overHours: "Over by {n} run hours",
+    hoursNow: "Run hours reached",
     hoursRun: "{n} run hours since last done",
     state: {
       ok: "On time",
@@ -157,6 +159,10 @@ export const maintEn = {
     kindOff: "That reading is switched off.",
     inLimit: "That reading is inside its limits.",
     retired: "This asset is retired.",
+    timeFuture: "A start or finish time cannot be in the future.",
+    doneKeepsTimes: "A done work order keeps its start and finish times.",
+    linkKindMismatch: "A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven.",
+    unitLocked: "This reading already has readings in its unit. Add a new reading kind for another unit.",
     moduleOff: "Maintenance is not on for this plant.",
     forbidden: "Your role cannot do this.",
     unknown: "That did not work. Try again.",

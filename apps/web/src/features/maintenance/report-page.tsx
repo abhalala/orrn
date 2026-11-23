@@ -20,7 +20,7 @@ import { useCompanyTimeZone } from "../orders/hooks";
 import { ReportActions, ReportPrintStyle, ReportTableFrame } from "../reports/report-chrome";
 import { defaultRange, paiseToRupeesText, rangeProblem, rupeesToPaise } from "./asset-model";
 import { maintErrorKey } from "./model";
-import { MonthsTable, TotalsTable } from "./report-parts";
+import { MonthsTable, StillOpenList, TotalsTable } from "./report-parts";
 
 const PROBLEM_KEY = { bad: "maint.reports.rangeBad", order: "maint.reports.rangeOrder", long: "maint.reports.rangeLong" } as const;
 
@@ -88,6 +88,14 @@ export function MaintReportPage() {
         </div>
       ) : (
         <>
+          {data.truncated ? (
+            <p role="status" className="m-0 text-[14px] font-medium text-destructive" data-testid="maint-report-truncated">
+              {t("maint.reports.truncated")}
+            </p>
+          ) : null}
+          <p className="m-0 text-[14px] text-muted-foreground" data-testid="maint-month-rule">
+            {t("maint.reports.monthRule")}
+          </p>
           {!data.sparesValueKnown ? (
             <p className="m-0 text-[14px] text-muted-foreground" data-testid="spares-not-counted">
               {t("maint.reports.sparesNotCounted")}
@@ -97,6 +105,7 @@ export function MaintReportPage() {
           <ReportTableFrame label={t("maint.reports.total")}>
             <TotalsTable rows={data.rows} showMoney={data.showMoney} money={money} assetLabel={t("maint.assets.cols.name")} />
           </ReportTableFrame>
+          <StillOpenList rows={data.rows} />
           <h2 className="m-0 font-display text-[19px] font-bold tracking-[-0.02em]">{t("maint.reports.byMonth")}</h2>
           <div className="flex flex-col gap-3">
             {data.rows.map((r) => (

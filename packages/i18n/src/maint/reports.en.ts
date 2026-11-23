@@ -22,6 +22,13 @@ export const maintReportsEn = {
   labourCost: "Labour cost",
   sparesNotCounted: "Spares value is not counted yet. Store rates come later, so only the number of spares entries is shown.",
   noLabourRate: "Set the labour rate to see the labour cost.",
+  monthRule: "A breakdown counts in the month it started. Downtime is split across the months it ran in.",
+  truncated: "More than 5,000 entries in these months. The figures stop there. Choose fewer months.",
+  stillOpen: "Still open",
+  stillOpenHint: "Not counted in the figures until the breakdown is closed.",
+  openFor: "Open for {time}",
+  openForDays: "Open for {n} days",
+  downtimeEntry: "Downtime entry",
   rate: {
     title: "Labour rate",
     hint: "Rupees paid for one hour of work. Labour cost is hours multiplied by this rate. Leave it empty to show no cost.",

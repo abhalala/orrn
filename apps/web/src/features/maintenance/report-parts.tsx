@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import { UiLink } from "@orrn/ui/components/link";
 
 import { NUM, TD, TH } from "../reports/report-chrome";
 import { hoursFromMinutes } from "./asset-model";
@@ -14,8 +15,12 @@ export type ReportFigures = {
   labourPaise: number | null;
 };
 
+/** A breakdown not closed yet: shown apart with its age, never in the figures. */
+export type StillOpenItem = { startMs: number; ageMin: number; workOrderId: string | null; workOrderNumber: string | null };
+
 export type ReportAssetRow = {
   asset: { id: string; code: string; name: string; kind: string; criticality: string };
+  stillOpen: readonly StillOpenItem[];
   months: (ReportFigures & { month: string })[];
   total: ReportFigures;
 };
@@ -95,5 +100,44 @@ export function MonthsTable({ row, showMoney, money }: { row: ReportAssetRow; sh
         </tr>
       </tbody>
     </table>
+  );
+}
+
+/** The age words of an open breakdown: hours and minutes under a day, whole days after. */
+export function openAge(ageMin: number): { key: "maint.reports.openFor" | "maint.reports.openForDays"; vars: Record<string, string | number> } {
+  if (ageMin < 24 * 60) return { key: "maint.reports.openFor", vars: { time: hoursMinutes(ageMin) } };
+  return { key: "maint.reports.openForDays", vars: { n: Math.floor(ageMin / (24 * 60)) } };
+}
+
+/** Breakdowns still open, per asset, with their age; left out of every figure until they close. */
+export function StillOpenList({ rows }: { rows: readonly ReportAssetRow[] }) {
+  const { t } = useT();
+  const open = rows.filter((r) => r.stillOpen.length > 0);
+  if (open.length === 0) return null;
+  return (
+    <section className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card p-4" data-testid="maint-still-open">
+      <h2 className="m-0 font-display text-[19px] font-bold tracking-[-0.02em]">{t("maint.reports.stillOpen")}</h2>
+      <p className="m-0 text-[13px] text-muted-foreground">{t("maint.reports.stillOpenHint")}</p>
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[15px]">
+        {open.flatMap((r) =>
+          r.stillOpen.map((o) => {
+            const age = openAge(o.ageMin);
+            return (
+              <li key={`${r.asset.id}-${o.workOrderId ?? o.startMs}`} className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-mono font-semibold">{r.asset.code}</span>
+                {o.workOrderId && o.workOrderNumber ? (
+                  <UiLink to={`/maintenance/work-orders/${o.workOrderId}`} className="font-semibold underline underline-offset-4">
+                    {o.workOrderNumber}
+                  </UiLink>
+                ) : (
+                  <span>{t("maint.reports.downtimeEntry")}</span>
+                )}
+                <span className="text-[13px] text-muted-foreground">{t(age.key, age.vars)}</span>
+              </li>
+            );
+          }),
+        )}
+      </ul>
+    </section>
   );
 }

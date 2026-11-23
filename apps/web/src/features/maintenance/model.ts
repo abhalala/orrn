@@ -10,7 +10,7 @@ import { canAny, type Action } from "@/shared/lib/me";
 
 export const WO_STATUSES = ["open", "in_progress", "waiting_spares", "done", "cancelled"] as const;
 export type WoStatus = (typeof WO_STATUSES)[number];
-export const WO_KINDS = ["breakdown", "preventive"] as const;
+export const WO_KINDS = ["breakdown", "preventive", "condition"] as const;
 export type WoKind = (typeof WO_KINDS)[number];
 export const PRIORITIES = ["high", "medium", "low"] as const;
 export type Priority = (typeof PRIORITIES)[number];
@@ -83,13 +83,16 @@ export type PlanDue = {
 export function dueLines(due: PlanDue): { key: MessageKey; vars?: Record<string, number> }[] {
   const days = (): { key: MessageKey; vars?: Record<string, number> } | null => {
     if (due.daysLeft == null) return null;
+    // Plant days (server): 0 is the due day itself, negative is overdue.
     if (due.daysLeft < 0) return { key: "maint.due.overdueDays", vars: { n: -due.daysLeft } };
-    if (due.daysLeft === 0) return { key: due.state === "overdue" ? "maint.due.overdueDays" : "maint.due.today", vars: due.state === "overdue" ? { n: 0 } : undefined };
+    if (due.daysLeft === 0) return { key: "maint.due.today" };
     return { key: "maint.due.inDays", vars: { n: due.daysLeft } };
   };
   const hours = (): { key: MessageKey; vars?: Record<string, number> } | null => {
     if (due.hoursLeft == null) return null;
-    if (due.hoursLeft <= 0) return { key: "maint.due.overHours", vars: { n: Math.max(0, -due.hoursLeft) } };
+    // The server rounds run hours left UP while time is left, so 0 means the hours are just reached.
+    if (due.hoursLeft < 0) return { key: "maint.due.overHours", vars: { n: -due.hoursLeft } };
+    if (due.hoursLeft === 0) return { key: "maint.due.hoursNow" };
     return { key: "maint.due.inHours", vars: { n: due.hoursLeft } };
   };
   const first = due.basis === "days" ? days() : hours();
@@ -152,6 +155,10 @@ const REFUSALS: readonly [RegExp, MessageKey][] = [
   [/^That reading is inside its limits/, "maint.errors.inLimit"],
   [/^This asset is retired/, "maint.errors.retired"],
   [/^That module is not on for this plant/, "maint.errors.moduleOff"],
+  [/^A start or finish time cannot be in the future/, "maint.errors.timeFuture"],
+  [/^A done work order keeps its start and finish times/, "maint.errors.doneKeepsTimes"],
+  [/^A press asset points at a press/, "maint.errors.linkKindMismatch"],
+  [/^This reading already has readings in its unit/, "maint.errors.unitLocked"],
 ];
 
 /** The words for a refused maintenance call: never the server's raw text. */

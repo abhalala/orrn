@@ -26,6 +26,8 @@ export type PlanItem = {
   intervalDays: number | null;
   intervalHours: number | null;
   active: boolean;
+  /** The plan's version as read: an edit sends it back so a stale save is refused. */
+  serverSeq: number;
   due: PlanDue | null;
   openWorkOrderId: string | null;
   openWorkOrderNumber: string | null;
@@ -163,7 +165,7 @@ function PlanSheet({ assetId, linked, plan, open, onOpenChange }: { assetId: str
     setTried(true);
     if (problem) return;
     const body = planPayload(form, linked);
-    if (plan) update.mutate({ id: plan.id, ...body, active: form.active });
+    if (plan) update.mutate({ id: plan.id, serverSeq: plan.serverSeq, ...body, active: form.active });
     else create.mutate({ assetId, ...body, ...(form.startOn ? { startOn: form.startOn } : {}) });
   };
   return (

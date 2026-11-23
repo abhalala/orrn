@@ -34,6 +34,11 @@ describe("dueLines", () => {
     expect(dueLines({ state: "overdue", basis: "days", daysLeft: -3, hoursLeft: null, hoursRun: null })).toEqual([{ key: "maint.due.overdueDays", vars: { n: 3 } }]);
     expect(dueLines({ state: "soon", basis: "days", daysLeft: 0, hoursLeft: null, hoursRun: null })).toEqual([{ key: "maint.due.today", vars: undefined }]);
   });
+  test("never 'Over by 0 run hours': 1 left while time is left, 'reached' at exactly zero", () => {
+    expect(dueLines({ state: "soon", basis: "hours", daysLeft: null, hoursLeft: 1, hoursRun: 9 })).toEqual([{ key: "maint.due.inHours", vars: { n: 1 } }]);
+    expect(dueLines({ state: "overdue", basis: "hours", daysLeft: null, hoursLeft: 0, hoursRun: 10 })).toEqual([{ key: "maint.due.hoursNow" }]);
+    expect(dueLines({ state: "soon", basis: "days", daysLeft: 2, hoursLeft: 0, hoursRun: 10 })[1]).toEqual({ key: "maint.due.hoursNow" });
+  });
 });
 
 describe("numbers", () => {
@@ -66,6 +71,11 @@ describe("refusal words", () => {
     expect(maintErrorKey(new Error("That store issue is already on a work order"))).toBe("maint.errors.spareTaken");
     expect(maintErrorKey({ message: "x", data: { code: "FORBIDDEN" } })).toBe("maint.errors.forbidden");
     expect(maintErrorKey(new Error("boom"))).toBe("maint.errors.unknown");
+    expect(maintErrorKey(new Error("A start or finish time cannot be in the future"))).toBe("maint.errors.timeFuture");
+    expect(maintErrorKey(new Error("A done work order keeps its start and finish times"))).toBe("maint.errors.doneKeepsTimes");
+    expect(maintErrorKey(new Error("A press asset points at a press, a furnace asset at a furnace and an oven asset at an oven"))).toBe("maint.errors.linkKindMismatch");
+    expect(maintErrorKey(new Error("This reading already has readings in its unit. Add a new reading kind for another unit"))).toBe("maint.errors.unitLocked");
+    expect(maintErrorKey(new Error("This plan changed since you opened it. Open it again."))).toBe("maint.errors.changed");
   });
 });
 

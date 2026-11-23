@@ -76,7 +76,7 @@ export function MaintenanceHome() {
 
   const failed = [due, open, breakdowns, flagged].some((q) => q.isError && !q.data);
   const duePlans = (due.data ?? []).filter((p) => p.due.state !== "ok");
-  const waitingBreakdowns = (breakdowns.data ?? []).filter((b) => !b.workOrderId);
+  const waitingBreakdowns = (breakdowns.data?.items ?? []).filter((b) => !b.workOrderId);
   const waitingReadings = (flagged.data ?? []).filter((r) => !r.workOrderId);
   const live = open.data?.items ?? [];
 
